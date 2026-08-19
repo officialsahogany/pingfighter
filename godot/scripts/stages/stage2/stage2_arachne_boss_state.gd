@@ -22,10 +22,18 @@ const WEB_RESCUE_HOLD_SEC := 60.0 / 60.0
 const WEB_RESCUE_STRIKE_SEC := 8.0 / 60.0
 const RAGE_STOMP_FRAMES := 70
 const RAGE_FINISH_FRAMES := 120
+const RAGE_TARGET_PLAYFIELD_WIDTH := 760
+const RAGE_TARGET_EDGE_MARGIN := 30
+const RAGE_TARGET_ZONE_COUNT := 3
+const RAGE_TARGET_CANDIDATE_COUNT := 20
 const BOSS_PADDLE_WIDTH := 130.0
 const BOSS_HITBOX_HEIGHT := 52.0
+const HIT_DURATION_SEC := 0.45
+const MOTION_DIRECTION_CHANGE_SEC := 0.15
+const LEG_COUNT := 8
 
 var rng := RandomNumberGenerator.new()
+var presentation_rng := RandomNumberGenerator.new()
 var boss_special_gauge := 0.0
 var web_trap_cooldown := 0.0
 var web_trap_projectile: Dictionary = {}
@@ -48,11 +56,26 @@ var rage_projectiles: Array = []
 var rage_stomp_offset_y := 0.0
 var rage_red_tint := 0.0
 var hit_timer := 0.0
+var hit_direction := 1
+var venom_particles: Array = []
+var motion_time := 0.0
+var motion_initialized := false
+var previous_boss_x := 0.0
+var motion_direction := 0
+var motion_velocity := 0.0
+var movement_accumulator := 0.0
+var direction_change_cooldown := 0.0
+var step_phase := 0.0
+var body_bob := 0.0
+var leg_twitch: Array[float] = []
+var leg_twitch_timer: Array[float] = []
 var status := "charging"
 
 
 func _init() -> void:
 	rng.seed = 22042
+	presentation_rng.seed = 22043
+	_reset_leg_motion()
 
 
 func reset() -> void:
@@ -76,6 +99,19 @@ func reset() -> void:
 	rage_stomp_offset_y = 0.0
 	rage_red_tint = 0.0
 	hit_timer = 0.0
+	hit_direction = 1
+	venom_particles.clear()
+	motion_time = 0.0
+	motion_initialized = false
+	previous_boss_x = 0.0
+	motion_direction = 0
+	motion_velocity = 0.0
+	movement_accumulator = 0.0
+	direction_change_cooldown = 0.0
+	step_phase = 0.0
+	body_bob = 0.0
+	presentation_rng.seed = 22043
+	_reset_leg_motion()
 	status = "charging"
 
 
@@ -89,6 +125,15 @@ func reset_round() -> void:
 	rage_stomp_offset_y = 0.0
 	rage_red_tint = 0.0
 	hit_timer = 0.0
+	venom_particles.clear()
+	motion_initialized = false
+	motion_direction = 0
+	motion_velocity = 0.0
+	movement_accumulator = 0.0
+	direction_change_cooldown = 0.0
+	step_phase = 0.0
+	body_bob = 0.0
+	_reset_leg_motion()
 	for idx in range(web_traps.size() - 1, -1, -1):
 		var trap: Dictionary = web_traps[idx]
 		if not bool(trap.get("rage", false)):
@@ -109,6 +154,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	web_trap_cooldown = maxf(0.0, web_trap_cooldown - step)
 	web_rescue_cooldown = maxf(0.0, web_rescue_cooldown - step)
 	hit_timer = maxf(0.0, hit_timer - step)
+	_update_actor_motion(step, context)
+	_update_venom_particles(step)
 	_update_pending_stars(step, deps, context)
 	_update_break_bursts(step)
 	_update_web_trap_projectile(step, context, deps)
@@ -131,7 +178,13 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID or str(context.get("stage_boss_variant", "")) != VARIANT_ID:
 		return {}
 	boss_special_gauge = minf(GAUGE_MAX, boss_special_gauge + GAUGE_GAIN_ON_HIT)
-	hit_timer = 0.45
+	hit_timer = HIT_DURATION_SEC
+	var ball_pos := _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
+	var ball_size := float(context.get("ball_size", 0.0))
+	var boss_pos := _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
+	var boss_width := float(context.get("boss_paddle_width", BOSS_PADDLE_WIDTH))
+	hit_direction = 1 if ball_pos.x + ball_size * 0.5 > boss_pos.x + boss_width * 0.5 else -1
+	_spawn_venom_particles()
 	var triggered := false
 	if web_trap_cooldown <= 0.0 and web_trap_projectile.is_empty() and boss_special_gauge >= WEB_TRAP_COST:
 		boss_special_gauge -= WEB_TRAP_COST
@@ -191,7 +244,14 @@ func get_pressure_snapshot(_context: Dictionary = {}) -> Dictionary:
 func get_actor_draw_context() -> Dictionary:
 	return {
 		"stage_boss_variant": VARIANT_ID,
-		"arachne_hit_progress": hit_timer / 0.45,
+		"arachne_hit_progress": hit_timer / HIT_DURATION_SEC,
+		"arachne_hit_direction": hit_direction,
+		"arachne_motion_direction": motion_direction,
+		"arachne_motion_speed": motion_velocity,
+		"arachne_step_phase": step_phase,
+		"arachne_body_bob": body_bob,
+		"arachne_leg_twitch": leg_twitch.duplicate(),
+		"arachne_venom_particles": venom_particles.duplicate(true),
 		"arachne_web_trap_projectile": web_trap_projectile.duplicate(true),
 		"arachne_web_traps": web_traps.duplicate(true),
 		"arachne_web_break_bursts": break_bursts.duplicate(true),
@@ -204,6 +264,55 @@ func get_actor_draw_context() -> Dictionary:
 		"arachne_rage_stomp_offset_y": rage_stomp_offset_y,
 		"arachne_rage_red_tint": rage_red_tint,
 	}
+
+
+func absorb_chaos_spear_objects(center: Vector2, pull_radius: float, _deps: Dictionary = {}) -> Array:
+	var absorbed: Array = []
+	if not web_trap_projectile.is_empty():
+		var projectile_pos := _get_projectile_pos(web_trap_projectile)
+		if projectile_pos.distance_to(center) <= pull_radius:
+			absorbed.append(_build_chaos_absorb_entry(
+				projectile_pos,
+				bool(web_trap_projectile.get("golden", false)),
+				false,
+				0.95
+			))
+			web_trap_projectile.clear()
+	for idx in range(rage_projectiles.size() - 1, -1, -1):
+		var projectile: Dictionary = rage_projectiles[idx]
+		var projectile_pos := _get_projectile_pos(projectile)
+		if projectile_pos.distance_to(center) > pull_radius:
+			continue
+		absorbed.append(_build_chaos_absorb_entry(
+			projectile_pos,
+			bool(projectile.get("golden", false)),
+			true,
+			1.0
+		))
+		rage_projectiles.remove_at(idx)
+	for idx in range(web_traps.size() - 1, -1, -1):
+		var trap: Dictionary = web_traps[idx]
+		var trap_pos := _as_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO)
+		var trap_radius := maxf(0.0, float(trap.get("radius", WEB_TRAP_RADIUS)))
+		if trap_pos.distance_to(center) > pull_radius + trap_radius:
+			continue
+		absorbed.append(_build_chaos_absorb_entry(
+			trap_pos,
+			bool(trap.get("golden", false)),
+			bool(trap.get("rage", false)),
+			1.05
+		))
+		web_traps.remove_at(idx)
+	if web_rescue_active and web_rescue_ball_pos.distance_to(center) <= pull_radius:
+		absorbed.append({
+			"position": web_rescue_ball_pos,
+			"strength": 1.1,
+			"color": Color(0.86, 0.89, 1.0, 1.0),
+		})
+		web_rescue_active = false
+		web_rescue_phase = "idle"
+		web_rescue_timer = 0.0
+	return absorbed
 
 
 func get_status() -> String:
@@ -345,6 +454,7 @@ func _activate_web_rescue(context: Dictionary, deps: Dictionary) -> void:
 	web_rescue_ball_pos = _as_vector2(context.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 	var boss_pos := _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
 	web_rescue_boss_start_x = boss_pos.x
+	_cancel_power_smash_for_web_rescue(deps)
 	_play_audio(deps, "play_commando_net_gun_capture")
 
 
@@ -445,14 +555,39 @@ func _update_rage_frame(context: Dictionary, deps: Dictionary) -> void:
 
 
 func _build_rage_targets() -> void:
-	rage_targets = [140.0, 380.0, 620.0]
-	for idx in range(rage_targets.size() - 1, 0, -1):
+	var zones := [0, 1, 2]
+	for idx in range(zones.size() - 1, 0, -1):
 		var swap_index := rng.randi_range(0, idx)
-		var temp := rage_targets[idx]
-		rage_targets[idx] = rage_targets[swap_index]
-		rage_targets[swap_index] = temp
-	for idx in range(rage_targets.size()):
-		rage_targets[idx] = float(rage_targets[idx]) + rng.randf_range(-28.0, 28.0)
+		var temp: int = zones[idx]
+		zones[idx] = zones[swap_index]
+		zones[swap_index] = temp
+	var existing_x: Array[float] = []
+	for trap_value in web_traps:
+		if trap_value is not Dictionary:
+			continue
+		var trap: Dictionary = trap_value
+		existing_x.append(_as_vector2(trap.get("pos", Vector2.ZERO), Vector2.ZERO).x)
+	var zone_width := int(float(RAGE_TARGET_PLAYFIELD_WIDTH - RAGE_TARGET_EDGE_MARGIN * 2) / float(RAGE_TARGET_ZONE_COUNT))
+	var zone_start := RAGE_TARGET_EDGE_MARGIN
+	rage_targets.clear()
+	for zone: int in zones:
+		var zone_low := zone_start + zone * zone_width + int(WEB_TRAP_RADIUS)
+		var zone_high := zone_start + (zone + 1) * zone_width - int(WEB_TRAP_RADIUS)
+		if zone_low >= zone_high:
+			zone_low = zone_start + zone * zone_width + 5
+			zone_high = zone_start + (zone + 1) * zone_width - 5
+		var best_x := 0.0
+		var best_distance := -1.0
+		for _attempt in range(RAGE_TARGET_CANDIDATE_COUNT):
+			var candidate_x := float(rng.randi_range(zone_low, zone_high))
+			var minimum_distance := INF
+			for occupied_x: float in existing_x:
+				minimum_distance = minf(minimum_distance, absf(candidate_x - occupied_x))
+			if minimum_distance > best_distance:
+				best_distance = minimum_distance
+				best_x = candidate_x
+		rage_targets.append(best_x)
+		existing_x.append(best_x)
 
 
 func _spawn_rage_projectile(context: Dictionary, index: int, deps: Dictionary) -> void:
@@ -517,6 +652,91 @@ func _update_break_bursts(step: float) -> void:
 			break_bursts[idx] = burst
 
 
+func _update_actor_motion(step: float, context: Dictionary) -> void:
+	motion_time += step
+	var boss_pos := _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO)
+	if not motion_initialized:
+		motion_initialized = true
+		previous_boss_x = boss_pos.x
+		_update_leg_twitch(step)
+		body_bob = sin(motion_time * 2.5) * 0.006
+		return
+	var delta_x := boss_pos.x - previous_boss_x
+	direction_change_cooldown = maxf(0.0, direction_change_cooldown - step)
+	if absf(delta_x) > 2.0:
+		var new_direction := 1 if delta_x > 0.0 else -1
+		movement_accumulator += delta_x
+		if new_direction != motion_direction and direction_change_cooldown <= 0.0:
+			if absf(movement_accumulator) > 5.0:
+				motion_direction = new_direction
+				direction_change_cooldown = MOTION_DIRECTION_CHANGE_SEC
+				movement_accumulator = 0.0
+		elif new_direction == motion_direction:
+			movement_accumulator = 0.0
+	else:
+		movement_accumulator *= pow(0.9, step * 60.0)
+		if absf(movement_accumulator) < 1.0:
+			motion_direction = 0
+	motion_velocity = absf(delta_x) / maxf(step, 0.001)
+	if motion_direction != 0:
+		var speed_ratio := minf(motion_velocity / 80.0, 2.0)
+		var acceleration_curve := pow(speed_ratio, 1.2)
+		step_phase += step * 6.0 * maxf(acceleration_curve, 0.4)
+		body_bob = sin(step_phase * TAU * 0.5) * 0.025 * speed_ratio
+	else:
+		step_phase *= pow(0.95, step * 60.0)
+		body_bob = sin(motion_time * 2.5) * 0.006
+	_update_leg_twitch(step)
+	previous_boss_x = boss_pos.x
+
+
+func _update_leg_twitch(step: float) -> void:
+	for index in range(LEG_COUNT):
+		leg_twitch_timer[index] += step
+		if motion_direction == 0:
+			leg_twitch[index] = sin(leg_twitch_timer[index] * (2.0 + float(index) * 0.4)) * 0.02
+		else:
+			leg_twitch[index] *= pow(0.88, step * 60.0)
+
+
+func _reset_leg_motion() -> void:
+	leg_twitch.clear()
+	leg_twitch_timer.clear()
+	for index in range(LEG_COUNT):
+		leg_twitch.append(0.0)
+		leg_twitch_timer.append(0.37 + float(index) * 0.61)
+
+
+func _spawn_venom_particles() -> void:
+	var particle_count := presentation_rng.randi_range(6, 10)
+	for _index in range(particle_count):
+		var angle := presentation_rng.randf_range(-0.8, 0.8) + PI * 0.5
+		var speed := presentation_rng.randf_range(40.0, 120.0)
+		var lifetime := presentation_rng.randf_range(0.25, 0.55)
+		venom_particles.append({
+			"pos": Vector2.ZERO,
+			"velocity": Vector2(cos(angle) * speed + float(hit_direction) * 30.0, sin(angle) * speed),
+			"remaining": lifetime,
+			"lifetime": 0.55,
+			"size": presentation_rng.randf_range(1.2, 2.8),
+		})
+
+
+func _update_venom_particles(step: float) -> void:
+	for idx in range(venom_particles.size() - 1, -1, -1):
+		var particle: Dictionary = venom_particles[idx]
+		var remaining := float(particle.get("remaining", 0.0)) - step
+		if remaining <= 0.0:
+			venom_particles.remove_at(idx)
+			continue
+		var velocity := _as_vector2(particle.get("velocity", Vector2.ZERO), Vector2.ZERO)
+		particle["pos"] = _as_vector2(particle.get("pos", Vector2.ZERO), Vector2.ZERO) + velocity * step
+		velocity.y += 120.0 * step
+		particle["velocity"] = velocity
+		particle["remaining"] = remaining
+		venom_particles[idx] = particle
+
+
 func _is_point_in_smoke(pos: Vector2, context: Dictionary, deps: Dictionary) -> bool:
 	for value in _get_smoke_zones(context, deps):
 		if not (value is Dictionary):
@@ -558,6 +778,24 @@ func _get_projectile_pos(projectile: Dictionary) -> Vector2:
 	return start.lerp(target, eased)
 
 
+func _build_chaos_absorb_entry(pos: Vector2, golden: bool, rage: bool, strength: float) -> Dictionary:
+	var color := Color("ffd750") if golden else Color("de3d3a") if rage else Color("d7d1cc")
+	return {
+		"position": pos,
+		"strength": strength,
+		"color": color,
+	}
+
+
+func _cancel_power_smash_for_web_rescue(deps: Dictionary) -> void:
+	var power_state: Object = deps.get("power_state", null)
+	if power_state == null or not power_state.has_method("is_parabola_active"):
+		return
+	if not bool(power_state.is_parabola_active()) or not power_state.has_method("reset"):
+		return
+	power_state.reset(false)
+
+
 func _resolve_status() -> String:
 	if web_rescue_active:
 		return "web_rescue_%s" % web_rescue_phase
@@ -594,13 +832,21 @@ func _web_rescue_progress() -> float:
 
 
 func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
+	var normalized_cooldown: float = maxf(0.0, cooldown)
+	var normalized_total: float = maxf(0.001, total)
+	var ready: bool = not active and normalized_cooldown <= 0.0
+	var skill_status := "casting" if active else ("ready" if ready else "charging")
+	var progress := clampf(1.0 - normalized_cooldown / normalized_total, 0.0, 1.0)
 	return {
 		"id": id,
 		"label": label,
 		"active": active,
-		"cooldown": maxf(0.0, cooldown),
-		"cooldown_total": maxf(0.001, total),
-		"cooldown_progress": clampf(1.0 - maxf(0.0, cooldown) / maxf(0.001, total), 0.0, 1.0),
+		"cooldown": normalized_cooldown,
+		"cooldown_total": normalized_total,
+		"cooldown_progress": progress,
+		"status": skill_status,
+		"ready": ready,
+		"progress": progress,
 		"color": color,
 	}
 

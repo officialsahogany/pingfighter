@@ -82,7 +82,7 @@ static func _update_absorb_poll(runtime: Object, fps_scale: float, center: Vecto
 static func _collect_absorbed_objects(center: Vector2, deps: Dictionary, pull_radius: float) -> Array:
 	var absorbed_objects: Array = []
 	var seen_instance_ids: Dictionary = {}
-	for absorb_key in ["stage1_balloon_event", "stage1_gaksital_fan_wind_skill_state", "stage_background", "stage2_pillar_background"]:
+	for absorb_key in ["stage1_balloon_event", "stage1_gaksital_fan_wind_skill_state", "stage_background", "stage2_pillar_background", "stage2_boss_skill_state"]:
 		var absorb_target: Object = deps.get(absorb_key, null)
 		if absorb_target == null or not absorb_target.has_method("absorb_chaos_spear_objects"):
 			continue

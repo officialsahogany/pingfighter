@@ -83,6 +83,12 @@ func get_actor_draw_context() -> Dictionary:
 	return super.get_actor_draw_context()
 
 
+func absorb_chaos_spear_objects(center: Vector2, pull_radius: float, deps: Dictionary = {}) -> Array:
+	if active_variant != "arachne" or arachne_state == null:
+		return []
+	return arachne_state.absorb_chaos_spear_objects(center, pull_radius, deps)
+
+
 func get_status() -> String:
 	return _active_variant_call("get_status", super.get_status())
 
