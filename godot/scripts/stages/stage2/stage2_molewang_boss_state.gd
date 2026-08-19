@@ -80,6 +80,7 @@ func reset_round() -> void:
 	tunnel_spikes.clear()
 	tunnel_strike_applied = false
 	spinning_claw_timer = 0.0
+	spinning_claw_cooldown = 0.0
 	hit_emerge_timer = 0.0
 	friend_moles.clear()
 	friend_mole_particles.clear()
@@ -133,7 +134,7 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 		var boss_center_x := _as_vector2(context.get("boss_pos", Vector2.ZERO), Vector2.ZERO).x + float(context.get("boss_paddle_width", 0.0)) * 0.5
 		spinning_claw_direction = 1 if ball_center_x < boss_center_x else -1
 		triggered = true
-		_play_audio(deps, "play_stage2_speed_defense_hit")
+		_play_audio(deps, "play_stage2_molewang_spinning_claw")
 	var result := {
 		"boss_special_gauge": boss_special_gauge,
 		"stage2_boss_gauge_gain": GAUGE_GAIN_ON_HIT,
@@ -260,7 +261,7 @@ func _activate_tunnel(context: Dictionary, deps: Dictionary) -> void:
 	var player_size := _as_vector2(context.get("player_paddle_size", Vector2(155.0, 50.0)), Vector2(155.0, 50.0))
 	tunnel_target_x = player_pos.x + player_size.x * 0.5
 	tunnel_cooldown = TUNNEL_COOLDOWN_SEC
-	_play_audio(deps, "play_stage2_boss_cry")
+	_play_audio(deps, "play_stage2_molewang_tunnel_start")
 
 
 func _update_tunnel(step: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -278,7 +279,7 @@ func _update_tunnel(step: float, context: Dictionary, deps: Dictionary) -> Dicti
 			while tunnel_spike_accumulator >= TUNNEL_SPIKE_INTERVAL_SEC and tunnel_spikes.size() < TUNNEL_MAX_SPIKES:
 				tunnel_spike_accumulator -= TUNNEL_SPIKE_INTERVAL_SEC
 				_spawn_tunnel_spike(context)
-				_play_audio(deps, "play_stage2_rock_spawn")
+				_play_audio(deps, "play_stage2_molewang_tunnel_spike")
 			if tunnel_spikes.size() >= TUNNEL_MAX_SPIKES:
 				tunnel_phase = "strike"
 				tunnel_timer = 0.0
@@ -286,7 +287,7 @@ func _update_tunnel(step: float, context: Dictionary, deps: Dictionary) -> Dicti
 			if not tunnel_strike_applied:
 				tunnel_strike_applied = true
 				_apply_tunnel_strike(context, deps)
-				_play_audio(deps, "play_stage2_stonebreak")
+				_play_audio(deps, "play_stage2_molewang_tunnel_impact")
 			if tunnel_timer >= TUNNEL_STRIKE_SEC:
 				tunnel_phase = "return"
 				tunnel_timer = 0.0
@@ -523,13 +524,21 @@ func _get_speech() -> String:
 
 
 func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
+	var normalized_cooldown: float = maxf(0.0, cooldown)
+	var normalized_total: float = maxf(0.001, total)
+	var ready: bool = not active and normalized_cooldown <= 0.0
+	var skill_status := "casting" if active else ("ready" if ready else "charging")
+	var progress := clampf(1.0 - normalized_cooldown / normalized_total, 0.0, 1.0)
 	return {
 		"id": id,
 		"label": label,
 		"active": active,
-		"cooldown": maxf(0.0, cooldown),
-		"cooldown_total": maxf(0.001, total),
-		"cooldown_progress": clampf(1.0 - maxf(0.0, cooldown) / maxf(0.001, total), 0.0, 1.0),
+		"cooldown": normalized_cooldown,
+		"cooldown_total": normalized_total,
+		"cooldown_progress": progress,
+		"status": skill_status,
+		"ready": ready,
+		"progress": progress,
 		"color": color,
 	}
 

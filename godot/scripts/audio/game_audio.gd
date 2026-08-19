@@ -1309,6 +1309,26 @@ var stage2_speed_defense_block_sfx: AudioStreamPlayer:
 		return stage2_battle_audio.get_player("speed_defense_block") as AudioStreamPlayer
 	set(value):
 		stage2_battle_audio.set_player("speed_defense_block", value)
+var stage2_molewang_tunnel_start_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("molewang_tunnel_start") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("molewang_tunnel_start", value)
+var stage2_molewang_tunnel_spike_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("molewang_tunnel_spike") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("molewang_tunnel_spike", value)
+var stage2_molewang_tunnel_impact_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("molewang_tunnel_impact") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("molewang_tunnel_impact", value)
+var stage2_molewang_spinning_claw_sfx: AudioStreamPlayer:
+	get:
+		return stage2_battle_audio.get_player("molewang_spinning_claw") as AudioStreamPlayer
+	set(value):
+		stage2_battle_audio.set_player("molewang_spinning_claw", value)
 var stage2_friend_mole_spawn_sfx: AudioStreamPlayer:
 	get:
 		return stage2_battle_audio.get_player("friend_mole_spawn") as AudioStreamPlayer
@@ -3457,6 +3477,22 @@ func play_stage2_speed_defense_hit() -> void:
 
 func play_stage2_speed_defense_block() -> void:
 	_play_with_pitch(stage2_speed_defense_block_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_molewang_tunnel_start() -> void:
+	_play_with_pitch(stage2_molewang_tunnel_start_sfx, randf_range(0.96, 1.04))
+
+
+func play_stage2_molewang_tunnel_spike() -> void:
+	_play_with_pitch(stage2_molewang_tunnel_spike_sfx, randf_range(0.97, 1.03))
+
+
+func play_stage2_molewang_tunnel_impact() -> void:
+	_play_with_pitch(stage2_molewang_tunnel_impact_sfx, randf_range(0.94, 1.06))
+
+
+func play_stage2_molewang_spinning_claw() -> void:
+	_play_with_pitch(stage2_molewang_spinning_claw_sfx, randf_range(0.97, 1.04))
 
 
 func play_stage2_friend_mole_spawn() -> void:

@@ -38,16 +38,16 @@ class FakeAudio:
 	var friend_mole_spawns := 0
 	var friend_mole_hits := 0
 
-	func play_stage2_speed_defense_hit() -> void:
+	func play_stage2_molewang_spinning_claw() -> void:
 		claw_hits += 1
 
-	func play_stage2_boss_cry() -> void:
+	func play_stage2_molewang_tunnel_start() -> void:
 		tunnel_cries += 1
 
-	func play_stage2_rock_spawn() -> void:
+	func play_stage2_molewang_tunnel_spike() -> void:
 		spike_spawns += 1
 
-	func play_stage2_stonebreak() -> void:
+	func play_stage2_molewang_tunnel_impact() -> void:
 		tunnel_impacts += 1
 
 	func play_stage2_friend_mole_spawn() -> void:
@@ -126,6 +126,12 @@ func _verify_catalog_and_selection_route() -> void:
 	var stage2_audio := Stage2BattleAudio.new()
 	_expect(str(stage2_audio.get_spec("friend_mole_spawn").get("path", "")) == "res://assets/sounds/bonemake.wav", "friend-mole spawn must use the original existing bonemake asset")
 	_expect(str(stage2_audio.get_spec("friend_mole_hit").get("path", "")) == "res://assets/sounds/smallboyhit.wav", "friend-mole hit must use the original existing smallboyhit asset")
+	_expect(str(stage2_audio.get_spec("molewang_tunnel_spike").get("path", "")) == "res://assets/sounds/odinspirit.wav", "Tunnel Raid spikes must wire the original existing odinspirit asset")
+	_expect(bool(stage2_audio.get_spec("molewang_tunnel_spike").get("source_parity", false)), "the odinspirit mapping must be recorded as source parity")
+	_expect(str(stage2_audio.get_spec("molewang_tunnel_start").get("substitution_for", "")) == "lurker_attack.wav", "missing lurker_attack must retain an explicit approved substitution")
+	_expect(str(stage2_audio.get_spec("molewang_tunnel_impact").get("substitution_for", "")) == "rocking.wav", "missing rocking must retain an explicit approved substitution")
+	_expect(str(stage2_audio.get_spec("molewang_spinning_claw").get("substitution_for", "")) == "clue.wav", "missing clue must retain an explicit approved substitution")
+	_expect(bool(stage2_audio.get_spec("molewang_tunnel_start").get("approved_deviation", false)), "missing source cues must be marked as approved deviations")
 	var selection_state: Object = GameSelectionState.new()
 	selection_state.set_stage(2, "dalji", false, "molewang")
 	var owner := FakeSelectionOwner.new(selection_state)
@@ -172,6 +178,18 @@ func _verify_molewang_production_state() -> void:
 		"stage2_boss_skill_state": state,
 	}
 	state.update(0.0, context, deps)
+	state.molewang_state.tunnel_cooldown = 4.0
+	state.molewang_state.spinning_claw_cooldown = 10.0
+	var hud_skills: Array = state.get_hud_context().get("stage2_boss_skill_hud_skills", [])
+	_expect(hud_skills.size() == 3, "Molewang HUD producer must publish all three skill cards")
+	_expect(str(hud_skills[0].get("status", "")) == "charging" and not bool(hud_skills[0].get("ready", true)), "Tunnel Raid HUD card must expose charging and not-ready")
+	_expect(is_equal_approx(float(hud_skills[0].get("progress", -1.0)), 0.5), "Tunnel Raid HUD progress must track its live cooldown")
+	_expect(is_equal_approx(float(hud_skills[1].get("progress", -1.0)), 0.5), "Spinning Claw HUD progress must track its live cooldown")
+	_expect(is_equal_approx(float(hud_skills[2].get("progress", -1.0)), 0.0), "inactive Friend Moles HUD progress must begin at zero")
+	state.molewang_state.friend_moles_active = true
+	hud_skills = state.get_hud_context().get("stage2_boss_skill_hud_skills", [])
+	_expect(str(hud_skills[2].get("status", "")) == "casting" and is_equal_approx(float(hud_skills[2].get("progress", 0.0)), 1.0), "active Friend Moles HUD card must expose casting at full progress")
+	state.reset()
 	var post_hit_handler: Object = PaddleBouncePostHitHandler.new()
 	post_hit_handler.event_router = FakeBounceEventRouter.new()
 	context["ball_pos"] = Vector2(300.0, 60.0)
@@ -219,6 +237,7 @@ func _verify_molewang_production_state() -> void:
 			break
 		state.update(0.05, context, deps)
 	_expect(state.molewang_state.tunnel_spikes.size() == 10, "Tunnel Raid must spawn exactly ten sequential spikes")
+	_expect(audio.spike_spawns == 10, "Tunnel Raid must play the original odinspirit cue once per sequential spike")
 	state.update(0.01, context, deps)
 	_expect(movement.knockback_count == 1 and absf(movement.last_velocity) == 14.0, "locked-target close strike must apply the original 14-speed knockback")
 	_expect(status_effects.stun_count == 1 and status_effects.last_frames == 60.0, "locked-target close strike must apply the original one-second stun")
@@ -254,7 +273,9 @@ func _verify_molewang_production_state() -> void:
 	_expect(_count_particle_kind(state.molewang_state.friend_mole_particles, "star") == 6, "friend-mole contact must emit six star particles")
 	_expect(audio.friend_mole_hits == 1, "friend-mole contact must route the original smallboyhit cue")
 	_expect(background.starpoint_count == 1, "golden friend moles must emit a starpoint through the Stage 2 owner")
+	state.molewang_state.spinning_claw_cooldown = 12.0
 	state.reset_round()
+	_expect(is_zero_approx(state.molewang_state.spinning_claw_cooldown), "round reset must make Spinning Claw available on the next round's first contact")
 	_expect(state.molewang_state.friend_moles_active and state.molewang_state.friend_moles_round_count == 2, "friend moles must remain active for the second round")
 	state.reset_round()
 	_expect(not state.molewang_state.friend_moles_active, "friend moles negative leg must end after two rounds")
