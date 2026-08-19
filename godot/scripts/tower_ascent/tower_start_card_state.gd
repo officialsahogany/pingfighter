@@ -178,7 +178,7 @@ func tear_down() -> void:
 
 
 func _apply_choice(choice: Dictionary) -> bool:
-	if _runtime_state == null or not _runtime_state.has_method("apply_choice"):
+	if _runtime_state == null:
 		return false
 	var previous_context: Dictionary = {}
 	var context_value: Variant = _runtime_state.get("current_choice_context")
@@ -188,7 +188,19 @@ func _apply_choice(choice: Dictionary) -> bool:
 		"source": "tower_start_card",
 		"grant_scope": "tower_run",
 	})
-	var accepted := bool(_runtime_state.call("apply_choice", choice, _owner, _registry))
+	var accepted := false
+	if str(choice.get("start_card_kind", "")) == "mugong":
+		if _runtime_state.has_method("apply_choice_at_target_level"):
+			accepted = bool(_runtime_state.call(
+				"apply_choice_at_target_level",
+				choice,
+				TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL,
+				_owner,
+				_registry
+			))
+	else:
+		if _runtime_state.has_method("apply_choice"):
+			accepted = bool(_runtime_state.call("apply_choice", choice, _owner, _registry))
 	_runtime_state.set("current_choice_context", previous_context)
 	return accepted
 

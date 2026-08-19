@@ -16,6 +16,14 @@ const CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT := "apply_choice_feedback_result"
 const CALLBACK_APPLY_UNLOCK_CHOICE := "apply_unlock_choice"
 const CALLBACK_APPLY_LEVEL_SIDE_EFFECT := "apply_level_side_effect"
 const DEFAULT_STARPOINT_PER_SKILL_CHOICE := 1
+const TARGET_LEVEL_BLOCKED_FLAGS := [
+	"is_instant",
+	"is_gold_conversion",
+	"is_physique_training",
+	"is_mystic_dice",
+	"is_perk_fusion",
+	"is_lingpet_guardian_enhance",
+]
 
 
 func build_state_callbacks(runtime_state: Object) -> Dictionary:
@@ -54,6 +62,110 @@ func apply_choice_from_runtime_state(
 		build_state_callbacks(runtime_state),
 		perf_logger
 	)
+
+
+func apply_choice_at_target_level_from_runtime_state(
+	runtime_state: Object,
+	choice: Dictionary,
+	target_level: int,
+	owner: Object,
+	registry: Object,
+	perf_logger: Object = null
+) -> Dictionary:
+	return apply_choice_at_target_level(
+		choice,
+		target_level,
+		owner,
+		registry,
+		runtime_state,
+		RuntimePerkRuntimeStateAccess.get_dict(runtime_state, "runtime_skill_levels"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "pending_skill_choices"),
+		RuntimePerkRuntimeStateAccess.get_int(runtime_state, "starpoint_for_skills"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_choice_standard_path"),
+		RuntimePerkRuntimeStateAccess.get_object(runtime_state, "_level_side_effects"),
+		build_state_callbacks(runtime_state),
+		perf_logger
+	)
+
+
+func apply_choice_at_target_level(
+	choice: Dictionary,
+	target_level: int,
+	owner: Object,
+	registry: Object,
+	runtime_state: Object,
+	runtime_skill_levels: Dictionary,
+	pending_skill_choices: int,
+	starpoint_for_skills: int,
+	choice_standard_path: Object,
+	level_side_effects: Object,
+	callbacks: Dictionary,
+	perf_logger: Object = null
+) -> Dictionary:
+	if runtime_state == null or choice_standard_path == null or level_side_effects == null:
+		return {"accepted": false, "blocked_reason": "missing_target_level_deps"}
+	var choice_id: String = str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var current_level: int = int(runtime_skill_levels.get(choice_id, 0))
+	var max_level: int = int(choice.get("max_level", -1))
+	if choice_id.is_empty() or target_level <= current_level:
+		return {"accepted": false, "blocked_reason": "invalid_target_level"}
+	if max_level > 0 and target_level > max_level:
+		return {"accepted": false, "blocked_reason": "target_level_above_max"}
+	if not str(choice.get("unlocks_skill", "")).strip_edges().is_empty():
+		return {"accepted": false, "blocked_reason": "target_level_unlock_forbidden"}
+	if str(choice.get("rarity", "")).to_lower() == "mythic":
+		return {"accepted": false, "blocked_reason": "target_level_mythic_forbidden"}
+	for flag_name in TARGET_LEVEL_BLOCKED_FLAGS:
+		if bool(choice.get(flag_name, false)):
+			return {"accepted": false, "blocked_reason": "target_level_special_forbidden"}
+	if not level_side_effects.has_method("build_target_level_choice_update"):
+		return {"accepted": false, "blocked_reason": "missing_target_level_builder"}
+	var update_value: Variant = level_side_effects.call(
+		"build_target_level_choice_update",
+		choice,
+		runtime_skill_levels,
+		target_level
+	)
+	var level_update: Dictionary = (
+		update_value as Dictionary
+		if update_value is Dictionary
+		else {"accepted": false}
+	)
+	var state_result: Dictionary = choice_standard_path.apply_level_path_to_runtime_state(
+		level_update,
+		choice_id,
+		current_level,
+		runtime_state,
+		runtime_skill_levels,
+		pending_skill_choices,
+		starpoint_for_skills
+	)
+	if not bool(state_result.get("accepted", false)):
+		return _with_choice_id(state_result, choice_id)
+	var level_start: int = _perf_begin(perf_logger)
+	RuntimePerkCallbackMap.call_optional(
+		callbacks,
+		CALLBACK_APPLY_LEVEL_SIDE_EFFECT,
+		[choice, owner, registry, perf_logger]
+	)
+	_perf_end(perf_logger, "process.runtime_perk.apply.target_level_side_effect", level_start)
+	var feedback_result: Dictionary = choice_standard_path.apply_level_feedback_result(
+		state_result,
+		choice,
+		RuntimePerkCallbackMap.get_callable(callbacks, CALLBACK_APPLY_CHOICE_FEEDBACK_RESULT),
+		RuntimePerkLevelSideEffects.LEVEL_FEEDBACK_TIMER
+	)
+	if not bool(feedback_result.get("accepted", false)):
+		return _with_choice_id(feedback_result, choice_id)
+	return {
+		"accepted": true,
+		"choice_id": choice_id,
+		"path": RuntimePerkChoiceStandardPath.PATH_LEVEL,
+		"previous_level": current_level,
+		"level": int(runtime_skill_levels.get(choice_id, 0)),
+		"side_effect_applied": true,
+		"feedback_applied": true,
+	}
 
 
 func apply_choice(

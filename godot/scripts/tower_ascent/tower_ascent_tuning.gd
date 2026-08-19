@@ -96,8 +96,10 @@ const TEMP_REWARD_PICK_EMPTY_BOARD_HOLD_SEC := 0.60
 # timing remains product-tuning work. Keep this table independent from the
 # four-card boss reward picker; the two flows have different contracts.
 const TEMP_START_CARD_TOTAL_COUNT := 3
-const TEMP_START_CARD_CHOSIK_COUNT := 1
-const TEMP_START_CARD_MUGONG_COUNT := 2
+const TEMP_START_CARD_MIN_CHOSIK_COUNT := 1
+const TEMP_START_CARD_MAX_CHOSIK_COUNT := 2
+const TEMP_START_CARD_TWO_CHOSIK_CHANCE := 0.50
+const TEMP_START_CARD_MUGONG_START_LEVEL := 2
 const TEMP_START_CARD_PICK_LIMIT := 1
 const TEMP_START_CARD_MIN_TOTAL_CANDIDATES := 3
 const TEMP_START_CARD_OFFER_VERSION := 1

@@ -66,11 +66,15 @@ func build_offer(run_id: String, owner: Object, registry: Object) -> Dictionary:
 			)
 		):
 			chosik_pool.append(data)
-		elif unlocked_skill.is_empty() and _candidate_policy.is_mugong_candidate(
+		elif (
+			unlocked_skill.is_empty()
+			and int(data.get("max_level", 5)) >= TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL
+			and _candidate_policy.is_mugong_candidate(
 			data,
 			runtime_levels,
 			character_type,
 			registry
+			)
 		):
 			mugong_pool.append(data)
 
@@ -90,15 +94,23 @@ func build_offer(run_id: String, owner: Object, registry: Object) -> Dictionary:
 	]))
 	_shuffle_with_rng(chosik_pool, rng)
 	_shuffle_with_rng(mugong_pool, rng)
-	var chosik_count := mini(TowerAscentTuning.TEMP_START_CARD_CHOSIK_COUNT, chosik_pool.size())
-	var mugong_count := mini(TowerAscentTuning.TEMP_START_CARD_MUGONG_COUNT, mugong_pool.size())
-	while chosik_count + mugong_count < TowerAscentTuning.TEMP_START_CARD_TOTAL_COUNT:
-		if mugong_count < mugong_pool.size():
-			mugong_count += 1
-		elif chosik_count < chosik_pool.size():
-			chosik_count += 1
-		else:
-			break
+	var chosik_count := 0
+	if not chosik_pool.is_empty():
+		chosik_count = TowerAscentTuning.TEMP_START_CARD_MIN_CHOSIK_COUNT
+		if (
+			chosik_pool.size() >= TowerAscentTuning.TEMP_START_CARD_MAX_CHOSIK_COUNT
+			and rng.randf() < TowerAscentTuning.TEMP_START_CARD_TWO_CHOSIK_CHANCE
+		):
+			chosik_count = TowerAscentTuning.TEMP_START_CARD_MAX_CHOSIK_COUNT
+	var mugong_count := TowerAscentTuning.TEMP_START_CARD_TOTAL_COUNT - chosik_count
+	if mugong_count > mugong_pool.size():
+		var required_chosik_count := TowerAscentTuning.TEMP_START_CARD_TOTAL_COUNT - mugong_pool.size()
+		chosik_count = mini(
+			TowerAscentTuning.TEMP_START_CARD_MAX_CHOSIK_COUNT,
+			maxi(chosik_count, required_chosik_count)
+		)
+		chosik_count = mini(chosik_count, chosik_pool.size())
+		mugong_count = TowerAscentTuning.TEMP_START_CARD_TOTAL_COUNT - chosik_count
 
 	var choices: Array[Dictionary] = []
 	for index in range(chosik_count):
@@ -134,7 +146,11 @@ func _prepare_choice(
 	var perk_id := str(choice.get("id", ""))
 	var current_level := maxi(0, int(runtime_levels.get(perk_id, 0)))
 	choice["current_level"] = current_level
-	choice["next_level"] = current_level + 1
+	choice["next_level"] = (
+		TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL
+		if kind == "mugong"
+		else current_level + 1
+	)
 	choice["start_card_kind"] = kind
 	choice["enabled"] = true
 	for forbidden_key in ["reward_pick_cost", "reward_pick_price_text", "balance_text"]:

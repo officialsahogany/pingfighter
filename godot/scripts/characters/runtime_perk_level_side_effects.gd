@@ -26,6 +26,31 @@ func build_level_choice_update(choice: Dictionary, runtime_skill_levels: Diction
 	}
 
 
+func build_target_level_choice_update(
+	choice: Dictionary,
+	runtime_skill_levels: Dictionary,
+	target_level: int
+) -> Dictionary:
+	var choice_id: String = str(choice.get("id", "")).strip_edges()
+	var old_level: int = int(runtime_skill_levels.get(choice_id, 0))
+	var max_level: int = int(choice.get("max_level", -1))
+	if choice_id.is_empty() or target_level <= old_level:
+		return {"accepted": false, "blocked_reason": "invalid_target_level"}
+	if max_level > 0 and target_level > max_level:
+		return {"accepted": false, "blocked_reason": "target_level_above_max"}
+	return {
+		"accepted": true,
+		"choice_id": choice_id,
+		"old_level": old_level,
+		"next_level": target_level,
+		"feedback_text": "%s %s" % [
+			str(choice.get("name", choice_id)),
+			_feedback_rank_text(choice, target_level),
+		],
+		"feedback_timer": LEVEL_FEEDBACK_TIMER,
+	}
+
+
 func build_unlock_choice_update(choice: Dictionary, runtime_skill_levels: Dictionary) -> Dictionary:
 	var choice_id: String = str(choice.get("id", ""))
 	if choice_id == "" or str(choice.get("unlocks_skill", "")) == "":

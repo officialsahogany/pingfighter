@@ -12,6 +12,18 @@ const TowerStartCardOfferBuilder := preload(
 const TowerStartCardState := preload(
 	"res://scripts/tower_ascent/tower_start_card_state.gd"
 )
+const RuntimePerkChoiceApplyFlow := preload(
+	"res://scripts/characters/runtime_perk_choice_apply_flow.gd"
+)
+const RuntimePerkChoiceStandardPath := preload(
+	"res://scripts/characters/runtime_perk_choice_standard_path.gd"
+)
+const RuntimePerkLevelSideEffects := preload(
+	"res://scripts/characters/runtime_perk_level_side_effects.gd"
+)
+const RuntimePerkState := preload(
+	"res://scripts/characters/runtime_perk_state.gd"
+)
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -86,6 +98,7 @@ class FakeRuntimeState:
 	var runtime_skill_levels: Dictionary = {}
 	var current_choice_context: Dictionary = {"source": "before_start_card"}
 	var apply_calls := 0
+	var target_apply_calls := 0
 	var cancel_calls := 0
 	var force_pending_swap := false
 	var pending_swap := false
@@ -108,6 +121,20 @@ class FakeRuntimeState:
 			runtime_skill_levels[perk_id] = 1
 		else:
 			runtime_skill_levels[perk_id] = int(runtime_skill_levels.get(perk_id, 0)) + 1
+		return true
+
+	func apply_choice_at_target_level(
+		choice: Dictionary,
+		target_level: int,
+		_owner: Object,
+		_registry: Object
+	) -> bool:
+		target_apply_calls += 1
+		seen_context = current_choice_context.duplicate(true)
+		var perk_id := str(choice.get("id", ""))
+		if perk_id.is_empty() or target_level > int(choice.get("max_level", 0)):
+			return false
+		runtime_skill_levels[perk_id] = target_level
 		return true
 
 	func has_pending_unlock_swap() -> bool:
@@ -133,16 +160,59 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class TargetLevelRuntimeProbe:
+	extends RefCounted
+
+	var runtime_skill_levels: Dictionary = {}
+	var pending_skill_choices := 0
+	var starpoint_for_skills := 0
+	var side_effect_calls := 0
+	var feedback_calls := 0
+	var _choice_standard_path: Object = RuntimePerkChoiceStandardPath.new()
+	var _level_side_effects: Object = RuntimePerkLevelSideEffects.new()
+
+	func _should_defer_full_gauge_until_spawn_intro_end() -> bool:
+		return false
+
+	func _should_defer_dimension_gate_until_spawn_intro_end() -> bool:
+		return false
+
+	func _apply_level_side_effect(
+		_choice: Dictionary,
+		_owner: Object,
+		_registry: Object,
+		_perf_logger: Object = null
+	) -> void:
+		side_effect_calls += 1
+
+	func _apply_choice_feedback_result(
+		_result: Dictionary,
+		_choice: Dictionary,
+		_fallback_timer: float
+	) -> bool:
+		feedback_calls += 1
+		return true
+
+	func _apply_unlock_choice(
+		_choice: Dictionary,
+		_owner: Object,
+		_registry: Object,
+		_perf_logger: Object = null
+	) -> bool:
+		return false
+
+
 func _init() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_offer_shape_and_filters()
 	_verify_determinism_and_global_rng_isolation()
 	_verify_fallback_matrix()
+	_verify_target_level_path_is_single_shot()
 	_verify_apply_and_single_pick_contract()
 	_verify_pending_swap_fails_closed()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	_expect(_leg_count == 6, "all six start-card S1 smoke legs must execute")
+	_expect(_leg_count == 7, "all seven start-card S1 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
@@ -164,8 +234,9 @@ func _verify_offer_shape_and_filters() -> void:
 	var choices := _offer_choices(offer)
 	_expect(bool(offer.get("accepted", false)), "one Chosik plus two Mugong must build")
 	_expect(choices.size() == 3, "start-card offer must contain exactly three cards")
-	_expect(_kind_count(choices, "chosik") == 1, "normal offer must contain one Chosik")
-	_expect(_kind_count(choices, "mugong") == 2, "normal offer must contain two Mugong")
+	var chosik_count := _kind_count(choices, "chosik")
+	_expect(chosik_count in [1, 2], "normal offer must contain one or two Chosik")
+	_expect(_kind_count(choices, "mugong") == 3 - chosik_count, "Mugong must fill the three-card remainder")
 	var ids := _choice_ids(choices)
 	for excluded_id in [
 		"mugong_mythic",
@@ -173,6 +244,7 @@ func _verify_offer_shape_and_filters() -> void:
 		"mugong_training",
 		"mugong_locked",
 		"mugong_other_character",
+		"mugong_single_rank",
 	]:
 		_expect(not ids.has(excluded_id), "excluded candidate leaked into offer: %s" % excluded_id)
 	_expect((fixture.catalog as FakeCatalog).all_calls == 1, "one offer must call get_all_perk_data exactly once")
@@ -206,6 +278,20 @@ func _verify_determinism_and_global_rng_isolation() -> void:
 	)))
 	_expect(first_ids == second_ids, "same run and character must reproduce the same three IDs")
 	_expect(first_ids != third_ids, "changing run_id must change the deterministic offer fixture")
+	var one_mix_fixture := _build_fixture(_standard_catalog())
+	var one_mix := builder.build_offer(
+		"mix-seed-0",
+		one_mix_fixture.owner,
+		one_mix_fixture.registry
+	)
+	_expect(_kind_count(_offer_choices(one_mix), "chosik") == 1, "fixed mix-seed-0 must produce one Chosik")
+	var two_mix_fixture := _build_fixture(_standard_catalog())
+	var two_mix := builder.build_offer(
+		"mix-seed-1",
+		two_mix_fixture.owner,
+		two_mix_fixture.registry
+	)
+	_expect(_kind_count(_offer_choices(two_mix), "chosik") == 2, "fixed mix-seed-1 must produce two Chosik")
 
 	seed(90210)
 	var observed_first := randi()
@@ -270,6 +356,63 @@ func _verify_fallback_matrix() -> void:
 	_expect(not bool(skipped.get("accepted", true)), "fewer than three total candidates must skip")
 	_expect(str(skipped.get("reason", "")) == "start_card_skipped", "insufficient stock must use the explicit skip reason")
 
+	var blacksmith := _build_fixture(_standard_catalog(), "blacksmith")
+	var blacksmith_choices := _offer_choices(TowerStartCardOfferBuilder.new().build_offer(
+		"blacksmith-no-chosik",
+		blacksmith.owner,
+		blacksmith.registry
+	))
+	_expect(blacksmith_choices.size() == 3, "Blacksmith must still receive three cards")
+	_expect(_kind_count(blacksmith_choices, "chosik") == 0, "Blacksmith must not receive another character's Chosik")
+	_expect(_kind_count(blacksmith_choices, "mugong") == 3, "Blacksmith must receive three Mugong cards")
+
+
+func _verify_target_level_path_is_single_shot() -> void:
+	_leg_count += 1
+	var runtime := TargetLevelRuntimeProbe.new()
+	var result := RuntimePerkChoiceApplyFlow.new().apply_choice_at_target_level_from_runtime_state(
+		runtime,
+		_mugong("target_level_mugong"),
+		2,
+		FakeOwner.new(),
+		FakeRegistry.new()
+	)
+	_expect(bool(result.get("accepted", false)), "target-level grant path must accept a regular Mugong")
+	_expect(int(runtime.runtime_skill_levels.get("target_level_mugong", 0)) == 2, "target-level grant must set the actual runtime value to two")
+	_expect(runtime.side_effect_calls == 1, "one two-star grant must fire level side effects exactly once")
+	_expect(runtime.feedback_calls == 1, "one two-star grant must fire acquisition feedback exactly once")
+	var blocked := RuntimePerkChoiceApplyFlow.new().apply_choice_at_target_level_from_runtime_state(
+		runtime,
+		_mugong("single_rank", {"max_level": 1}),
+		2,
+		FakeOwner.new(),
+		FakeRegistry.new()
+	)
+	_expect(not bool(blocked.get("accepted", true)), "max-level-one Mugong must reject a two-star target grant")
+	_expect(runtime.side_effect_calls == 1 and runtime.feedback_calls == 1, "rejected target grants must not fire side effects")
+	var production_runtime := RuntimePerkState.new()
+	_expect(
+		production_runtime.apply_choice_at_target_level(
+			_mugong("production_target_level"),
+			2,
+			null,
+			null
+		),
+		"production RuntimePerkState must expose the target-level grant"
+	)
+	_expect(
+		int(production_runtime.runtime_skill_levels.get("production_target_level", 0)) == 2,
+		"production target-level entry must commit an actual level-two value"
+	)
+	_expect(
+		production_runtime.apply_choice(_mugong("legacy_single_level"), null, null),
+		"existing one-level apply_choice must remain accepted"
+	)
+	_expect(
+		int(production_runtime.runtime_skill_levels.get("legacy_single_level", 0)) == 1,
+		"existing apply_choice consumers must still gain exactly one level"
+	)
+
 
 func _verify_apply_and_single_pick_contract() -> void:
 	_leg_count += 1
@@ -280,7 +423,9 @@ func _verify_apply_and_single_pick_contract() -> void:
 	_expect(mugong_state.select_slot(mugong_index), "Mugong start card must apply")
 	var mugong_result := mugong_state.get_selection_result()
 	var mugong_id := str(mugong_result.get("picked_perk_id", ""))
-	_expect(int((mugong_fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(mugong_id, 0)) == 1, "Mugong choice must update runtime skill levels")
+	_expect(int((mugong_fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(mugong_id, 0)) == 2, "Mugong choice must set the actual runtime level to two")
+	_expect((mugong_fixture.runtime_state as FakeRuntimeState).target_apply_calls == 1, "Mugong two-star grant must call the target-level entry exactly once")
+	_expect((mugong_fixture.runtime_state as FakeRuntimeState).apply_calls == 0, "Mugong two-star grant must not call the one-level entry twice")
 	_expect(str((mugong_fixture.runtime_state as FakeRuntimeState).seen_context.get("source", "")) == "tower_start_card", "grant must expose tower_start_card source")
 	_expect((mugong_fixture.runtime_state as FakeRuntimeState).current_choice_context == {"source": "before_start_card"}, "grant must restore the previous choice context")
 	_expect(not mugong_state.select_slot(mugong_index), "a second click after the one pick must be a no-op")
@@ -334,8 +479,12 @@ func _verify_source_contract() -> void:
 		_expect(state_source.find(forbidden_method) < 0, "state must not enter reward transaction path: %s" % forbidden_method)
 
 
-func _build_fixture(catalog_data: Dictionary) -> Dictionary:
+func _build_fixture(
+	catalog_data: Dictionary,
+	character_type: String = "smasher"
+) -> Dictionary:
 	var owner := FakeOwner.new()
+	owner.selected_character_type = character_type
 	var flow_owner := FakeFlowOwner.new()
 	var unlock_store := FakeUnlockStore.new()
 	var skill_config := FakeSkillConfig.new()
@@ -350,6 +499,7 @@ func _build_fixture(catalog_data: Dictionary) -> Dictionary:
 		"runtime_perk_state": runtime_state,
 		"runtime_perk_catalog": catalog,
 		"smasher_skill_config": skill_config,
+		"blacksmith_skill_config": skill_config,
 	}
 	return {
 		"owner": owner,
@@ -379,6 +529,7 @@ func _standard_catalog() -> Dictionary:
 		"mugong_training": _mugong("mugong_training", {"is_physique_training": true}),
 		"mugong_locked": _mugong("mugong_locked"),
 		"mugong_other_character": _mugong("mugong_other_character", {"character_restriction": "viper"}),
+		"mugong_single_rank": _mugong("mugong_single_rank", {"max_level": 1}),
 	}
 
 

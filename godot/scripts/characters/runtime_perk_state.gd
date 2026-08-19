@@ -1408,6 +1408,40 @@ func apply_choice(choice: Dictionary, owner: Object, registry: Object, perf_logg
 	return bool(result.get("accepted", false))
 
 
+func apply_choice_at_target_level(
+	choice: Dictionary,
+	target_level: int,
+	owner: Object,
+	registry: Object,
+	perf_logger: Object = null
+) -> bool:
+	var choice_id: String = str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var previous_raw_level: int = _get_raw_runtime_perk_level(choice_id)
+	var acquisition_context: Dictionary = current_choice_context.duplicate(true)
+	var result: Dictionary = _choice_apply_flow.apply_choice_at_target_level_from_runtime_state(
+		self,
+		choice,
+		target_level,
+		owner,
+		registry,
+		perf_logger
+	)
+	if bool(result.get("accepted", false)):
+		var applied_choice_id: String = str(result.get("choice_id", choice_id)).strip_edges()
+		if applied_choice_id == "angel_blessing":
+			_angel_blessing_runtime_state.on_accepted_choice(
+				self,
+				choice,
+				previous_raw_level,
+				_get_raw_runtime_perk_level(applied_choice_id),
+				acquisition_context,
+				false,
+				owner,
+				registry
+			)
+	return bool(result.get("accepted", false))
+
+
 func _apply_convert_to_gold_choice(choice: Dictionary, owner: Object, registry: Object) -> bool:
 	return _gold_award_flow.apply_convert_to_gold_choice_from_runtime_state(self, choice, owner, registry)
 
