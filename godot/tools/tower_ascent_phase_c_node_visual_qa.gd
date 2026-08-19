@@ -25,12 +25,12 @@ const CAPTURE_SPECS := [
 		"file": "shop.png",
 		"kind": "shop",
 		"actions": [
-			{"label": "일반 액티브 진열 A", "cost_text": "60 골드", "enabled": true},
-			{"label": "일반 액티브 진열 B", "cost_text": "60 골드", "enabled": true},
-			{"label": "일반 액티브 진열 C", "cost_text": "60 골드", "enabled": true},
-			{"label": "프리미엄 액티브 진열", "cost_text": "180 골드", "enabled": true},
-			{"label": "액티브 캡슐", "cost_text": "80 골드", "enabled": true},
-			{"label": "기회의 보석", "cost_text": "150 골드", "enabled": false, "unavailable_reason": "골드 150 필요, 30 부족"},
+			{"label": "일반 액티브 진열 A", "cost_text": "60 금화", "enabled": true},
+			{"label": "일반 액티브 진열 B", "cost_text": "60 금화", "enabled": true},
+			{"label": "일반 액티브 진열 C", "cost_text": "60 금화", "enabled": true},
+			{"label": "프리미엄 액티브 진열", "cost_text": "180 금화", "enabled": true},
+			{"label": "액티브 캡슐", "cost_text": "80 금화", "enabled": true},
+			{"label": "기회의 보석", "cost_text": "150 금화", "enabled": false, "unavailable_reason": "금화 150 필요, 30 부족"},
 		],
 	},
 	{

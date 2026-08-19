@@ -70,6 +70,7 @@ $focusedSmoke = @(
     "res://tests/battle_boot_resource_prewarm_smoke.gd",
     "res://tests/stage2_molewang_boss_port_smoke.gd",
     "res://tests/stage2_arachne_boss_port_smoke.gd",
+    "res://tests/tower_currency_display_term_ban_smoke.gd",
     "res://tests/stage7_akamu_superspeed_unlock_cooldown_smoke.gd",
     "res://tests/stage7_akamu_golden_clone_starpoint_smoke.gd",
     "res://tests/tower_boss_routing_smoke.gd",

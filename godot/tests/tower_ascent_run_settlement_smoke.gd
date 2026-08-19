@@ -10,6 +10,10 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentSettlementState := preload(
 	"res://scripts/tower_ascent/tower_ascent_settlement_state.gd"
 )
+const TowerAscentSettlementLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_settlement_localization.gd"
+)
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
 var _failures: Array[String] = []
 var _exit_calls := 0
@@ -82,6 +86,7 @@ func _init() -> void:
 	var save_path := "user://tower_ascent_run_settlement_%d.cfg" % Time.get_ticks_usec()
 	_cleanup(save_path)
 	_verify_summary_assembly_contract()
+	_verify_currency_summary_locales()
 	_verify_zero_gem_defeat_routes_to_shared_settlement(save_path)
 	_cleanup(save_path)
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -92,6 +97,30 @@ func _init() -> void:
 	for failure in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_currency_summary_locales() -> void:
+	var expected := {
+		LanguageSettings.LANGUAGE_KOREAN: "무혼 17 · 금화 91",
+		LanguageSettings.LANGUAGE_ENGLISH: "Muhon 17 · Gold 91",
+		LanguageSettings.LANGUAGE_CHINESE: "武魂 17 · 金币 91",
+		LanguageSettings.LANGUAGE_JAPANESE: "武魂 17 · 金貨 91",
+		LanguageSettings.LANGUAGE_SPANISH: "Muhon 17 · Oro 91",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Muhon 17 · Ouro 91",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Мухон 17 · Золото 91",
+	}
+	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		var summary := TowerAscentSettlementState.build_lost_build_summary(
+			{"muhon": 17, "gold": 91}, {}, {}
+		)
+		var rows: Array = summary.get("rows", [])
+		_expect(rows.size() == 1, "%s settlement fixture must append one currency row" % locale)
+		if rows.size() == 1:
+			_expect(str(rows[0]) == str(expected.get(locale, "")), "%s settlement currency row must use its locale block" % locale)
+		var locale_text: Dictionary = TowerAscentSettlementLocalization.TEXT_BY_LOCALE.get(locale, {})
+		_expect(locale_text.has(TowerAscentSettlementLocalization.KEY_LOST_BUILD_CURRENCY_ROW), "%s settlement catalog must register the currency row" % locale)
+	LanguageSettings.set_test_locale_override("")
 
 
 func _verify_summary_assembly_contract() -> void:

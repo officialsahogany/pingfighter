@@ -11,6 +11,7 @@ const KEY_TRUE_ENDING_BODY := "tower_ascent.settlement.true_ending.body"
 const KEY_LOST_BUILD_TITLE := "tower_ascent.settlement.lost_build.title"
 const KEY_PERSISTENT_INCOME_TITLE := "tower_ascent.settlement.persistent_income.title"
 const KEY_EMPTY_BUILD := "tower_ascent.settlement.lost_build.empty"
+const KEY_LOST_BUILD_CURRENCY_ROW := "tower_ascent.settlement.lost_build.currency_row"
 const KEY_NO_NEW_DISCOVERY := "tower_ascent.settlement.persistent_income.no_discovery"
 const KEY_PROMPT := "tower_ascent.settlement.prompt"
 
@@ -25,8 +26,27 @@ const TEXT_BY_LOCALE := {
 		KEY_LOST_BUILD_TITLE: "이번 런에서 놓고 가는 것",
 		KEY_PERSISTENT_INCOME_TITLE: "이번 런이 남긴 것",
 		KEY_EMPTY_BUILD: "기록된 런 빌드 없음",
+		KEY_LOST_BUILD_CURRENCY_ROW: "무혼 {muhon} · 금화 {gold}",
 		KEY_NO_NEW_DISCOVERY: "새 도감 발견 없음",
 		KEY_PROMPT: "확인하여 등정을 마칩니다.",
+	},
+	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "Muhon {muhon} · Gold {gold}",
+	},
+	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "武魂 {muhon} · 金币 {gold}",
+	},
+	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "武魂 {muhon} · 金貨 {gold}",
+	},
+	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "Muhon {muhon} · Oro {gold}",
+	},
+	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "Muhon {muhon} · Ouro {gold}",
+	},
+	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_LOST_BUILD_CURRENCY_ROW: "Мухон {muhon} · Золото {gold}",
 	},
 }
 
@@ -49,7 +69,13 @@ static func get_registered_keys() -> Array[String]:
 
 static func get_missing_translation_locales() -> Array[String]:
 	var result: Array[String] = []
+	var registered_keys := get_registered_keys()
 	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
-		if locale != LanguageSettings.LANGUAGE_KOREAN and not TEXT_BY_LOCALE.has(locale):
-			result.append(locale)
+		if locale == LanguageSettings.LANGUAGE_KOREAN:
+			continue
+		var locale_text: Dictionary = TEXT_BY_LOCALE.get(locale, {})
+		for key in registered_keys:
+			if not locale_text.has(key):
+				result.append(locale)
+				break
 	return result

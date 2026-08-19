@@ -152,6 +152,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_node_modal_top_corner_uses_screen_coordinates()
+	_verify_balance_row_is_horizontal_unboxed_and_not_clickable()
 	_verify_playfield_phase_keeps_coordinate_projection()
 	_verify_reward_pick_uses_screen_coordinates_and_view_size()
 	_verify_six_card_grid_top_corners_match_hit_test()
@@ -187,6 +188,41 @@ func _verify_node_modal_top_corner_uses_screen_coordinates() -> void:
 	_expect(flow.confirmed, "the fullscreen node action's rendered top corner must be mouse-selectable")
 	_expect(flow.received_position.is_equal_approx(screen_top_corner), "NODE_MODAL must receive the same unscaled screen coordinate used by rendering")
 	_expect(not (screen_rects[0] as Rect2).has_point(old_projected), "counterproof requires the old playfield projection to miss the fullscreen action")
+
+
+func _verify_balance_row_is_horizontal_unboxed_and_not_clickable() -> void:
+	var flow := FakeFlow.new()
+	var screen_layout := flow.modal.build_screen_layout(LIVE_VIEW_SIZE)
+	var content_scale := float(screen_layout.get("content_scale", 1.0))
+	var content_offset: Vector2 = screen_layout.get("content_offset", Vector2.ZERO)
+	var renderer := TowerAscentFlowRenderer.new()
+	var balance_layout: Dictionary = renderer.build_balance_row_layout(content_scale, content_offset)
+	var entries: Array = balance_layout.get("entries", [])
+	_expect(entries.size() == 2, "balance row must append exactly two currency entries")
+	if entries.size() != 2:
+		return
+	var muhon_rect: Rect2 = (entries[0] as Dictionary).get("rect", Rect2())
+	var gold_rect: Rect2 = (entries[1] as Dictionary).get("rect", Rect2())
+	_expect(is_equal_approx(muhon_rect.position.y, gold_rect.position.y), "Muhon and gold must share one horizontal baseline")
+	_expect(is_equal_approx(muhon_rect.size.y, gold_rect.size.y), "currency entries must share one row height")
+	_expect(gold_rect.position.x > muhon_rect.end.x, "currency entries must retain a positive horizontal gap")
+	_expect(not bool(balance_layout.get("uses_background_box", true)), "balance row contract must remove the surrounding box")
+	for entry_value in entries:
+		var entry := entry_value as Dictionary
+		var rect: Rect2 = entry.get("rect", Rect2())
+		var icon_center: Vector2 = entry.get("icon_center", Vector2.ZERO)
+		var text_rect: Rect2 = entry.get("text_rect", Rect2())
+		_expect(rect.has_point(icon_center), "currency icon center must be derived inside its entry")
+		_expect(text_rect.position.x > icon_center.x, "currency text must follow its icon on the same row")
+		var top_corner := rect.position + Vector2(2.0, 2.0)
+		_expect(not flow.modal.select_at_position(top_corner, LIVE_VIEW_SIZE), "balance top corner must not enter the action hit-test path")
+	var source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
+	var start := source.find("func _draw_balance_entry(")
+	var finish := source.find("func _draw_gold_coin_icon(", start)
+	_expect(start >= 0 and finish > start, "balance drawer source contract must remain inspectable")
+	if start >= 0 and finish > start:
+		var drawer_source := source.substr(start, finish - start)
+		_expect(not drawer_source.contains("draw_rect("), "balance entry drawer must not restore a fill or border box")
 
 
 func _verify_playfield_phase_keeps_coordinate_projection() -> void:

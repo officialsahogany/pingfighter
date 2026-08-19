@@ -145,16 +145,16 @@ func _verify_common_shell_and_localization_catalog() -> void:
 		"id": "blocked_purchase",
 		"label": "시험 상품",
 		"enabled": false,
-		"unavailable_reason": "골드 10 부족",
+		"unavailable_reason": "금화 10 부족",
 	}])
 	var model: Dictionary = state.build_view_model()
 	_expect(str(model.get("title", "")) == "상점", "node shell must resolve its title through the tower localization catalog")
 	_expect(str(model.get("muhon_text", "")) == "무혼 12", "node shell must show the run muhon balance")
-	_expect(str(model.get("gold_text", "")) == "골드 91", "node shell must show the run gold balance")
+	_expect(str(model.get("gold_text", "")) == "금화 91", "node shell must show the localized run gold balance")
 	var actions: Array = model.get("actions", [])
 	_expect(actions.size() == 2, "node shell must append one shared end-work action")
 	_expect(not bool((actions[0] as Dictionary).get("enabled", true)), "disabled actions must remain disabled")
-	_expect(str((actions[0] as Dictionary).get("unavailable_reason", "")) == "골드 10 부족", "disabled actions must expose the shortage reason")
+	_expect(str((actions[0] as Dictionary).get("unavailable_reason", "")) == "금화 10 부족", "disabled actions must expose the shortage reason")
 	_expect(str((actions[1] as Dictionary).get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "shared end-work action must be the final action")
 
 	for text_value in TowerAscentNodeModalLocalization.TEXT_BY_LOCALE.get(
@@ -165,7 +165,35 @@ func _verify_common_shell_and_localization_catalog() -> void:
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
 	_expect(TowerAscentNodeModalLocalization.node_title("rest") == "휴식", "missing translations must fall back to registered Korean copy")
 	_expect(TowerAscentNodeModalLocalization.get_missing_translation_locales().has(LanguageSettings.LANGUAGE_ENGLISH), "the catalog must report untranslated supported locales")
+	_verify_gold_locale_copy()
 	LanguageSettings.set_test_locale_override("")
+
+
+func _verify_gold_locale_copy() -> void:
+	var expected := {
+		LanguageSettings.LANGUAGE_KOREAN: ["금화 91", "91 금화", "금화 120 필요, 29 부족"],
+		LanguageSettings.LANGUAGE_ENGLISH: ["Gold 91", "91 Gold", "Requires 120 Gold, 29 short"],
+		LanguageSettings.LANGUAGE_CHINESE: ["金币 91", "91 金币", "需要 120 金币，还差 29"],
+		LanguageSettings.LANGUAGE_JAPANESE: ["金貨 91", "91 金貨", "金貨が120必要、あと29"],
+		LanguageSettings.LANGUAGE_SPANISH: ["Oro 91", "91 de oro", "Se necesitan 120 de oro, faltan 29"],
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: ["Ouro 91", "91 de ouro", "Requer 120 de ouro, faltam 29"],
+		LanguageSettings.LANGUAGE_RUSSIAN: ["Золото: 91", "91 золота", "Нужно 120 золота, не хватает 29"],
+	}
+	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		var copy: Array = expected.get(locale, [])
+		_expect(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_BALANCE_GOLD,
+			{"amount": 91}
+		) == str(copy[0]), "%s gold balance copy must use its locale block" % locale)
+		_expect(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_COST_GOLD,
+			{"amount": 91}
+		) == str(copy[1]), "%s gold cost copy must use its locale block" % locale)
+		_expect(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_GOLD,
+			{"required": 120, "shortfall": 29}
+		) == str(copy[2]), "%s insufficient-gold copy must use its locale block" % locale)
 
 
 func _verify_production_entry_lifecycle_and_exit() -> void:

@@ -9,6 +9,9 @@ const TowerAscentMapOverlayLocalization := preload(
 const PlazaInteriorRoomRenderer := preload(
 	"res://scripts/plaza/plaza_interior_room_renderer.gd"
 )
+const CommonStarpointVisualHost := preload(
+	"res://scripts/effects/common_starpoint_visual_host.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -50,6 +53,13 @@ const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
 const MAP_NODE_RADIUS := 6.0
 const ACTIVE_NODE_RADIUS := 13.0
+const BALANCE_ROW_RECT := Rect2(170.0, 240.0, 420.0, 42.0)
+const BALANCE_ENTRY_GAP := 36.0
+const BALANCE_ICON_SIZE := 20.0
+const BALANCE_ICON_LEFT_PAD := 12.0
+const BALANCE_TEXT_GAP := 10.0
+const BALANCE_FONT_SIZE := 18.0
+const BALANCE_TEXT_OUTLINE_SIZE := 2.0
 
 const INK := Color("30271f")
 const INK_SOFT := Color("665343")
@@ -1264,18 +1274,21 @@ func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
 		maxi(10, int(round(16.0 * content_scale))),
 		INK_SOFT
 	)
-	_draw_balance_badge(
-		canvas,
-		_screen_rect(Rect2(190.0, 242.0, 176.0, 38.0), content_scale, content_offset),
-		str(model.get("muhon_text", "무혼 0")),
-		content_scale
-	)
-	_draw_balance_badge(
-		canvas,
-		_screen_rect(Rect2(394.0, 242.0, 176.0, 38.0), content_scale, content_offset),
-		str(model.get("gold_text", "골드 0")),
-		content_scale
-	)
+	var balance_layout := build_balance_row_layout(content_scale, content_offset)
+	var balance_entries: Array = balance_layout.get("entries", [])
+	if balance_entries.size() == 2:
+		_draw_balance_entry(
+			canvas,
+			balance_entries[0] as Dictionary,
+			str(model.get("muhon_text", "")),
+			content_scale
+		)
+		_draw_balance_entry(
+			canvas,
+			balance_entries[1] as Dictionary,
+			str(model.get("gold_text", "")),
+			content_scale
+		)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var selected_index := int(model.get("selected_index", 0))
@@ -1309,22 +1322,120 @@ func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
 	)
 
 
-func _draw_balance_badge(
+func build_balance_row_layout(
+	content_scale: float = 1.0,
+	content_offset: Vector2 = Vector2.ZERO
+) -> Dictionary:
+	var safe_scale := maxf(0.001, content_scale)
+	var row_rect := _screen_rect(BALANCE_ROW_RECT, safe_scale, content_offset)
+	var gap := BALANCE_ENTRY_GAP * safe_scale
+	var entry_width := (row_rect.size.x - gap) * 0.5
+	var entry_size := Vector2(entry_width, row_rect.size.y)
+	var entries: Array[Dictionary] = []
+	for index in range(2):
+		var entry_rect := Rect2(
+			row_rect.position + Vector2(float(index) * (entry_width + gap), 0.0),
+			entry_size
+		)
+		var icon_size := BALANCE_ICON_SIZE * safe_scale
+		var icon_center := Vector2(
+			entry_rect.position.x + BALANCE_ICON_LEFT_PAD * safe_scale + icon_size * 0.5,
+			entry_rect.get_center().y
+		)
+		var text_left := icon_center.x + icon_size * 0.5 + BALANCE_TEXT_GAP * safe_scale
+		entries.append({
+			"currency": "muhon" if index == 0 else "gold",
+			"rect": entry_rect,
+			"icon_center": icon_center,
+			"icon_size": icon_size,
+			"text_rect": Rect2(
+				Vector2(text_left, entry_rect.position.y),
+				Vector2(maxf(0.0, entry_rect.end.x - text_left), entry_rect.size.y)
+			),
+		})
+	return {
+		"row_rect": row_rect,
+		"entries": entries,
+		"uses_background_box": false,
+	}
+
+
+func _draw_balance_entry(
 	canvas: CanvasItem,
-	rect: Rect2,
+	entry: Dictionary,
 	label: String,
 	content_scale: float = 1.0
 ) -> void:
-	canvas.draw_rect(rect, Color(PAPER_DEEP, 0.62), true)
-	canvas.draw_rect(rect, GOLD, false, 1.5 * content_scale)
+	var rect: Rect2 = entry.get("rect", Rect2())
+	var icon_center: Vector2 = entry.get("icon_center", rect.get_center())
+	var icon_size := maxf(1.0, float(entry.get("icon_size", BALANCE_ICON_SIZE * content_scale)))
+	if str(entry.get("currency", "")) == "muhon":
+		CommonStarpointVisualHost.draw_muhon_fallback(
+			canvas,
+			icon_center,
+			icon_size * 0.34,
+			1.0,
+			0.62,
+			false,
+			0.0
+		)
+	else:
+		_draw_gold_coin_icon(canvas, icon_center, icon_size, content_scale)
+	var text_rect: Rect2 = entry.get("text_rect", rect)
+	var font_size := maxi(10, int(round(BALANCE_FONT_SIZE * content_scale)))
+	var baseline := Vector2(
+		text_rect.position.x,
+		rect.position.y + (rect.size.y - float(font_size)) * 0.5 + float(font_size) * 0.82
+	)
+	var outline_size := maxi(1, int(round(BALANCE_TEXT_OUTLINE_SIZE * content_scale)))
+	canvas.draw_string_outline(
+		ThemeDB.fallback_font,
+		baseline,
+		label,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		text_rect.size.x,
+		font_size,
+		outline_size,
+		Color(PAPER, 0.94)
+	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
-		Vector2(rect.position.x, rect.position.y + 25.0 * content_scale),
+		baseline,
 		label,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		rect.size.x,
-		maxi(10, int(round(16.0 * content_scale))),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		text_rect.size.x,
+		font_size,
 		INK
+	)
+
+
+func _draw_gold_coin_icon(
+	canvas: CanvasItem,
+	center: Vector2,
+	size: float,
+	content_scale: float
+) -> void:
+	var radius := maxf(4.0, size * 0.5)
+	canvas.draw_circle(center, radius, Color(0.78, 0.55, 0.14, 1.0))
+	canvas.draw_circle(
+		center,
+		maxf(1.0, radius - 1.8 * content_scale),
+		Color(1.0, 0.82, 0.26, 1.0)
+	)
+	canvas.draw_arc(
+		center,
+		maxf(1.0, radius - 3.0 * content_scale),
+		0.0,
+		TAU,
+		20,
+		Color(0.80, 0.56, 0.16, 0.45),
+		maxf(1.0, content_scale),
+		true
+	)
+	canvas.draw_circle(
+		center + Vector2(-radius * 0.26, -radius * 0.30),
+		maxf(1.0, radius * 0.26),
+		Color(1.0, 0.95, 0.66, 0.55)
 	)
 
 

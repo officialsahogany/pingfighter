@@ -76,12 +76,12 @@ const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_KOREAN: {
 		KEY_HEADER_TITLE: "승천탑 행로",
 		KEY_BALANCE_MUHON: "무혼 {amount}",
-		KEY_BALANCE_GOLD: "골드 {amount}",
+		KEY_BALANCE_GOLD: "금화 {amount}",
 		KEY_END_WORK: "업무 종료",
 		KEY_STATUS_READY: "할 일을 고르거나 업무를 마치세요.",
 		KEY_STATUS_DISABLED: "지금은 선택할 수 없습니다.",
-		KEY_COST_GOLD: "{amount} 골드",
-		KEY_INSUFFICIENT_GOLD: "골드 {required} 필요, {shortfall} 부족",
+		KEY_COST_GOLD: "{amount} 금화",
+		KEY_INSUFFICIENT_GOLD: "금화 {required} 필요, {shortfall} 부족",
 		KEY_SHOP_PREMIUM_ITEM: "귀물 진열: {name}",
 		KEY_SHOP_CAPSULE: "액티브 캡슐",
 		KEY_SHOP_CHANCE_GEM: "기회의 보석",
@@ -139,6 +139,36 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.title": "행로 정비",
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
+	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_BALANCE_GOLD: "Gold {amount}",
+		KEY_COST_GOLD: "{amount} Gold",
+		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
+	},
+	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_BALANCE_GOLD: "金币 {amount}",
+		KEY_COST_GOLD: "{amount} 金币",
+		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
+	},
+	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_BALANCE_GOLD: "金貨 {amount}",
+		KEY_COST_GOLD: "{amount} 金貨",
+		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
+	},
+	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_BALANCE_GOLD: "Oro {amount}",
+		KEY_COST_GOLD: "{amount} de oro",
+		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
+	},
+	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_BALANCE_GOLD: "Ouro {amount}",
+		KEY_COST_GOLD: "{amount} de ouro",
+		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
+	},
+	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_BALANCE_GOLD: "Золото: {amount}",
+		KEY_COST_GOLD: "{amount} золота",
+		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
+	},
 }
 
 
@@ -169,7 +199,13 @@ static func get_registered_keys() -> Array[String]:
 
 static func get_missing_translation_locales() -> Array[String]:
 	var result: Array[String] = []
+	var registered_keys := get_registered_keys()
 	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
-		if locale != LanguageSettings.LANGUAGE_KOREAN and not TEXT_BY_LOCALE.has(locale):
-			result.append(locale)
+		if locale == LanguageSettings.LANGUAGE_KOREAN:
+			continue
+		var locale_text: Dictionary = TEXT_BY_LOCALE.get(locale, {})
+		for key in registered_keys:
+			if not locale_text.has(key):
+				result.append(locale)
+				break
 	return result

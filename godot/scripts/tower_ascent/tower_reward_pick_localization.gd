@@ -12,8 +12,8 @@ const TEXT := {
 		"es": "Continuar", "pt-BR": "Continuar", "ru": "Продолжить",
 	},
 	"balance": {
-		"ko": "보유 무혼 {amount}", "en": "Muhon {amount}", "zh": "武魂 {amount}", "ja": "武魂 {amount}",
-		"es": "Muhon {amount}", "pt-BR": "Muhon {amount}", "ru": "Мухон {amount}",
+		"ko": "무혼 : {amount}개", "en": "Muhon : {amount}", "zh": "武魂 : {amount}个", "ja": "武魂 : {amount}個",
+		"es": "Muhon : {amount}", "pt-BR": "Muhon : {amount}", "ru": "Мухон : {amount} шт.",
 	},
 	"price": {
 		"ko": "무혼 {amount}", "en": "{amount} Muhon", "zh": "武魂 {amount}", "ja": "武魂 {amount}",

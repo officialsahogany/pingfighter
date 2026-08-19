@@ -78,7 +78,7 @@ class CaptureRuntimeState:
 class CaptureFlowOwner:
 	extends RefCounted
 
-	var balances := {"muhon": 8, "gold": 0, "chance_gems": 3}
+	var balances := {"muhon": 7, "gold": 0, "chance_gems": 3}
 
 	func get_reward_pick_context() -> Dictionary:
 		return {

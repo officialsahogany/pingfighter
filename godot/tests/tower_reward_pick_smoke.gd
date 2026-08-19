@@ -381,6 +381,7 @@ class FakeScoreboard:
 func _init() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_seven_locale_copy_contract()
+	_verify_reward_balance_row_budget()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
 	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
@@ -410,6 +411,43 @@ func _verify_seven_locale_copy_contract() -> void:
 			var copy := str(entries.get(locale, ""))
 			_expect(not copy.is_empty(), "reward-pick copy must include %s for %s" % [locale, key])
 			_expect(copy.find("—") < 0, "reward-pick copy must not use an em dash: %s/%s" % [key, locale])
+	_expect(
+		TowerRewardPickLocalization.TEXT.balance.ko == "무혼 : {amount}개",
+		"Korean reward balance must keep the icon-colon-count copy contract"
+	)
+
+
+func _verify_reward_balance_row_budget() -> void:
+	var layout := RuntimePerkChoiceLayout.new().build_layout(
+		LIVE_VIEW_SIZE,
+		4,
+		true,
+		TowerRewardPickState.TEMP_REWARD_PICK_PANEL_GAP_PX
+	)
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var rows := renderer.build_tower_reward_balance_rows(
+		LIVE_VIEW_SIZE,
+		layout.get("title_pos", Vector2.ZERO),
+		minf(float(layout.get("layout_scale", 1.0)), 1.0),
+		"무혼 : 7개"
+	)
+	_expect(rows.size() == 1, "2020x1246 reward layout must append exactly one Muhon balance row")
+	if rows.size() == 1:
+		var row := rows[0] as Dictionary
+		var rect: Rect2 = row.get("rect", Rect2())
+		var icon_center: Vector2 = row.get("icon_center", Vector2.ZERO)
+		var text_rect: Rect2 = row.get("text_rect", Rect2())
+		_expect(Rect2(Vector2.ZERO, LIVE_VIEW_SIZE).encloses(rect), "reward balance row must remain inside the live viewport")
+		_expect(rect.has_point(icon_center), "reward balance icon must be derived inside the appended row")
+		_expect(text_rect.position.x > icon_center.x, "reward balance copy must follow the Muhon icon")
+		_expect(int(row.get("font_size", 0)) == int(RuntimePerkOverlayRenderer.TOWER_REWARD_BALANCE_FONT_SIZE), "live reward balance must use the enlarged base font")
+	var undersized_rows := renderer.build_tower_reward_balance_rows(
+		Vector2(220.0, 80.0),
+		Vector2(110.0, 40.0),
+		0.58,
+		"무혼 : 1234567개"
+	)
+	_expect(undersized_rows.size() == 0, "undersized reward layout must append zero clipped balance rows")
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:

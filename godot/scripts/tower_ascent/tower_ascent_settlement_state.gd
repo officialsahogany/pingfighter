@@ -148,7 +148,10 @@ static func build_lost_build_summary(
 	var muhon := maxi(0, int(run_economy.get("muhon", 0)))
 	var gold := maxi(0, int(run_economy.get("gold", 0)))
 	if muhon > 0 or gold > 0:
-		rows.append("무혼 %d · 골드 %d" % [muhon, gold])
+		rows.append(TowerAscentSettlementLocalization.text(
+			TowerAscentSettlementLocalization.KEY_LOST_BUILD_CURRENCY_ROW,
+			{"muhon": muhon, "gold": gold}
+		))
 	if rows.is_empty():
 		rows.append(TowerAscentSettlementLocalization.text(
 			TowerAscentSettlementLocalization.KEY_EMPTY_BUILD
