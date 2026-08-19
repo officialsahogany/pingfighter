@@ -12,10 +12,13 @@ const TowerAscentRouteCandidatePolicy := preload(
 const TowerAscentEnragedPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_enraged_policy.gd"
 )
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
 
 const GENERATOR_VERSION := "tower_map_v6_two_realms"
 const TOWER_FLOOR_COUNT := 12
-const STANDARD_CLEAR_FLOOR := 9
+const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
 const IMMORTAL_REALM_PHASE_ID := "phase_02_immortal_realm"
 const ROUTE_CANDIDATE_COUNT := 2
@@ -30,6 +33,7 @@ const NONCOMBAT_NODE_KINDS := [
 
 
 func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
+	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
 	var extra_combat_floor_count := rng.randi_range(
@@ -37,7 +41,10 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX
 	)
 	var standard_optional_floors: Array[int] = []
-	for floor_number in range(2, STANDARD_CLEAR_FLOOR):
+	var first_optional_floor := 1 if TowerAuditionBuildConfig.is_enabled() else 2
+	for floor_number in range(first_optional_floor, active_clear_floor):
+		if TowerAuditionBuildConfig.is_linear_floor(floor_number):
+			continue
 		standard_optional_floors.append(floor_number)
 	_shuffle_ints(standard_optional_floors, rng)
 	var combat_optional_floors := standard_optional_floors.slice(0, extra_combat_floor_count)
@@ -46,15 +53,28 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	var total_rows := 1 + (TOWER_FLOOR_COUNT - 1) * (
 		TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
 	)
+	if TowerAuditionBuildConfig.is_enabled():
+		total_rows += TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR
 	var global_row_index := 0
 	var floor_specs: Array[Dictionary] = []
 	for floor_number in range(1, TOWER_FLOOR_COUNT + 1):
 		var rows: Array[Dictionary] = []
-		if floor_number > 1:
+		var floor_one_audition_route := (
+			floor_number == 1 and TowerAuditionBuildConfig.is_enabled()
+		)
+		if floor_one_audition_route:
+			rows.append(_build_gatekeeper_row(
+				floor_number,
+				global_row_index,
+				total_rows,
+				active_clear_floor
+			))
+			global_row_index += 1
+		if floor_number > 1 or floor_one_audition_route:
 			for optional_index in range(TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR):
 				var node_kinds: Array[String] = []
 				var labels: Array[String] = []
-				if floor_number <= STANDARD_CLEAR_FLOOR and combat_optional_floors.has(floor_number):
+				if floor_number <= active_clear_floor and combat_optional_floors.has(floor_number):
 					node_kinds = ["combat", "enraged"]
 					labels = ["전투", "광폭화"]
 				else:
@@ -73,35 +93,34 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 					"kinds": node_kinds,
 					"labels": labels,
 					"display_y": _map_y(global_row_index, total_rows),
-					"route_locked": floor_number > STANDARD_CLEAR_FLOOR,
-					"content_state": "registry_only" if floor_number > STANDARD_CLEAR_FLOOR else "generated",
+					"route_locked": floor_number > active_clear_floor,
+					"content_state": "registry_only" if floor_number > active_clear_floor else "generated",
 				})
 				global_row_index += 1
-		rows.append({
-			"id": "floor_%02d_gatekeeper_row" % floor_number,
-			"candidate_count": 1,
-			"node_ids": ["floor_%02d_gatekeeper" % floor_number],
-			"kinds": ["boss"],
-			"labels": ["%d층 수문장" % floor_number],
-			"display_y": _map_y(global_row_index, total_rows),
-			"gatekeeper": true,
-			"floor_boundary": true,
-			"route_locked": floor_number > STANDARD_CLEAR_FLOOR,
-			"content_state": "registry_only" if floor_number > STANDARD_CLEAR_FLOOR else "generated",
-		})
-		global_row_index += 1
+		if not floor_one_audition_route:
+			rows.append(_build_gatekeeper_row(
+				floor_number,
+				global_row_index,
+				total_rows,
+				active_clear_floor
+			))
+			global_row_index += 1
 		floor_specs.append({"floor": floor_number, "rows": rows})
 	var generated := generate(map_seed, floor_specs)
 	if generated.is_empty():
 		return {}
 	var phase: Dictionary = generated.phases[0]
 	phase["total_floors"] = TOWER_FLOOR_COUNT
-	phase["standard_clear_floor"] = STANDARD_CLEAR_FLOOR
-	phase["entry_node_id"] = "floor_01_gatekeeper"
-	phase["initial_route_candidate_ids"] = [
-		"floor_02_route_01_lane_01",
-		"floor_02_route_01_lane_02",
-	]
+	phase["standard_clear_floor"] = active_clear_floor
+	var entry_node_id := _derive_entry_node_id(phase)
+	var initial_route_candidate_ids := _derive_outgoing_target_ids(
+		phase,
+		entry_node_id
+	)
+	if entry_node_id.is_empty() or initial_route_candidate_ids.size() != ROUTE_CANDIDATE_COUNT:
+		return {}
+	phase["entry_node_id"] = entry_node_id
+	phase["initial_route_candidate_ids"] = initial_route_candidate_ids
 	generated["phases"] = [phase]
 	var boss_decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
 	var decorated := TowerAscentEnragedPolicy.new().decorate_graph(
@@ -117,6 +136,7 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 
 
 func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
+	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
 	var phases_variant: Variant = graph.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).is_empty():
 		return {}
@@ -135,7 +155,7 @@ func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
 		if not (floor_variant is Dictionary):
 			continue
 		var floor_data := floor_variant as Dictionary
-		if int(floor_data.get("floor", 0)) > STANDARD_CLEAR_FLOOR:
+		if int(floor_data.get("floor", 0)) > active_clear_floor:
 			break
 		for row_variant in floor_data.get("rows", []):
 			if not (row_variant is Dictionary):
@@ -212,11 +232,65 @@ func generate(map_seed: int, floor_specs: Array) -> Dictionary:
 	}
 
 
+func _build_gatekeeper_row(
+	floor_number: int,
+	global_row_index: int,
+	total_rows: int,
+	active_clear_floor: int
+) -> Dictionary:
+	return {
+		"id": "floor_%02d_gatekeeper_row" % floor_number,
+		"candidate_count": 1,
+		"node_ids": ["floor_%02d_gatekeeper" % floor_number],
+		"kinds": ["boss"],
+		"labels": ["%d층 수문장" % floor_number],
+		"display_y": _map_y(global_row_index, total_rows),
+		"gatekeeper": true,
+		"floor_boundary": true,
+		"route_locked": floor_number > active_clear_floor,
+		"content_state": "registry_only" if floor_number > active_clear_floor else "generated",
+	}
+
+
+func _derive_entry_node_id(phase: Dictionary) -> String:
+	var floors_variant: Variant = phase.get("floors", [])
+	if not (floors_variant is Array) or (floors_variant as Array).is_empty():
+		return ""
+	var first_floor_variant: Variant = (floors_variant as Array)[0]
+	if not (first_floor_variant is Dictionary):
+		return ""
+	var rows_variant: Variant = (first_floor_variant as Dictionary).get("rows", [])
+	if not (rows_variant is Array) or (rows_variant as Array).is_empty():
+		return ""
+	var first_row_variant: Variant = (rows_variant as Array)[0]
+	if not (first_row_variant is Dictionary):
+		return ""
+	var node_ids_variant: Variant = (first_row_variant as Dictionary).get("node_ids", [])
+	if not (node_ids_variant is Array) or (node_ids_variant as Array).is_empty():
+		return ""
+	return str((node_ids_variant as Array)[0])
+
+
+func _derive_outgoing_target_ids(phase: Dictionary, source_node_id: String) -> Array[String]:
+	var targets: Array[String] = []
+	for edge_variant in phase.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		if str(edge.get("from", "")) != source_node_id:
+			continue
+		var target_id := str(edge.get("to", ""))
+		if not target_id.is_empty() and not targets.has(target_id):
+			targets.append(target_id)
+	return targets
+
+
 func encode_graph(graph: Dictionary) -> PackedByteArray:
 	return var_to_bytes(graph)
 
 
 func _split_tower_realms(graph: Dictionary) -> Dictionary:
+	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
 	var result := graph.duplicate(true)
 	var phases_variant: Variant = result.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).size() != 1:
@@ -234,7 +308,7 @@ func _split_tower_realms(graph: Dictionary) -> Dictionary:
 			continue
 		var node := (node_variant as Dictionary).duplicate(true)
 		var floor_number := int(node.get("floor", 0))
-		if floor_number <= STANDARD_CLEAR_FLOOR:
+		if floor_number <= active_clear_floor:
 			human_nodes.append(node)
 			human_node_ids[str(node.get("id", ""))] = true
 		else:
@@ -246,7 +320,7 @@ func _split_tower_realms(graph: Dictionary) -> Dictionary:
 		if not (floor_variant is Dictionary):
 			continue
 		var floor_data := (floor_variant as Dictionary).duplicate(true)
-		if int(floor_data.get("floor", 0)) <= STANDARD_CLEAR_FLOOR:
+		if int(floor_data.get("floor", 0)) <= active_clear_floor:
 			human_floors.append(floor_data)
 		else:
 			immortal_floors.append(floor_data)
@@ -262,23 +336,25 @@ func _split_tower_realms(graph: Dictionary) -> Dictionary:
 			human_edges.append(edge)
 		elif immortal_node_ids.has(from_id) and immortal_node_ids.has(to_id):
 			immortal_edges.append(edge)
-	if human_floors.size() != STANDARD_CLEAR_FLOOR or immortal_floors.size() != 3:
+	if (
+		human_floors.size() != active_clear_floor
+		or immortal_floors.size() != TOWER_FLOOR_COUNT - active_clear_floor
+	):
 		return {}
 	var human_phase := {
 		"id": HUMAN_REALM_PHASE_ID,
 		"display_name": "인간계",
 		"realm_kind": "human_realm",
 		"floor_start": 1,
-		"floor_end": STANDARD_CLEAR_FLOOR,
-		"total_floors": STANDARD_CLEAR_FLOOR,
+		"floor_end": active_clear_floor,
+		"total_floors": active_clear_floor,
 		"tower_total_floors": TOWER_FLOOR_COUNT,
-		"standard_clear_floor": STANDARD_CLEAR_FLOOR,
-		"entry_node_id": "floor_01_gatekeeper",
-		"initial_route_candidate_ids": [
-			"floor_02_route_01_lane_01",
-			"floor_02_route_01_lane_02",
-		],
-		"locked_phase_hints": [{
+		"standard_clear_floor": active_clear_floor,
+		"entry_node_id": str(source.get("entry_node_id", "")),
+		"initial_route_candidate_ids": (
+			source.get("initial_route_candidate_ids", []) as Array
+		).duplicate(),
+		"locked_phase_hints": [] if TowerAuditionBuildConfig.is_enabled() else [{
 			"phase_id": IMMORTAL_REALM_PHASE_ID,
 			"display_name": "신선계",
 			"floor_start": 10,
@@ -293,15 +369,15 @@ func _split_tower_realms(graph: Dictionary) -> Dictionary:
 		"id": IMMORTAL_REALM_PHASE_ID,
 		"display_name": "신선계",
 		"realm_kind": "immortal_realm",
-		"floor_start": 10,
+		"floor_start": active_clear_floor + 1,
 		"floor_end": 12,
-		"total_floors": 3,
+		"total_floors": TOWER_FLOOR_COUNT - active_clear_floor,
 		"tower_total_floors": TOWER_FLOOR_COUNT,
-		"standard_clear_floor": STANDARD_CLEAR_FLOOR,
-		"entry_node_id": "floor_10_route_01_lane_01",
+		"standard_clear_floor": active_clear_floor,
+		"entry_node_id": "floor_%02d_route_01_lane_01" % (active_clear_floor + 1),
 		"initial_route_candidate_ids": [
-			"floor_10_route_01_lane_01",
-			"floor_10_route_01_lane_02",
+			"floor_%02d_route_01_lane_01" % (active_clear_floor + 1),
+			"floor_%02d_route_01_lane_02" % (active_clear_floor + 1),
 		],
 		"floors": immortal_floors,
 		"nodes": immortal_nodes,

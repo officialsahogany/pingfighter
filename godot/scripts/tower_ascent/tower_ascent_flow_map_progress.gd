@@ -385,6 +385,7 @@ func get_selected_target_position() -> Vector2:
 	return _node_position(_selected_target_id)
 
 func _build_generated_graph(_current_stage: int) -> bool:
+	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
 	var generated: Dictionary = _map_generator.generate_tower(
 		_map_seed,
 		_run_state.get_skipped_boss_ids()
@@ -405,12 +406,12 @@ func _build_generated_graph(_current_stage: int) -> bool:
 	var valid: bool = (
 		str(phase.get("id", "")) == TowerAscentMapGenerator.HUMAN_REALM_PHASE_ID
 		and int(phase.get("floor_start", 0)) == 1
-		and int(phase.get("floor_end", 0)) == TowerAscentMapGenerator.STANDARD_CLEAR_FLOOR
-		and int(phase.get("total_floors", 0)) == TowerAscentMapGenerator.STANDARD_CLEAR_FLOOR
+		and int(phase.get("floor_end", 0)) == active_clear_floor
+		and int(phase.get("total_floors", 0)) == active_clear_floor
 		and str(immortal_phase.get("id", "")) == TowerAscentMapGenerator.IMMORTAL_REALM_PHASE_ID
-		and int(immortal_phase.get("floor_start", 0)) == 10
+		and int(immortal_phase.get("floor_start", 0)) == active_clear_floor + 1
 		and int(immortal_phase.get("floor_end", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT
-		and int(immortal_phase.get("total_floors", 0)) == 3
+		and int(immortal_phase.get("total_floors", 0)) == TowerAscentMapGenerator.TOWER_FLOOR_COUNT - active_clear_floor
 		and not _route_source_node_id.is_empty()
 		and _route_target_ids.size() == 2
 		and _get_node(_route_source_node_id).get("kind", "") == "boss"

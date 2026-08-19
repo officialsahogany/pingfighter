@@ -462,10 +462,10 @@ func _prepare_tower_ascent_vertical_slice(registry: Object, owner: Object) -> bo
 	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
 	if flow_owner == null or not flow_owner.has_method("prepare_vertical_slice_combat"):
 		return false
-	return bool(flow_owner.prepare_vertical_slice_combat(owner, {
-		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
-		"registry": registry,
-	}))
+	return bool(flow_owner.prepare_vertical_slice_combat(
+		owner,
+		_build_tower_flow_context(registry, owner)
+	))
 
 
 func _try_start_tower_ascent_vertical_slice(
@@ -483,10 +483,33 @@ func _try_start_tower_ascent_vertical_slice(
 		owner,
 		reset_game_callback
 	)
-	return bool(flow_owner.begin_vertical_slice(owner, finish_callback, {
+	return bool(flow_owner.begin_vertical_slice(
+		owner,
+		finish_callback,
+		_build_tower_flow_context(registry, owner)
+	))
+
+
+func _build_tower_flow_context(registry: Object, owner: Object) -> Dictionary:
+	var context := {
 		"current_stage": int(_get_owner_value(owner, "current_stage", 1)),
 		"registry": registry,
-	}))
+		"run_finish_callback": Callable(self, "_exit_to_main_menu").bind(owner),
+	}
+	var map_seed := _get_tower_map_seed(owner)
+	if map_seed != 0:
+		context["map_seed"] = map_seed
+	return context
+
+
+func _get_tower_map_seed(owner: Object) -> int:
+	if owner == null or not owner.has_method("get_node_or_null"):
+		return 0
+	var selection_state: Object = owner.get_node_or_null("/root/GameSelectionState")
+	if selection_state == null or not selection_state.has_method("get_selection"):
+		return 0
+	var selection: Dictionary = selection_state.get_selection()
+	return int(selection.get("tower_map_seed", 0))
 
 
 func _finish_tower_victory_flow(reset_game_callback: Callable) -> void:

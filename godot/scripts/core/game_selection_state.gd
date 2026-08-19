@@ -5,6 +5,9 @@ signal selection_changed(selection: Dictionary)
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
 
 const DEFAULT_CHARACTER_ID := "ufo_player"
 const DEFAULT_RUNTIME_CHARACTER_ID := "smasher"
@@ -26,6 +29,7 @@ var stage_boss_variant: String = ""
 var skip_battle_logo_once: bool = false
 var _character_prologue_entry_requested: bool = false
 var _tower_start_card_entry_requested: bool = false
+var tower_map_seed: int = 0
 var _pending_online_match_request: Dictionary = {}
 var _online_match_skip_logo_armed := false
 
@@ -143,6 +147,16 @@ func consume_character_prologue_entry_request() -> bool:
 
 func request_tower_start_card_entry() -> void:
 	_tower_start_card_entry_requested = true
+	if TowerAuditionBuildConfig.is_enabled():
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		tower_map_seed = rng.randi_range(1, 0x7FFFFFFF)
+	else:
+		tower_map_seed = 0
+
+
+func debug_set_tower_map_seed(value: int) -> void:
+	tower_map_seed = maxi(0, value)
 
 
 func peek_tower_start_card_entry_request() -> bool:
@@ -203,6 +217,7 @@ func get_selection() -> Dictionary:
 		"stage1_boss_variant": stage1_boss_variant,
 		"stage1_boss_variant_explicit": stage1_boss_variant_explicit,
 		"stage_boss_variant": stage_boss_variant,
+		"tower_map_seed": tower_map_seed,
 	}
 
 

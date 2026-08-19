@@ -58,15 +58,17 @@ func begin_floor_nine_resolution(
 	if not ensure_run_started(owner):
 		return {"accepted": false, "reason": "run_unavailable"}
 	var normalized_resolution_id := resolution_id.strip_edges()
+	var clear_floor: int = TowerAuditionBuildConfig.get_clear_floor()
 	if normalized_resolution_id.is_empty():
 		normalized_resolution_id = _make_resolution_id(
-			"floor_09_fake_ending",
+			"floor_%02d_standard_clear" % clear_floor,
 			"ending_judgment"
 		)
 	var result: Dictionary = _ending_state.resolve_floor_nine(
 		_run_state.get_run_id(),
 		normalized_resolution_id,
-		_record_store
+		_record_store,
+		clear_floor
 	)
 	if not bool(result.get("accepted", false)):
 		return result
@@ -302,10 +304,11 @@ func choose_ending_route(choice: String) -> Dictionary:
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
 		return result
 	if choice.strip_edges().to_lower() == TowerAscentEndingState.CHOICE_DESCEND:
+		var clear_floor: int = _ending_state.get_clear_floor()
 		return begin_run_settlement(
 			TowerAscentSettlementState.RESULT_STANDARD_CLEAR,
-			9,
-			_make_resolution_id("floor_09", "standard_clear_settlement"),
+			clear_floor,
+			_make_resolution_id("floor_%02d" % clear_floor, "standard_clear_settlement"),
 			_finish_callback,
 			_active_owner,
 			_active_registry
@@ -380,10 +383,11 @@ func _dismiss_fake_ending_teaser() -> void:
 	var result: Dictionary = _ending_state.mark_teaser_presented()
 	if not bool(result.get("accepted", false)) or not bool(result.get("changed", false)):
 		return
+	var clear_floor: int = _ending_state.get_clear_floor()
 	begin_run_settlement(
 		TowerAscentSettlementState.RESULT_STANDARD_CLEAR,
-		9,
-		_make_resolution_id("floor_09", "standard_clear_settlement"),
+		clear_floor,
+		_make_resolution_id("floor_%02d" % clear_floor, "standard_clear_settlement"),
 		_finish_callback,
 		_active_owner,
 		_active_registry

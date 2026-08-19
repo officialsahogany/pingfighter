@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
 
 const STATUS_PORTED := "ported"
 const STATUS_UNPORTED := "unported"
@@ -78,6 +81,20 @@ func get_floor_slots(floor_number: int) -> Array[Dictionary]:
 	return result
 
 
+func get_seeded_floor_slots(floor_number: int, map_seed: int) -> Array[Dictionary]:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = map_seed ^ 0x4D4150
+	var selected: Array[Dictionary] = []
+	for current_floor in range(1, floor_number + 1):
+		var slots := _get_generation_slots(current_floor)
+		if slots.is_empty():
+			continue
+		_shuffle_slots(slots, rng)
+		if current_floor == floor_number:
+			selected = slots
+	return selected
+
+
 func get_slot(slot_id: String) -> Dictionary:
 	for floor_number in range(1, 13):
 		for slot in get_floor_slots(floor_number):
@@ -139,7 +156,7 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 			var node := node_variant as Dictionary
 			if int(node.get("floor", 0)) == floor_number and str(node.get("kind", "")) in ["boss", "combat", "enraged"]:
 				boss_node_indexes.append(node_index)
-		var slots := get_floor_slots(floor_number)
+		var slots := _get_generation_slots(floor_number)
 		if boss_node_indexes.is_empty() or slots.is_empty():
 			continue
 		_shuffle_slots(slots, rng)
@@ -171,6 +188,17 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 	phase["nodes"] = nodes
 	result["phases"] = [phase]
 	return result
+
+
+func _get_generation_slots(floor_number: int) -> Array[Dictionary]:
+	var slots := get_floor_slots(floor_number)
+	if not TowerAuditionBuildConfig.is_linear_floor(floor_number):
+		return slots
+	var ported_slots: Array[Dictionary] = []
+	for slot in slots:
+		if str(slot.get("status", "")) == STATUS_PORTED:
+			ported_slots.append(slot)
+	return ported_slots
 
 
 func _slot_ids(slots: Array[Dictionary]) -> Array[String]:

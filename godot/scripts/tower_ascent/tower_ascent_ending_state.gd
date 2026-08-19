@@ -6,6 +6,9 @@ const TowerAscentEndingLocalization := preload(
 const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
 
 const JUDGMENT_NONE := ""
 const JUDGMENT_STANDARD_CLEAR := "standard_clear"
@@ -22,6 +25,7 @@ var _choice := ""
 var _route_unlocked := false
 var _terminal_committed := false
 var _selected_choice_index := 0
+var _clear_floor := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 
 
 func reset() -> void:
@@ -34,12 +38,14 @@ func reset() -> void:
 	_route_unlocked = false
 	_terminal_committed = false
 	_selected_choice_index = 0
+	_clear_floor = TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 
 
 func resolve_floor_nine(
 	run_id: String,
 	resolution_id: String,
-	record_store: Object
+	record_store: Object,
+	clear_floor: int = TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 ) -> Dictionary:
 	var normalized_run_id := run_id.strip_edges()
 	var normalized_resolution_id := resolution_id.strip_edges()
@@ -59,6 +65,7 @@ func resolve_floor_nine(
 		return _result(false, false, "record_store_unavailable")
 
 	_resolution_id = normalized_resolution_id
+	_clear_floor = maxi(1, clear_floor)
 	if bool(record_store.call("has_fake_ending_clear")):
 		_judgment = JUDGMENT_CHOICE_REQUIRED
 		_choice_required = true
@@ -66,7 +73,7 @@ func resolve_floor_nine(
 
 	var record_result: Dictionary = record_store.call(
 		"record_clear",
-		9,
+		_clear_floor,
 		TowerAscentRecordStore.ENDING_STANDARD,
 		false,
 		"%s:standard_clear" % normalized_resolution_id
@@ -120,7 +127,7 @@ func commit_choice(choice: String, record_store: Object) -> Dictionary:
 			return _result(false, false, "record_store_unavailable")
 		var record_result: Dictionary = record_store.call(
 			"record_clear",
-			9,
+			_clear_floor,
 			TowerAscentRecordStore.ENDING_STANDARD,
 			false,
 			"%s:standard_clear" % _resolution_id
@@ -149,6 +156,7 @@ func export_state() -> Dictionary:
 		"route_unlocked": _route_unlocked,
 		"terminal_committed": _terminal_committed,
 		"selected_choice_index": _selected_choice_index,
+		"clear_floor": _clear_floor,
 	}
 
 
@@ -169,6 +177,7 @@ func restore_state(value: Variant) -> bool:
 	_route_unlocked = bool(source.get("route_unlocked", false))
 	_terminal_committed = bool(source.get("terminal_committed", false))
 	_selected_choice_index = clampi(int(source.get("selected_choice_index", 0)), 0, 1)
+	_clear_floor = maxi(1, int(source.get("clear_floor", TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR)))
 	if _judgment == JUDGMENT_NONE:
 		return _resolution_id.is_empty()
 	if _resolution_id.is_empty():
@@ -182,6 +191,10 @@ func restore_state(value: Variant) -> bool:
 	if _choice == CHOICE_CONTINUE:
 		return not _choice_required and not _terminal_committed and _route_unlocked
 	return false
+
+
+func get_clear_floor() -> int:
+	return _clear_floor
 
 
 func build_teaser_view_model() -> Dictionary:

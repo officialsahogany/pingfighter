@@ -4,6 +4,12 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
 const DEFAULT_LEAGUE_MODE := "junior"
 # Player-facing Stage 1 roulette pool. Dalji-only by explicit decision
 # (2026-07-04): Gaksital / Pododaejang stay debug-picker-only (explicit
@@ -121,6 +127,12 @@ func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> Str
 		return "dalji"
 	if bool(selection.get("stage1_boss_variant_explicit", false)):
 		return normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
+	if TowerAuditionBuildConfig.is_enabled():
+		var map_seed := int(selection.get("tower_map_seed", 0))
+		if map_seed != 0:
+			var seeded_slots := TowerAscentBossRegistry.new().get_seeded_floor_slots(1, map_seed)
+			if not seeded_slots.is_empty():
+				return normalize_stage1_boss_variant(str(seeded_slots[0].get("variant", "dalji")))
 	return select_random_stage1_boss_variant()
 
 

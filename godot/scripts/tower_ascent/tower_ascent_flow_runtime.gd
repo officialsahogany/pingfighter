@@ -34,12 +34,36 @@ func begin_vertical_slice(
 	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
 	_current_node_id = _route_source_node_id
+	if _is_audition_terminal_node(_get_node(_current_node_id)):
+		var terminal_callback := finish_callback
+		var callback_variant: Variant = context.get("run_finish_callback", Callable())
+		if callback_variant is Callable and (callback_variant as Callable).is_valid():
+			terminal_callback = callback_variant as Callable
+		var clear_result := begin_floor_nine_resolution(
+			"",
+			terminal_callback,
+			owner,
+			_active_registry
+		)
+		if bool(clear_result.get("accepted", false)):
+			return true
+		_modal_lifecycle.leave()
+		_reset_runtime_state()
+		push_warning("[TowerAscent] begin rejected: audition_clear_resolution_failed")
+		return false
 	if not _enter_route_aim():
 		_reset_runtime_state()
 		push_warning("[TowerAscent] begin rejected: route_aim_failed")
 		return false
 	_request_redraw(owner)
 	return true
+
+
+func _is_audition_terminal_node(node: Dictionary) -> bool:
+	return (
+		bool(node.get("gatekeeper", false))
+		and TowerAuditionBuildConfig.is_terminal_floor(int(node.get("floor", 0)))
+	)
 
 
 func open_map_overlay(
