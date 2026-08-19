@@ -7,6 +7,15 @@ const IDLE_FRAME_COUNT := 8
 const SPRITE_FRAME_COUNT := 6
 const IDLE_ANIMATION_SPEED := 0.15
 const SPRITE_ANIMATION_SPEED := 0.10
+# Walk frames advance per pixel actually travelled, not per second, so the
+# cadence tracks accel/decel/turn-inertia instead of running at a fixed rate.
+# The live budget arrives as `player_walk_distance_per_frame` from the sprite
+# context builder, which derives it per character. This fallback is the Smasher
+# value: PADDLE_MAX_SPEED (6.0 px/physics-tick) * 60 fps *
+# SMASHER_DIRECTIONAL_WALK_FRAME_SPEED (0.050 s) = 18.0, so at full speed the
+# cadence matches the previous timer. Below full speed it slows down, and at a
+# clamped wall it stops (GRT-012: drawn movement drives the walk gate).
+const WALK_DISTANCE_PER_FRAME_PX := 18.0
 const HIT_ANIM_DURATION := 0.36
 const HIT_FRAME_COUNT := 4
 const ATTACK_X_TOLERANCE_EXTRA := 18.0
@@ -26,6 +35,12 @@ var idle_frame := 0
 var idle_timer := 0.0
 var sprite_frame := 0
 var sprite_timer := 0.0
+# Walk odometer: distance actually drawn since the last frame advance, and the
+# previous drawn x. `has_walk_anchor` keeps the first update from reading a
+# bogus delta against an unseeded anchor.
+var walk_distance := 0.0
+var last_walk_x := 0.0
+var has_walk_anchor := false
 var hit_active := false
 var hit_timer := 0.0
 var hit_base_duration := HIT_ANIM_DURATION
@@ -105,18 +120,45 @@ func update(delta: float, context: Dictionary) -> void:
 			)
 		return
 
-	var player_is_moving: bool = abs(float(context.get("player_speed", 0.0))) > 0.2 or bool(context.get("dash_active", false))
+	# `player_speed` is intent, not travel: update_horizontal() clamps player_pos
+	# at the wall but returns the un-zeroed speed (it still feeds ball physics),
+	# so speed alone keeps the walk cycle running in place. Gate on the drawn x.
+	var dash_active: bool = bool(context.get("dash_active", false))
+	var player_x: float = _get_vector2(context, "player_pos", Vector2.ZERO).x
+	var travelled: float = absf(player_x - last_walk_x) if has_walk_anchor else 0.0
+	last_walk_x = player_x
+	has_walk_anchor = true
+	var player_is_moving: bool = dash_active or (
+		absf(float(context.get("player_speed", 0.0))) > 0.2 and travelled > 0.0
+	)
 	if player_is_moving and bool(context.get("player_has_sprite", false)):
-		sprite_timer += delta
-		var walk_speed: float = float(context.get("player_sprite_animation_speed", SPRITE_ANIMATION_SPEED))
-		if sprite_timer >= walk_speed:
-			sprite_timer -= walk_speed
-			sprite_frame = (sprite_frame + 1) % max(1, int(context.get("player_sprite_frame_count", SPRITE_FRAME_COUNT)))
+		# Dash rides its own sheet and can be positionally locked, so it keeps the
+		# timer cadence; walking is driven by the odometer.
+		if dash_active:
+			sprite_timer += delta
+			var walk_speed: float = float(context.get("player_sprite_animation_speed", SPRITE_ANIMATION_SPEED))
+			if sprite_timer >= walk_speed:
+				sprite_timer -= walk_speed
+				sprite_frame = (sprite_frame + 1) % max(1, int(context.get("player_sprite_frame_count", SPRITE_FRAME_COUNT)))
+		else:
+			# A missing or non-positive budget must fall back to the authored
+			# constant, never to a near-zero budget that would advance a frame
+			# per pixel.
+			var distance_budget: float = float(context.get("player_walk_distance_per_frame", 0.0))
+			if distance_budget <= 0.0:
+				distance_budget = WALK_DISTANCE_PER_FRAME_PX
+			walk_distance += travelled
+			if walk_distance >= distance_budget:
+				# One frame per update, mirroring the previous timer: a knockback or
+				# teleport must not spin the cycle through several frames at once.
+				walk_distance -= distance_budget
+				sprite_frame = (sprite_frame + 1) % max(1, int(context.get("player_sprite_frame_count", SPRITE_FRAME_COUNT)))
 		idle_timer = 0.0
 		idle_frame = 0
 	else:
 		sprite_timer = 0.0
 		sprite_frame = 0
+		walk_distance = 0.0
 		if bool(context.get("player_has_idle_sprite", false)):
 			idle_timer += delta
 			var idle_speed: float = float(context.get("player_idle_animation_speed", IDLE_ANIMATION_SPEED))

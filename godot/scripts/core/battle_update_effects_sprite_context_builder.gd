@@ -6,6 +6,12 @@ const PLAYER_DIRECTIONAL_ATTACK_ANIM_DURATION: float = 0.72
 const PLAYER_LEGACY_ATTACK_ANIM_DURATION: float = 0.40
 const SMASHER_DIRECTIONAL_WALK_FRAME_COUNT: int = 8
 const SMASHER_DIRECTIONAL_WALK_FRAME_SPEED: float = 0.050
+# Walk frames advance per pixel actually travelled (see
+# player_actor_animation_state.gd). The budget is derived per character so that
+# at that character's own top speed the cadence is identical to the previous
+# time-based timer: px_per_frame = top_speed(px/physics-tick) * 60 * frame_speed.
+# Below top speed it slows with the paddle; at a clamped wall it stops.
+const MOVEMENT_REFERENCE_FPS: float = 60.0
 const SMASHER_DIRECTIONAL_DASH_FRAME_COUNT: int = 8
 const SMASHER_IDLE_FRAME_COUNT: int = 8
 const COMMANDO_IDLE_FRAME_COUNT: int = 8
@@ -97,6 +103,7 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		"player_has_idle_sprite": has_idle_sprite,
 		"player_sprite_frame_count": sprite_frame_count,
 		"player_sprite_animation_speed": sprite_frame_speed,
+		"player_walk_distance_per_frame": _walk_distance_per_frame(normalized_character, sprite_frame_speed),
 		"player_has_dash_sheet": has_directional_dash_sheet,
 		"player_dash_frame_count": SMASHER_DIRECTIONAL_DASH_FRAME_COUNT if has_directional_dash_sheet else 0,
 		"player_idle_frame_count": COMMANDO_IDLE_FRAME_COUNT if has_commando_idle_sheet else (SMASHER_IDLE_FRAME_COUNT if has_smasher_idle_sheet or has_blacksmith_idle_sheet else 8),
@@ -122,6 +129,17 @@ func build_context(textures: Dictionary, character_type: Variant) -> Dictionary:
 		"boss_hit_frame_count": boss_hit_frame_count,
 		"boss_hit_frame_speed": boss_hit_frame_speed,
 	}
+
+
+## Pixels of drawn travel per walk frame, so each character keeps its own
+## full-speed cadence. Falls back to the shared 6.0 px/tick paddle speed when a
+## character has no base movement config.
+func _walk_distance_per_frame(character_type: String, frame_speed: float) -> float:
+	var top_speed: float = 6.0
+	if _character_runtime.has_method("get_base_movement_config"):
+		var movement_config: Dictionary = _character_runtime.get_base_movement_config(character_type)
+		top_speed = float(movement_config.get("paddle_max_speed", top_speed))
+	return maxf(1.0, top_speed * MOVEMENT_REFERENCE_FPS * frame_speed)
 
 
 func _has_texture(textures: Dictionary, key: String) -> bool:

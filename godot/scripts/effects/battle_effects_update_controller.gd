@@ -349,6 +349,7 @@ func _update_actor_animation(
 		"player_has_idle_sprite": bool(context.get("player_has_idle_sprite", false)),
 		"player_sprite_frame_count": int(context.get("player_sprite_frame_count", 6)),
 		"player_sprite_animation_speed": float(context.get("player_sprite_animation_speed", 0.10)),
+		"player_walk_distance_per_frame": float(context.get("player_walk_distance_per_frame", 0.0)),
 		"player_has_hit_sprite": bool(context.get("player_has_attack_sheet", false)),
 		"player_hit_frame_count": int(context.get("player_hit_frame_count", 4)),
 		"player_hit_linear_frames": bool(context.get("player_hit_linear_frames", false)),

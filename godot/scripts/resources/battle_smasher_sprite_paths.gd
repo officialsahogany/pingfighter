@@ -1,9 +1,12 @@
 extends RefCounted
 
 const PLAYER_SPRITE_PATH := "res://assets/sprites/smasher_walk_strip.png"
-# 환격전 한미량 리스타일 (2026-07-22): rear-view SD, 근두운 구름 탑승.
-# 구세대 서브컬처(smasher_rear_*_blue_energy / rugby_shoulder) 시트는 롤백
-# 레퍼런스로 디스크에 보존. attack 계열은 아직 구세대 — 후속 슬라이스.
+# Walk rides the same rear_cloud SD family as idle/dash. The 2026-08-19 SD
+# redraw refreshed idle/glide/dash together; only this walk pairing had been
+# left on the 08-09 gemini_v2 sheet, whose hair silhouette and plain cloud
+# read as a different character the moment the paddle starts moving.
+# The sd_unified candidates stay rejected references: their left sheet is an
+# independent draw (26px frame-to-frame motion), not a mirror of the right.
 const PLAYER_WALK_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_left_autosprite_v1_mirror_4x2_160_clean.png"
 const PLAYER_WALK_RIGHT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_glide_right_autosprite_v1_4x2_160_clean.png"
 const PLAYER_DASH_LEFT_SPRITE_PATH := "res://assets/sprites/smasher/hanmiryang_rear_cloud_dash_left_autosprite_v1_mirror_4x2_160_clean.png"
