@@ -225,13 +225,28 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			(model.get("world_rect", Rect2()) as Rect2).end
 		)
 	)
+	var camera_zoom_multiplier := maxf(
+		1.0,
+		float(transition_marker.get("camera_zoom_multiplier", 1.0))
+	)
+	var camera_focus_x_blend := clampf(
+		inverse_lerp(
+			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER,
+			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
+			camera_zoom_multiplier
+		),
+		0.0,
+		1.0
+	)
 	model["camera"] = TowerAscentMapCameraModel.build(
 		model.get("content_rect", Rect2()),
 		model.get("world_rect", Rect2()),
 		focus_world_position,
 		float(model.get("art_size", 0.0))
 			* TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
-		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO
+		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
+		camera_zoom_multiplier,
+		camera_focus_x_blend
 	)
 	return model
 
@@ -433,6 +448,9 @@ func _build_fullscreen_transition_marker(
 		"progress": travel_progress,
 		"scale": float(visual_model.get("marker_scale", 1.0)),
 		"alpha": float(visual_model.get("marker_alpha", 1.0)),
+		"camera_zoom_multiplier": float(
+			visual_model.get("camera_zoom_multiplier", 1.0)
+		),
 		"segment": str(visual_model.get("segment", "")),
 		"phase_entry": bool(flow.is_phase_entry_transition()),
 	}
@@ -478,6 +496,10 @@ func _draw_fullscreen_map_model(
 	var world_rect: Rect2 = model.get("world_rect", content_rect)
 	var camera_model: Dictionary = model.get("camera", {})
 	var camera_offset := _vector2(camera_model.get("offset", Vector2.ZERO))
+	var camera_zoom_multiplier := maxf(
+		1.0,
+		float(camera_model.get("zoom_multiplier", 1.0))
+	)
 	var realm_kind := str(model.get("realm_kind", "human_realm"))
 	var immortal_realm := realm_kind == "immortal_realm"
 	canvas.draw_rect(
@@ -496,7 +518,7 @@ func _draw_fullscreen_map_model(
 		world_rect,
 		model.get("floor_bands", []),
 		realm_kind,
-		camera_offset
+		camera_model
 	)
 	for edge_variant in model.get("edges", []):
 		if not (edge_variant is Dictionary):
@@ -507,13 +529,19 @@ func _draw_fullscreen_map_model(
 			-float(model.get("art_size", 0.0))
 				* TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO
 		)
-		canvas.draw_set_transform(camera_offset)
+		canvas.draw_set_transform(
+			camera_offset,
+			0.0,
+			Vector2.ONE * camera_zoom_multiplier
+		)
 		for dot_variant in dots:
 			if not (dot_variant is Dictionary):
 				continue
 			var dot := dot_variant as Dictionary
 			var center: Vector2 = dot.get("center", Vector2.ZERO)
-			if not dot_clip_rect.has_point(center + camera_offset):
+			if not dot_clip_rect.has_point(
+				_camera_world_to_screen(camera_model, center)
+			):
 				continue
 			canvas.draw_colored_polygon(
 				dot.get("outer_polygon", PackedVector2Array()),
@@ -536,14 +564,14 @@ func _draw_fullscreen_map_model(
 				current_node_id,
 				selected_target_id,
 				content_rect,
-				camera_offset
+				camera_model
 			)
 	_draw_fullscreen_transition_marker(
 		canvas,
 		model.get("transition_marker", {}),
 		walker_model,
 		float(model.get("art_size", 24.0)),
-		camera_offset
+		camera_model
 	)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
@@ -624,7 +652,7 @@ func _draw_fullscreen_castle(
 	world_rect: Rect2,
 	floor_bands_value: Variant,
 	realm_kind: String = "human_realm",
-	camera_offset: Vector2 = Vector2.ZERO
+	camera_model: Dictionary = {}
 ) -> void:
 	var tower_rect := Rect2(
 		content_rect.get_center().x - content_rect.size.x * 0.27,
@@ -639,7 +667,10 @@ func _draw_fullscreen_castle(
 		true
 	)
 	canvas.draw_rect(tower_rect, Color(GOLD, 0.5), false, 2.0)
-	var roof_y := world_rect.position.y + camera_offset.y - 9.0
+	var roof_y := _camera_world_to_screen(
+		camera_model,
+		Vector2(world_rect.get_center().x, world_rect.position.y - 9.0)
+	).y
 	if roof_y >= content_rect.position.y - 38.0 and roof_y <= content_rect.end.y + 12.0:
 		canvas.draw_colored_polygon(
 			PackedVector2Array([
@@ -657,10 +688,13 @@ func _draw_fullscreen_castle(
 			continue
 		var band := band_variant as Dictionary
 		var band_rect: Rect2 = band.get("rect", Rect2())
-		var projected_y := float(band.get("y", band_rect.get_center().y)) + camera_offset.y
-		var projected_rect := Rect2(
-			band_rect.position + camera_offset,
-			band_rect.size
+		var projected_y := _camera_world_to_screen(
+			camera_model,
+			Vector2(band_rect.get_center().x, float(band.get("y", band_rect.get_center().y)))
+		).y
+		var projected_rect := _camera_world_rect_to_screen(
+			camera_model,
+			band_rect
 		).intersection(content_rect)
 		if projected_rect.size.x <= 0.0 or projected_rect.size.y <= 0.0:
 			continue
@@ -747,7 +781,7 @@ func _draw_fullscreen_transition_marker(
 	marker_value: Variant,
 	walker_model: Dictionary = {},
 	art_size: float = 24.0,
-	camera_offset: Vector2 = Vector2.ZERO
+	camera_model: Dictionary = {}
 ) -> void:
 	if not (marker_value is Dictionary) or (marker_value as Dictionary).is_empty():
 		return
@@ -755,9 +789,14 @@ func _draw_fullscreen_transition_marker(
 	var progress := clampf(float(marker.get("progress", 0.0)), 0.0, 1.0)
 	var from_position := _vector2(marker.get("from_position", Vector2.ZERO))
 	var to_position := _vector2(marker.get("to_position", Vector2.ZERO))
-	var position := _vector2(
-		marker.get("world_position", from_position.lerp(to_position, progress))
-	) + camera_offset
+	var position := _camera_world_to_screen(
+		camera_model,
+		_vector2(marker.get("world_position", from_position.lerp(to_position, progress)))
+	)
+	var camera_zoom_multiplier := maxf(
+		1.0,
+		float(camera_model.get("zoom_multiplier", 1.0))
+	)
 	var marker_scale := clampf(float(marker.get("scale", 1.0)), 0.0, 1.0)
 	var marker_alpha := clampf(float(marker.get("alpha", 1.0)), 0.0, 1.0)
 	if marker_alpha <= 0.001 or marker_scale <= 0.001:
@@ -768,7 +807,7 @@ func _draw_fullscreen_transition_marker(
 		position,
 		bool(marker.get("facing_right", to_position.x >= from_position.x)),
 		progress,
-		art_size,
+		art_size * camera_zoom_multiplier,
 		marker_scale,
 		marker_alpha
 	):
@@ -849,15 +888,16 @@ func _draw_fullscreen_map_node(
 	current_node_id: String,
 	selected_target_id: String,
 	content_rect: Rect2,
-	camera_offset: Vector2 = Vector2.ZERO
+	camera_model: Dictionary = {}
 ) -> void:
 	var node_id := str(node.get("id", ""))
 	var node_kind := str(node.get("kind", "combat"))
 	var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
-	var art_rect := Rect2(world_art_rect.position + camera_offset, world_art_rect.size)
-	var screen_position: Vector2 = _vector2(
-		node.get("world_position", world_art_rect.get_center())
-	) + camera_offset
+	var art_rect := _camera_world_rect_to_screen(camera_model, world_art_rect)
+	var screen_position := _camera_world_to_screen(
+		camera_model,
+		_vector2(node.get("world_position", world_art_rect.get_center()))
+	)
 	if not content_rect.grow(-3.0).encloses(art_rect.grow(3.0)):
 		return
 	var current := node_id == current_node_id
@@ -1417,6 +1457,22 @@ func _screen_point(point: Vector2, scale_value: float, offset: Vector2) -> Vecto
 
 func _screen_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
 	return Rect2(_screen_point(rect.position, scale_value, offset), rect.size * scale_value)
+
+
+func _camera_world_to_screen(camera_model: Dictionary, point: Vector2) -> Vector2:
+	return _screen_point(
+		point,
+		maxf(1.0, float(camera_model.get("zoom_multiplier", 1.0))),
+		_vector2(camera_model.get("offset", Vector2.ZERO))
+	)
+
+
+func _camera_world_rect_to_screen(camera_model: Dictionary, rect: Rect2) -> Rect2:
+	return _screen_rect(
+		rect,
+		maxf(1.0, float(camera_model.get("zoom_multiplier", 1.0))),
+		_vector2(camera_model.get("offset", Vector2.ZERO))
+	)
 
 
 func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:

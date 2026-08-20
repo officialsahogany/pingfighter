@@ -6,9 +6,11 @@ const TowerAscentTuning := preload(
 
 const SEGMENT_BATTLE_FADE_OUT := "battle_fade_out"
 const SEGMENT_MAP_FADE_IN := "map_fade_in"
+const SEGMENT_CAMERA_ZOOM_IN := "camera_zoom_in"
 const SEGMENT_TRAVEL := "travel"
 const SEGMENT_ARRIVE_VANISH := "arrive_vanish"
 const SEGMENT_MAP_FADE_OUT := "map_fade_out"
+const SEGMENT_BOUNDARY_EPSILON_SEC := 0.000001
 
 var _transition_elapsed_sec := 0.0
 var _transition_active := false
@@ -36,7 +38,7 @@ func update_map_transition(delta: float) -> bool:
 		return false
 	# A one-second-or-larger gap means the app was suspended or the window was
 	# dragged. Do not strand a physics-blocking presentation after resume. Normal
-	# 72 Hz ticks still advance the exact five-beat duration deterministically.
+	# 72 Hz ticks still advance the exact six-beat duration deterministically.
 	var elapsed_step := (
 		get_map_transition_duration_sec()
 		if delta >= 1.0
@@ -69,6 +71,7 @@ func get_map_transition_duration_sec() -> float:
 	return (
 		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
@@ -83,7 +86,10 @@ func get_map_transition_visual_model() -> Dictionary:
 	)
 	var battle_fade_end := TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
 	var map_fade_end := battle_fade_end + TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
-	var travel_end := map_fade_end + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+	var camera_zoom_end := (
+		map_fade_end + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+	)
+	var travel_end := camera_zoom_end + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 	var vanish_end := travel_end + TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
 	var segment := SEGMENT_MAP_FADE_OUT
 	var local_progress := _ratio(
@@ -95,7 +101,8 @@ func get_map_transition_visual_model() -> Dictionary:
 	var travel_progress := 1.0
 	var marker_scale := 0.0
 	var marker_alpha := 0.0
-	if elapsed < battle_fade_end:
+	var camera_zoom_multiplier := TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+	if _is_before_segment_boundary(elapsed, battle_fade_end):
 		segment = SEGMENT_BATTLE_FADE_OUT
 		local_progress = _ratio(elapsed, TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC)
 		blackout_alpha = local_progress
@@ -103,7 +110,8 @@ func get_map_transition_visual_model() -> Dictionary:
 		travel_progress = 0.0
 		marker_scale = 1.0
 		marker_alpha = 1.0
-	elif elapsed < map_fade_end:
+		camera_zoom_multiplier = TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER
+	elif _is_before_segment_boundary(elapsed, map_fade_end):
 		segment = SEGMENT_MAP_FADE_IN
 		local_progress = _ratio(
 			elapsed - battle_fade_end,
@@ -113,17 +121,33 @@ func get_map_transition_visual_model() -> Dictionary:
 		travel_progress = 0.0
 		marker_scale = 1.0
 		marker_alpha = 1.0
-	elif elapsed < travel_end:
-		segment = SEGMENT_TRAVEL
+		camera_zoom_multiplier = TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER
+	elif _is_before_segment_boundary(elapsed, camera_zoom_end):
+		segment = SEGMENT_CAMERA_ZOOM_IN
 		local_progress = _ratio(
 			elapsed - map_fade_end,
+			TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+		)
+		blackout_alpha = 0.0
+		travel_progress = 0.0
+		marker_scale = 1.0
+		marker_alpha = 1.0
+		camera_zoom_multiplier = lerpf(
+			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER,
+			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
+			smoothstep(0.0, 1.0, local_progress)
+		)
+	elif _is_before_segment_boundary(elapsed, travel_end):
+		segment = SEGMENT_TRAVEL
+		local_progress = _ratio(
+			elapsed - camera_zoom_end,
 			TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 		)
 		blackout_alpha = 0.0
 		travel_progress = smoothstep(0.0, 1.0, local_progress)
 		marker_scale = 1.0
 		marker_alpha = 1.0
-	elif elapsed < vanish_end:
+	elif _is_before_segment_boundary(elapsed, vanish_end):
 		segment = SEGMENT_ARRIVE_VANISH
 		local_progress = _ratio(
 			elapsed - travel_end,
@@ -142,6 +166,7 @@ func get_map_transition_visual_model() -> Dictionary:
 		"travel_progress": clampf(travel_progress, 0.0, 1.0),
 		"marker_scale": clampf(marker_scale, 0.0, 1.0),
 		"marker_alpha": clampf(marker_alpha, 0.0, 1.0),
+		"camera_zoom_multiplier": maxf(1.0, camera_zoom_multiplier),
 	}
 
 
@@ -212,3 +237,7 @@ func is_map_overlay_fading_closed() -> bool:
 
 func _ratio(value: float, duration: float) -> float:
 	return clampf(value / maxf(0.001, duration), 0.0, 1.0)
+
+
+func _is_before_segment_boundary(elapsed_sec: float, boundary_sec: float) -> bool:
+	return elapsed_sec < boundary_sec - SEGMENT_BOUNDARY_EPSILON_SEC

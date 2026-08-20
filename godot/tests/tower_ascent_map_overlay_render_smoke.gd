@@ -380,15 +380,37 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	var expected_total := (
 		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
 	)
-	_expect(is_equal_approx(timeline.get_map_transition_duration_sec(), expected_total), "map transition duration must be the five visual beats in the tuning table")
+	_expect(is_equal_approx(timeline.get_map_transition_duration_sec(), expected_total), "map transition duration must be the six visual beats in the tuning table")
 	timeline.set_map_transition_progress_for_qa(0.0)
 	var start_model: Dictionary = timeline.get_map_transition_visual_model()
 	_expect(str(start_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_BATTLE_FADE_OUT, "progress 0 must keep the battle visible for its fade-out")
 	_expect(not bool(start_model.get("map_visible", true)) and is_zero_approx(float(start_model.get("blackout_alpha", -1.0))), "battle fade must start with no map and no blackout")
+	var zoom_mid_elapsed := (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC * 0.5
+	)
+	timeline.set_map_transition_progress_for_qa(zoom_mid_elapsed / expected_total)
+	var zoom_model: Dictionary = timeline.get_map_transition_visual_model()
+	_expect(str(zoom_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_CAMERA_ZOOM_IN, "the inserted 2-b window must sit between map reveal and travel")
+	_expect(is_zero_approx(float(zoom_model.get("travel_progress", -1.0))), "the walker must stay at the source throughout the camera intro window")
+	var zoom_mid_multiplier := float(zoom_model.get("camera_zoom_multiplier", 0.0))
+	_expect(is_equal_approx(zoom_mid_multiplier, lerpf(TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER, TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER, 0.5)), "the intro midpoint must use the symmetric smoothstep midpoint")
+	var zoom_quarter_elapsed := zoom_mid_elapsed - TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC * 0.25
+	timeline.set_map_transition_progress_for_qa(zoom_quarter_elapsed / expected_total)
+	var zoom_quarter_multiplier := float(timeline.get_map_transition_visual_model().get("camera_zoom_multiplier", 0.0))
+	var linear_quarter := lerpf(TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER, TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER, 0.25)
+	_expect(zoom_quarter_multiplier < linear_quarter, "camera intro must accelerate from rest instead of using a linear zoom")
+	var zoom_three_quarter_elapsed := zoom_mid_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC * 0.25
+	timeline.set_map_transition_progress_for_qa(zoom_three_quarter_elapsed / expected_total)
+	var zoom_three_quarter_multiplier := float(timeline.get_map_transition_visual_model().get("camera_zoom_multiplier", 0.0))
+	var linear_three_quarter := lerpf(TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER, TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER, 0.75)
+	_expect(zoom_three_quarter_multiplier > linear_three_quarter, "camera intro must decelerate into the final crop")
 	timeline.set_map_transition_progress_for_qa(0.5)
 	var middle_model: Dictionary = timeline.get_map_transition_visual_model()
 	_expect(str(middle_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_TRAVEL, "progress 0.5 must land in the travel beat")

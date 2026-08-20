@@ -9,7 +9,8 @@ static func uses_screen_space_flow_phase(
 ) -> bool:
 	if phase_name != "MAP_TRANSITION":
 		return phase_name in FLOW_PHASES
-	# MAP_TRANSITION owns the screen pass for all five beats. During the first
+	# MAP_TRANSITION owns the screen pass for all six beats, including the 2-b
+	# camera intro. During the first
 	# beat the map itself stays hidden, but this pass still draws the blackout
 	# over the live battle scene.
 	return (
@@ -17,6 +18,7 @@ static func uses_screen_space_flow_phase(
 		or str(transition_visual_model.get("segment", "")) in [
 			"battle_fade_out",
 			"map_fade_in",
+			"camera_zoom_in",
 			"travel",
 			"arrive_vanish",
 			"map_fade_out",

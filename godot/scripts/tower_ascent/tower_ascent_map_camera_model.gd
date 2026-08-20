@@ -6,35 +6,55 @@ static func build(
 	world_rect: Rect2,
 	focus_world_position: Vector2,
 	boundary_padding: float,
-	focus_y_ratio: float = 0.5
+	focus_y_ratio: float = 0.5,
+	zoom_multiplier: float = 1.0,
+	focus_x_blend: float = 0.0
 ) -> Dictionary:
 	if content_rect.size.x <= 0.0 or content_rect.size.y <= 0.0:
 		return {}
 	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
 		return {}
 	var safe_padding := maxf(0.0, boundary_padding)
-	var padded_top := world_rect.position.y - safe_padding
-	var padded_bottom := world_rect.end.y + safe_padding
-	var minimum_offset := content_rect.end.y - padded_bottom
-	var maximum_offset := content_rect.position.y - padded_top
+	var safe_zoom := maxf(1.0, zoom_multiplier)
+	var padded_left := (world_rect.position.x - safe_padding) * safe_zoom
+	var padded_right := (world_rect.end.x + safe_padding) * safe_zoom
+	var padded_top := (world_rect.position.y - safe_padding) * safe_zoom
+	var padded_bottom := (world_rect.end.y + safe_padding) * safe_zoom
+	var minimum_offset_x := content_rect.end.x - padded_right
+	var maximum_offset_x := content_rect.position.x - padded_left
+	var minimum_offset_y := content_rect.end.y - padded_bottom
+	var maximum_offset_y := content_rect.position.y - padded_top
+	var desired_screen_x := lerpf(
+		focus_world_position.x,
+		content_rect.get_center().x,
+		clampf(focus_x_blend, 0.0, 1.0)
+	)
 	var desired_screen_y := lerpf(
 		content_rect.position.y,
 		content_rect.end.y,
 		clampf(focus_y_ratio, 0.0, 1.0)
 	)
-	var desired_offset := desired_screen_y - focus_world_position.y
-	var offset_y := clampf(desired_offset, minimum_offset, maximum_offset)
-	var screen_offset := Vector2(0.0, offset_y)
+	var desired_offset_x := desired_screen_x - focus_world_position.x * safe_zoom
+	var desired_offset_y := desired_screen_y - focus_world_position.y * safe_zoom
+	var offset_x := clampf(desired_offset_x, minimum_offset_x, maximum_offset_x)
+	var offset_y := clampf(desired_offset_y, minimum_offset_y, maximum_offset_y)
+	var screen_offset := Vector2(offset_x, offset_y)
+	var focus_screen_position := focus_world_position * safe_zoom + screen_offset
 	return {
 		"offset": screen_offset,
+		"zoom_multiplier": safe_zoom,
 		"focus_world_position": focus_world_position,
-		"focus_screen_position": focus_world_position + screen_offset,
+		"focus_screen_position": focus_screen_position,
 		"visible_world_rect": Rect2(
-			content_rect.position - screen_offset,
-			content_rect.size
+			(content_rect.position - screen_offset) / safe_zoom,
+			content_rect.size / safe_zoom
 		),
-		"minimum_offset_y": minimum_offset,
-		"maximum_offset_y": maximum_offset,
-		"at_lower_boundary": is_equal_approx(offset_y, minimum_offset),
-		"at_upper_boundary": is_equal_approx(offset_y, maximum_offset),
+		"minimum_offset_x": minimum_offset_x,
+		"maximum_offset_x": maximum_offset_x,
+		"minimum_offset_y": minimum_offset_y,
+		"maximum_offset_y": maximum_offset_y,
+		"at_left_boundary": is_equal_approx(offset_x, maximum_offset_x),
+		"at_right_boundary": is_equal_approx(offset_x, minimum_offset_x),
+		"at_lower_boundary": is_equal_approx(offset_y, minimum_offset_y),
+		"at_upper_boundary": is_equal_approx(offset_y, maximum_offset_y),
 	}

@@ -21,12 +21,17 @@ const TowerAscentTuning := preload(
 
 const GAME_SIZE := Vector2i(2020, 1246)
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
+const PHYSICS_HZ := 72
+const PHYSICS_DELTA_SEC := 1.0 / float(PHYSICS_HZ)
+const ZOOM_BOUNDARY_SCALE_EPSILON := 0.0002
+const ZOOM_BOUNDARY_CENTER_EPSILON_PX := 0.25
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_camera_tracking"
 const LOWER_NAME := "map_camera_floor01_lower.png"
 const MIDDLE_NAME := "map_camera_floor05_middle.png"
 const UPPER_NAME := "map_camera_floor09_upper.png"
 const CROSSING_NAME := "map_camera_curve_crossing_zoom4.png"
-const STRIP_NAME := "map_camera_six_beat_tracking_strip.png"
+const STRIP_NAME := "map_camera_walker_zoom_full_transition_strip.png"
+const ZOOM_STRIP_NAME := "map_camera_walker_zoom_intro_dense_strip.png"
 
 var _failure := ""
 
@@ -41,6 +46,9 @@ func _run() -> void:
 		return
 	if RenderingServer.get_rendering_device() == null:
 		_fail("camera tracking visual QA requires Vulkan")
+		return
+	if int(Engine.physics_ticks_per_second) != PHYSICS_HZ:
+		_fail("camera tracking visual QA requires the production 72 Hz physics clock")
 		return
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
@@ -106,22 +114,47 @@ func _run() -> void:
 		return
 	flow.call("_resolve_route_target", transition_target)
 	var strip_frames: Array[Image] = []
-	for overall_progress in _six_beat_sample_progresses():
+	for overall_progress in _full_transition_sample_progresses():
 		flow.set_transition_progress_for_qa(overall_progress)
 		strip_frames.append(await _capture(canvas, viewport))
+	var zoom_frames: Array[Image] = []
+	for zoom_tick in range(0, PHYSICS_HZ + 1, 6):
+		flow.set_transition_progress_for_qa(
+			(_zoom_start_elapsed_sec() + float(zoom_tick) * PHYSICS_DELTA_SEC)
+				/ _transition_duration_sec()
+		)
+		zoom_frames.append(await _capture(canvas, viewport))
 	flow.call("_complete_map_transition")
 	strip_frames.append(await _capture(canvas, viewport))
-	if not _save_strip(strip_frames, output_dir.path_join(STRIP_NAME)):
-		_fail("six-beat tracking strip could not be saved")
+	if not _save_grid_strip(
+		strip_frames,
+		4,
+		Vector2i(505, 312),
+		output_dir.path_join(STRIP_NAME)
+	):
+		_fail("full transition tracking strip could not be saved")
+		return
+	if not _save_grid_strip(
+		zoom_frames,
+		5,
+		Vector2i(404, 249),
+		output_dir.path_join(ZOOM_STRIP_NAME)
+	):
+		_fail("dense 72 Hz intro zoom strip could not be saved")
 		return
 
 	var live_result: Dictionary = await _run_live_traversal(registry, canvas)
 	if not bool(live_result.get("accepted", false)):
 		_fail("live traversal failed: %s" % str(live_result.get("reason", "unknown")))
 		return
-	print("[TowerMapCameraTrackingVisualQA] captures=5 live_transitions=%d physics_ticks=%d" % [
+	print("[TowerMapCameraTrackingVisualQA] captures=6 overview_frames=%d zoom_frames=%d live_transitions=%d physics_ticks=%d zoom_ticks=%d max_boundary_scale_delta=%0.6f max_boundary_center_delta_px=%0.3f" % [
+		strip_frames.size(),
+		zoom_frames.size(),
 		int(live_result.get("transitions", 0)),
 		int(live_result.get("physics_ticks", 0)),
+		int(live_result.get("zoom_ticks", 0)),
+		float(live_result.get("max_boundary_scale_delta", INF)),
+		float(live_result.get("max_boundary_center_delta_px", INF)),
 	])
 	print("[TowerMapCameraTrackingVisualQA] output=%s" % output_dir)
 	print("tower_map_camera_tracking_visual_qa: ok")
@@ -181,10 +214,12 @@ func _find_curve_crossing(flow: Object) -> Vector2:
 	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var edges: Array = model.get("edges", [])
 	var content: Rect2 = model.get("content_rect", Rect2()).grow(-40.0)
-	var camera_offset: Vector2 = (model.get("camera", {}) as Dictionary).get(
+	var camera: Dictionary = model.get("camera", {})
+	var camera_offset: Vector2 = camera.get(
 		"offset",
 		Vector2.ZERO
 	)
+	var camera_zoom_multiplier := maxf(1.0, float(camera.get("zoom_multiplier", 1.0)))
 	var art_clearance := float(model.get("art_size", 0.0)) * 0.34
 	var positions: Dictionary = model.get("position_by_id", {})
 	for first_index in range(edges.size()):
@@ -207,7 +242,7 @@ func _find_curve_crossing(flow: Object) -> Vector2:
 					)
 					if crossing.x < 0.0:
 						continue
-					var screen_crossing := crossing + camera_offset
+					var screen_crossing := crossing * camera_zoom_multiplier + camera_offset
 					if not content.has_point(screen_crossing):
 						continue
 					var clears_nodes := true
@@ -247,35 +282,47 @@ func _save_crossing_zoom(image: Image, point: Vector2, path: String) -> bool:
 	return zoom.save_png(path) == OK
 
 
-func _six_beat_sample_progresses() -> PackedFloat32Array:
+func _full_transition_sample_progresses() -> PackedFloat32Array:
 	var battle := TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
 	var map_in := TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+	var zoom := TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
 	var travel := TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 	var vanish := TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
 	var map_out := TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
-	var total := battle + map_in + travel + vanish + map_out
+	var total := battle + map_in + zoom + travel + vanish + map_out
 	return PackedFloat32Array([
 		battle * 0.5 / total,
 		(battle + map_in * 0.5) / total,
-		(battle + map_in + travel * 0.5) / total,
-		(battle + map_in + travel + vanish * 0.5) / total,
-		(battle + map_in + travel + vanish + map_out * 0.5) / total,
+		(battle + map_in + zoom * 0.5) / total,
+		(battle + map_in + zoom + travel * 0.5) / total,
+		(battle + map_in + zoom + travel + vanish * 0.5) / total,
+		(battle + map_in + zoom + travel + vanish + map_out * 0.5) / total,
 	])
 
 
-func _save_strip(frames: Array[Image], path: String) -> bool:
-	if frames.size() != 6:
+func _save_grid_strip(
+	frames: Array[Image],
+	columns: int,
+	cell_size: Vector2i,
+	path: String
+) -> bool:
+	if frames.is_empty() or columns <= 0:
 		return false
-	var cell_size := Vector2i(505, 312)
-	var strip := Image.create(cell_size.x * 3, cell_size.y * 2, false, Image.FORMAT_RGBA8)
+	var rows := ceili(float(frames.size()) / float(columns))
+	var strip := Image.create(
+		cell_size.x * columns,
+		cell_size.y * rows,
+		false,
+		Image.FORMAT_RGBA8
+	)
 	strip.fill(Color("17110d"))
 	for frame_index in range(frames.size()):
 		var frame := frames[frame_index].duplicate()
 		frame.resize(cell_size.x, cell_size.y, Image.INTERPOLATE_LANCZOS)
 		frame.convert(Image.FORMAT_RGBA8)
 		var destination := Vector2i(
-			(frame_index % 3) * cell_size.x,
-			(frame_index / 3) * cell_size.y
+			(frame_index % columns) * cell_size.x,
+			(frame_index / columns) * cell_size.y
 		)
 		strip.blit_rect(frame, Rect2i(Vector2i.ZERO, cell_size), destination)
 	return strip.save_png(path) == OK
@@ -294,6 +341,10 @@ func _run_live_traversal(registry: Object, canvas: CanvasItem) -> Dictionary:
 	var renderer := TowerAscentFlowRenderer.new()
 	var transition_count := 0
 	var physics_tick_count := 0
+	var zoom_tick_count := 0
+	var max_boundary_scale_delta := 0.0
+	var max_boundary_center_delta_px := 0.0
+	var expected_transition_ticks := ceili(_transition_duration_sec() * float(PHYSICS_HZ))
 	while transition_count < 5:
 		var target_id := _choose_noncombat_target(live_flow)
 		if target_id.is_empty():
@@ -302,24 +353,64 @@ func _run_live_traversal(registry: Object, canvas: CanvasItem) -> Dictionary:
 		if live_flow.get_phase_name() != "MAP_TRANSITION":
 			return {"accepted": false, "reason": "transition_not_started"}
 		var transition_ticks := 0
-		while live_flow.get_phase_name() == "MAP_TRANSITION" and transition_ticks < 360:
+		var transition_zoom_ticks := 0
+		var previous_segment := ""
+		var previous_camera: Dictionary = {}
+		while live_flow.get_phase_name() == "MAP_TRANSITION" and transition_ticks < 420:
 			await physics_frame
-			live_flow.update_selective(1.0 / 60.0, canvas)
+			live_flow.update_selective(PHYSICS_DELTA_SEC, canvas)
 			canvas.queue_redraw()
 			transition_ticks += 1
 			physics_tick_count += 1
 			if live_flow.get_phase_name() == "MAP_TRANSITION":
 				var model: Dictionary = renderer.build_fullscreen_map_model(live_flow, VIEWPORT_RECT)
 				var camera: Dictionary = model.get("camera", {})
+				var visual_model: Dictionary = live_flow.get_map_transition_visual_model()
+				var segment := str(visual_model.get("segment", ""))
+				if segment == "camera_zoom_in":
+					transition_zoom_ticks += 1
+				if previous_segment == "camera_zoom_in" and segment == "travel":
+					max_boundary_scale_delta = maxf(
+						max_boundary_scale_delta,
+						absf(
+							float(camera.get("zoom_multiplier", 0.0))
+								- float(previous_camera.get("zoom_multiplier", 0.0))
+						)
+					)
+					max_boundary_center_delta_px = maxf(
+						max_boundary_center_delta_px,
+						(camera.get("focus_screen_position", Vector2.ZERO) as Vector2).distance_to(
+							previous_camera.get("focus_screen_position", Vector2.ZERO)
+						)
+					)
 				if not (model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(
 					camera.get("focus_screen_position", Vector2(-1.0, -1.0))
 				):
 					return {"accepted": false, "reason": "walker_left_crop"}
-		if transition_ticks >= 360:
+				previous_segment = segment
+				previous_camera = camera
+		if transition_ticks >= 420:
 			return {
 				"accepted": false,
 				"reason": "transition_timeout_progress_%0.3f" % live_flow.get_map_transition_progress(),
 			}
+		if transition_ticks != expected_transition_ticks:
+			return {
+				"accepted": false,
+				"reason": "transition_tick_count_%d_expected_%d" % [
+					transition_ticks,
+					expected_transition_ticks,
+				],
+			}
+		if transition_zoom_ticks != PHYSICS_HZ:
+			return {
+				"accepted": false,
+				"reason": "zoom_tick_count_%d_expected_%d" % [
+					transition_zoom_ticks,
+					PHYSICS_HZ,
+				],
+			}
+		zoom_tick_count += transition_zoom_ticks
 		transition_count += 1
 		if not live_flow.is_active():
 			# Combat arrivals hand control back to the battle scene. The camera-only
@@ -332,18 +423,44 @@ func _run_live_traversal(registry: Object, canvas: CanvasItem) -> Dictionary:
 			live_flow.debug_advance_to_route_aim()
 		elif live_flow.get_phase_name() != "ROUTE_AIM":
 			break
-	var accepted := transition_count >= 5
+	var accepted := (
+		transition_count >= 5
+		and max_boundary_scale_delta <= ZOOM_BOUNDARY_SCALE_EPSILON
+		and max_boundary_center_delta_px <= ZOOM_BOUNDARY_CENTER_EPSILON_PX
+	)
 	_cleanup_flow(live_flow)
 	return {
 		"accepted": accepted,
-		"reason": "" if accepted else "insufficient_transitions_%d_phase_%s_active_%s" % [
+		"reason": "" if accepted else "live_gate_transitions_%d_scale_%0.6f_center_%0.3f_phase_%s_active_%s" % [
 			transition_count,
+			max_boundary_scale_delta,
+			max_boundary_center_delta_px,
 			live_flow.get_phase_name(),
 			str(live_flow.is_active()),
 		],
 		"transitions": transition_count,
 		"physics_ticks": physics_tick_count,
+		"zoom_ticks": zoom_tick_count,
+		"max_boundary_scale_delta": max_boundary_scale_delta,
+		"max_boundary_center_delta_px": max_boundary_center_delta_px,
 	}
+
+
+func _zoom_start_elapsed_sec() -> float:
+	return (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+	)
+
+
+func _transition_duration_sec() -> float:
+	return (
+		_zoom_start_elapsed_sec()
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
+	)
 
 
 func _cleanup_flow(flow: Object) -> void:

@@ -12,6 +12,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
+const TowerAscentMapCameraModel := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -30,6 +33,7 @@ func _run() -> void:
 	_verify_seeded_curves_and_connection_identity()
 	_verify_camera_boundaries_and_static_path_cache()
 	_verify_transition_camera_uses_physics_clock_curve()
+	_verify_intro_zoom_handoff_and_boundaries()
 	_verify_polygon_dot_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -120,6 +124,113 @@ func _verify_transition_camera_uses_physics_clock_curve() -> void:
 		else:
 			_expect(current_build_count == transition_path_build_count, "transition ticks must not rebuild dotted paths")
 	_expect(focus_positions.size() == 3 and focus_positions[0] != focus_positions[1] and focus_positions[1] != focus_positions[2], "physics-clock progress must move the tracked camera through distinct curve positions")
+
+
+func _verify_intro_zoom_handoff_and_boundaries() -> void:
+	var flow := _new_flow("camera-intro-handoff", 83521)
+	var renderer := TowerAscentFlowRenderer.new()
+	renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var targets: Array[String] = flow.get_route_target_ids()
+	_expect(not targets.is_empty(), "camera-intro fixture must expose a route target")
+	if targets.is_empty():
+		return
+	var target_id := targets[0]
+	flow.call("_resolve_route_target", target_id)
+	var total := _transition_duration_sec()
+	var zoom_start_elapsed := (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+	)
+	var zoom_end_elapsed := (
+		zoom_start_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+	)
+	var physics_tick_sec := 1.0 / 72.0
+	var zoom_start := _model_at_elapsed(flow, renderer, zoom_start_elapsed, total)
+	var zoom_mid := _model_at_elapsed(
+		flow,
+		renderer,
+		zoom_start_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC * 0.5,
+		total
+	)
+	var zoom_last_tick := _model_at_elapsed(
+		flow,
+		renderer,
+		zoom_end_elapsed - physics_tick_sec,
+		total
+	)
+	var travel_boundary := _model_at_elapsed(flow, renderer, zoom_end_elapsed, total)
+	var travel_first_tick := _model_at_elapsed(
+		flow,
+		renderer,
+		zoom_end_elapsed + physics_tick_sec,
+		total
+	)
+	var start_camera: Dictionary = zoom_start.get("camera", {})
+	var mid_camera: Dictionary = zoom_mid.get("camera", {})
+	var last_camera: Dictionary = zoom_last_tick.get("camera", {})
+	var boundary_camera: Dictionary = travel_boundary.get("camera", {})
+	var first_tick_camera: Dictionary = travel_first_tick.get("camera", {})
+	_expect(is_equal_approx(float(start_camera.get("zoom_multiplier", 0.0)), TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER), "map reveal must hand the established camera scale into the intro")
+	_expect(float(mid_camera.get("zoom_multiplier", 0.0)) > float(start_camera.get("zoom_multiplier", 1.0)), "intro midpoint must narrow the camera crop")
+	_expect(is_equal_approx(float(boundary_camera.get("zoom_multiplier", 0.0)), TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER), "travel must begin at the final intro scale")
+	var last_zoom_delta := absf(
+		float(boundary_camera.get("zoom_multiplier", 0.0))
+			- float(last_camera.get("zoom_multiplier", 0.0))
+	)
+	_expect(last_zoom_delta <= 0.0002, "the final 72 Hz intro tick must ease into the travel scale without a zoom jump")
+	var boundary_focus: Vector2 = boundary_camera.get("focus_screen_position", Vector2.ZERO)
+	var last_focus: Vector2 = last_camera.get("focus_screen_position", Vector2.ZERO)
+	var first_tick_focus: Vector2 = first_tick_camera.get("focus_screen_position", Vector2.ZERO)
+	_expect(last_focus.distance_to(boundary_focus) <= 0.25, "camera center must be C0-continuous at intro completion")
+	_expect(boundary_focus.distance_to(first_tick_focus) <= 0.25, "the first travel tick must inherit the intro camera without a center jump")
+	var start_marker: Dictionary = zoom_start.get("transition_marker", {})
+	var mid_marker: Dictionary = zoom_mid.get("transition_marker", {})
+	var boundary_marker: Dictionary = travel_boundary.get("transition_marker", {})
+	var first_tick_marker: Dictionary = travel_first_tick.get("transition_marker", {})
+	_expect((start_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(mid_marker.get("world_position", Vector2.ONE)), "walker must remain fixed at the source during intro zoom")
+	_expect((mid_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(boundary_marker.get("world_position", Vector2.ONE)), "travel boundary must begin from the same source point")
+	_expect(is_zero_approx(float(boundary_marker.get("progress", -1.0))) and float(first_tick_marker.get("progress", 0.0)) > 0.0, "walker travel must start only after the zoom boundary")
+	var target_position: Vector2 = (travel_boundary.get("position_by_id", {}) as Dictionary).get(target_id, Vector2.INF)
+	_expect((boundary_camera.get("visible_world_rect", Rect2()) as Rect2).has_point(target_position), "final intro crop must keep the next destination visible")
+	_expect(bool(boundary_camera.get("at_lower_boundary", false)), "floor 1 intro zoom must retain the lower boundary clamp")
+	var top_flow := _new_flow("camera-intro-top-boundary", 83521)
+	var top_id := _node_id_for_floor(top_flow, 9)
+	top_flow.set("_current_node_id", top_id)
+	var top_renderer := TowerAscentFlowRenderer.new()
+	var top_model: Dictionary = top_renderer.build_fullscreen_map_model(top_flow, VIEWPORT_RECT)
+	var top_focus: Vector2 = (top_model.get("position_by_id", {}) as Dictionary).get(top_id, Vector2.ZERO)
+	var top_camera := TowerAscentMapCameraModel.build(
+		top_model.get("content_rect", Rect2()),
+		top_model.get("world_rect", Rect2()),
+		top_focus,
+		float(top_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
+		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
+		TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
+		1.0
+	)
+	_expect(bool(top_camera.get("at_upper_boundary", false)), "final intro crop must retain the top-floor boundary clamp")
+	_expect((top_model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(top_camera.get("focus_screen_position", Vector2.ZERO)), "top-floor focus must remain inside the final intro crop")
+
+
+func _model_at_elapsed(
+	flow: Object,
+	renderer: Object,
+	elapsed_sec: float,
+	total_sec: float
+) -> Dictionary:
+	flow.set_transition_progress_for_qa(elapsed_sec / total_sec)
+	return renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+
+
+func _transition_duration_sec() -> float:
+	return (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
+	)
 
 
 func _verify_polygon_dot_contract() -> void:

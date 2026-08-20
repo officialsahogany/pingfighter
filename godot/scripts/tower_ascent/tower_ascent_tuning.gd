@@ -77,6 +77,9 @@ const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
 # the clock out of the tower flow or restore absolute layout caps.
 const TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC := 0.25
 const TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC := 0.25
+# Author timing in the repository's 60-frame convention. The production
+# physics clock runs at 72 Hz, so this exact second occupies 72 physics ticks.
+const TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC := 60.0 / 60.0
 const TEMP_MAP_TRANSITION_TRAVEL_SEC := 1.60
 const TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC := 0.35
 const TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC := 0.28
@@ -94,6 +97,10 @@ const TEMP_MAP_CONTENT_BOTTOM_RATIO := 0.1925
 const TEMP_MAP_CAMERA_ZOOM := 2.15
 const TEMP_MAP_CAMERA_FOCUS_Y_RATIO := 0.50
 const TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO := 0.78
+# The transition begins at the established v1.13 crop, then narrows enough to
+# read as an intro without hiding the next route row.
+const TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER := 1.0
+const TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER := 1.18
 const TEMP_MAP_PATH_CURVE_MIN_RATIO := 0.10
 const TEMP_MAP_PATH_CURVE_MAX_RATIO := 0.24
 const TEMP_MAP_PATH_CURVE_SKEW_RATIO := 0.08
