@@ -173,6 +173,21 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	var actions: Array = model.get("actions", [])
 	_expect(actions.size() == 7, "shop modal must render six stock actions plus the shared end-work action")
 	_expect(_has_action_label(actions, "액티브 캡슐"), "capsule stock must stay concealed until purchase")
+	var card_kind_counts: Dictionary = {}
+	for action_value in actions:
+		if not (action_value is Dictionary) or str((action_value as Dictionary).get("id", "")) == "end_work":
+			continue
+		var choice: Dictionary = (action_value as Dictionary).get("payload", {}).get("choice", {})
+		var card_kind := str(choice.get("card_content_kind", ""))
+		card_kind_counts[card_kind] = int(card_kind_counts.get(card_kind, 0)) + 1
+		_expect(not str(choice.get("name", "")).is_empty(), "every shop card must project a visible name")
+		_expect(not str(choice.get("description", "")).is_empty(), "every shop card must project a visible description")
+		_expect(not str(choice.get("level_text", "")).is_empty(), "every shop card must project an item-kind rank line")
+		if card_kind == "active_item":
+			_expect(not str(choice.get("item_data", {}).get("icon_path", "")).is_empty(), "active-item cards must project their canonical icon path")
+	_expect(int(card_kind_counts.get("active_item", 0)) == 4, "three regular and one premium stock must use active-item card icons")
+	_expect(int(card_kind_counts.get("capsule", 0)) == 1, "capsule stock must use the concealed supply-card symbol")
+	_expect(int(card_kind_counts.get("chance_gem", 0)) == 1, "chance gem stock must use the run-supply card symbol")
 
 	var pre_purchase_snapshot := flow.export_persistable_snapshot()
 	var restored := TowerAscentFlowOwner.new()
@@ -307,9 +322,13 @@ func _verify_flag_off_is_untouched() -> void:
 func _verify_source_contract() -> void:
 	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd")
 	var inventory_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_shop_inventory.gd")
+	var renderer_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
+	var card_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 	_expect(flow_source.find("grant_item_to_slot") >= 0, "shop purchase must call the existing active-item grant path")
 	_expect(inventory_source.find("TowerAscentShopShelfBuilder") >= 0 and inventory_source.find("TowerAscentUnlockFilter") >= 0, "shop stock must consume the Phase A shelf and unlock owners")
 	_expect(flow_source.find("plaza_save_store") < 0 and flow_source.find("add_plaza_gold") < 0, "tower shop must never reuse plaza wallet ownership")
+	_expect(renderer_source.find('["shop", "training", "fallen_monk"]') >= 0 and renderer_source.find('"draw_tower_node_card"') >= 0, "shop and training must route through the exact same tower card drawer")
+	_expect(card_source.find("func _draw_shop_card(") < 0, "shop must not fork a private card drawer")
 
 
 func _build_registry(active_runtime: Object) -> FakeRegistry:

@@ -108,6 +108,9 @@ func draw_playfield_underlay(canvas: CanvasItem, registry: Object, config: Dicti
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
 	_perf_end(perf_logger, "draw.scene_underlay.background", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_tower_noncombat_node_background(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene_underlay.tower_noncombat_background", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_transformed_playfield_scene(canvas, registry, surface)
 	_perf_end(perf_logger, "draw.scene_underlay.playfield", sample_start)
 	_perf_end(perf_logger, "draw.scene_underlay.total", total_start)
@@ -152,8 +155,54 @@ func _draw_transformed_playfield_scene(canvas: CanvasItem, registry: Object, sur
 		0.0,
 		_get_vector2(transform_state, "scale", Vector2.ONE)
 	)
-	_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
+	if _should_draw_tower_battle_playfield(registry):
+		_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
+	else:
+		# The retained noncombat room owns the arena. Keep only the tower route
+		# selector in game coordinates; the stale stage actor pass also owns the
+		# previous boss, player, ball, arena floor, overlays, and lighting.
+		_draw_tower_ascent_playfield_flow_only(canvas, registry)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _should_draw_tower_battle_playfield(registry: Object) -> bool:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	return (
+		flow_owner == null
+		or not flow_owner.has_method(
+			"has_renderable_retained_noncombat_node_background"
+		)
+		or not bool(flow_owner.has_renderable_retained_noncombat_node_background())
+	)
+
+
+func _draw_tower_ascent_playfield_flow_only(
+	canvas: CanvasItem,
+	registry: Object
+) -> void:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("is_active")
+		or not bool(flow_owner.is_active())
+		or not flow_owner.has_method("draw")
+	):
+		return
+	var phase_name := (
+		str(flow_owner.get_phase_name())
+		if flow_owner.has_method("get_phase_name")
+		else ""
+	)
+	var transition_visual_model: Dictionary = (
+		flow_owner.get_map_transition_visual_model()
+		if flow_owner.has_method("get_map_transition_visual_model")
+		else {}
+	)
+	if TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
+		phase_name,
+		transition_visual_model
+	):
+		flow_owner.draw(canvas)
 
 
 func _resolve_playfield_transform(surface: Dictionary) -> Dictionary:

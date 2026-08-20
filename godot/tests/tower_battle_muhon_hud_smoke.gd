@@ -2,6 +2,7 @@ extends SceneTree
 
 const Stage1PillarHudSceneDrawer := preload("res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd")
 const Stage1PillarUiRenderer := preload("res://scripts/hud/stage1_pillar_ui_renderer.gd")
+const TowerAscentNodeModalState := preload("res://scripts/tower_ascent/tower_ascent_node_modal_state.gd")
 
 var _failures: Array[String] = []
 
@@ -11,12 +12,13 @@ class FakeTowerFlow:
 
 	var run_id := "tower-hud-run"
 	var muhon := 17
+	var gold := 4
 
 	func get_run_id() -> String:
 		return run_id
 
 	func get_run_state_snapshot() -> Dictionary:
-		return {"muhon": muhon, "gold": 4, "chance_gems": 2}
+		return {"muhon": muhon, "gold": gold, "chance_gems": 2}
 
 
 class CachedOnlyRegistry:
@@ -56,13 +58,20 @@ func _verify_cached_run_balance_projection() -> void:
 	var registry := CachedOnlyRegistry.new(flow)
 	var drawer: Object = Stage1PillarHudSceneDrawer.new()
 	var model: Dictionary = drawer.call("_build_tower_muhon_hud_context", registry)
+	var pillar_gold := int(drawer.call("_build_gold_hud_amount", {"runtime_perk_gold": 900}, registry))
 	_expect(bool(model.get("tower_muhon_hud_visible", false)), "started tower run should expose the Muhon HUD")
 	_expect(int(model.get("tower_muhon_hud_amount", -1)) == 17, "Muhon HUD should read the live tower run balance")
-	_expect(registry.cold_get_calls == 0, "Muhon draw projection must never cold-create the tower flow owner")
+	_expect(pillar_gold == 4, "tower pillar gold should read the same run-owned economy as the shop modal")
+	var modal := TowerAscentNodeModalState.new()
+	modal.open("shop", "shop", flow.get_run_state_snapshot(), [])
+	_expect(str(modal.build_view_model().get("gold_text", "")).contains("4"), "shop modal and pillar must project the same run gold in one fixture")
+	_expect(registry.cold_get_calls == 0, "tower currency draw projection must never cold-create the tower flow owner")
 
 	flow.muhon = 3
+	flow.gold = 9
 	model = drawer.call("_build_tower_muhon_hud_context", registry)
 	_expect(int(model.get("tower_muhon_hud_amount", -1)) == 3, "Muhon HUD should refresh from the cached run state")
+	_expect(int(drawer.call("_build_gold_hud_amount", {}, registry)) == 9, "gold HUD should refresh from the cached run state")
 
 
 func _verify_non_tower_path_stays_hidden() -> void:
@@ -72,7 +81,8 @@ func _verify_non_tower_path_stays_hidden() -> void:
 	var drawer: Object = Stage1PillarHudSceneDrawer.new()
 	var model: Dictionary = drawer.call("_build_tower_muhon_hud_context", registry)
 	_expect(not bool(model.get("tower_muhon_hud_visible", true)), "non-tower battle should not show a stale Muhon counter")
-	_expect(registry.cold_get_calls == 0, "hidden Muhon HUD must remain a cached-only lookup")
+	_expect(int(drawer.call("_build_gold_hud_amount", {"runtime_perk_gold": 13}, registry)) == 13, "non-tower battle must retain the prior plaza-plus-runtime gold path")
+	_expect(registry.cold_get_calls == 0, "hidden tower currency HUD must remain a cached-only lookup")
 
 
 func _verify_layout_pairs_horizontally_at_acceptance_resolution() -> void:

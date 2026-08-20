@@ -43,12 +43,14 @@ try {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
     $okMarker = "tower_ascent_phase_c_node_visual_qa: ok"
-    $captureMarker = "tower_ascent_phase_c_node_visual_qa: captures=6"
+    $captureMarker = "tower_ascent_phase_c_node_visual_qa: captures=12"
+    $liveMarker = "tower_ascent_phase_c_node_visual_qa: live_runs=1"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains($okMarker) `
-        -or -not $outputText.Contains($captureMarker)
+        -or -not $outputText.Contains($captureMarker) `
+        -or -not $outputText.Contains($liveMarker)
     ) {
         Write-Host "Tower-ascent Phase-C node visual QA log preserved for triage: $logPath"
         if ($exitCode -ne 0) {
@@ -57,7 +59,7 @@ try {
         if ($seriousErrors.Count -gt 0) {
             throw "$qaPath emitted a Godot error despite exit code 0"
         }
-        throw "$qaPath did not emit its six-capture terminal markers"
+        throw "$qaPath did not emit its twelve-capture and live-run terminal markers"
     }
     Remove-Item -LiteralPath $logPath -Force
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {

@@ -6,6 +6,9 @@ const PerkConversionFlags := preload(
 const RuntimePerkCatalog := preload(
 	"res://scripts/characters/runtime_perk_catalog.gd"
 )
+const PhysiqueTrainingCatalog := preload(
+	"res://scripts/characters/physique_training_catalog.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -20,6 +23,9 @@ const TowerAscentTuning := preload(
 )
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
+const TowerAscentTrainingOfferBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
 )
 
 var _failures: Array[String] = []
@@ -50,7 +56,7 @@ class FakeRuntimePerkCatalog:
 
 	func get_choices(
 		_character_type: String,
-		_runtime_levels: Dictionary,
+		runtime_levels: Dictionary,
 		_exclude_instant: bool = false,
 		_base_choice_count: int = RuntimePerkCatalog.BASE_CHOICE_COUNT,
 		_owner: Object = null,
@@ -58,10 +64,28 @@ class FakeRuntimePerkCatalog:
 	) -> Array:
 		choice_calls += 1
 		return [
-			{"id": "mugong_alpha", "name": "청류심법", "next_level": 1},
-			{"id": "mugong_beta", "name": "철벽심법", "next_level": 1},
-			{"id": "mugong_gamma", "name": "비연심법", "next_level": 1},
+			_build_choice("mugong_alpha", "청류심법", runtime_levels),
+			_build_choice("mugong_beta", "철벽심법", runtime_levels),
+			_build_choice("mugong_gamma", "비연심법", runtime_levels),
 		]
+
+	func _build_choice(choice_id: String, display_name: String, levels: Dictionary) -> Dictionary:
+		var current_level := int(levels.get(choice_id, 0))
+		return {
+			"id": choice_id,
+			"name": display_name,
+			"description": "%s %d단계 효과" % [display_name, current_level + 1],
+			"descriptions": {
+				1: "%s 1단계 효과" % display_name,
+				2: "%s 2단계 효과" % display_name,
+				3: "%s 3단계 효과" % display_name,
+				4: "%s 4단계 효과" % display_name,
+				5: "%s 5단계 효과" % display_name,
+			},
+			"current_level": current_level,
+			"next_level": current_level + 1,
+			"max_level": 5,
+		}
 
 
 class FakeRuntimePerkState:
@@ -143,7 +167,9 @@ class FakeRegistry:
 
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
-	_verify_choices_transactions_visit_limit_and_snapshot()
+	_verify_repeated_choice_live_levels_and_snapshot()
+	_verify_finite_maximum_rejection_is_no_op()
+	_verify_unlimited_physique_level_contract()
 	_verify_insufficient_muhon_and_grant_rejection_are_no_ops()
 	_verify_flag_off_is_untouched()
 	_verify_source_contract()
@@ -159,7 +185,7 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_choices_transactions_visit_limit_and_snapshot() -> void:
+func _verify_repeated_choice_live_levels_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
 	var perk_catalog := FakeRuntimePerkCatalog.new()
@@ -184,31 +210,47 @@ func _verify_choices_transactions_visit_limit_and_snapshot() -> void:
 	_expect(perk_catalog.choice_calls == 1, "training offers must be generated once per node visit")
 
 	var stat_action := _find_action_with_prefix(actions, "training_stat:")
-	var mugong_action := _find_action_with_prefix(actions, "training_mugong:")
+	var mugong_action := _find_action_by_id(actions, "training_mugong:mugong_alpha")
 	_expect(not stat_action.is_empty() and not mugong_action.is_empty(), "training modal must expose stat and Mugong actions")
-	var stat_result := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:stat")
-	_expect(bool(stat_result.get("accepted", false)) and bool(stat_result.get("applied", false)), "stat choice must commit through the node transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 30 - TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST, "stat training must debit the unified one-Muhon price")
-	_expect(runtime_state.apply_calls == 1 and runtime_state.training_counts.size() == 1, "stat training must reuse runtime_perk_state.apply_choice")
+	var initial_choice: Dictionary = mugong_action.get("payload", {}).get("choice", {})
+	_expect(str(initial_choice.get("level_text", "")) == "0 / 5", "finite Mugong must show current and canonical maximum before purchase")
 
-	var duplicate := flow.execute_node_action(str(mugong_action.get("id", "")), "training-contract:stat")
-	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "duplicate node_resolution_id must be an accepted no-op before grant")
-	_expect(runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "duplicate transaction must neither grant nor debit")
+	var mugong_index := _find_action_index(actions, str(mugong_action.get("id", "")))
+	var mugong_rect: Rect2 = (flow.get_node_modal_view_model().get("action_rects", []) as Array)[mugong_index]
+	var press := InputEventMouseButton.new()
+	press.pressed = true
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = mugong_rect.position + Vector2(2.0, 2.0)
+	flow.handle_input(press)
+	var release := InputEventMouseButton.new()
+	release.pressed = false
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.position = press.position
+	flow.handle_input(release)
+	_expect(runtime_state.apply_calls == 1 and flow.get_training_history().size() == 1, "one mouse press plus release must commit exactly one training step")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 28, "one Mugong click must debit exactly two Muhon")
 
-	var mugong_result := flow.execute_node_action(str(mugong_action.get("id", "")), "training-contract:mugong")
-	_expect(bool(mugong_result.get("accepted", false)) and bool(mugong_result.get("applied", false)), "Mugong choice must commit through the existing grant path")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "Mugong library must debit the unified two-Muhon price")
-	_expect(runtime_state.apply_calls == 2 and runtime_state.runtime_skill_levels.size() == 1, "Mugong acquisition must be owned by runtime_perk_state.apply_choice")
-	_expect(flow.get_training_history().size() == TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT, "training history must own exactly the visit use cap")
-	var exhausted_action := _find_unconsumed_training_action(flow.get_node_modal_view_model().get("actions", []))
-	_expect(not exhausted_action.is_empty() and not bool(exhausted_action.get("enabled", true)), "all remaining training choices must disable after two uses")
-	var exhausted_result := flow.execute_node_action(str(exhausted_action.get("id", "")), "training-contract:third")
-	_expect(str(exhausted_result.get("reason", "")) == "training_visit_complete", "a third visit action must be rejected before transaction")
-	_expect(runtime_state.apply_calls == 2 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "visit-limit rejection must not grant or debit")
+	for purchase_index in range(2, 4):
+		var repeated_result := flow.execute_node_action(
+			str(mugong_action.get("id", "")),
+			"training-contract:mugong-%d" % purchase_index
+		)
+		_expect(bool(repeated_result.get("accepted", false)) and bool(repeated_result.get("applied", false)), "same Mugong card purchase %d must commit" % purchase_index)
+	var refreshed_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var refreshed_mugong := _find_action_by_id(refreshed_actions, str(mugong_action.get("id", "")))
+	var refreshed_choice: Dictionary = refreshed_mugong.get("payload", {}).get("choice", {})
+	_expect(bool(refreshed_mugong.get("enabled", false)), "same Mugong card must remain enabled below its finite maximum")
+	_expect(str(refreshed_choice.get("level_text", "")) == "3 / 5", "same Mugong card must refresh to the live level after three purchases")
+	_expect(runtime_state.apply_calls == 3 and int(runtime_state.runtime_skill_levels.get("mugong_alpha", 0)) == 3, "three repeated purchases must apply exactly three runtime levels")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 24, "three repeated Mugong purchases must debit six Muhon")
+
+	var duplicate := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:mugong-3")
+	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "duplicate node_resolution_id must remain an accepted no-op before grant")
+	_expect(runtime_state.apply_calls == 3 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 24, "duplicate transaction must neither grant nor debit")
 
 	var snapshot := flow.export_persistable_snapshot()
 	_expect((snapshot.get("generated_training_offers", []) as Array).size() == 1, "training offers must be part of the stable run snapshot")
-	_expect((snapshot.get("training_history", []) as Array).size() == 2, "training transaction history must be part of the run snapshot")
+	_expect((snapshot.get("training_history", []) as Array).size() == 3, "all repeated transactions must be part of the run snapshot")
 	_expect((snapshot.get("build_state", {}) as Dictionary).has("runtime_perk_snapshot"), "runtime perk build state must use its existing save codec")
 	var restored_runtime := FakeRuntimePerkState.new()
 	var restored_catalog := FakeRuntimePerkCatalog.new()
@@ -217,9 +259,70 @@ func _verify_choices_transactions_visit_limit_and_snapshot() -> void:
 	_expect(restored.restore_snapshot(snapshot, Callable(), FakeOwner.new(), restored_registry), "stable training snapshot must restore")
 	_expect(restored_catalog.choice_calls == 0, "restoring a training node must not reroll either choice group")
 	_expect(var_to_bytes(restored.get_generated_training_offers()) == var_to_bytes(generated), "restored training offers must match byte-for-byte")
-	_expect(restored_runtime.restore_calls == 1 and restored_runtime.runtime_skill_levels.size() == 1 and restored_runtime.training_counts.size() == 1, "restore must reuse runtime_perk_state's existing run-save codec")
+	_expect(restored_runtime.restore_calls == 1 and int(restored_runtime.runtime_skill_levels.get("mugong_alpha", 0)) == 3, "restore must keep all repeated levels through runtime_perk_state's existing run-save codec")
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
+
+
+func _verify_finite_maximum_rejection_is_no_op() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var runtime_state := FakeRuntimePerkState.new()
+	runtime_state.runtime_skill_levels["mugong_alpha"] = 4
+	var owner := FakeOwner.new()
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "training-maximum",
+		"map_seed": 5,
+		"node_modal_kind": "training",
+		"run_state": {"muhon": 10},
+		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new()),
+	}), "finite-maximum fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "finite-maximum fixture must arrive at training")
+	var action_id := "training_mugong:mugong_alpha"
+	var before := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
+	_expect(str(before.get("payload", {}).get("choice", {}).get("level_text", "")) == "4 / 5", "finite Mugong must expose the pre-maximum level")
+	var final_purchase := flow.execute_node_action(action_id, "training-maximum:final")
+	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite Mugong final level must commit")
+	var maximum_action := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
+	_expect(not bool(maximum_action.get("enabled", true)), "finite Mugong must disable at its canonical maximum")
+	_expect(str(maximum_action.get("disabled_reason", "")) == "training_maximum_reached", "finite maximum must have a distinct disabled reason")
+	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "5 / 5", "finite Mugong maximum card must show current and maximum")
+	var muhon_before_rejection := int(flow.get_run_state_snapshot().get("muhon", -1))
+	var rejected := flow.execute_node_action(action_id, "training-maximum:blocked")
+	_expect(str(rejected.get("reason", "")) == "training_maximum_reached", "direct finite-maximum execution must reject before transaction")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == muhon_before_rejection and runtime_state.apply_calls == 1, "finite-maximum rejection must not grant or debit")
+	_finish_flow(flow, owner)
+
+
+func _verify_unlimited_physique_level_contract() -> void:
+	var catalog := PhysiqueTrainingCatalog.new()
+	var builder := TowerAscentTrainingOfferBuilder.new()
+	var runtime_state := FakeRuntimePerkState.new()
+	for training_id in [
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+		"physique_max_gauge",
+		"physique_hit_gauge",
+	]:
+		_expect(int(catalog.get_max_count(training_id)) == -1, "%s must retain the canonical unlimited max_count" % training_id)
+		runtime_state.training_counts[training_id] = 7
+		var projected: Dictionary = builder.build_live_choice_projection(
+			"stat",
+			catalog.build_card(training_id, 7),
+			runtime_state
+		)
+		_expect(str(projected.get("level_text", "")) == "Lv.7", "%s must show current level only" % training_id)
+		_expect(not str(projected.get("level_text", "")).contains("/"), "%s must not invent a maximum label" % training_id)
+		_expect(not builder.is_live_choice_at_maximum("stat", projected, runtime_state), "%s must remain repeatable without a canonical maximum" % training_id)
+	var storage_id := "physique_storage"
+	runtime_state.training_counts[storage_id] = 2
+	var storage_projection: Dictionary = builder.build_live_choice_projection(
+		"stat",
+		catalog.build_card(storage_id, 2),
+		runtime_state
+	)
+	_expect(str(storage_projection.get("level_text", "")) == "2 / 3", "finite storage training must show current and canonical maximum")
 
 
 func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
@@ -279,9 +382,14 @@ func _verify_flag_off_is_untouched() -> void:
 func _verify_source_contract() -> void:
 	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd")
 	var builder_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd")
+	var tuning_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 	_expect(flow_source.find("apply_choice") >= 0 and flow_source.find("build_unlock_save_snapshot") >= 0, "training must reuse the existing runtime perk grant and save boundaries")
 	_expect(builder_source.find("get_choices") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training choices must consume existing Mugong and physique catalogs")
 	_expect(builder_source.find("BASE_CHOICE_COUNT") >= 0, "choice count must reuse the existing catalog constant")
+	_expect(not tuning_source.contains("TEMP_PHASE_C_TRAINING_USES_PER_VISIT"), "the per-visit training cap constant must stay deleted")
+	_expect(not flow_source.contains("training_visit_complete") and not flow_source.contains("training_choice_used"), "display and execution paths must not retain visit-cap or one-use consumers")
+	var mugong_data := RuntimePerkCatalog.new().get_perk_data("common_swiftness")
+	_expect(int(mugong_data.get("max_level", 0)) > 0, "the real Mugong catalog must remain the finite-maximum authority")
 
 
 func _build_registry(runtime_state: Object, perk_catalog: Object) -> FakeRegistry:
@@ -301,14 +409,18 @@ func _find_action_with_prefix(actions: Array, prefix: String) -> Dictionary:
 	return {}
 
 
-func _find_unconsumed_training_action(actions: Array) -> Dictionary:
+func _find_action_by_id(actions: Array, action_id: String) -> Dictionary:
 	for action_value in actions:
-		if not (action_value is Dictionary):
-			continue
-		var action := action_value as Dictionary
-		if str(action.get("id", "")).begins_with("training_") and str(action.get("unavailable_reason", "")).contains("이번 방문"):
-			return action
+		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")) == action_id:
+			return action_value as Dictionary
 	return {}
+
+
+func _find_action_index(actions: Array, action_id: String) -> int:
+	for index in range(actions.size()):
+		if actions[index] is Dictionary and str((actions[index] as Dictionary).get("id", "")) == action_id:
+			return index
+	return -1
 
 
 func _finish_flow(flow: Object, owner: Object) -> void:

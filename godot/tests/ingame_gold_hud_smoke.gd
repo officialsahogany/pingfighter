@@ -12,10 +12,12 @@ var _failures: Array[String] = []
 class FakeRegistry:
 	var runtime_perk_state: Object
 	var stage_clear_result_screen: Object
+	var tower_ascent_flow_owner: Object
 
-	func _init(perk_state: Object, result_screen: Object) -> void:
+	func _init(perk_state: Object, result_screen: Object, tower_flow: Object = null) -> void:
 		runtime_perk_state = perk_state
 		stage_clear_result_screen = result_screen
+		tower_ascent_flow_owner = tower_flow
 
 	func get_instance(key: String) -> Object:
 		match key:
@@ -23,6 +25,8 @@ class FakeRegistry:
 				return runtime_perk_state
 			"stage_clear_result_screen":
 				return stage_clear_result_screen
+			"tower_ascent_flow_owner":
+				return tower_ascent_flow_owner
 		return null
 
 	func get_cached_instance(key: String) -> Object:
@@ -42,6 +46,16 @@ class FakeResultScreen:
 	func get_plaza_save_summary() -> Dictionary:
 		load_calls += 1
 		return load_summary.duplicate(true)
+
+
+class FakeInactiveTowerFlow:
+	extends RefCounted
+
+	func get_run_id() -> String:
+		return ""
+
+	func get_run_state_snapshot() -> Dictionary:
+		return {"gold": 9999, "muhon": 9999}
 
 
 func _init() -> void:
@@ -94,12 +108,12 @@ func _verify_gold_amount_uses_wallet_plus_runtime() -> void:
 	result_screen.set_plaza_save_path_for_test(save_path)
 	var perk_state: Object = RuntimePerkState.new()
 	perk_state.award_gold(25)
-	var registry := FakeRegistry.new(perk_state, result_screen)
+	var registry := FakeRegistry.new(perk_state, result_screen, FakeInactiveTowerFlow.new())
 	var drawer: Object = Stage1PillarHudSceneDrawer.new()
 
 	drawer.sync_plaza_gold_cache({"current_stage": 2}, registry)
 	var amount: int = int(drawer.call("_build_gold_hud_amount", {"current_stage": 2, "runtime_perk_gold": 25}, registry))
-	_expect(amount == 225, "gold HUD should show plaza wallet gold plus the live owner runtime gold")
+	_expect(amount == 225, "non-tower gold HUD should preserve plaza wallet gold plus live runtime gold even when an inactive tower owner is cached")
 
 	store.perform_shop_wallet_transaction("purchase", 80, false)
 	drawer.sync_plaza_gold_cache({"current_stage": 3}, registry)

@@ -6,14 +6,17 @@ const TowerAscentNodeModalLocalization := preload(
 
 const ACTION_END_WORK := "end_work"
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
-const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
+const MODAL_RECT := Rect2(24.0, 28.0, 712.0, 694.0)
 const ACTION_LIST_RECT := Rect2(126.0, 301.0, 508.0, 302.0)
 const ACTION_ROW_HEIGHT := 38.0
 const ACTION_ROW_GAP := 5.0
-const SIX_CARD_NODE_KINDS := ["training", "fallen_monk"]
-const GRID_COLUMN_GAP := 8.0
-const GRID_ROW_GAP := 8.0
-const GRID_ROW_HEIGHT := 68.0
+const SIX_CARD_NODE_KINDS := ["shop", "training", "fallen_monk"]
+const CARD_GRID_RECT := Rect2(43.0, 150.0, 674.0, 438.0)
+const CARD_GRID_COLUMNS := 3
+const CARD_GRID_ROWS := 2
+const GRID_COLUMN_GAP := 12.0
+const GRID_ROW_GAP := 14.0
+const END_WORK_RECT := Rect2(246.0, 602.0, 268.0, 40.0)
 
 var _node_id := ""
 var _node_kind := "common_shell"
@@ -102,17 +105,27 @@ func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
 	var content_scale := float(layout.get("content_scale", 1.0))
 	var content_offset: Vector2 = layout.get("content_offset", Vector2.ZERO)
 	if _node_kind in SIX_CARD_NODE_KINDS:
-		var column_width := (ACTION_LIST_RECT.size.x - GRID_COLUMN_GAP) * 0.5
+		var column_width := (
+			CARD_GRID_RECT.size.x - GRID_COLUMN_GAP * float(CARD_GRID_COLUMNS - 1)
+		) / float(CARD_GRID_COLUMNS)
+		var row_height := (
+			CARD_GRID_RECT.size.y - GRID_ROW_GAP * float(CARD_GRID_ROWS - 1)
+		) / float(CARD_GRID_ROWS)
+		var card_index := 0
 		for index in range(_actions.size()):
-			var column := index % 2
-			var row := index / 2
+			if str(_actions[index].get("id", "")) == ACTION_END_WORK:
+				result.append(_scale_rect(END_WORK_RECT, content_scale, content_offset))
+				continue
+			var column := card_index % CARD_GRID_COLUMNS
+			var row := card_index / CARD_GRID_COLUMNS
 			result.append(_scale_rect(Rect2(
-				ACTION_LIST_RECT.position + Vector2(
+				CARD_GRID_RECT.position + Vector2(
 					float(column) * (column_width + GRID_COLUMN_GAP),
-					float(row) * (GRID_ROW_HEIGHT + GRID_ROW_GAP)
+					float(row) * (row_height + GRID_ROW_GAP)
 				),
-				Vector2(column_width, GRID_ROW_HEIGHT)
+				Vector2(column_width, row_height)
 			), content_scale, content_offset))
+			card_index += 1
 		return result
 	for index in range(_actions.size()):
 		result.append(_scale_rect(Rect2(
@@ -183,6 +196,7 @@ func _normalize_action(source: Dictionary) -> Dictionary:
 		"label": str(source.get("label", "")).strip_edges(),
 		"cost_text": str(source.get("cost_text", "")).strip_edges(),
 		"enabled": enabled,
+		"disabled_reason": str(source.get("disabled_reason", "")).strip_edges(),
 		"unavailable_reason": str(source.get(
 			"unavailable_reason",
 			"" if enabled else TowerAscentNodeModalLocalization.text(

@@ -59,10 +59,10 @@ const BOSS_ART_GRID := Vector2i(2, 2)
 
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
-const MODAL_RECT := Rect2(78.0, 112.0, 604.0, 548.0)
+const MODAL_RECT := Rect2(24.0, 28.0, 712.0, 694.0)
 const MAP_NODE_RADIUS := 6.0
 const ACTIVE_NODE_RADIUS := 13.0
-const BALANCE_ROW_RECT := Rect2(170.0, 240.0, 420.0, 42.0)
+const BALANCE_ROW_RECT := Rect2(170.0, 106.0, 420.0, 34.0)
 const BALANCE_ENTRY_GAP := 36.0
 const BALANCE_ICON_SIZE := 20.0
 const BALANCE_ICON_LEFT_PAD := 12.0
@@ -181,6 +181,11 @@ func draw_fullscreen_node_modal(
 	var owns_background_contract := flow.has_method(
 		"get_retained_noncombat_node_background_resolution"
 	)
+	var render_context: Dictionary = (
+		flow.get_node_modal_render_context()
+		if flow.has_method("get_node_modal_render_context")
+		else {}
+	)
 	var background_model := build_noncombat_node_background_model(flow, viewport_rect)
 	if background_model.is_empty():
 		# Compatibility fixtures without the S4 owner keep R4's procedural shell.
@@ -190,6 +195,7 @@ func draw_fullscreen_node_modal(
 			_draw_node_modal_backdrop(canvas, viewport_rect, node_kind)
 	else:
 		_draw_noncombat_node_background_model(canvas, background_model)
+	model["render_context"] = render_context
 	_draw_node_modal(canvas, model)
 
 
@@ -1583,15 +1589,20 @@ func _camera_world_rect_to_screen(camera_model: Dictionary, rect: Rect2) -> Rect
 		maxf(1.0, float(camera_model.get("zoom_multiplier", 1.0))),
 		_vector2(camera_model.get("offset", Vector2.ZERO))
 	)
-
-
-func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
+func _draw_node_modal(
+	canvas: CanvasItem,
+	model_value: Variant,
+	render_context: Dictionary = {}
+) -> void:
 	# The transformed playfield dispatcher still reaches this method so its
 	# phase return remains explicit, but only the fullscreen pass supplies the
 	# screen-layout model and is allowed to render it.
 	if not (model_value is Dictionary):
 		return
 	var model := model_value as Dictionary
+	var embedded_render_context: Variant = model.get("render_context", {})
+	if render_context.is_empty() and embedded_render_context is Dictionary:
+		render_context = embedded_render_context as Dictionary
 	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
 	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
 	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
@@ -1601,7 +1612,7 @@ func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
-		_screen_point(Vector2(126.0, 178.0), content_scale, content_offset),
+		_screen_point(Vector2(126.0, 64.0), content_scale, content_offset),
 		str(model.get("title", "행로 정비")),
 		HORIZONTAL_ALIGNMENT_CENTER,
 		508.0 * content_scale,
@@ -1609,14 +1620,14 @@ func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
 		INK
 	)
 	canvas.draw_line(
-		_screen_point(Vector2(126.0, 195.0), content_scale, content_offset),
-		_screen_point(Vector2(634.0, 195.0), content_scale, content_offset),
+		_screen_point(Vector2(126.0, 78.0), content_scale, content_offset),
+		_screen_point(Vector2(634.0, 78.0), content_scale, content_offset),
 		GOLD,
 		2.0 * content_scale
 	)
 	canvas.draw_string(
 		font,
-		_screen_point(Vector2(126.0, 224.0), content_scale, content_offset),
+		_screen_point(Vector2(126.0, 100.0), content_scale, content_offset),
 		str(model.get("description", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
 		508.0 * content_scale,
@@ -1653,16 +1664,37 @@ func _draw_node_modal(canvas: CanvasItem, model_value: Variant) -> void:
 				content_offset
 			)
 		)
-		_draw_modal_action_row(
-			canvas,
-			row_rect,
-			actions[index] as Dictionary,
-			index == selected_index,
-			content_scale
+		var action := actions[index] as Dictionary
+		var card_renderer: Object = render_context.get("card_renderer", null)
+		var icon_renderer: Object = render_context.get("icon_renderer", null)
+		var draws_card := (
+			str(model.get("node_kind", "")) in ["shop", "training", "fallen_monk"]
+			and str(action.get("id", "")) != "end_work"
+			and card_renderer != null
+			and card_renderer.has_method("draw_tower_node_card")
 		)
+		if draws_card:
+			card_renderer.call(
+				"draw_tower_node_card",
+				canvas,
+				action,
+				row_rect,
+				index == selected_index,
+				icon_renderer,
+				index,
+				render_context.get("active_item_hud_visuals", null)
+			)
+		else:
+			_draw_modal_action_row(
+				canvas,
+				row_rect,
+				action,
+				index == selected_index,
+				content_scale
+			)
 	canvas.draw_string(
 		font,
-		_screen_point(Vector2(126.0, 635.0), content_scale, content_offset),
+		_screen_point(Vector2(126.0, 680.0), content_scale, content_offset),
 		str(model.get("status_text", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
 		508.0 * content_scale,

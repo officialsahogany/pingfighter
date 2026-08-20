@@ -8,6 +8,9 @@ const BattlePlayfieldSceneDrawer := preload(
 const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
+const RuntimePerkOverlayRenderer := preload(
+	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+)
 const TowerAscentNodeModalState := preload("res://scripts/tower_ascent/tower_ascent_node_modal_state.gd")
 const TowerAscentScreenSpaceSurfacePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
@@ -156,6 +159,7 @@ func _run() -> void:
 	_verify_playfield_phase_keeps_coordinate_projection()
 	_verify_reward_pick_uses_screen_coordinates_and_view_size()
 	_verify_six_card_grid_top_corners_match_hit_test()
+	_verify_tower_node_card_description_rows()
 	_verify_screen_space_render_routing_and_viewport_priority()
 	if _failures.is_empty():
 		print("tower_node_modal_pointer_smoke: ok")
@@ -269,7 +273,7 @@ func _verify_reward_pick_uses_screen_coordinates_and_view_size() -> void:
 
 
 func _verify_six_card_grid_top_corners_match_hit_test() -> void:
-	for node_kind in ["training", "fallen_monk"]:
+	for node_kind in ["shop", "training", "fallen_monk"]:
 		var modal := TowerAscentNodeModalState.new()
 		var actions: Array[Dictionary] = []
 		for index in range(6):
@@ -277,11 +281,62 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 		modal.open("six-card-node", node_kind, {"muhon": 20}, actions)
 		var rects := modal.get_action_rects()
 		_expect(rects.size() == 7, "%s must expose six cards plus the end-work action" % node_kind)
-		for index in range(rects.size()):
+		var card_width := (
+			TowerAscentNodeModalState.CARD_GRID_RECT.size.x
+			- TowerAscentNodeModalState.GRID_COLUMN_GAP
+			* float(TowerAscentNodeModalState.CARD_GRID_COLUMNS - 1)
+		) / float(TowerAscentNodeModalState.CARD_GRID_COLUMNS)
+		var card_height := (
+			TowerAscentNodeModalState.CARD_GRID_RECT.size.y
+			- TowerAscentNodeModalState.GRID_ROW_GAP
+			* float(TowerAscentNodeModalState.CARD_GRID_ROWS - 1)
+		) / float(TowerAscentNodeModalState.CARD_GRID_ROWS)
+		for index in range(6):
 			var rect := rects[index] as Rect2
-			_expect(TowerAscentNodeModalState.ACTION_LIST_RECT.encloses(rect), "%s action %d must remain inside the row budget" % [node_kind, index])
+			var expected_column := index % TowerAscentNodeModalState.CARD_GRID_COLUMNS
+			var expected_row := index / TowerAscentNodeModalState.CARD_GRID_COLUMNS
+			var expected_rect := Rect2(
+				TowerAscentNodeModalState.CARD_GRID_RECT.position + Vector2(
+					float(expected_column) * (
+						card_width + TowerAscentNodeModalState.GRID_COLUMN_GAP
+					),
+					float(expected_row) * (
+						card_height + TowerAscentNodeModalState.GRID_ROW_GAP
+					)
+				),
+				Vector2(card_width, card_height)
+			)
+			_expect(rect.is_equal_approx(expected_rect), "%s card %d must occupy its exact 3x2 cell" % [node_kind, index])
+			_expect(TowerAscentNodeModalState.CARD_GRID_RECT.encloses(rect), "%s card %d must remain inside the card grid" % [node_kind, index])
 			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
 			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
+		var end_work_rect := rects[6] as Rect2
+		_expect(end_work_rect.is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "%s end-work action must use the dedicated footer rect" % node_kind)
+		_expect(modal.select_at_position(end_work_rect.position + Vector2(2.0, 2.0)), "%s end-work top corner must be selectable" % node_kind)
+		_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "%s footer hit test must select end-work" % node_kind)
+		_expect(TowerAscentNodeModalState.MODAL_RECT.encloses(TowerAscentNodeModalState.CARD_GRID_RECT), "%s card grid must stay inside the playfield-owned modal" % node_kind)
+
+
+func _verify_tower_node_card_description_rows() -> void:
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var action := {
+		"id": "training_stat:long-description",
+		"label": "최장 설명 수련",
+		"payload": {
+			"choice": {
+				"id": "long-description",
+				"name": "최장 설명 수련",
+				"description": "아주 긴 수련 설명이 카드 폭을 넘어가더라도 실제 카드에 추가되는 설명 행만 남기고 마지막 행은 말줄임표로 닫혀야 합니다 반복 검증 문장입니다",
+				"level_text": "Lv.7",
+			}
+		},
+	}
+	var card_rect := Rect2(Vector2.ZERO, Vector2(216.0, 212.0))
+	var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
+	var rows: Array = layout.get("description_rows", [])
+	_expect(rows.size() == 3, "longest node-card description must append exactly three visible rows")
+	_expect(int(layout.get("appended_description_row_count", -1)) == rows.size(), "GRT-021 count must equal the rows consumed by the card drawer")
+	_expect(not rows.is_empty() and str(rows.back()).ends_with("..."), "the last appended description row must carry truncation evidence")
 
 
 func _verify_screen_space_render_routing_and_viewport_priority() -> void:

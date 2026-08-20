@@ -298,6 +298,20 @@ func get_retained_noncombat_node_background_resolution() -> Dictionary:
 	return _noncombat_node_background_catalog.get_cached_resolution(kind)
 
 
+func has_renderable_retained_noncombat_node_background() -> bool:
+	var resolution := get_retained_noncombat_node_background_resolution()
+	if (
+		resolution.is_empty()
+		or not bool(resolution.get("ready", false))
+		or bool(resolution.get("fallback_to_stage_background", false))
+	):
+		return false
+	var source := str(resolution.get("source", ""))
+	if source == "procedural":
+		return true
+	return source == "bitmap" and resolution.get("texture", null) is Texture2D
+
+
 func _dictionary_copy(value: Variant) -> Dictionary:
 	if value is Dictionary:
 		return (value as Dictionary).duplicate(true)

@@ -14,6 +14,7 @@ const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runti
 const RuntimePerkDescriptionEmphasis := preload("res://scripts/hud/runtime_perk_description_emphasis.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
+const ActiveItemHudSlotIconRenderer := preload("res://scripts/hud/active_item_hud_slot_icon_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
 const MysticDiceOverlayRenderer := preload("res://scripts/hud/mystic_dice_overlay_renderer.gd")
 const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
@@ -156,6 +157,7 @@ var _choice_visual_transition_started_msec := 0
 var _tower_reward_slot_session_id := -1
 var _tower_reward_slot_keys: Array[String] = []
 var _tower_reward_slot_highlight_keys: Array[String] = []
+var _tower_active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 # prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
 # 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
 var _unlock_showcase_panel_texture: Texture2D = null
@@ -599,6 +601,242 @@ func draw_tower_start_card(
 			Color(0.96, 0.76, 0.32, alpha)
 		)
 	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, mouse_pos)
+
+
+func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dictionary:
+	_prepare_text_caches()
+	var choice := _tower_node_card_choice(action)
+	var description := str(choice.get("description", "")).strip_edges()
+	if description.is_empty():
+		description = str(choice.get("detail", "")).strip_edges()
+	var font_size := clampi(int(round(rect.size.x * 0.056)), 11, 13)
+	var description_rows := _wrap_text_px(
+		description,
+		font_size,
+		maxf(24.0, rect.size.x - 28.0),
+		3
+	)
+	return {
+		"choice": choice,
+		"description_font_size": font_size,
+		"description_rows": description_rows,
+		# GRT-021: this is the count of rows actually appended by the same
+		# width-aware builder consumed by draw_tower_node_card below.
+		"appended_description_row_count": description_rows.size(),
+	}
+
+
+func draw_tower_node_card(
+	canvas: CanvasItem,
+	action: Dictionary,
+	rect: Rect2,
+	selected: bool,
+	icon_renderer: Object,
+	paper_variant: int = 0,
+	active_item_hud_visuals: Object = null
+) -> Dictionary:
+	if canvas == null or not rect.has_area():
+		return {}
+	_draw_now_msec = Time.get_ticks_msec()
+	var text_layout := build_tower_node_card_text_layout(action, rect)
+	var choice: Dictionary = text_layout.get("choice", {})
+	var enabled := bool(action.get("enabled", true))
+	var rarity := str(choice.get("rarity", "common"))
+	var premium := (
+		bool(choice.get("is_unique", false))
+		or rarity in ["legendary", "mythic"]
+	)
+	var paper_rect := RuntimePerkTraditionalChrome.draw_card_base(
+		canvas,
+		rect,
+		false,
+		premium,
+		1.0,
+		0.5,
+		paper_variant,
+		_traditional_ornament_atlas_texture,
+		_traditional_card_paper_texture
+	)
+	if selected:
+		canvas.draw_rect(rect.grow(-1.0), Color(1.0, 0.86, 0.47, 0.96), false, 3.0)
+
+	var icon_color := _get_color(choice.get(
+		"icon_color",
+		Color(100.0 / 255.0, 150.0 / 255.0, 1.0)
+	))
+	var icon_center := rect.position + Vector2(38.0, 39.0)
+	var icon_radius := 24.0
+	canvas.draw_circle(icon_center, icon_radius + 4.0, Color(0.17, 0.12, 0.08, 0.96))
+	canvas.draw_circle(icon_center, icon_radius, Color(0.07, 0.10, 0.12, 0.97))
+	canvas.draw_arc(icon_center, icon_radius, 0.0, TAU, 28, Color(icon_color, 0.76), 1.6)
+	_draw_tower_node_card_icon(
+		canvas,
+		choice,
+		Rect2(icon_center - Vector2.ONE * 20.0, Vector2.ONE * 40.0),
+		icon_renderer,
+		active_item_hud_visuals
+	)
+
+	var nameplate := Rect2(
+		Vector2(rect.position.x + 70.0, rect.position.y + 14.0),
+		Vector2(maxf(48.0, rect.size.x - 83.0), 29.0)
+	)
+	RuntimePerkTraditionalChrome.draw_nameplate(
+		canvas,
+		nameplate,
+		selected,
+		premium,
+		1.0
+	)
+	var name := str(choice.get("name", action.get("label", "")))
+	_draw_text_centered_fitted(
+		canvas,
+		name,
+		nameplate.get_center() + Vector2(0.0, 1.0),
+		15,
+		Color(0.94, 0.87, 0.72),
+		nameplate.size.x - 12.0,
+		10
+	)
+	var rank_text := _level_text(choice)
+	_draw_text_centered_fitted(
+		canvas,
+		rank_text,
+		Vector2(nameplate.get_center().x, rect.position.y + 58.0),
+		12,
+		_level_color(choice, premium, 1.0),
+		nameplate.size.x - 8.0,
+		9
+	)
+	canvas.draw_line(
+		Vector2(paper_rect.position.x + 10.0, rect.position.y + 76.0),
+		Vector2(paper_rect.end.x - 10.0, rect.position.y + 76.0),
+		Color(0.45, 0.34, 0.20, 0.48),
+		1.0
+	)
+
+	var description_rows: Array = text_layout.get("description_rows", [])
+	var description_font_size := int(text_layout.get("description_font_size", 12))
+	for row_index in range(description_rows.size()):
+		_draw_text_fitted(
+			canvas,
+			str(description_rows[row_index]),
+			Vector2(
+				rect.position.x + 14.0,
+				rect.position.y + 96.0 + float(row_index) * 16.0
+			),
+			description_font_size,
+			Color(0.24, 0.19, 0.14, 0.96),
+			rect.size.x - 28.0,
+			10
+		)
+
+	var reason := str(action.get("unavailable_reason", "")).strip_edges()
+	if not enabled:
+		canvas.draw_rect(rect.grow(-5.0), Color(0.10, 0.09, 0.08, 0.32), true)
+		_draw_text_centered_fitted(
+			canvas,
+			reason,
+			Vector2(rect.get_center().x, rect.end.y - 42.0),
+			11,
+			Color(0.49, 0.12, 0.10),
+			rect.size.x - 22.0,
+			9
+		)
+	_draw_text_centered_fitted(
+		canvas,
+		str(action.get("cost_text", "")),
+		Vector2(rect.get_center().x, rect.end.y - 17.0),
+		12,
+		Color(0.35, 0.22, 0.09) if enabled else Color(0.35, 0.30, 0.26),
+		rect.size.x - 22.0,
+		9
+	)
+	return text_layout
+
+
+func _draw_tower_node_card_icon(
+	canvas: CanvasItem,
+	choice: Dictionary,
+	rect: Rect2,
+	icon_renderer: Object,
+	active_item_hud_visuals: Object
+) -> void:
+	var content_kind := str(choice.get("card_content_kind", ""))
+	var item_data_value: Variant = choice.get("item_data", {})
+	if (
+		content_kind == "active_item"
+		and item_data_value is Dictionary
+		and not (item_data_value as Dictionary).is_empty()
+	):
+		_tower_active_item_icon_renderer.draw_icon(
+			canvas,
+			rect,
+			item_data_value as Dictionary,
+			1.0,
+			active_item_hud_visuals
+		)
+		return
+	if content_kind in ["capsule", "chance_gem"]:
+		_draw_tower_supply_symbol(canvas, rect, content_kind, choice)
+		return
+	_draw_icon(canvas, icon_renderer, choice, rect, 1.0)
+
+
+func _draw_tower_supply_symbol(
+	canvas: CanvasItem,
+	rect: Rect2,
+	content_kind: String,
+	choice: Dictionary
+) -> void:
+	var center := rect.get_center()
+	var radius := minf(rect.size.x, rect.size.y) * 0.34
+	var color := _get_color(choice.get("icon_color", Color(0.58, 0.76, 0.92)))
+	if content_kind == "chance_gem":
+		var gem_points := PackedVector2Array([
+			center + Vector2(0.0, -radius),
+			center + Vector2(radius * 0.82, -radius * 0.18),
+			center + Vector2(radius * 0.48, radius),
+			center + Vector2(-radius * 0.48, radius),
+			center + Vector2(-radius * 0.82, -radius * 0.18),
+		])
+		canvas.draw_colored_polygon(gem_points, Color(color, 0.90))
+		canvas.draw_polyline(gem_points, Color(0.90, 0.96, 1.0), 1.5, true)
+		canvas.draw_line(
+			center + Vector2(-radius * 0.52, -radius * 0.18),
+			center + Vector2(radius * 0.52, -radius * 0.18),
+			Color(0.90, 0.96, 1.0, 0.82),
+			1.2
+		)
+		return
+	var capsule_rect := Rect2(
+		center - Vector2(radius * 0.54, radius),
+		Vector2(radius * 1.08, radius * 2.0)
+	)
+	var capsule_top := Vector2(center.x, capsule_rect.position.y + capsule_rect.size.x * 0.5)
+	var capsule_bottom := Vector2(center.x, capsule_rect.end.y - capsule_rect.size.x * 0.5)
+	canvas.draw_line(capsule_top, capsule_bottom, Color(0.94, 0.85, 0.62), capsule_rect.size.x + 3.0, true)
+	canvas.draw_line(capsule_top, capsule_bottom, Color(color, 0.82), capsule_rect.size.x, true)
+	canvas.draw_line(
+		Vector2(capsule_rect.position.x, center.y),
+		Vector2(capsule_rect.end.x, center.y),
+		Color(0.19, 0.12, 0.08, 0.76),
+		1.4
+	)
+
+
+func _tower_node_card_choice(action: Dictionary) -> Dictionary:
+	var payload_value: Variant = action.get("payload", {})
+	if payload_value is Dictionary:
+		var choice_value: Variant = (payload_value as Dictionary).get("choice", {})
+		if choice_value is Dictionary and not (choice_value as Dictionary).is_empty():
+			return (choice_value as Dictionary).duplicate(true)
+	return {
+		"id": str(action.get("id", "")),
+		"name": str(action.get("label", "")),
+		"description": "",
+		"level_text": "",
+	}
 
 
 func draw_tower_reward_pick(

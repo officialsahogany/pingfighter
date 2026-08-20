@@ -64,7 +64,7 @@ func build_inventory(
 		_premium_price(premium)
 	))
 	var capsule := _pick_weighted(capsule_candidates, rng)
-	stock.append({
+	var capsule_stock := {
 		"stock_id": "capsule_1",
 		"kind": "capsule",
 		"item_name": str(capsule.get("name", "")),
@@ -72,7 +72,9 @@ func build_inventory(
 		"rarity": ActiveItemRaritySchema.resolve_rarity(capsule),
 		"price": TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE,
 		"sold": false,
-	})
+	}
+	capsule_stock.merge(_item_card_metadata(capsule), true)
+	stock.append(capsule_stock)
 	stock.append({
 		"stock_id": "chance_gem_1",
 		"kind": "chance_gem",
@@ -139,7 +141,7 @@ func _item_stock(
 	item_data: Dictionary,
 	price: int
 ) -> Dictionary:
-	return {
+	var result := {
 		"stock_id": stock_id,
 		"kind": kind,
 		"item_name": str(item_data.get("name", "")),
@@ -147,6 +149,18 @@ func _item_stock(
 		"rarity": ActiveItemRaritySchema.resolve_rarity(item_data),
 		"price": maxi(0, price),
 		"sold": false,
+	}
+	result.merge(_item_card_metadata(item_data), true)
+	return result
+
+
+func _item_card_metadata(item_data: Dictionary) -> Dictionary:
+	return {
+		"description": str(item_data.get("description", "")),
+		"icon_path": str(item_data.get("icon_path", "")),
+		"icon_sheet_path": str(item_data.get("icon_sheet_path", "")),
+		"icon_frame_count": maxi(1, int(item_data.get("icon_frame_count", 1))),
+		"color": item_data.get("color", Color(0.78, 0.78, 0.78)),
 	}
 
 

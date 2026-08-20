@@ -56,6 +56,100 @@ func build_offer(
 	}
 
 
+func build_live_choice_projection(
+	choice_kind: String,
+	offered_choice: Dictionary,
+	runtime_state: Object
+) -> Dictionary:
+	var choice_id := str(offered_choice.get(
+		"id",
+		offered_choice.get("perk_id", "")
+	)).strip_edges()
+	if choice_id.is_empty() or runtime_state == null:
+		return offered_choice.duplicate(true)
+	if choice_kind == "stat" and runtime_state.has_method("get_physique_training_count"):
+		var count := int(runtime_state.call("get_physique_training_count", choice_id))
+		var multiplier := 1.0
+		if runtime_state.has_method("get_physique_training_multiplier"):
+			multiplier = maxf(
+				1.0,
+				float(runtime_state.call("get_physique_training_multiplier"))
+			)
+		var stat_choice: Dictionary = _physique_catalog.build_card(
+			choice_id,
+			count,
+			multiplier
+		)
+		if stat_choice.is_empty():
+			return offered_choice.duplicate(true)
+		var stat_max := int(stat_choice.get("training_max_count", -1))
+		stat_choice["current_level"] = count
+		stat_choice["next_level"] = count + 1 if stat_max < 0 else mini(count + 1, stat_max)
+		stat_choice["max_level"] = stat_max
+		stat_choice["level_text"] = (
+			"Lv.%d" % count
+			if stat_max < 0
+			else "%d / %d" % [count, stat_max]
+		)
+		return stat_choice
+	var projected := offered_choice.duplicate(true)
+	var levels_value: Variant = runtime_state.get("runtime_skill_levels")
+	var runtime_levels: Dictionary = (
+		(levels_value as Dictionary)
+		if levels_value is Dictionary
+		else {}
+	)
+	var current_level := maxi(0, int(runtime_levels.get(
+		choice_id,
+		projected.get("current_level", 0)
+	)))
+	var max_level := int(projected.get("max_level", -1))
+	var next_level := current_level + 1 if max_level < 0 else mini(current_level + 1, max_level)
+	projected["current_level"] = current_level
+	projected["next_level"] = next_level
+	projected["level_text"] = (
+		"Lv.%d" % current_level
+		if max_level < 0
+		else "%d / %d" % [current_level, max_level]
+	)
+	var descriptions_value: Variant = projected.get("descriptions", {})
+	if descriptions_value is Dictionary:
+		var descriptions := descriptions_value as Dictionary
+		projected["description"] = str(descriptions.get(
+			next_level,
+			descriptions.get(max_level, projected.get("description", ""))
+		))
+	return projected
+
+
+func is_live_choice_at_maximum(
+	choice_kind: String,
+	projected_choice: Dictionary,
+	runtime_state: Object,
+	registry: Object = null
+) -> bool:
+	if runtime_state == null:
+		return false
+	var choice_id := str(projected_choice.get(
+		"id",
+		projected_choice.get("perk_id", "")
+	)).strip_edges()
+	if choice_kind == "stat":
+		var max_count := int(projected_choice.get("training_max_count", -1))
+		if max_count >= 0 and int(projected_choice.get("current_level", 0)) >= max_count:
+			return true
+		return (
+			runtime_state.has_method("is_physique_training_saturated")
+			and bool(runtime_state.call(
+				"is_physique_training_saturated",
+				choice_id,
+				registry
+			))
+		)
+	var max_level := int(projected_choice.get("max_level", -1))
+	return max_level >= 0 and int(projected_choice.get("current_level", 0)) >= max_level
+
+
 func _build_stat_choices(
 	node_id: String,
 	map_seed: int,

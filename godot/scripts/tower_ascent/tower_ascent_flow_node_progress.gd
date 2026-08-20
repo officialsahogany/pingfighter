@@ -46,6 +46,31 @@ func get_node_modal_view_model(
 func get_node_modal_kind() -> String:
 	return _node_modal_kind
 
+func get_node_modal_render_context() -> Dictionary:
+	return {
+		"card_renderer": _get_cached_node_modal_render_module(
+			"runtime_perk_overlay_renderer"
+		),
+		"icon_renderer": _get_cached_node_modal_render_module(
+			"runtime_perk_icon_renderer"
+		),
+		"active_item_hud_visuals": _get_cached_node_modal_render_module(
+			"active_item_hud_visuals"
+		),
+	}
+
+
+func _get_cached_node_modal_render_module(key: String) -> Object:
+	# This context is read from the fullscreen draw pass. Production registries
+	# must therefore expose only already-warmed modules here; fixture registries
+	# without a cached API retain their small compatibility path.
+	if _active_registry == null:
+		return null
+	if _active_registry.has_method("get_cached_instance"):
+		var cached_value: Variant = _active_registry.call("get_cached_instance", key)
+		return cached_value as Object if cached_value is Object else null
+	return _get_registry_instance(_active_registry, key)
+
 func get_generated_fallen_monk_offers() -> Array[Dictionary]:
 	return _fallen_monk_node.get_generated_offers()
 

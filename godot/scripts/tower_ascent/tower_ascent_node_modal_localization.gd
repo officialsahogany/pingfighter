@@ -13,6 +13,11 @@ const KEY_INSUFFICIENT_GOLD := "tower_ascent.node_modal.insufficient.gold"
 const KEY_SHOP_PREMIUM_ITEM := "tower_ascent.node_modal.shop.item.premium"
 const KEY_SHOP_CAPSULE := "tower_ascent.node_modal.shop.item.capsule"
 const KEY_SHOP_CHANCE_GEM := "tower_ascent.node_modal.shop.item.chance_gem"
+const KEY_SHOP_CAPSULE_DESCRIPTION := "tower_ascent.node_modal.shop.capsule.description"
+const KEY_SHOP_CHANCE_GEM_DESCRIPTION := "tower_ascent.node_modal.shop.chance_gem.description"
+const KEY_SHOP_ACTIVE_RANK := "tower_ascent.node_modal.shop.rank.active"
+const KEY_SHOP_CAPSULE_RANK := "tower_ascent.node_modal.shop.rank.capsule"
+const KEY_SHOP_RUN_SUPPLY_RANK := "tower_ascent.node_modal.shop.rank.run_supply"
 const KEY_SHOP_SOLD_OUT := "tower_ascent.node_modal.shop.sold_out"
 const KEY_SHOP_SLOT_FULL := "tower_ascent.node_modal.shop.slot_full"
 const KEY_SHOP_GEM_FULL := "tower_ascent.node_modal.shop.gem_full"
@@ -22,8 +27,7 @@ const KEY_COST_MUHON := "tower_ascent.node_modal.cost.muhon"
 const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
 const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
 const KEY_TRAINING_MUGONG_OPTION := "tower_ascent.node_modal.training.mugong_option"
-const KEY_TRAINING_CHOICE_USED := "tower_ascent.node_modal.training.choice_used"
-const KEY_TRAINING_VISIT_COMPLETE := "tower_ascent.node_modal.training.visit_complete"
+const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_OFFER_UNAVAILABLE := "tower_ascent.node_modal.training.offer_unavailable"
 const KEY_MONK_ACQUIRE_OPTION := "tower_ascent.node_modal.fallen_monk.acquire_option"
@@ -85,6 +89,11 @@ const TEXT_BY_LOCALE := {
 		KEY_SHOP_PREMIUM_ITEM: "귀물 진열: {name}",
 		KEY_SHOP_CAPSULE: "액티브 캡슐",
 		KEY_SHOP_CHANCE_GEM: "기회의 보석",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "봉인된 액티브 아이템 하나를 획득합니다.",
+		KEY_SHOP_CHANCE_GEM_DESCRIPTION: "패배 후 도전을 이어갈 때 쓰는 보석을 1개 얻습니다.",
+		KEY_SHOP_ACTIVE_RANK: "{rarity} 액티브",
+		KEY_SHOP_CAPSULE_RANK: "액티브 물자",
+		KEY_SHOP_RUN_SUPPLY_RANK: "탑 물자",
 		KEY_SHOP_SOLD_OUT: "매진",
 		KEY_SHOP_SLOT_FULL: "액티브 슬롯이 가득 찼습니다.",
 		KEY_SHOP_GEM_FULL: "기회의 보석이 이미 가득 찼습니다.",
@@ -94,8 +103,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
 		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
 		KEY_TRAINING_MUGONG_OPTION: "무공 서가: {name}",
-		KEY_TRAINING_CHOICE_USED: "선택 완료",
-		KEY_TRAINING_VISIT_COMPLETE: "이번 방문의 수련을 모두 마쳤습니다.",
+		KEY_TRAINING_MAXIMUM: "최대 단계에 도달했습니다.",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
 		KEY_TRAINING_OFFER_UNAVAILABLE: "수련 선택지를 준비할 수 없습니다.",
 		KEY_MONK_ACQUIRE_OPTION: "초식 습득: {name}",
@@ -143,31 +151,37 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "Gold {amount}",
 		KEY_COST_GOLD: "{amount} Gold",
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
+		KEY_TRAINING_MAXIMUM: "Maximum level reached.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
 		KEY_BALANCE_GOLD: "金币 {amount}",
 		KEY_COST_GOLD: "{amount} 金币",
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
+		KEY_TRAINING_MAXIMUM: "已达到最高等级。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
 		KEY_BALANCE_GOLD: "金貨 {amount}",
 		KEY_COST_GOLD: "{amount} 金貨",
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
+		KEY_TRAINING_MAXIMUM: "最大レベルに達しました。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
 		KEY_BALANCE_GOLD: "Oro {amount}",
 		KEY_COST_GOLD: "{amount} de oro",
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
+		KEY_TRAINING_MAXIMUM: "Se alcanzó el nivel máximo.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
 		KEY_BALANCE_GOLD: "Ouro {amount}",
 		KEY_COST_GOLD: "{amount} de ouro",
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
+		KEY_TRAINING_MAXIMUM: "Nível máximo alcançado.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
 		KEY_BALANCE_GOLD: "Золото: {amount}",
 		KEY_COST_GOLD: "{amount} золота",
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
+		KEY_TRAINING_MAXIMUM: "Достигнут максимальный уровень.",
 	},
 }
 

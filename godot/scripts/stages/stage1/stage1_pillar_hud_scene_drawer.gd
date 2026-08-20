@@ -586,30 +586,36 @@ func _get_baekrin_mount_context(registry: Object) -> Dictionary:
 
 
 func _build_gold_hud_amount(context: Dictionary, registry: Object) -> int:
+	var tower_economy := _get_tower_run_economy(registry)
+	if not tower_economy.is_empty():
+		return maxi(0, int(tower_economy.get("gold", 0)))
 	return maxi(0, _get_cached_plaza_gold(context, registry) + _get_runtime_gold(context, registry))
 
 
 func _build_tower_muhon_hud_context(registry: Object) -> Dictionary:
-	# GRT-042: the draw path may inspect an already-warmed tower owner, but it
-	# must never create the owner just to display a currency counter.
-	var flow_owner: Object = _get_cached_module(registry, "tower_ascent_flow_owner")
-	if flow_owner == null or not flow_owner.has_method("get_run_id"):
+	var economy := _get_tower_run_economy(registry)
+	if economy.is_empty():
 		return {
 			"tower_muhon_hud_visible": false,
 			"tower_muhon_hud_amount": 0,
 		}
-	if str(flow_owner.get_run_id()).strip_edges().is_empty():
-		return {
-			"tower_muhon_hud_visible": false,
-			"tower_muhon_hud_amount": 0,
-		}
-	var economy: Dictionary = {}
-	if flow_owner.has_method("get_run_state_snapshot"):
-		economy = _get_dict(flow_owner.get_run_state_snapshot())
 	return {
 		"tower_muhon_hud_visible": true,
 		"tower_muhon_hud_amount": maxi(0, int(economy.get("muhon", 0))),
 	}
+
+
+func _get_tower_run_economy(registry: Object) -> Dictionary:
+	# GRT-042: the draw path may inspect an already-warmed tower owner, but it
+	# must never create the owner just to display a currency counter.
+	var flow_owner: Object = _get_cached_module(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("get_run_id"):
+		return {}
+	if str(flow_owner.get_run_id()).strip_edges().is_empty():
+		return {}
+	if not flow_owner.has_method("get_run_state_snapshot"):
+		return {}
+	return _get_dict(flow_owner.get_run_state_snapshot())
 
 
 func _get_cached_plaza_gold(context: Dictionary, registry: Object) -> int:

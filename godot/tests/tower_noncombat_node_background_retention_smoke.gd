@@ -21,6 +21,9 @@ var _failures: Array[String] = []
 class StageFallbackFlow:
 	extends RefCounted
 
+	func has_renderable_retained_noncombat_node_background() -> bool:
+		return false
+
 	func get_retained_noncombat_node_background_resolution() -> Dictionary:
 		return {
 			"kind": "shop",
@@ -34,6 +37,9 @@ class StageFallbackFlow:
 class RestCampFlow:
 	extends RefCounted
 
+	func has_renderable_retained_noncombat_node_background() -> bool:
+		return true
+
 	func get_retained_noncombat_node_background_resolution() -> Dictionary:
 		return {
 			"kind": "rest",
@@ -44,10 +50,50 @@ class RestCampFlow:
 		}
 
 
+class RouteAimFlow:
+	extends RefCounted
+
+	var draw_calls := 0
+	var phase := "ROUTE_AIM"
+
+	func has_renderable_retained_noncombat_node_background() -> bool:
+		return true
+
+	func is_active() -> bool:
+		return true
+
+	func get_phase_name() -> String:
+		return phase
+
+	func get_map_transition_visual_model() -> Dictionary:
+		return {}
+
+	func draw(_canvas: CanvasItem) -> void:
+		draw_calls += 1
+
+
+class CachedFlowRegistry:
+	extends RefCounted
+
+	var flow: Object
+	var cold_get_calls := 0
+
+	func _init(value: Object) -> void:
+		flow = value
+
+	func get_cached_instance(key: String) -> Object:
+		return flow if key == "tower_ascent_flow_owner" else null
+
+	func get_instance(_key: String) -> Object:
+		cold_get_calls += 1
+		return null
+
+
 func _init() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_modal_close_retains_background_until_combat_selection()
 	_verify_render_order_and_stage_fallback_contract()
+	_verify_noncombat_playfield_suppression_and_route_restore()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print("tower_noncombat_node_background_retention_smoke: ok")
@@ -138,8 +184,12 @@ func _verify_render_order_and_stage_fallback_contract() -> void:
 	var background_index := draw_body.find("_draw_tower_noncombat_node_background(canvas")
 	var playfield_index := draw_body.find("_draw_transformed_playfield_scene(canvas")
 	_expect(pillar_index >= 0 and background_index > pillar_index, "the retained arena must draw above the stage background")
-	_expect(playfield_index > background_index, "the retained arena must draw below the ball, paddles, and route overlay")
+	_expect(playfield_index > background_index, "the retained arena must be established before the conditional playfield pass")
 	_expect(drawer_source.find("arena_background_imagegen_v1.png") < 0, "BattleSceneDrawer must not own asset path literals")
+	var transformed_body := _function_body(drawer_source, "func _draw_transformed_playfield_scene(")
+	_expect(transformed_body.find("_should_draw_tower_battle_playfield(registry)") >= 0, "the common transformed-playfield owner must gate stale battle composition")
+	_expect(transformed_body.find("_draw_playfield_scene(canvas") >= 0, "combat and stage fallback must retain the production playfield draw")
+	_expect(transformed_body.find("_draw_tower_ascent_playfield_flow_only(canvas") >= 0, "noncombat route aim must retain only the tower-owned selector overlay")
 
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
@@ -155,6 +205,26 @@ func _verify_render_order_and_stage_fallback_contract() -> void:
 	var resolve_body := _function_body(map_source, "func _resolve_route_target(")
 	_expect(resolve_body.find("_clear_retained_noncombat_node_background()") >= 0, "combat route selection must own an explicit background release")
 	_expect(resolve_body.find("_clear_retained_noncombat_node_background()") < resolve_body.find("_phase = PHASE_MAP_TRANSITION"), "combat background release must precede the first transition frame")
+
+
+func _verify_noncombat_playfield_suppression_and_route_restore() -> void:
+	var drawer := preload("res://scripts/core/battle_scene_drawer.gd").new()
+	var fallback_registry := CachedFlowRegistry.new(StageFallbackFlow.new())
+	_expect(bool(drawer.call("_should_draw_tower_battle_playfield", fallback_registry)), "missing-art fallback must preserve the normal stage playfield")
+	_expect(fallback_registry.cold_get_calls == 0, "fallback decision must inspect only the cached tower owner")
+
+	var rest_registry := CachedFlowRegistry.new(RestCampFlow.new())
+	_expect(not bool(drawer.call("_should_draw_tower_battle_playfield", rest_registry)), "renderable noncombat rooms must suppress the previous arena and boss")
+	_expect(rest_registry.cold_get_calls == 0, "noncombat suppression must inspect only the cached tower owner")
+
+	var route_flow := RouteAimFlow.new()
+	var route_registry := CachedFlowRegistry.new(route_flow)
+	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
+	_expect(route_flow.draw_calls == 1, "ROUTE_AIM must keep the tower selector after stale battle composition is suppressed")
+	route_flow.phase = "NODE_MODAL"
+	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
+	_expect(route_flow.draw_calls == 1, "screen-space node modal must not double-render through the playfield-only fallback")
+	_expect(route_registry.cold_get_calls == 0, "route-only draw must never cold-create the tower owner")
 
 
 func _verify_bitmap_model(model: Dictionary, expected_kind: String, phase_label: String) -> void:

@@ -192,9 +192,70 @@ func _build_shop_actions() -> Array[Dictionary]:
 			),
 			"enabled": enabled,
 			"unavailable_reason": unavailable_reason,
-			"payload": {"stock_id": str(stock.get("stock_id", ""))},
+			"payload": {
+				"stock_id": str(stock.get("stock_id", "")),
+				"choice": _shop_card_choice(stock),
+			},
 		})
 	return result
+
+
+func _shop_card_choice(stock: Dictionary) -> Dictionary:
+	var stock_kind := str(stock.get("kind", ""))
+	var rarity := str(stock.get("rarity", "common"))
+	var choice := {
+		"id": str(stock.get("item_name", stock.get("stock_id", ""))),
+		"name": _shop_stock_label(stock),
+		"description": str(stock.get("description", "")),
+		"rarity": rarity,
+		"is_unique": stock_kind == "premium",
+		"tree": "item",
+		"icon_color": stock.get("color", Color(0.78, 0.78, 0.78)),
+		"card_content_kind": "active_item",
+		"level_text": TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_ACTIVE_RANK,
+			{"rarity": _shop_rarity_label(rarity)}
+		),
+		"item_data": {
+			"name": str(stock.get("item_name", "")),
+			"display_name": str(stock.get("display_name", "")),
+			"icon_path": str(stock.get("icon_path", "")),
+			"icon_sheet_path": str(stock.get("icon_sheet_path", "")),
+			"icon_frame_count": maxi(1, int(stock.get("icon_frame_count", 1))),
+			"color": stock.get("color", Color(0.78, 0.78, 0.78)),
+		},
+	}
+	if stock_kind == "capsule":
+		choice["description"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE_DESCRIPTION
+		)
+		choice["card_content_kind"] = "capsule"
+		choice["level_text"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE_RANK
+		)
+		choice["item_data"] = {}
+	elif stock_kind == "chance_gem":
+		choice["description"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CHANCE_GEM_DESCRIPTION
+		)
+		choice["card_content_kind"] = "chance_gem"
+		choice["level_text"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_RUN_SUPPLY_RANK
+		)
+		choice["item_data"] = {}
+		choice["icon_color"] = Color(0.33, 0.72, 1.0)
+	return choice
+
+
+func _shop_rarity_label(rarity: String) -> String:
+	match rarity:
+		"mythic":
+			return "신화"
+		"legendary":
+			return "전설"
+		"rare":
+			return "희귀"
+	return "일반"
 
 func _shop_stock_label(stock: Dictionary) -> String:
 	match str(stock.get("kind", "")):
@@ -351,9 +412,6 @@ func _build_training_actions() -> Array[Dictionary]:
 	if offer.is_empty():
 		return []
 	var balances: Dictionary = _run_state.export_economy()
-	var used_count := _get_training_use_count(_current_node_id)
-	var visit_complete := used_count >= TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT
-	var consumed_ids := _get_consumed_training_choice_ids(_current_node_id)
 	var result: Array[Dictionary] = []
 	for choice_value in offer.get("stat_choices", []):
 		if choice_value is Dictionary:
@@ -361,9 +419,7 @@ func _build_training_actions() -> Array[Dictionary]:
 				"stat",
 				choice_value as Dictionary,
 				TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST,
-				balances,
-				visit_complete,
-				consumed_ids
+				balances
 			))
 	for choice_value in offer.get("mugong_choices", []):
 		if choice_value is Dictionary:
@@ -371,9 +427,7 @@ func _build_training_actions() -> Array[Dictionary]:
 				"mugong",
 				choice_value as Dictionary,
 				TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST,
-				balances,
-				visit_complete,
-				consumed_ids
+				balances
 			))
 	return result
 
@@ -381,25 +435,36 @@ func _build_training_action(
 	choice_kind: String,
 	choice: Dictionary,
 	cost: int,
-	balances: Dictionary,
-	visit_complete: bool,
-	consumed_ids: Dictionary
+	balances: Dictionary
 ) -> Dictionary:
-	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
+	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
+		choice_kind,
+		choice,
+		runtime_state
+	)
+	var choice_id := str(live_choice.get(
+		"id",
+		live_choice.get("perk_id", "")
+	)).strip_edges()
 	var action_id := "training_%s:%s" % [choice_kind, choice_id]
-	var consumed := consumed_ids.has("%s:%s" % [choice_kind, choice_id])
 	var affordable := int(balances.get("muhon", 0)) >= cost
-	var enabled := not visit_complete and not consumed and affordable
+	var at_maximum: bool = bool(_training_offer_builder.is_live_choice_at_maximum(
+		choice_kind,
+		live_choice,
+		runtime_state,
+		_active_registry
+	))
+	var enabled: bool = not at_maximum and affordable
 	var unavailable_reason := ""
-	if visit_complete:
+	var disabled_reason := ""
+	if at_maximum:
+		disabled_reason = "training_maximum_reached"
 		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
-		)
-	elif consumed:
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_CHOICE_USED
+			TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
 		)
 	elif not affordable:
+		disabled_reason = "insufficient_muhon"
 		unavailable_reason = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
 			{
@@ -407,7 +472,7 @@ func _build_training_action(
 				"shortfall": cost - int(balances.get("muhon", 0)),
 			}
 		)
-	var display_name := str(choice.get("name", choice_id))
+	var display_name := str(live_choice.get("name", choice_id))
 	var label_key := (
 		TowerAscentNodeModalLocalization.KEY_TRAINING_STAT_OPTION
 		if choice_kind == "stat"
@@ -424,10 +489,12 @@ func _build_training_action(
 			{"amount": cost}
 		),
 		"enabled": enabled,
+		"disabled_reason": disabled_reason,
 		"unavailable_reason": unavailable_reason,
 		"payload": {
 			"choice_kind": choice_kind,
 			"choice_id": choice_id,
+			"choice": live_choice,
 		},
 	}
 
@@ -438,23 +505,32 @@ func _execute_training_action(
 	var parsed := _parse_training_action_id(action_id)
 	if parsed.is_empty():
 		return {"accepted": false, "reason": "invalid_training_action"}
-	if _get_training_use_count(_current_node_id) >= TowerAscentTuning.TEMP_PHASE_C_TRAINING_USES_PER_VISIT:
-		var complete_message := TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
-		)
-		_refresh_training_modal(complete_message)
-		return {
-			"accepted": false,
-			"reason": "training_visit_complete",
-			"message": complete_message,
-		}
 	var choice_kind := str(parsed.get("choice_kind", ""))
 	var choice_id := str(parsed.get("choice_id", ""))
-	if _get_consumed_training_choice_ids(_current_node_id).has("%s:%s" % [choice_kind, choice_id]):
-		return {"accepted": false, "reason": "training_choice_used"}
 	var choice := _find_training_choice(choice_kind, choice_id)
 	if choice.is_empty():
 		return {"accepted": false, "reason": "unknown_training_choice"}
+	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
+	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
+		choice_kind,
+		choice,
+		runtime_state
+	)
+	if _training_offer_builder.is_live_choice_at_maximum(
+		choice_kind,
+		live_choice,
+		runtime_state,
+		_active_registry
+	):
+		var maximum_message := TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
+		)
+		_refresh_training_modal(maximum_message)
+		return {
+			"accepted": false,
+			"reason": "training_maximum_reached",
+			"message": maximum_message,
+		}
 	var cost := (
 		TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
 		if choice_kind == "stat"
@@ -474,14 +550,17 @@ func _execute_training_action(
 		return affordability
 	var resolution_id := requested_resolution_id.strip_edges()
 	if resolution_id.is_empty():
-		resolution_id = _make_resolution_id(_current_node_id, action_id)
+		resolution_id = _make_resolution_id(
+			_current_node_id,
+			"%s:%d" % [action_id, _training_history.size()]
+		)
 	var transaction_result: Dictionary = _node_action_transaction.apply_once(
 		resolution_id,
 		{"muhon": cost},
 		{},
 		_run_state,
 		_resolution_ids,
-		Callable(self, "_grant_training_choice").bind(choice),
+		Callable(self, "_grant_training_choice").bind(live_choice),
 		Callable(self, "_rollback_training_choice")
 	)
 	_pending_runtime_perk_rollback_snapshot.clear()
@@ -554,24 +633,6 @@ func _parse_training_action_id(action_id: String) -> Dictionary:
 			if not choice_id.is_empty():
 				return {"choice_kind": choice_kind, "choice_id": choice_id}
 	return {}
-
-func _get_training_use_count(node_id: String) -> int:
-	var count := 0
-	for record in _training_history:
-		if str(record.get("node_id", "")) == node_id:
-			count += 1
-	return count
-
-func _get_consumed_training_choice_ids(node_id: String) -> Dictionary:
-	var result := {}
-	for record in _training_history:
-		if str(record.get("node_id", "")) != node_id:
-			continue
-		result["%s:%s" % [
-			str(record.get("choice_kind", "")),
-			str(record.get("choice_id", "")),
-		]] = true
-	return result
 
 func _grant_training_choice(choice: Dictionary) -> bool:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
