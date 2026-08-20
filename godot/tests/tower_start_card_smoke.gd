@@ -402,6 +402,7 @@ func _run() -> void:
 	_verify_fallback_matrix()
 	_verify_target_level_path_is_single_shot()
 	_verify_apply_and_single_pick_contract()
+	_verify_failsafe_autoselects_first_enabled_card()
 	_verify_pending_swap_fails_closed()
 	_verify_render_and_localization_contract()
 	await _verify_real_battle_scene_shell_wiring()
@@ -664,6 +665,75 @@ func _verify_apply_and_single_pick_contract() -> void:
 	var chosik_choice := chosik_state.get_card_choices()[chosik_index]
 	_expect(chosik_state.select_slot(chosik_index), "Chosik start card must apply")
 	_expect((chosik_fixture.skill_config as FakeSkillConfig).equipped_skills.has(str(chosik_choice.get("unlocks_skill", ""))), "Chosik choice must equip its unlocked skill")
+
+
+func _verify_failsafe_autoselects_first_enabled_card() -> void:
+	_leg_count += 1
+	_expect(
+		TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC >= 180.0,
+		"start-card failsafe must allow at least three minutes for deliberation"
+	)
+	var fixture := _build_fixture(_standard_catalog())
+	var state := TowerStartCardState.new()
+	_expect(state.begin(fixture.owner, fixture.registry), "failsafe fixture must begin")
+	var offered := state.get_card_choices()
+	_expect(offered.size() == 3, "failsafe fixture must expose three cards")
+	var first_enabled_index := -1
+	for index in range(offered.size()):
+		if bool(offered[index].get("enabled", false)):
+			first_enabled_index = index
+			break
+	_expect(first_enabled_index >= 0, "failsafe fixture must have an enabled card")
+	if first_enabled_index < 0:
+		return
+	var expected_choice: Dictionary = offered[first_enabled_index]
+
+	state.update(TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC)
+	var timeout_status := state.get_status_for_tests()
+	var timeout_result := state.get_selection_result()
+	_expect(state.is_active() and not state.is_completed(), "timeout auto-pick must remain visible for the absorption beat")
+	_expect(not state.was_skipped(), "timeout auto-pick must not mark the start card as skipped")
+	_expect(bool(timeout_result.get("accepted", false)), "timeout must produce an accepted acquisition result")
+	_expect(not bool(timeout_result.get("skipped", true)), "timeout acquisition result must not be empty or skipped")
+	_expect(bool(timeout_result.get("auto_selected", false)), "timeout result must identify the automatic selection")
+	_expect(
+		str(timeout_result.get("reason", "")) == "start_card_failsafe_auto_selected",
+		"timeout result must use the explicit auto-selection reason"
+	)
+	_expect(
+		str(timeout_result.get("picked_perk_id", "")) == str(expected_choice.get("id", ""))
+		and not str(timeout_result.get("picked_perk_id", "")).is_empty(),
+		"timeout must grant the first enabled card instead of an empty result"
+	)
+	_expect(
+		float(timeout_status.get("absorb_elapsed_sec", -1.0)) >= 0.0,
+		"timeout auto-pick must play the normal absorption feedback"
+	)
+	var frozen_cards := state.get_card_choices()
+	_expect(
+		bool(frozen_cards[first_enabled_index].get("start_card_selected", false)),
+		"timeout must visibly select the first enabled card"
+	)
+	if str(expected_choice.get("start_card_kind", "")) == "mugong":
+		_expect(
+			int((fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(str(expected_choice.get("id", "")), 0)) == 2,
+			"timeout-selected Mugong must grant its real two-star runtime level"
+		)
+	else:
+		_expect(
+			(fixture.skill_config as FakeSkillConfig).equipped_skills.has(str(expected_choice.get("unlocks_skill", ""))),
+			"timeout-selected Chosik must grant its real equipped skill"
+		)
+	var recorded: Dictionary = (fixture.flow_owner as FakeFlowOwner).recorded_start_card
+	_expect(
+		str(recorded.get("picked_perk_id", "")) == str(expected_choice.get("id", "")),
+		"timeout-selected card must persist through the run-progress owner"
+	)
+	state.update(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	_expect(
+		state.is_completed() and not state.is_active() and not state.was_skipped(),
+		"timeout absorption completion must release the modal without losing content"
+	)
 
 
 func _verify_pending_swap_fails_closed() -> void:

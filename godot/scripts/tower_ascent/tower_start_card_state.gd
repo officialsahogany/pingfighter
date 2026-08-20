@@ -181,10 +181,13 @@ func update(delta: float) -> void:
 			_finish_phase()
 		return
 	if _elapsed_sec >= TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC:
+		if _auto_select_first_enabled_card():
+			return
 		_selection_result = {
 			"accepted": false,
-			"reason": "start_card_failsafe_timeout",
+			"reason": "start_card_failsafe_auto_select_failed",
 			"skipped": true,
+			"auto_selected": false,
 		}
 		_skipped = true
 		_finish_phase()
@@ -236,6 +239,7 @@ func select_slot(index: int) -> bool:
 		"picked_kind": str(selected.get("start_card_kind", "")) if accepted else "",
 		"offer_ids": offer_ids if accepted else PackedStringArray(),
 		"pending_swap_started": pending_swap_started,
+		"auto_selected": false,
 	}
 	if accepted:
 		_absorb_elapsed_sec = 0.0
@@ -421,6 +425,19 @@ func _has_pending_unlock_swap() -> bool:
 		and _runtime_state.has_method("has_pending_unlock_swap")
 		and bool(_runtime_state.call("has_pending_unlock_swap"))
 	)
+
+
+func _auto_select_first_enabled_card() -> bool:
+	for index in range(_card_choices.size()):
+		if not bool(_card_choices[index].get("enabled", false)):
+			continue
+		_selected_index = index
+		if not select_slot(index):
+			return false
+		_selection_result["reason"] = "start_card_failsafe_auto_selected"
+		_selection_result["auto_selected"] = true
+		return true
+	return false
 
 
 func _finish_phase() -> void:
