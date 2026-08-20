@@ -219,7 +219,6 @@ func _update_await_marshal(delta: float, owner: Object, registry: Object) -> boo
 			return true
 	_marshal_attempt_elapsed += max(0.0, delta)
 	if _marshal_attempt_elapsed >= MARSHAL_ATTEMPT_TIMEOUT_SECONDS:
-		_clear_stale_ball_effects_on_retry(registry)
 		_begin_await_shadow(true)
 		return true
 	return false
@@ -288,22 +287,6 @@ func _stage_held_ball(owner: Object) -> void:
 	owner.set("ball_pos", HOLD_BALL_POS)
 	owner.set("ball_vel", Vector2.ZERO)
 	owner.set("ball_active", true)
-
-
-# 재시도 전환은 라운드 리셋 없이 공을 홀드로 되돌린다 — 홀로그램 분신·락이
-# 남으면 홀드 중에도 표시되고 재상승 첫 프레임의 보스 AI가 stale 락을
-# 재사용한다. timeout 재시도는 hold/skip 조기 반환 때문에 공-경로 훅에
-# 닿지 않으므로 여기서 직접 정리한다(score-loss 재시도는 registry가 없는
-# notify_ball_lost로 진입해 ball_update_controller 인터셉트가 같은
-# clear_hologram_decoys_and_lock 체인을 수행한다 — 정리 계약은 공용).
-func _clear_stale_ball_effects_on_retry(registry: Object) -> void:
-	if registry == null or not registry.has_method("get_cached_instance"):
-		return
-	var active_item_runtime: Variant = registry.get_cached_instance("active_item_runtime")
-	if typeof(active_item_runtime) != TYPE_OBJECT or not is_instance_valid(active_item_runtime):
-		return
-	if (active_item_runtime as Object).has_method("clear_hologram_decoys_and_lock"):
-		(active_item_runtime as Object).clear_hologram_decoys_and_lock()
 
 
 func _begin_await_shadow(is_retry: bool) -> void:

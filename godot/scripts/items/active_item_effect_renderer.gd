@@ -6,9 +6,6 @@ const BrickWallEffectRenderer := preload("res://scripts/items/active_item_brick_
 const TrampolineRenderer := preload("res://scripts/items/active_item_trampoline_renderer.gd")
 const TimerGaugeRenderer := preload("res://scripts/items/active_item_timer_gauge_renderer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
-const EnergyBallRendererScript := preload("res://scripts/ball/energy_ball_renderer.gd")
-const EnergyBallTextureCache := preload("res://scripts/ball/energy_ball_texture_cache.gd")
-const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -32,14 +29,12 @@ const EFFECT_PARTICLE_ALPHA_CUTOFF := 0.02
 const STOPWATCH_FACE_NUMBERS := ["12", "3", "6", "9"]
 # 홀로그램 분신 = 진짜 에너지볼 레이어를 같은 텍스처 캐시로 미러링하되
 # 전체 알파만 낮춘 반투명 버전. 단일 레버로 투명도를 튠한다.
-const HOLOGRAM_DECOY_ALPHA := 0.6
 
 var long_boost_icon_texture: Texture2D
 var vitamin_pill_icon_texture: Texture2D
 var strange_vial_icon_texture: Texture2D
 var stopwatch_icon_texture: Texture2D
 var magnet_field_icon_texture: Texture2D
-var hologram_disk_icon_texture: Texture2D
 var holy_barrier_icon_texture: Texture2D
 var dash_boost_icon_texture: Texture2D
 var brick_wall_variant_sheet_texture: Texture2D
@@ -75,25 +70,22 @@ func prewarm_assets_step(active_item_hud_visuals: Object = null) -> bool:
 			if ResourceLoader.exists(TimerGaugeRenderer.MAGNET_FIELD_ICON_PATH):
 				_touch_texture(_get_magnet_field_icon_texture())
 		5:
-			if ResourceLoader.exists(TimerGaugeRenderer.HOLOGRAM_DISK_ICON_PATH):
-				_touch_texture(_get_hologram_disk_icon_texture())
-		6:
 			if ResourceLoader.exists(TimerGaugeRenderer.HOLY_BARRIER_ICON_PATH):
 				_touch_texture(_get_holy_barrier_icon_texture())
-		7:
+		6:
 			if ResourceLoader.exists(TimerGaugeRenderer.DASH_BOOST_ICON_PATH):
 				_touch_texture(_get_dash_boost_icon_texture())
-		8:
+		7:
 			_brick_wall_renderer.prewarm_assets()
 			brick_wall_variant_sheet_texture = _brick_wall_renderer.brick_wall_variant_sheet_texture
 			_trampoline_renderer.prewarm_assets()
-		9:
+		8:
 			if active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons_step"):
 				if not bool(active_item_hud_visuals.prewarm_catalog_icons_step()):
 					return false
 			elif active_item_hud_visuals != null and active_item_hud_visuals.has_method("prewarm_catalog_icons"):
 				active_item_hud_visuals.prewarm_catalog_icons()
-		10:
+		9:
 			_prewarm_pickup_text()
 		_:
 			_prewarm_step_index = 0
@@ -121,8 +113,7 @@ func draw_field_effects(
 	shake_offset: Vector2 = Vector2.ZERO,
 	timer_stack: Object = null,
 	perf_logger: Object = null,
-	doping_potion_context: Dictionary = {},
-	hologram_disk_context: Dictionary = {}
+	doping_potion_context: Dictionary = {}
 ) -> void:
 	if canvas == null:
 		return
@@ -133,10 +124,6 @@ func draw_field_effects(
 	sample_start = _perf_begin(detail_perf_logger)
 	_draw_magnet_field_effect(canvas, magnet_field_context, magnet_field_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.field.magnet", sample_start)
-	sample_start = _perf_begin(detail_perf_logger)
-	_draw_hologram_disk_effect(canvas, hologram_disk_context, shake_offset)
-	_perf_end(detail_perf_logger, "active_item.field.hologram_disk", sample_start)
-	sample_start = _perf_begin(detail_perf_logger)
 	_draw_holy_barrier_effect(canvas, holy_barrier_context, holy_barrier_particles, shake_offset)
 	_perf_end(detail_perf_logger, "active_item.field.holy_barrier", sample_start)
 	sample_start = _perf_begin(detail_perf_logger)
@@ -162,14 +149,6 @@ func draw_field_effects(
 		sample_start = _perf_begin(detail_perf_logger)
 		_timer_gauge_renderer.draw_magnet_field_timer_gauge(canvas, magnet_field_context, timer_stack_index)
 		_perf_end(detail_perf_logger, "active_item.field.timer_magnet", sample_start)
-		if not has_shared_timer_stack:
-			timer_stack_index += 1
-	if bool(hologram_disk_context.get("active", false)):
-		if has_shared_timer_stack:
-			timer_stack_index = int(timer_stack.claim("hologram_disk", true))
-		sample_start = _perf_begin(detail_perf_logger)
-		_timer_gauge_renderer.draw_hologram_disk_timer_gauge(canvas, hologram_disk_context, timer_stack_index)
-		_perf_end(detail_perf_logger, "active_item.field.timer_hologram_disk", sample_start)
 		if not has_shared_timer_stack:
 			timer_stack_index += 1
 	if bool(holy_barrier_context.get("active", false)):
@@ -357,98 +336,6 @@ func _draw_magnet_field_effect(
 
 	if timer_frames < 60.0 and int(timer_frames) % 10 < 5:
 		canvas.draw_circle(player_center, 100.0, Color(150.0 / 255.0, 100.0 / 255.0, 1.0, 30.0 / 255.0))
-
-
-# 분신/팝 pos는 실 공과 같은 '중심' 좌표 — 좌상단(+half) 보정을 더하지
-# 않는다(더하면 AI 추적 위치와 화면 중심이 반지름만큼 어긋난다). 두 draw
-# 함수가 반드시 이 헬퍼를 지나며, 스모크가 헬퍼 계약+본문 사용을 봉인한다.
-static func resolve_hologram_render_center(entity: Dictionary, shake_offset: Vector2) -> Vector2:
-	var value: Variant = entity.get("pos", Vector2.ZERO)
-	var pos: Vector2 = value if value is Vector2 else Vector2.ZERO
-	return pos + shake_offset
-
-
-func _draw_hologram_disk_effect(
-	canvas: CanvasItem,
-	hologram_context: Dictionary,
-	shake_offset: Vector2
-) -> void:
-	if hologram_context.is_empty():
-		return
-	var phase: float = float(hologram_context.get("phase", 0.0))
-	var locked_index: int = int(hologram_context.get("locked_decoy_index", -1))
-	var decoys: Array = hologram_context.get("decoys", [])
-	for index in range(decoys.size()):
-		var decoy_value: Variant = decoys[index]
-		if decoy_value is Dictionary:
-			_draw_hologram_decoy(canvas, decoy_value, phase, index == locked_index, shake_offset)
-	var pop_particles: Array = hologram_context.get("pop_particles", [])
-	for particle_value in pop_particles:
-		if particle_value is Dictionary:
-			_draw_hologram_pop_particle(canvas, particle_value, shake_offset)
-
-
-func _draw_hologram_decoy(
-	canvas: CanvasItem,
-	decoy: Dictionary,
-	phase: float,
-	is_locked: bool,
-	shake_offset: Vector2
-) -> void:
-	var center: Vector2 = resolve_hologram_render_center(decoy, shake_offset)
-	var seed_value: float = float(decoy.get("flicker_seed", 0.0))
-	# 미세 플리커만 남긴 홀로그램 쉬머 — 공 판독을 해치지 않는 진폭으로 제한.
-	var flicker: float = 1.0 + 0.06 * sin(phase * 4.8 + seed_value)
-	var alpha_scale: float = HOLOGRAM_DECOY_ALPHA * flicker
-	if is_locked:
-		alpha_scale = min(1.0, alpha_scale + 0.06)
-	var pulse: float = sin(phase * 1.1 + seed_value) * 0.08 + 1.0
-	var radius: float = EnergyBallRendererScript.BALL_RENDER_RADIUS
-	var brightness: float = EnergyBallRendererScript.BALL_BRIGHTNESS
-	var outer_color: Color = EnergyBallRendererScript.BALL_OUTER_COLOR
-	var inner_color: Color = EnergyBallRendererScript.BALL_INNER_COLOR
-	ImpactFlareTextureCache.draw_glow(canvas, center, radius * 0.88 * pulse, outer_color, 0.11 * brightness * alpha_scale)
-	ImpactFlareTextureCache.draw_glow(canvas, center, radius * 0.52 * pulse, inner_color, 0.30 * brightness * alpha_scale)
-	EnergyBallTextureCache.draw_core(
-		canvas,
-		center,
-		radius * EnergyBallRendererScript.BALL_SOLID_CORE_SCALE * pulse,
-		inner_color,
-		0.86 * brightness * alpha_scale
-	)
-	EnergyBallTextureCache.draw_core(
-		canvas,
-		center,
-		radius * EnergyBallRendererScript.BALL_SOLID_CORE_SCALE * 0.64 * pulse,
-		EnergyBallRendererScript.BALL_DIMENSIONAL_CORE_MAIN,
-		0.98 * brightness * alpha_scale
-	)
-	EnergyBallTextureCache.draw_highlight(
-		canvas,
-		center,
-		radius * EnergyBallRendererScript.BALL_CORE_SCALE * EnergyBallRendererScript.BALL_CORE_HIGHLIGHT_SCALE,
-		Color.WHITE,
-		0.50 * alpha_scale
-	)
-	# 홀로그램 식별용 은은한 시안 림 — 플레이어만 알아볼 수 있는 최소한의 텔.
-	canvas.draw_arc(center, radius * 0.74, 0.0, TAU, 28, Color(0.35, 0.95, 1.0, 0.20 * alpha_scale), 1.5)
-
-
-func _draw_hologram_pop_particle(canvas: CanvasItem, particle: Dictionary, shake_offset: Vector2) -> void:
-	var age_frames: float = float(particle.get("age_frames", 0.0))
-	var lifetime_frames: float = max(1.0, float(particle.get("lifetime_frames", 12.0)))
-	var life: float = clamp(1.0 - age_frames / lifetime_frames, 0.0, 1.0)
-	if life <= 0.0:
-		return
-	var center: Vector2 = resolve_hologram_render_center(particle, shake_offset)
-	var seed_value: float = float(particle.get("flicker_seed", 0.0))
-	for index in range(6):
-		var angle: float = seed_value + TAU * float(index) / 6.0
-		var start_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (4.0 + age_frames * 0.35)
-		var end_pos: Vector2 = center + Vector2(cos(angle), sin(angle)) * (12.0 + age_frames * 0.75)
-		var color := Color(0.35, 0.95, 1.0, 0.48 * life) if index % 2 == 0 else Color(1.0, 0.30, 0.95, 0.42 * life)
-		canvas.draw_line(start_pos, end_pos, color, 1.5)
-	canvas.draw_circle(center, 10.0 * life, Color(0.5, 1.0, 1.0, 0.12 * life))
 
 
 func _draw_holy_barrier_effect(
@@ -838,11 +725,6 @@ func _get_strange_vial_icon_texture() -> Texture2D:
 func _get_magnet_field_icon_texture() -> Texture2D:
 	magnet_field_icon_texture = _timer_gauge_renderer.get_magnet_field_icon_texture()
 	return magnet_field_icon_texture
-
-
-func _get_hologram_disk_icon_texture() -> Texture2D:
-	hologram_disk_icon_texture = _timer_gauge_renderer.get_hologram_disk_icon_texture()
-	return hologram_disk_icon_texture
 
 
 func _get_holy_barrier_icon_texture() -> Texture2D:

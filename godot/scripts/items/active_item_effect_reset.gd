@@ -8,7 +8,6 @@ func apply(
 	timed_paddle_effects: Object,
 	stopwatch_runtime: Object,
 	magnet_field_runtime: Object,
-	hologram_disk_runtime: Object,
 	holy_barrier_runtime: Object,
 	dash_boost_runtime: Object,
 	brick_wall_installation: Object,
@@ -34,7 +33,6 @@ func apply(
 	state_applier.apply_stopwatch_state(target, stopwatch_runtime.clear_state(float(target.get("stopwatch_clock_angle"))))
 	target.set("stopwatch_clock_angle", 0.0)
 	state_applier.apply_magnet_field_state(target, magnet_field_runtime.clear_state(timed_paddle_effects.get_default_player_center()))
-	state_applier.apply_hologram_disk_state(target, hologram_disk_runtime.clear_state())
 	state_applier.apply_holy_barrier_state(target, holy_barrier_runtime.clear_state())
 	state_applier.apply_dash_boost_state(target, dash_boost_runtime.clear_state())
 	_clear_array(target, "brick_walls")
