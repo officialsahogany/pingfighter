@@ -454,6 +454,16 @@ func get_route_wind_roll_count() -> int:
 func _resolve_route_target(target_id: String) -> void:
 	if not get_route_target_ids().has(target_id):
 		return
+	var target_node := _get_node(target_id)
+	var target_kind := str(target_node.get("kind", ""))
+	if target_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+		# Entry is authoritative once the selector commits the target. Warm before
+		# MAP_TRANSITION begins so its arrival frame never performs filesystem IO.
+		_prewarm_noncombat_node_background(target_kind)
+	else:
+		# A combat selection restores the stage-owned background before the first
+		# transition frame. The departed noncombat arena must never bleed into battle.
+		_clear_retained_noncombat_node_background()
 	_route_serve_runtime.finish_selection()
 	_selected_target_id = target_id
 	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})

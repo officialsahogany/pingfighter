@@ -41,6 +41,9 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	_draw_pillar_scene(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.pillar_scene", sample_start)
 	sample_start = _perf_begin(perf_logger)
+	_draw_tower_noncombat_node_background(canvas, registry, view_size)
+	_perf_end(perf_logger, "draw.scene.tower_noncombat_background", sample_start)
+	sample_start = _perf_begin(perf_logger)
 	_draw_tower_ascent_map_hint(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.tower_map_hint", sample_start)
 	sample_start = _perf_begin(perf_logger)
@@ -228,6 +231,23 @@ func _draw_tower_ascent_map_hint(
 		_get_vector2(layout, "game_offset", Vector2.ZERO),
 		_get_vector2(layout, "game_size", view_size),
 		flow_active
+	)
+
+
+func _draw_tower_noncombat_node_background(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2
+) -> void:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("draw_retained_noncombat_node_background")
+	):
+		return
+	flow_owner.draw_retained_noncombat_node_background(
+		canvas,
+		Rect2(Vector2.ZERO, view_size)
 	)
 
 

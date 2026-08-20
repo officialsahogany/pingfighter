@@ -289,6 +289,14 @@ func draw_fullscreen_surface(
 		_renderer.draw_fullscreen_surface(canvas, self, fallback_rect, walker_model)
 
 
+func draw_retained_noncombat_node_background(
+	canvas: CanvasItem,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if _renderer != null and _renderer.has_method("draw_retained_noncombat_node_background"):
+		_renderer.draw_retained_noncombat_node_background(canvas, self, fallback_rect)
+
+
 func draw_fullscreen_fade(canvas: CanvasItem, fallback_rect: Rect2 = Rect2()) -> void:
 	if canvas == null:
 		return

@@ -324,6 +324,7 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	_route_serve_runtime.cancel()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
+	_clear_retained_noncombat_node_background()
 	_active_owner = null
 	_active_registry = null
 	_active = false
@@ -357,6 +358,7 @@ func _complete_map_transition() -> void:
 	var arrived_kind := str(arrived_node.get("kind", ""))
 	if arrived_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
 		_node_modal_kind = _normalize_node_modal_kind(arrived_kind)
+		_retain_noncombat_node_background(arrived_kind)
 		_phase = PHASE_NODE_MODAL
 		_open_node_modal()
 		_transition_fade_state.begin_node_modal_fade()

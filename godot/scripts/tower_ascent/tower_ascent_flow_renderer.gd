@@ -178,8 +178,75 @@ func draw_fullscreen_node_modal(
 		"node_kind",
 		flow.get_node_modal_kind() if flow.has_method("get_node_modal_kind") else "common_shell"
 	))
-	_draw_node_modal_backdrop(canvas, viewport_rect, node_kind)
+	var owns_background_contract := flow.has_method(
+		"get_retained_noncombat_node_background_resolution"
+	)
+	var background_model := build_noncombat_node_background_model(flow, viewport_rect)
+	if background_model.is_empty():
+		# Compatibility fixtures without the S4 owner keep R4's procedural shell.
+		# Production fallback deliberately draws nothing here so the stage-owned
+		# background below remains visible when an approved bitmap is unavailable.
+		if not owns_background_contract:
+			_draw_node_modal_backdrop(canvas, viewport_rect, node_kind)
+	else:
+		_draw_noncombat_node_background_model(canvas, background_model)
 	_draw_node_modal(canvas, model)
+
+
+func draw_retained_noncombat_node_background(
+	canvas: CanvasItem,
+	flow: Object,
+	fallback_rect: Rect2 = Rect2()
+) -> void:
+	if canvas == null or flow == null:
+		return
+	# NODE_MODAL owns its opaque screen-space draw later in the frame. This early
+	# pass exists for ROUTE_AIM and departure transitions so actors stay above it.
+	if flow.has_method("get_phase_name") and str(flow.get_phase_name()) == "NODE_MODAL":
+		return
+	var viewport_rect := resolve_fullscreen_rect(canvas, fallback_rect)
+	var model := build_noncombat_node_background_model(flow, viewport_rect)
+	if not model.is_empty():
+		_draw_noncombat_node_background_model(canvas, model)
+
+
+func build_noncombat_node_background_model(
+	flow: Object,
+	viewport_rect: Rect2
+) -> Dictionary:
+	if (
+		flow == null
+		or viewport_rect.size.x <= 0.0
+		or viewport_rect.size.y <= 0.0
+		or not flow.has_method("get_retained_noncombat_node_background_resolution")
+	):
+		return {}
+	var resolution: Dictionary = flow.get_retained_noncombat_node_background_resolution()
+	if resolution.is_empty() or bool(resolution.get("fallback_to_stage_background", false)):
+		return {}
+	var kind := str(resolution.get("kind", ""))
+	var source := str(resolution.get("source", ""))
+	if source == "bitmap":
+		var texture := resolution.get("texture", null) as Texture2D
+		if texture == null:
+			return {}
+		var source_rect := _texture_cover_source_rect(texture, viewport_rect)
+		if source_rect.size.x <= 0.0 or source_rect.size.y <= 0.0:
+			return {}
+		return {
+			"kind": kind,
+			"source": source,
+			"texture": texture,
+			"target_rect": viewport_rect,
+			"source_rect": source_rect,
+		}
+	if source == "procedural":
+		return {
+			"kind": kind,
+			"source": source,
+			"target_rect": viewport_rect,
+		}
+	return {}
 
 
 func resolve_fullscreen_rect(canvas: CanvasItem, fallback_rect: Rect2) -> Rect2:
@@ -188,6 +255,49 @@ func resolve_fullscreen_rect(canvas: CanvasItem, fallback_rect: Rect2) -> Rect2:
 	if canvas != null and canvas.is_inside_tree():
 		return canvas.get_viewport_rect()
 	return fallback_rect
+
+
+func _draw_noncombat_node_background_model(
+	canvas: CanvasItem,
+	model: Dictionary
+) -> void:
+	var target_rect: Rect2 = model.get("target_rect", Rect2())
+	if str(model.get("source", "")) == "bitmap":
+		var texture := model.get("texture", null) as Texture2D
+		var source_rect: Rect2 = model.get("source_rect", Rect2())
+		if texture != null and target_rect.size.x > 0.0 and target_rect.size.y > 0.0:
+			canvas.draw_texture_rect_region(
+				texture,
+				target_rect,
+				source_rect,
+				Color.WHITE,
+				false,
+				true
+			)
+		return
+	if str(model.get("source", "")) == "procedural":
+		_draw_node_modal_backdrop(
+			canvas,
+			target_rect,
+			str(model.get("kind", "rest"))
+		)
+
+
+func _texture_cover_source_rect(texture: Texture2D, target_rect: Rect2) -> Rect2:
+	var texture_size := texture.get_size()
+	if (
+		texture_size.x <= 0.0
+		or texture_size.y <= 0.0
+		or target_rect.size.x <= 0.0
+		or target_rect.size.y <= 0.0
+	):
+		return Rect2()
+	var scale := maxf(
+		target_rect.size.x / texture_size.x,
+		target_rect.size.y / texture_size.y
+	)
+	var source_size := target_rect.size / maxf(0.001, scale)
+	return Rect2((texture_size - source_size) * 0.5, source_size)
 
 
 func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionary:

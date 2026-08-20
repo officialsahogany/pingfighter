@@ -78,6 +78,8 @@ $focusedSmoke = @(
     "res://tests/active_item_effect_controller_reset_smoke.gd",
     "res://tests/tower_map_camera_tracking_smoke.gd",
     "res://tests/tower_map_walker_zoom_intro_smoke.gd",
+    "res://tests/tower_noncombat_node_background_retention_smoke.gd",
+    "res://tests/tower_noncombat_node_background_contract_smoke.gd",
     "res://tests/stage7_akamu_superspeed_unlock_cooldown_smoke.gd",
     "res://tests/stage7_akamu_golden_clone_starpoint_smoke.gd",
     "res://tests/tower_boss_routing_smoke.gd",

@@ -132,6 +132,27 @@ func restore_snapshot(
 		PHASE_NODE_MODAL,
 		PHASE_GAUNTLET_TRANSITION
 	)
+	_retained_noncombat_background_kind = _normalize_retained_noncombat_background_kind(
+		str(snapshot.get("retained_noncombat_background_kind", ""))
+	)
+	if _phase == PHASE_MAP_TRANSITION:
+		var selected_node := _get_node(_selected_target_id)
+		var selected_kind := str(selected_node.get("kind", ""))
+		if selected_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+			if _retained_noncombat_background_kind.is_empty():
+				var current_kind := str(_get_node(_current_node_id).get("kind", ""))
+				_retain_noncombat_node_background(current_kind)
+			_prewarm_noncombat_node_background(selected_kind)
+		else:
+			_clear_retained_noncombat_node_background()
+	elif _phase == PHASE_NODE_MODAL:
+		var current_node := _get_node(_current_node_id)
+		var current_kind := str(current_node.get("kind", ""))
+		if current_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+			_retain_noncombat_node_background(current_kind)
+			_prewarm_noncombat_node_background(current_kind)
+	else:
+		_clear_retained_noncombat_node_background()
 	_selector_position = snapshot.get("selector_position", SELECTOR_ORIGIN)
 	_selector_velocity = snapshot.get("selector_velocity", Vector2.ZERO)
 	_selector_launched = bool(snapshot.get("selector_launched", false))
@@ -212,6 +233,7 @@ func export_snapshot() -> Dictionary:
 		"route_target_ids": _route_target_ids.duplicate(),
 		"selected_target_id": _selected_target_id,
 		"node_modal_kind": _node_modal_kind,
+		"retained_noncombat_background_kind": _retained_noncombat_background_kind,
 		"phase": _phase,
 		"selector_position": _selector_position,
 		"selector_velocity": _selector_velocity,

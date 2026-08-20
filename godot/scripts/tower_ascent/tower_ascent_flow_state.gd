@@ -66,6 +66,9 @@ const TowerAscentNodeModalLocalization := preload(
 const TowerAscentTransitionFadeState := preload(
 	"res://scripts/tower_ascent/tower_ascent_transition_fade_state.gd"
 )
+const TowerNoncombatNodeBackgroundCatalog := preload(
+	"res://scripts/tower_ascent/tower_noncombat_node_background_catalog.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -151,6 +154,7 @@ var _gauntlet_state: Object = TowerAscentGauntletState.new()
 var _node_modal_state: Object = TowerAscentNodeModalState.new()
 var _modal_lifecycle: Object = TowerAscentModalLifecycle.new()
 var _node_modal_kind := "guardian_spring"
+var _retained_noncombat_background_kind := ""
 var _map_overlay_active := false
 var _map_overlay_closing := false
 var _map_overlay_lifecycle_owned := false
@@ -165,6 +169,7 @@ var _run_defeat_count := 0
 var _defeat_event_ids: Array[String] = []
 var _header_subtitle := ""
 var _transition_fade_state: Object = TowerAscentTransitionFadeState.new()
+var _noncombat_node_background_catalog: Object = TowerNoncombatNodeBackgroundCatalog.new()
 
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
@@ -246,6 +251,7 @@ func _reset_runtime_state() -> void:
 	_route_aim_targets_cache.clear()
 	_route_wind_roll_count = 0
 	_node_modal_kind = "guardian_spring"
+	_retained_noncombat_background_kind = ""
 	_map_overlay_active = false
 	_map_overlay_closing = false
 	_map_overlay_lifecycle_owned = false
@@ -254,8 +260,43 @@ func _reset_runtime_state() -> void:
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_transition_fade_state.reset()
+	_noncombat_node_background_catalog.clear_cache()
 	_finish_callback = Callable()
 	_reset_selector()
+
+
+func _prewarm_noncombat_node_background(node_kind: String) -> Dictionary:
+	return _noncombat_node_background_catalog.prewarm_node_kind(node_kind)
+
+
+func get_noncombat_node_background_resolution(node_kind: String) -> Dictionary:
+	return _noncombat_node_background_catalog.get_cached_resolution(node_kind)
+
+
+func get_noncombat_node_background_debug_state() -> Dictionary:
+	return _noncombat_node_background_catalog.get_debug_state()
+
+
+func _retain_noncombat_node_background(node_kind: String) -> void:
+	_retained_noncombat_background_kind = _normalize_retained_noncombat_background_kind(
+		node_kind
+	)
+
+
+func _clear_retained_noncombat_node_background() -> void:
+	_retained_noncombat_background_kind = ""
+
+
+func get_retained_noncombat_node_background_kind() -> String:
+	return _retained_noncombat_background_kind if _active else ""
+
+
+func get_retained_noncombat_node_background_resolution() -> Dictionary:
+	var kind := get_retained_noncombat_node_background_kind()
+	if kind.is_empty():
+		return {}
+	return _noncombat_node_background_catalog.get_cached_resolution(kind)
+
 
 func _dictionary_copy(value: Variant) -> Dictionary:
 	if value is Dictionary:
@@ -316,6 +357,16 @@ func _normalize_node_modal_kind(value: String) -> String:
 	if normalized in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "common_shell"]:
 		return normalized
 	return "common_shell"
+
+
+func _normalize_retained_noncombat_background_kind(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	return (
+		normalized
+		if normalized in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS
+		else ""
+	)
+
 
 func _vector2(value: Variant) -> Vector2:
 	if value is Vector2:
