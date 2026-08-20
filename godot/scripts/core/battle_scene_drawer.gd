@@ -9,6 +9,9 @@ const PlayerCharacterRuntime := preload(
 const TowerAscentScreenSpaceSurfacePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
 )
+const TowerAscentMapHintRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_hint_renderer.gd"
+)
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
 
@@ -16,6 +19,7 @@ var _arity_cache: Dictionary = {}
 # 좌측 레터박스 퍽 스트립 렌더러(드로어 소유 — 엔트리 캐시는 렌더러 내부
 # 소유, 투영 cache_signature/리비전 키로 무효화).
 var hud_strip_renderer: Object = preload("res://scripts/hud/runtime_perk_hud_strip_renderer.gd").new()
+var _tower_ascent_map_hint_renderer: Object = TowerAscentMapHintRenderer.new()
 
 
 func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void:
@@ -36,6 +40,9 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	sample_start = _perf_begin(perf_logger)
 	_draw_pillar_scene(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.pillar_scene", sample_start)
+	sample_start = _perf_begin(perf_logger)
+	_draw_tower_ascent_map_hint(canvas, registry, view_size, layout)
+	_perf_end(perf_logger, "draw.scene.tower_map_hint", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_transformed_playfield_scene(canvas, registry, surface)
 	_perf_end(perf_logger, "draw.scene.playfield", sample_start)
@@ -199,6 +206,29 @@ func _draw_pillar_scene(canvas: CanvasItem, registry: Object, view_size: Vector2
 	if pillar_draw_pass == null:
 		return
 	pillar_draw_pass.draw(canvas, registry, view_size, layout)
+
+
+func _draw_tower_ascent_map_hint(
+	canvas: CanvasItem,
+	registry: Object,
+	view_size: Vector2,
+	layout: Dictionary
+) -> void:
+	# This pass intentionally stays in screen space. The full 760x750 game
+	# canvas begins at game_offset; the hint may only occupy the left letterbox.
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	var flow_active := (
+		flow_owner != null
+		and flow_owner.has_method("is_active")
+		and bool(flow_owner.is_active())
+	)
+	_tower_ascent_map_hint_renderer.draw(
+		canvas,
+		view_size,
+		_get_vector2(layout, "game_offset", Vector2.ZERO),
+		_get_vector2(layout, "game_size", view_size),
+		flow_active
+	)
 
 
 func _draw_pillar_hud_scene(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, context_owner: Object = null) -> void:

@@ -12,6 +12,9 @@ const PlazaInteriorRoomRenderer := preload(
 const CommonStarpointVisualHost := preload(
 	"res://scripts/effects/common_starpoint_visual_host.gd"
 )
+const TowerAscentMapIconography := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_iconography.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -76,6 +79,7 @@ var _cached_fullscreen_key := ""
 var _cached_fullscreen_model: Dictionary = {}
 var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
+var _map_iconography := TowerAscentMapIconography.new()
 
 
 func get_route_aim_gauge_asset_paths() -> PackedStringArray:
@@ -357,6 +361,25 @@ func get_node_art_asset_paths() -> Array[String]:
 		if not result.has(path):
 			result.append(path)
 	return result
+
+
+func build_map_icon_presentation(node: Dictionary) -> Dictionary:
+	var node_kind := str(node.get("kind", ""))
+	var fallback_label := str(node.get("label", ""))
+	if not (node_kind in TowerAscentMapIconography.COMBAT_NODE_KINDS):
+		fallback_label = TowerAscentMapOverlayLocalization.node_kind_label(
+			node_kind,
+			bool(node.get("enraged", false))
+		)
+	return _map_iconography.resolve_presentation(
+		node_kind,
+		_map_iconography.resolve_boss_id_for_node(node),
+		fallback_label
+	)
+
+
+func get_map_icon_cache_debug_state() -> Dictionary:
+	return _map_iconography.get_debug_state()
 
 
 func _draw_fullscreen_map_model(
@@ -740,6 +763,16 @@ func _draw_fullscreen_map_node(
 			Rect2(Vector2.ZERO, source_size),
 			modulate
 		)
+	var icon_presentation := build_map_icon_presentation(node)
+	var icon_texture_value: Variant = icon_presentation.get("icon_texture", null)
+	if icon_texture_value is Texture2D:
+		var icon_inset := art_rect.size.x * 0.12
+		canvas.draw_texture_rect(
+			icon_texture_value as Texture2D,
+			art_rect.grow(-icon_inset),
+			false,
+			_map_icon_modulate(route_locked, skipped, completed, current)
+		)
 	if current:
 		canvas.draw_circle(screen_position, art_rect.size.x * 0.72, CINNABAR, false, 3.0)
 	if skipped:
@@ -750,22 +783,21 @@ func _draw_fullscreen_map_node(
 			PAPER,
 			2.0
 		)
-	var display_label := str(node.get("label", ""))
-	if not (node_kind in ["boss", "combat", "enraged"]):
-		display_label = TowerAscentMapOverlayLocalization.node_kind_label(node_kind, enraged)
+	var display_label := str(icon_presentation.get("fallback_label", ""))
 	var left_lane := screen_position.x < content_rect.get_center().x - 1.0
 	var label_width := clampf(content_rect.size.x * 0.22, 76.0, 170.0)
 	var label_x := art_rect.position.x - label_width - 9.0 if left_lane else art_rect.end.x + 9.0
 	var alignment := HORIZONTAL_ALIGNMENT_RIGHT if left_lane else HORIZONTAL_ALIGNMENT_LEFT
-	canvas.draw_string(
-		ThemeDB.fallback_font,
-		Vector2(label_x, screen_position.y + 4.0),
-		display_label,
-		alignment,
-		label_width,
-		10,
-		INK
-	)
+	if not display_label.is_empty():
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			Vector2(label_x, screen_position.y + 4.0),
+			display_label,
+			alignment,
+			label_width,
+			10,
+			INK
+		)
 	var state_label := TowerAscentMapOverlayLocalization.node_state_label(
 		current,
 		completed,
@@ -963,6 +995,16 @@ func _draw_map_node(
 		fill = CINNABAR
 	canvas.draw_circle(position, radius, fill)
 	canvas.draw_circle(position, radius, CINNABAR_DARK if active or selected else INK, false, 2.0 if active or current or selected else 1.0)
+	var icon_presentation := build_map_icon_presentation(node)
+	var icon_texture_value: Variant = icon_presentation.get("icon_texture", null)
+	if icon_texture_value is Texture2D:
+		var icon_size := Vector2.ONE * radius * 1.55
+		canvas.draw_texture_rect(
+			icon_texture_value as Texture2D,
+			Rect2(position - icon_size * 0.5, icon_size),
+			false,
+			_map_icon_modulate(route_locked, skipped, completed, current)
+		)
 	if map_overlay and current:
 		canvas.draw_circle(
 			position,
@@ -976,25 +1018,22 @@ func _draw_map_node(
 	if skipped:
 		canvas.draw_line(position + Vector2(-5.0, -5.0), position + Vector2(5.0, 5.0), PAPER, 1.5)
 		canvas.draw_line(position + Vector2(5.0, -5.0), position + Vector2(-5.0, 5.0), PAPER, 1.5)
-	var label := str(node.get("label", "노드"))
+	var label := str(icon_presentation.get("fallback_label", ""))
 	var text_color := PAPER if selected else INK
 	if map_overlay:
-		var kind_label := TowerAscentMapOverlayLocalization.node_kind_label(
-			str(node.get("kind", "")),
-			enraged
-		)
-		canvas.draw_string(
-			ThemeDB.fallback_font,
-			position + Vector2(
-				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X,
-				3.0
-			),
-			kind_label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH,
-			TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE,
-			INK
-		)
+		if not label.is_empty():
+			canvas.draw_string(
+				ThemeDB.fallback_font,
+				position + Vector2(
+					TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X,
+					3.0
+				),
+				label,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH,
+				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE,
+				INK
+			)
 		var state_label := TowerAscentMapOverlayLocalization.node_state_label(
 			current,
 			completed,
@@ -1014,7 +1053,7 @@ func _draw_map_node(
 				TowerAscentTuning.TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE,
 				CINNABAR_DARK if current else INK_SOFT
 			)
-	elif active or selected:
+	elif (active or selected) and not label.is_empty():
 		canvas.draw_string(
 			ThemeDB.fallback_font,
 			position + Vector2(-70.0, -17.0),
@@ -1024,6 +1063,19 @@ func _draw_map_node(
 			12,
 			text_color
 		)
+
+
+func _map_icon_modulate(
+	route_locked: bool,
+	skipped: bool,
+	completed: bool,
+	current: bool
+) -> Color:
+	if route_locked or skipped:
+		return Color(0.45, 0.42, 0.38, 0.72)
+	if completed and not current:
+		return Color(0.72, 0.66, 0.54, 0.82)
+	return Color.WHITE
 
 
 func _draw_map_overlay_legend(canvas: CanvasItem) -> void:

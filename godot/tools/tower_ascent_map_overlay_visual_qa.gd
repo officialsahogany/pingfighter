@@ -7,6 +7,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
@@ -18,6 +21,8 @@ const GAME_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
 const OUTPUT_NAME_PHASE_1 := "map_overlay_human_realm.png"
 const OUTPUT_NAME_PHASE_2 := "map_overlay_immortal_realm.png"
+const OUTPUT_NAME_ICON_ZOOM := "map_overlay_boss_icon_zoom8.png"
+const OUTPUT_NAME_MISSING_ICON := "map_overlay_missing_icon_fallback.png"
 
 
 class FakePillarDrawPass:
@@ -151,6 +156,7 @@ func _run() -> void:
 	var capture_phase := OS.get_environment("TOWER_ASCENT_MAP_QA_PHASE").strip_edges().to_lower()
 	if capture_phase not in ["phase1", "phase2"]:
 		capture_phase = "phase1"
+	var missing_icon_probe := OS.get_environment("TOWER_ASCENT_MAP_QA_MISSING_ICON") == "1"
 	var progress_text := OS.get_environment("TOWER_ASCENT_MAP_QA_PROGRESS").strip_edges()
 	var injected_progress := -1.0 if progress_text.is_empty() else clampf(float(progress_text), 0.0, 1.0)
 	var record_path := "user://tower_map_overlay_visual_%d.cfg" % Time.get_ticks_usec()
@@ -200,6 +206,9 @@ func _run() -> void:
 		flow_owner.set_transition_progress_for_qa(0.5 if injected_progress < 0.0 else injected_progress)
 	else:
 		flow_owner.set_map_overlay_fade_progress_for_qa(1.0)
+	if missing_icon_probe and not _inject_missing_icon_probe(flow_owner):
+		_fail("missing-icon fallback fixture could not find a combat node")
+		return
 	_decorate_state_evidence(flow_owner)
 	var expected_phase := "MAP_TRANSITION" if capture_phase == "phase2" else "MAP_OVERLAY"
 	if flow_owner.get_phase_name() != expected_phase:
@@ -209,7 +218,13 @@ func _run() -> void:
 	for _frame_index in range(6):
 		await process_frame
 	var image: Image = viewport.get_texture().get_image()
-	var output_name := OUTPUT_NAME_PHASE_2 if capture_phase == "phase2" else OUTPUT_NAME_PHASE_1
+	var output_name := (
+		OUTPUT_NAME_MISSING_ICON
+		if missing_icon_probe
+		else OUTPUT_NAME_PHASE_2
+		if capture_phase == "phase2"
+		else OUTPUT_NAME_PHASE_1
+	)
 	if capture_phase == "phase2" and injected_progress >= 0.0:
 		output_name = "map_transition_progress_%03d.png" % int(round(injected_progress * 100.0))
 	var output_path := output_dir.path_join(output_name)
@@ -221,8 +236,18 @@ func _run() -> void:
 	):
 		_fail("map-overlay visual QA capture failed: %s" % output_path)
 		return
+	var capture_count := 1
+	if capture_phase == "phase1" and not missing_icon_probe:
+		var zoom_path := output_dir.path_join(OUTPUT_NAME_ICON_ZOOM)
+		if not _save_boss_icon_zoom(image, flow_owner, zoom_path):
+			_fail("map-overlay boss icon zoom capture failed: %s" % zoom_path)
+			return
+		capture_count += 1
 	print("[TowerMapOverlayVisualQA] %s" % output_path)
-	print("tower_ascent_map_overlay_visual_qa: phase=%s captures=1" % capture_phase)
+	print("tower_ascent_map_overlay_visual_qa: phase=%s captures=%d" % [
+		capture_phase,
+		capture_count,
+	])
 	print("tower_ascent_map_overlay_visual_qa: ok")
 	if flow_owner.is_map_overlay_active():
 		flow_owner.close_map_overlay()
@@ -239,6 +264,38 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	quit(0)
+
+
+func _inject_missing_icon_probe(flow_owner: Object) -> bool:
+	for node in flow_owner.get_graph_nodes():
+		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
+			continue
+		node["map_icon_boss_id"] = "missing_contract_probe"
+		node["label"] = "계약 폴백 보스"
+		return true
+	return false
+
+
+func _save_boss_icon_zoom(image: Image, flow_owner: Object, output_path: String) -> bool:
+	var renderer := TowerAscentFlowRenderer.new()
+	var model := renderer.build_fullscreen_map_model(
+		flow_owner,
+		Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
+	)
+	for node_variant in model.get("nodes", []):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
+			continue
+		var art_rect: Rect2 = node.get("art_rect", Rect2())
+		var bounds := Rect2i(art_rect.grow(6.0)).intersection(Rect2i(Vector2i.ZERO, GAME_SIZE))
+		if bounds.size.x <= 0 or bounds.size.y <= 0:
+			continue
+		var zoom := image.get_region(bounds)
+		zoom.resize(bounds.size.x * 8, bounds.size.y * 8, Image.INTERPOLATE_NEAREST)
+		return zoom.save_png(output_path) == OK
+	return false
 
 
 func _decorate_state_evidence(flow_owner: Object) -> void:

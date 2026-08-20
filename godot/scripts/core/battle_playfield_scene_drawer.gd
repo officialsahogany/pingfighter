@@ -10,9 +10,6 @@ const BattlePlayfieldOverlayDrawer := preload("res://scripts/core/battle_playfie
 const SmasherVoidPhantomRenderer := preload("res://scripts/characters/smasher_void_phantom_renderer.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
-const TowerAscentMapHintRenderer := preload(
-	"res://scripts/tower_ascent/tower_ascent_map_hint_renderer.gd"
-)
 const BLOCKING_OVERLAY_LOD_METHODS := [
 	"is_runtime_perk_choice_active",
 	"is_runtime_perk_feedback_active",
@@ -38,7 +35,6 @@ var _mythic_draw_field_effects_accepts_draw_context: int = -1
 var _method_argument_count_cache: Dictionary = {}
 var _method_accepts_argument_count_cache: Dictionary = {}
 var _character_runtime: Object = PlayerCharacterRuntime.new()
-var _tower_ascent_map_hint_renderer: Object = TowerAscentMapHintRenderer.new()
 
 
 func draw(
@@ -422,15 +418,14 @@ func _draw_victory_loot_boxes(canvas: CanvasItem, registry: Object, shake_offset
 
 
 func _draw_tower_ascent_flow(canvas: CanvasItem, registry: Object) -> void:
-	# Draw-path lookup stays cached-only. The hint does not require the flow
-	# owner, so flag-ON combat can advertise M without cold-instantiating it.
+	# The map flow remains in game coordinates here. The always-on M hint is
+	# owned by BattleSceneDrawer's untransformed pillar pass.
 	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
 	var flow_active := (
 		flow_owner != null
 		and flow_owner.has_method("is_active")
 		and bool(flow_owner.is_active())
 	)
-	_tower_ascent_map_hint_renderer.draw(canvas, flow_active)
 	if (
 		flow_active
 		and flow_owner.has_method("draw")

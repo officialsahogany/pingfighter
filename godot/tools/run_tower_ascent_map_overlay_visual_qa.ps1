@@ -4,7 +4,8 @@ param(
     [ValidateSet("phase1", "phase2")]
     [string]$Phase = "phase1",
     [ValidateRange(-1.0, 1.0)]
-    [double]$Progress = -1.0
+    [double]$Progress = -1.0,
+    [switch]$MissingIcon
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,8 +29,10 @@ try {
     $previousErrorActionPreference = $ErrorActionPreference
     $previousCapturePhase = $env:TOWER_ASCENT_MAP_QA_PHASE
 	$previousCaptureProgress = $env:TOWER_ASCENT_MAP_QA_PROGRESS
+    $previousMissingIcon = $env:TOWER_ASCENT_MAP_QA_MISSING_ICON
     $env:TOWER_ASCENT_MAP_QA_PHASE = $Phase
 	$env:TOWER_ASCENT_MAP_QA_PROGRESS = if ($Progress -lt 0.0) { "" } else { $Progress.ToString([System.Globalization.CultureInfo]::InvariantCulture) }
+    $env:TOWER_ASCENT_MAP_QA_MISSING_ICON = if ($MissingIcon) { "1" } else { "0" }
     $ErrorActionPreference = "Continue"
     try {
         $output = & $godot `
@@ -45,6 +48,7 @@ try {
         $ErrorActionPreference = $previousErrorActionPreference
         $env:TOWER_ASCENT_MAP_QA_PHASE = $previousCapturePhase
 		$env:TOWER_ASCENT_MAP_QA_PROGRESS = $previousCaptureProgress
+        $env:TOWER_ASCENT_MAP_QA_MISSING_ICON = $previousMissingIcon
     }
 
     $output | ForEach-Object { Write-Host $_ }

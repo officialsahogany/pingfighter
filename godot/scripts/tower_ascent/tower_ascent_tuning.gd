@@ -68,9 +68,6 @@ const TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X := 11.0
 const TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH := 110.0
 const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
 const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
-const TEMP_MAP_HINT_RECT := Rect2(18.0, 698.0, 98.0, 30.0)
-const TEMP_MAP_HINT_FONT_SIZE := 14
-
 # TEMP: v1.12 fixes the transition beats and proportional fullscreen-map
 # skeleton. Product tuning may adjust these values in place, but must not move
 # the clock out of the tower flow or restore absolute layout caps.
