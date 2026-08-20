@@ -133,6 +133,7 @@ func _run() -> void:
 	_verify_mythic_grant_respects_slots()
 	_verify_slot_status_data()
 	_verify_fusion_byproduct_slot_expansion()
+	_verify_overoccupied_state_blocks_new_and_preserves_owned()
 	_verify_fusion_byproduct_apply_fanout()
 	_verify_legacy_expansion_live_paths_and_defensive_restore_hook()
 	_verify_mythic_gate_follows_dynamic_limit()
@@ -323,6 +324,25 @@ func _verify_fusion_byproduct_slot_expansion() -> void:
 	_expect_eq(catalog.get_perk_slot_limit({}, duplicate_state), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "duplicate/corrupt byproduct ids must still grant the one-time slot bonus only once")
 	var effective_levels := RuntimePerkEffectiveLevels.new()
 	_expect(not effective_levels.is_runtime_level_bonus_eligible("common_expansion", 2), "the preserved flag-OFF expansion definition must remain excluded from effective-level inflation")
+
+
+func _verify_overoccupied_state_blocks_new_and_preserves_owned() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var levels := _full_slot_levels()
+	levels["odins_eye"] = 1
+	levels["celestial_armor"] = 1
+	levels["baal_boots"] = 1
+	var before := levels.duplicate(true)
+	var state := ByproductSlotState.new(["meridian_expand"])
+	var registry := FakeRegistry.new({"runtime_perk_state": state})
+	var status: Dictionary = catalog.get_perk_slot_status(levels, registry)
+	_expect_eq(int(status.get("count", 0)), 9, "legacy overoccupied state should retain all nine owned slot consumers")
+	_expect_eq(int(status.get("limit", 0)), RuntimePerkCatalog.MAX_PERK_SLOT_LIMIT, "overoccupied state should still report the new hard limit of 7")
+	_expect(bool(status.get("is_full", false)), "9/7 overoccupied state must remain closed to new perks")
+	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT, null, registry)
+	_expect(not _has_choice_id(choices, "item_recycle"), "9/7 overoccupied state must block a new slot-consuming perk")
+	_expect(_has_choice_id(choices, "dash_acceleration"), "9/7 overoccupied state must keep owned perk upgrades offerable")
+	_expect(levels == before, "slot-limit queries and offer filtering must not delete overoccupied owned perks")
 
 
 func _verify_fusion_byproduct_apply_fanout() -> void:

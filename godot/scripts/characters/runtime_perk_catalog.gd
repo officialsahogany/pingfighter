@@ -2223,7 +2223,10 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_c
 		var current_cost: int = get_slot_cost_for_level(choice, current_level)
 		var next_cost: int = get_slot_cost_for_level(choice, next_level)
 		var extra_slots: int = max(0, next_cost - current_cost)
-		if occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels, slot_context):
+		if (
+			extra_slots == 0
+			or occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels, slot_context)
+		):
 			filtered.append(choice)
 	return filtered
 

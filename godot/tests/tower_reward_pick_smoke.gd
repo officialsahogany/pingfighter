@@ -21,6 +21,12 @@ const TowerRewardPickState := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentTrainingOfferBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
+)
+const PerkConversionFlags := preload(
+	"res://scripts/characters/perk_conversion_flags.gd"
+)
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
@@ -201,6 +207,7 @@ class FakeCatalog:
 		_registry: Object = null
 	) -> Array:
 		return [
+			{"id": "common_expansion", "name": "Retired Expansion", "max_level": 5},
 			{"id": "mugong_a", "name": "Mugong A", "max_level": 5},
 			{"id": "mugong_b", "name": "Mugong B", "max_level": 5},
 			{"id": "mugong_c", "name": "Mugong C", "max_level": 5},
@@ -380,8 +387,10 @@ class FakeScoreboard:
 
 func _init() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	PerkConversionFlags.debug_set_enabled(true)
 	_verify_seven_locale_copy_contract()
 	_verify_reward_balance_row_budget()
+	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
 	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
@@ -392,6 +401,7 @@ func _init() -> void:
 	_verify_victory_highlight_reward_pick_route_sequence()
 	_verify_f9_debug_path_still_enters_reward_pick()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	PerkConversionFlags.debug_set_enabled(false)
 	if _failures.is_empty():
 		print("tower_reward_pick_smoke: ok")
 		quit(0)
@@ -448,6 +458,26 @@ func _verify_reward_balance_row_budget() -> void:
 		"무혼 : 1234567개"
 	)
 	_expect(undersized_rows.size() == 0, "undersized reward layout must append zero clipped balance rows")
+
+
+func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
+	var runtime := FakeRuntimeState.new()
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), null)
+	var offer: Dictionary = TowerAscentTrainingOfferBuilder.new().build_offer(
+		"retired-expansion-filter",
+		77,
+		FakeOwner.new(),
+		registry
+	)
+	_expect(bool(offer.get("accepted", false)), "flag-ON tower training offer must remain available")
+	var mugong_choices: Array = offer.get("mugong_choices", [])
+	_expect(mugong_choices.size() == 3, "flag-ON tower training must retain three eligible Mugong choices")
+	for choice_value in mugong_choices:
+		if choice_value is Dictionary:
+			_expect(
+				str((choice_value as Dictionary).get("id", "")) != "common_expansion",
+				"retired common_expansion leaked into a tower reward candidate"
+			)
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:

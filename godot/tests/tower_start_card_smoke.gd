@@ -6,6 +6,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const PerkConversionFlags := preload(
+	"res://scripts/characters/perk_conversion_flags.gd"
+)
 const TowerStartCardOfferBuilder := preload(
 	"res://scripts/tower_ascent/tower_start_card_offer_builder.gd"
 )
@@ -392,7 +395,9 @@ func _init() -> void:
 
 func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	PerkConversionFlags.debug_set_enabled(true)
 	_verify_offer_shape_and_filters()
+	_verify_flag_off_retains_legacy_expansion_candidate()
 	_verify_determinism_and_global_rng_isolation()
 	_verify_fallback_matrix()
 	_verify_target_level_path_is_single_shot()
@@ -402,7 +407,8 @@ func _run() -> void:
 	await _verify_real_battle_scene_shell_wiring()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	_expect(_leg_count == 9, "all nine start-card S1/S2/S3 smoke legs must execute")
+	PerkConversionFlags.debug_set_enabled(false)
+	_expect(_leg_count == 10, "all ten start-card S1/S2/S3 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
@@ -429,6 +435,7 @@ func _verify_offer_shape_and_filters() -> void:
 	_expect(_kind_count(choices, "mugong") == 3 - chosik_count, "Mugong must fill the three-card remainder")
 	var ids := _choice_ids(choices)
 	for excluded_id in [
+		"common_expansion",
 		"mugong_mythic",
 		"mugong_instant",
 		"mugong_training",
@@ -443,6 +450,26 @@ func _verify_offer_shape_and_filters() -> void:
 		_expect(not choice.has("reward_pick_cost"), "start card must not expose reward cost")
 		_expect(not choice.has("reward_pick_price_text"), "start card must not expose price text")
 		_expect(not choice.has("balance_text"), "start card must not expose balance text")
+
+
+func _verify_flag_off_retains_legacy_expansion_candidate() -> void:
+	_leg_count += 1
+	PerkConversionFlags.debug_set_enabled(false)
+	var fixture := _build_fixture({
+		"common_expansion": _mugong("common_expansion"),
+		"legacy_mugong_a": _mugong("legacy_mugong_a"),
+		"legacy_mugong_b": _mugong("legacy_mugong_b"),
+	})
+	var choices := _offer_choices(TowerStartCardOfferBuilder.new().build_offer(
+		"legacy-expansion-flag-off",
+		fixture.owner,
+		fixture.registry
+	))
+	_expect(
+		_choice_ids(choices).has("common_expansion"),
+		"flag OFF must preserve the legacy common_expansion tower candidate"
+	)
+	PerkConversionFlags.debug_set_enabled(true)
 
 
 func _verify_determinism_and_global_rng_isolation() -> void:
@@ -981,6 +1008,7 @@ func _standard_catalog() -> Dictionary:
 		"mugong_delta": _mugong("mugong_delta"),
 		"mugong_epsilon": _mugong("mugong_epsilon"),
 		"mugong_zeta": _mugong("mugong_zeta"),
+		"common_expansion": _mugong("common_expansion"),
 		"chosik_alpha": _chosik("chosik_alpha", "skill_alpha"),
 		"chosik_beta": _chosik("chosik_beta", "skill_beta"),
 		"chosik_gamma": _chosik("chosik_gamma", "skill_gamma"),

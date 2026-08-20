@@ -48,6 +48,9 @@ try {
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains("tower_start_card_visual_qa: captures=3") `
         -or -not $outputText.Contains("tower_start_card_visual_qa: live_cases=3") `
+        -or -not $outputText.Contains("tower_start_card_visual_qa: live_run_ids=gwangmaekgyeol-live-seed-101,gwangmaekgyeol-live-seed-202,gwangmaekgyeol-live-seed-303") `
+        -or -not $outputText.Contains("tower_start_card_visual_qa: retired_expansion_absent_cases=3") `
+        -or -not $outputText.Contains("tower_start_card_visual_qa: meridian_expand_fusion=ok") `
         -or -not $outputText.Contains("tower_start_card_visual_qa: cold_build_ms=") `
         -or -not $outputText.Contains("tower_start_card_visual_qa: ok")
     ) {

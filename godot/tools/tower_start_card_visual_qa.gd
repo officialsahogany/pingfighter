@@ -8,7 +8,9 @@ const BattleSceneReadinessController := preload("res://scripts/core/battle_scene
 const BattleSceneModalGateController := preload("res://scripts/core/battle_scene_modal_gate_controller.gd")
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
 const GameSelectionState := preload("res://scripts/core/game_selection_state.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const BlacksmithSkillConfig := preload("res://scripts/characters/blacksmith_skill_config.gd")
@@ -24,6 +26,11 @@ const TowerStartCardState := preload("res://scripts/tower_ascent/tower_start_car
 
 const CAPTURE_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_start_card"
+const LIVE_RUN_IDS := [
+	"gwangmaekgyeol-live-seed-101",
+	"gwangmaekgyeol-live-seed-202",
+	"gwangmaekgyeol-live-seed-303",
+]
 
 
 class CaptureRegistry:
@@ -177,6 +184,7 @@ func _run() -> void:
 		quit(1)
 		return
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	PerkConversionFlags.debug_set_enabled(true)
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
 	var mkdir_error := DirAccess.make_dir_recursive_absolute(output_dir)
 	if mkdir_error != OK:
@@ -239,6 +247,10 @@ func _run() -> void:
 	shell.set("selected_runtime_character_id", "smasher")
 	viewport.add_child(shell)
 
+	if not flow_owner.ensure_run_started(shell, {"run_id": LIVE_RUN_IDS[0]}):
+		push_error("start-card visual fixture could not start the first seeded run")
+		quit(1)
+		return
 	var prewarm: Dictionary = flow_owner.prewarm_muhon_collection(shell)
 	if not bool(prewarm.get("accepted", false)):
 		push_error("start-card visual fixture could not prewarm the real run owner")
@@ -261,6 +273,10 @@ func _run() -> void:
 		quit(1)
 		return
 	var smasher_choices := start_card.get_card_choices()
+	if _has_choice_id(smasher_choices, "common_expansion"):
+		push_error("smasher seeded live offer exposed retired common_expansion")
+		quit(1)
+		return
 	var smasher_chosik_count := _count_kind(smasher_choices, "chosik")
 	if smasher_chosik_count < 1 or smasher_chosik_count > 2:
 		push_error("smasher live offer must contain one or two Chosik cards")
@@ -319,7 +335,8 @@ func _run() -> void:
 		selection_state,
 		"viper",
 		"viper_skill_config",
-		ViperSkillConfig.new()
+		ViperSkillConfig.new(),
+		LIVE_RUN_IDS[1]
 	)
 	if not bool(viper_result.get("accepted", false)):
 		push_error("viper live start-card case failed: %s" % viper_result)
@@ -329,19 +346,29 @@ func _run() -> void:
 		selection_state,
 		"blacksmith",
 		"blacksmith_skill_config",
-		BlacksmithSkillConfig.new()
+		BlacksmithSkillConfig.new(),
+		LIVE_RUN_IDS[2]
 	)
 	if not bool(blacksmith_result.get("accepted", false)):
 		push_error("blacksmith live start-card case failed: %s" % blacksmith_result)
+		quit(1)
+		return
+	var fusion_result := _run_meridian_expand_fusion_case()
+	if not bool(fusion_result.get("accepted", false)):
+		push_error("live meridian expansion fusion case failed: %s" % fusion_result)
 		quit(1)
 		return
 	if owns_selection_state:
 		get_root().remove_child(selection_state)
 		selection_state.free()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	PerkConversionFlags.debug_set_enabled(false)
 	print("tower_start_card_visual_qa: evidence=%s" % output_dir)
 	print("tower_start_card_visual_qa: captures=3")
 	print("tower_start_card_visual_qa: live_cases=3")
+	print("tower_start_card_visual_qa: live_run_ids=%s" % ",".join(LIVE_RUN_IDS))
+	print("tower_start_card_visual_qa: retired_expansion_absent_cases=3")
+	print("tower_start_card_visual_qa: meridian_expand_fusion=ok")
 	print("tower_start_card_visual_qa: cold_build_ms=smasher=%.3f,viper=%.3f,blacksmith=%.3f,budget=%.3f" % [
 		smasher_cold_msec,
 		float(viper_result.get("cold_build_msec", -1.0)),
@@ -356,7 +383,8 @@ func _run_non_prologue_case(
 	selection_state: Object,
 	character_type: String,
 	skill_config_key: String,
-	skill_config: Object
+	skill_config: Object,
+	run_id: String
 ) -> Dictionary:
 	while bool(selection_state.consume_tower_start_card_entry_request()):
 		pass
@@ -414,9 +442,13 @@ func _run_non_prologue_case(
 	viewport.add_child(shell)
 
 	var result := {"accepted": false, "character_type": character_type}
+	if not flow_owner.ensure_run_started(shell, {"run_id": run_id}):
+		result["reason"] = "seeded_run_start_failed"
 	var prewarm: Dictionary = flow_owner.prewarm_muhon_collection(shell)
 	if not bool(prewarm.get("accepted", false)):
 		result["reason"] = "run_prewarm_failed"
+	elif str(prewarm.get("run_id", "")) != run_id:
+		result["reason"] = "run_id_mismatch"
 	else:
 		shell._process(1.0)
 		if not start_card.is_active():
@@ -430,7 +462,9 @@ func _run_non_prologue_case(
 				expected_chosik = chosik_count == 0 and mugong_count == 3
 			var mugong_index := _find_kind_index(choices, "mugong")
 			var cold_build_msec := start_card.get_cold_build_msec()
-			if not expected_chosik:
+			if _has_choice_id(choices, "common_expansion"):
+				result["reason"] = "retired_expansion_exposed"
+			elif not expected_chosik:
 				result["reason"] = "invalid_card_mix"
 			elif cold_build_msec > TowerAscentTuning.TEMP_START_CARD_COLD_BUILD_BUDGET_MS:
 				result["reason"] = "cold_build_budget_exceeded"
@@ -463,6 +497,7 @@ func _run_non_prologue_case(
 					result = {
 						"accepted": true,
 						"character_type": character_type,
+						"run_id": run_id,
 						"chosik_count": chosik_count,
 						"mugong_count": mugong_count,
 						"picked_perk_id": picked_id,
@@ -478,12 +513,40 @@ func _run_non_prologue_case(
 	return result
 
 
+func _run_meridian_expand_fusion_case() -> Dictionary:
+	var catalog := RuntimePerkCatalog.new()
+	var state := RuntimePerkState.new()
+	state.runtime_skill_levels = {
+		"item_luck": 5,
+		"common_bulk_up": 5,
+	}
+	var record: Dictionary = state.commit_perk_fusion(
+		["item_luck", "common_bulk_up"],
+		{"outcome": "byproduct", "byproducts": ["meridian_expand"]},
+		catalog
+	)
+	if record.is_empty():
+		return {"accepted": false, "reason": "fusion_commit_failed"}
+	if not state.get_perk_fusion_owned_byproduct_ids().has("meridian_expand"):
+		return {"accepted": false, "reason": "byproduct_not_owned"}
+	if catalog.get_perk_slot_limit(state.runtime_skill_levels, state) != 7:
+		return {"accepted": false, "reason": "slot_limit_not_expanded"}
+	return {"accepted": true, "fusion_id": str(record.get("fusion_id", ""))}
+
+
 func _count_kind(choices: Array, kind: String) -> int:
 	var count := 0
 	for choice_value in choices:
 		if choice_value is Dictionary and str((choice_value as Dictionary).get("start_card_kind", "")) == kind:
 			count += 1
 	return count
+
+
+func _has_choice_id(choices: Array, perk_id: String) -> bool:
+	for choice_value in choices:
+		if choice_value is Dictionary and str((choice_value as Dictionary).get("id", "")) == perk_id:
+			return true
+	return false
 
 
 func _find_kind_index(choices: Array, kind: String) -> int:

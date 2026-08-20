@@ -9,10 +9,14 @@ const RuntimePerkCatalog := preload(
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
+const TowerAscentPerkCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
+)
 
 const OFFER_VERSION := "tower_training_offer_v1"
 
 var _physique_catalog: Object = PhysiqueTrainingCatalog.new()
+var _perk_candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
 
 
 func build_offer(
@@ -140,7 +144,15 @@ func _build_mugong_choices(
 		if not (choice_value is Dictionary):
 			continue
 		var choice := choice_value as Dictionary
-		if _is_mugong_choice(choice):
+		if (
+			_is_mugong_choice(choice)
+			and _perk_candidate_policy.is_mugong_candidate(
+				choice,
+				runtime_levels,
+				character_type,
+				registry
+			)
+		):
 			result.append(choice.duplicate(true))
 	return result
 
