@@ -11,6 +11,7 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const PerkFusionIconKey := preload("res://scripts/characters/perk_fusion_icon_key.gd")
 const PerkFusionColdBootParticleFactory := preload("res://scripts/hud/perk_fusion_cold_boot_particle_factory.gd")
+const WritheEmberMaterial := preload("res://scripts/effects/writhe_ember_material.gd")
 
 # §5 에셋 매니페스트(CB4b): 텍스처 우선 + 절차 드로 degraded 폴백. 존재
 # 검사·로드는 prewarm 1회에서만(예약 에셋 per-frame re-stat 트랩 금지).

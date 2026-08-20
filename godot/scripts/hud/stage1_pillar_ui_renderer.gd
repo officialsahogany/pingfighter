@@ -2,7 +2,6 @@ extends RefCounted
 
 const Stage1PillarUiLayout := preload("res://scripts/hud/stage1_pillar_ui_layout.gd")
 const Stage1PillarStatusOrbContextBuilder := preload("res://scripts/hud/stage1_pillar_status_orb_context_builder.gd")
-const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
 const BattleRenderQuality := preload("res://scripts/core/battle_render_quality.gd")
 const DashTokenBoostFxHost := preload("res://scripts/hud/dash_token_boost_fx_host.gd")
 const CommandoFirearmHudRainbowFxHost := preload("res://scripts/hud/commando_firearm_hud_rainbow_fx_host.gd")
@@ -20,7 +19,11 @@ const GOLD_HUD_FONT_SIZE := 24
 const GOLD_HUD_MIN_FONT_SIZE := 13
 const GOLD_HUD_TEXT_GAP := 8.0
 const GOLD_HUD_TEXT_RIGHT_PAD := 12.0
-const MUHON_HUD_VERTICAL_GAP := 6.0
+const CURRENCY_HUD_TEXT_OUTLINE_SOURCE_SIZE := 2.0
+const CURRENCY_HUD_PAIR_GAP := GOLD_HUD_TEXT_GAP
+const CURRENCY_HUD_MIN_CONTENT_RATIO := (
+	float(GOLD_HUD_MIN_FONT_SIZE) / float(GOLD_HUD_FONT_SIZE)
+)
 # 프레임(정적 베젤 스택) 아크 세그먼트는 베이크 완료 전 벡터 폴백에서만 쓰인다.
 # 프리미엄 화질은 베이크본(해석적 원호 — 세그먼트 수 무관)이 담당하므로, 폴백은
 # stage1_dalji_commando_hud_layout_smoke가 봉인한 예산(<=16 / LOD <=12)을 지킨다.
@@ -292,38 +295,92 @@ func _draw_commando_firearm_selector(
 	renderer.draw(canvas, panel_center, scale_factor, context)
 
 
-func build_gold_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> Rect2:
+func build_currency_hud_layout(
+	game_offset: Vector2,
+	game_size: Vector2,
+	context: Dictionary = {}
+) -> Dictionary:
 	var scale_factor: float = _get_gold_hud_scale(game_size, context)
-	var text: String = format_gold_amount(int(context.get("gold_hud_amount", 0)))
-	var font_size: int = max(1, int(round(float(GOLD_HUD_FONT_SIZE) * scale_factor)))
-	var text_width: float = _get_gold_text_size(text, font_size).x
-	var coin_size: float = GOLD_HUD_COIN_SIZE * scale_factor
-	var min_size: Vector2 = GOLD_HUD_MIN_SOURCE_SIZE * scale_factor
+	var gold_text: String = format_gold_amount(int(context.get("gold_hud_amount", 0)))
+	var gold_size: Vector2 = _build_currency_hud_item_size(gold_text, scale_factor)
 	var wanted_width: float = max(
-		min_size.x,
-		GOLD_HUD_SIDE_MARGIN * scale_factor + coin_size + GOLD_HUD_TEXT_GAP * scale_factor + text_width + GOLD_HUD_TEXT_RIGHT_PAD * scale_factor
+		gold_size.x,
+		GOLD_HUD_MIN_SOURCE_SIZE.x * scale_factor
 	)
-	var wanted_height: float = min_size.y
+	var wanted_height: float = GOLD_HUD_MIN_SOURCE_SIZE.y * scale_factor
 	var top_margin: float = GOLD_HUD_TOP_MARGIN * scale_factor
 	var side_margin: float = GOLD_HUD_SIDE_MARGIN * scale_factor
 	var gap: float = GOLD_HUD_PILLAR_GAP * scale_factor
-	var rect_x: float
-	if game_offset.x >= wanted_width + gap + side_margin:
-		rect_x = game_offset.x - wanted_width - gap
-	else:
-		var max_inside_width: float = max(64.0 * scale_factor, game_size.x - side_margin * 2.0)
-		wanted_width = min(wanted_width, max_inside_width)
-		rect_x = game_offset.x + side_margin
-	return Rect2(Vector2(rect_x, game_offset.y + top_margin), Vector2(wanted_width, wanted_height))
+	if not bool(context.get("tower_muhon_hud_visible", false)):
+		var rect_x: float
+		if game_offset.x >= wanted_width + gap + side_margin:
+			rect_x = game_offset.x - wanted_width - gap
+		else:
+			var max_inside_width: float = max(64.0 * scale_factor, game_size.x - side_margin * 2.0)
+			wanted_width = min(wanted_width, max_inside_width)
+			rect_x = game_offset.x + side_margin
+		return {
+			"gold_rect": Rect2(
+				Vector2(rect_x, game_offset.y + top_margin),
+				Vector2(wanted_width, wanted_height)
+			),
+			"muhon_rect": Rect2(),
+			"content_scale": scale_factor,
+			"pair_fits": true,
+		}
+
+	var muhon_text: String = format_gold_amount(int(context.get("tower_muhon_hud_amount", 0)))
+	var right_edge: float = game_offset.x - gap
+	var available_width: float = max(0.0, right_edge - side_margin)
+	var content_scale: float = scale_factor
+	var muhon_size: Vector2 = _build_currency_hud_item_size(muhon_text, content_scale)
+	var pair_gap: float = CURRENCY_HUD_PAIR_GAP * content_scale
+	var total_width: float = gold_size.x + pair_gap + muhon_size.x
+	if total_width > available_width and total_width > 0.0:
+		content_scale = max(
+			scale_factor * CURRENCY_HUD_MIN_CONTENT_RATIO,
+			content_scale * available_width / total_width
+		)
+		gold_size = _build_currency_hud_item_size(gold_text, content_scale)
+		muhon_size = _build_currency_hud_item_size(muhon_text, content_scale)
+		pair_gap = CURRENCY_HUD_PAIR_GAP * content_scale
+		total_width = gold_size.x + pair_gap + muhon_size.x
+	var pair_height: float = max(gold_size.y, muhon_size.y)
+	var group_x: float = right_edge - total_width
+	var group_y: float = game_offset.y + top_margin
+	return {
+		"gold_rect": Rect2(Vector2(group_x, group_y), Vector2(gold_size.x, pair_height)),
+		"muhon_rect": Rect2(
+			Vector2(group_x + gold_size.x + pair_gap, group_y),
+			Vector2(muhon_size.x, pair_height)
+		),
+		"content_scale": content_scale,
+		"pair_fits": total_width <= available_width + 0.01,
+	}
+
+
+func build_gold_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> Rect2:
+	var layout: Dictionary = build_currency_hud_layout(game_offset, game_size, context)
+	return layout.get("gold_rect", Rect2())
 
 
 func build_muhon_hud_rect(game_offset: Vector2, game_size: Vector2, context: Dictionary = {}) -> Rect2:
-	var gold_rect: Rect2 = build_gold_hud_rect(game_offset, game_size, context)
-	var scale_factor: float = _get_gold_hud_scale(game_size, context)
-	return Rect2(
-		Vector2(gold_rect.position.x, gold_rect.end.y + MUHON_HUD_VERTICAL_GAP * scale_factor),
-		gold_rect.size
+	var layout: Dictionary = build_currency_hud_layout(game_offset, game_size, context)
+	return layout.get("muhon_rect", Rect2())
+
+
+func _build_currency_hud_item_size(text: String, content_scale: float) -> Vector2:
+	var font_size: int = max(1, int(round(float(GOLD_HUD_FONT_SIZE) * content_scale)))
+	var text_width: float = _get_gold_text_size(text, font_size).x
+	var wanted_width: float = max(
+		GOLD_HUD_MIN_SOURCE_SIZE.x * content_scale,
+		GOLD_HUD_SIDE_MARGIN * content_scale
+			+ GOLD_HUD_COIN_SIZE * content_scale
+			+ GOLD_HUD_TEXT_GAP * content_scale
+			+ text_width
+			+ GOLD_HUD_TEXT_RIGHT_PAD * content_scale
 	)
+	return Vector2(wanted_width, GOLD_HUD_MIN_SOURCE_SIZE.y * content_scale)
 
 
 func format_gold_amount(amount: int) -> String:
@@ -346,11 +403,11 @@ func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2
 		return
 	var amount: int = int(context.get("gold_hud_amount", 0))
 	var text: String = format_gold_amount(amount)
-	var rect: Rect2 = build_gold_hud_rect(game_offset, game_size, context)
+	var layout: Dictionary = build_currency_hud_layout(game_offset, game_size, context)
+	var rect: Rect2 = layout.get("gold_rect", Rect2())
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
-	var scale_factor: float = _get_gold_hud_scale(game_size, context)
-	_draw_gold_hud_frame(canvas, rect, scale_factor)
+	var scale_factor: float = float(layout.get("content_scale", _get_gold_hud_scale(game_size, context)))
 
 	var coin_size: float = GOLD_HUD_COIN_SIZE * scale_factor
 	var coin_center := Vector2(rect.position.x + GOLD_HUD_SIDE_MARGIN * scale_factor + coin_size * 0.5, rect.get_center().y)
@@ -367,8 +424,8 @@ func _draw_gold_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector2
 		text_left,
 		rect.position.y + (rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)
 	)
-	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
-	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.30))
+	var outline_size: int = max(1, int(round(CURRENCY_HUD_TEXT_OUTLINE_SOURCE_SIZE * scale_factor)))
+	canvas.draw_string_outline(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, outline_size, Color(0.02, 0.015, 0.01, 0.88))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.86, 0.32, 1.0))
 
 
@@ -377,11 +434,11 @@ func _draw_muhon_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector
 		return
 	var amount: int = int(context.get("tower_muhon_hud_amount", 0))
 	var text: String = format_gold_amount(amount)
-	var rect: Rect2 = build_muhon_hud_rect(game_offset, game_size, context)
+	var layout: Dictionary = build_currency_hud_layout(game_offset, game_size, context)
+	var rect: Rect2 = layout.get("muhon_rect", Rect2())
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
-	var scale_factor: float = _get_gold_hud_scale(game_size, context)
-	_draw_muhon_hud_frame(canvas, rect, scale_factor)
+	var scale_factor: float = float(layout.get("content_scale", _get_gold_hud_scale(game_size, context)))
 
 	var icon_size: float = GOLD_HUD_COIN_SIZE * scale_factor
 	var icon_center := Vector2(
@@ -409,75 +466,9 @@ func _draw_muhon_hud(canvas: CanvasItem, game_offset: Vector2, game_size: Vector
 		text_left,
 		rect.position.y + (rect.size.y - text_size.y) * 0.5 + font.get_ascent(font_size)
 	)
-	var text_shadow_offset := Vector2(0.0, max(1.0, 1.0 * scale_factor))
-	canvas.draw_string(font, baseline + text_shadow_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(0.0, 0.0, 0.0, 0.34))
+	var outline_size: int = max(1, int(round(CURRENCY_HUD_TEXT_OUTLINE_SOURCE_SIZE * scale_factor)))
+	canvas.draw_string_outline(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, outline_size, Color(0.02, 0.01, 0.015, 0.90))
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, Color(1.0, 0.73, 0.34, 1.0))
-
-
-func _draw_muhon_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
-	var border_width: float = max(2.0, 2.0 * scale_factor)
-	PremiumPanelFrame.draw_panel(
-		canvas,
-		rect,
-		PremiumPanelFrame.KIND_SECTION,
-		Color(0.075, 0.025, 0.035, 0.78),
-		Color(0.82, 0.22, 0.12, 0.94),
-		border_width
-	)
-	PremiumPanelFrame.draw_corner_brackets(
-		canvas,
-		rect,
-		Color(1.0, 0.57, 0.22, 0.74),
-		max(1.0, scale_factor),
-		7.0 * scale_factor,
-		3.0 * scale_factor
-	)
-
-
-func _draw_gold_hud_frame(canvas: CanvasItem, rect: Rect2, scale_factor: float) -> void:
-	# Premium metallic gold-HUD chip: dark brushed body, warm gold rim, a beveled
-	# inner highlight/shadow pair, and angular sci-fi corner brackets. Reuses the
-	# shared PremiumPanelFrame chrome language so this matches the character-info /
-	# pause premium panels instead of forking a bespoke frame style. Everything is
-	# derived from `scale_factor` so it tracks the gold HUD's variable width/height.
-	var border_width: float = max(2.0, 2.0 * scale_factor)
-	PremiumPanelFrame.draw_panel(
-		canvas,
-		rect,
-		PremiumPanelFrame.KIND_SECTION,
-		Color(0.06, 0.055, 0.045, 0.74),
-		Color(0.74, 0.57, 0.27, 0.92),
-		border_width
-	)
-
-	# Inner bevel groove: light along the top edge, shadow along the bottom edge.
-	var inset: float = border_width + 1.5 * scale_factor
-	var groove_x0: float = rect.position.x + inset + 2.0 * scale_factor
-	var groove_x1: float = rect.end.x - inset - 2.0 * scale_factor
-	if groove_x1 > groove_x0:
-		var line_w: float = max(1.0, scale_factor)
-		canvas.draw_line(
-			Vector2(groove_x0, rect.position.y + inset),
-			Vector2(groove_x1, rect.position.y + inset),
-			Color(1.0, 0.88, 0.55, 0.18),
-			line_w
-		)
-		canvas.draw_line(
-			Vector2(groove_x0, rect.end.y - inset),
-			Vector2(groove_x1, rect.end.y - inset),
-			Color(0.0, 0.0, 0.0, 0.22),
-			line_w
-		)
-
-	# Angular gold corner brackets — the decorative signature of the frame.
-	PremiumPanelFrame.draw_corner_brackets(
-		canvas,
-		rect.grow(max(1.0, 1.5 * scale_factor)),
-		Color(1.0, 0.82, 0.34, 0.95),
-		1.0,
-		0.30,
-		max(6.0, 14.0 * scale_factor)
-	)
 
 
 func _draw_gold_coin_icon(canvas: CanvasItem, center: Vector2, size: float, scale_factor: float) -> void:

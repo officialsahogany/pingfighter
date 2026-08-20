@@ -39,7 +39,9 @@ class CachedOnlyRegistry:
 func _init() -> void:
 	_verify_cached_run_balance_projection()
 	_verify_non_tower_path_stays_hidden()
-	_verify_layout_stacks_below_gold()
+	_verify_layout_pairs_horizontally_at_acceptance_resolution()
+	_verify_non_tower_gold_layout_stays_single()
+	_verify_frame_free_draw_contract()
 	if _failures.is_empty():
 		print("tower_battle_muhon_hud_smoke: ok")
 		quit(0)
@@ -73,18 +75,96 @@ func _verify_non_tower_path_stays_hidden() -> void:
 	_expect(registry.cold_get_calls == 0, "hidden Muhon HUD must remain a cached-only lookup")
 
 
-func _verify_layout_stacks_below_gold() -> void:
+func _verify_layout_pairs_horizontally_at_acceptance_resolution() -> void:
 	var renderer: Object = Stage1PillarUiRenderer.new()
 	var context := {
 		"height": 750.0,
-		"gold_hud_amount": 1200,
-		"tower_muhon_hud_amount": 17,
+		"gold_hud_amount": 99999,
+		"tower_muhon_hud_visible": true,
+		"tower_muhon_hud_amount": 99999,
 	}
-	var gold_rect: Rect2 = renderer.build_gold_hud_rect(Vector2(260.0, 60.0), Vector2(760.0, 750.0), context)
-	var muhon_rect: Rect2 = renderer.build_muhon_hud_rect(Vector2(260.0, 60.0), Vector2(760.0, 750.0), context)
-	_expect(muhon_rect.position.x == gold_rect.position.x, "Muhon HUD should share the gold HUD pillar alignment")
-	_expect(muhon_rect.position.y > gold_rect.end.y, "Muhon HUD should sit below the gold HUD without overlap")
-	_expect(muhon_rect.size == gold_rect.size, "Muhon HUD should reuse the gold HUD footprint")
+	var window_scale := 1246.0 / 750.0
+	var logical_window_width := 2020.0 / window_scale
+	var game_offset := Vector2((logical_window_width - 760.0) * 0.5, 0.0)
+	var game_size := Vector2(760.0, 750.0)
+	var layout: Dictionary = renderer.build_currency_hud_layout(game_offset, game_size, context)
+	var gold_rect: Rect2 = layout.get("gold_rect", Rect2())
+	var muhon_rect: Rect2 = layout.get("muhon_rect", Rect2())
+	_expect(bool(layout.get("pair_fits", false)), "99,999 gold and Muhon must fit the 2020x1246 left pillar")
+	_expect(is_equal_approx(muhon_rect.position.y, gold_rect.position.y), "tower currencies should share one baseline row")
+	_expect(muhon_rect.position.x >= gold_rect.end.x, "Muhon should sit to the right of gold without overlap")
+	_expect(muhon_rect.end.x < game_offset.x, "currency pair must stay outside the playfield")
+	_expect(gold_rect.position.x >= 0.0, "currency pair must stay on-screen at the acceptance resolution")
+	_verify_actual_text_width(renderer, gold_rect, "99,999", float(layout.get("content_scale", 1.0)), "gold")
+	_verify_actual_text_width(renderer, muhon_rect, "99,999", float(layout.get("content_scale", 1.0)), "Muhon")
+
+
+func _verify_non_tower_gold_layout_stays_single() -> void:
+	var renderer: Object = Stage1PillarUiRenderer.new()
+	var game_offset := Vector2(260.0, 60.0)
+	var game_size := Vector2(760.0, 750.0)
+	var baseline_context := {"height": 750.0, "gold_hud_amount": 1200}
+	var hidden_context := baseline_context.duplicate(true)
+	hidden_context["tower_muhon_hud_visible"] = false
+	hidden_context["tower_muhon_hud_amount"] = 99999
+	var baseline_gold: Rect2 = renderer.build_gold_hud_rect(game_offset, game_size, baseline_context)
+	var hidden_gold: Rect2 = renderer.build_gold_hud_rect(game_offset, game_size, hidden_context)
+	var hidden_muhon: Rect2 = renderer.build_muhon_hud_rect(game_offset, game_size, hidden_context)
+	_expect(hidden_gold == baseline_gold, "hidden tower state must not move or resize the normal gold HUD")
+	_expect(hidden_muhon.size == Vector2.ZERO, "non-tower screens must not allocate a Muhon footprint")
+
+
+func _verify_frame_free_draw_contract() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/hud/stage1_pillar_ui_renderer.gd")
+	_expect(source.find("_draw_gold_hud_frame") < 0, "gold currency frame helper must be removed")
+	_expect(source.find("_draw_muhon_hud_frame") < 0, "Muhon currency frame helper must be removed")
+	_expect(source.find("PremiumPanelFrame") < 0, "currency renderer must not retain flat panel chrome")
+	var first_outline := source.find("canvas.draw_string_outline")
+	var second_outline := source.find("canvas.draw_string_outline", first_outline + 1)
+	_expect(first_outline >= 0 and second_outline > first_outline, "both currency labels must use text outlines")
+
+
+func _verify_actual_text_width(
+	renderer: Object,
+	rect: Rect2,
+	text: String,
+	content_scale: float,
+	label: String
+) -> void:
+	var font: Font = ThemeDB.fallback_font
+	_expect(font != null, "%s font must exist for rendered-width proof" % label)
+	if font == null:
+		return
+	var icon_size: float = Stage1PillarUiRenderer.GOLD_HUD_COIN_SIZE * content_scale
+	var text_left: float = (
+		rect.position.x
+		+ Stage1PillarUiRenderer.GOLD_HUD_SIDE_MARGIN * content_scale
+		+ icon_size
+		+ Stage1PillarUiRenderer.GOLD_HUD_TEXT_GAP * content_scale
+	)
+	var max_text_width: float = (
+		rect.end.x
+		- text_left
+		- Stage1PillarUiRenderer.GOLD_HUD_TEXT_RIGHT_PAD * content_scale
+	)
+	var base_font_size: int = int(round(float(Stage1PillarUiRenderer.GOLD_HUD_FONT_SIZE) * content_scale))
+	var fitted_font_size: int = int(renderer.call(
+		"_fit_gold_font_size",
+		font,
+		text,
+		base_font_size,
+		max_text_width
+	))
+	var actual_drawn_width: float = font.get_string_size(
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		fitted_font_size
+	).x
+	_expect(
+		actual_drawn_width <= max_text_width + 0.01,
+		"%s maximum digits must fit their actual rendered text width" % label
+	)
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const PremiumPanelFrame := preload("res://scripts/hud/premium_panel_frame.gd")
+
 # 오른쪽 필러 리액티브 초상화 위젯 (Phase 1 슬라이스).
 # 보스 대쉬토큰 오브(상단)와 플레이어 대쉬토큰 오브(하단) 사이의 빈 세로 밴드에
 # 두 박스를 세로로 쌓아 그린다: 상단 = 보스 초상화, 하단 = 플레이어 초상화.
