@@ -29,6 +29,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentRouteWindPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
+)
 const PHYSICS_GATE_COORDINATOR_PATH := (
 	"res://scripts/core/battle_physics_gate_coordinator.gd"
 )
@@ -439,7 +442,117 @@ class FakeGaugeCanvas:
 		circle_calls += 1
 
 
+class FakeRouteAimFlow:
+	extends RefCounted
+
+	var targets: Array[Dictionary] = []
+
+	func get_route_aim_targets() -> Array[Dictionary]:
+		return targets
+
+	func get_route_aim_gauge_model() -> Dictionary:
+		return {"visible": false}
+
+
+class FakeRouteAimCanvas:
+	extends RefCounted
+
+	var texture_rect_calls := 0
+	var drawn_strings: Array[String] = []
+
+	func draw_circle(
+		_position: Vector2,
+		_radius: float,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	func draw_texture_rect(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_tile: bool,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false
+	) -> void:
+		texture_rect_calls += 1
+
+	func draw_rect(
+		_rect: Rect2,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	func draw_string(
+		_font: Font,
+		_pos: Vector2,
+		_text: String,
+		_alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT,
+		_width: float = -1.0,
+		_font_size: int = 16,
+		_modulate: Color = Color.WHITE
+	) -> void:
+		drawn_strings.append(_text)
+
+
+class FakeWindCanvas:
+	extends RefCounted
+
+	var rect_calls := 0
+	var filled_strength_cells := 0
+	var line_calls := 0
+	var circle_calls := 0
+	var polygon_calls := 0
+
+	func draw_rect(
+		_rect: Rect2,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		rect_calls += 1
+		if _filled and _rect.size == TowerAscentTuning.TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE:
+			filled_strength_cells += 1
+
+	func draw_line(
+		_from: Vector2,
+		_to: Vector2,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		line_calls += 1
+
+	func draw_circle(
+		_position: Vector2,
+		_radius: float,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		circle_calls += 1
+
+	func draw_colored_polygon(
+		_points: PackedVector2Array,
+		_color: Color,
+		_uvs: PackedVector2Array = PackedVector2Array(),
+		_texture: Texture2D = null
+	) -> void:
+		polygon_calls += 1
+
+
 func _init() -> void:
+	_verify_route_target_uses_map_icon_without_name_text()
+	_verify_route_wind_probability_and_strength_table()
+	_verify_route_wind_indicator_calm_and_directional_states()
+	_verify_wind_bias_reachability_and_trajectory_isolation()
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_free_movement_while_waiting_and_in_flight()
@@ -459,6 +572,191 @@ func _init() -> void:
 	for failure in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_route_wind_probability_and_strength_table() -> void:
+	_expect(
+		TowerAscentRouteWindPolicy.is_calm_roll(0.599999),
+		"the calm branch must own the lower 60 percent interval"
+	)
+	_expect(
+		not TowerAscentRouteWindPolicy.is_calm_roll(0.60),
+		"the wind branch must begin at the 40 percent interval boundary"
+	)
+	var strength_table := TowerAscentRouteWindPolicy.get_strength_table()
+	_expect(strength_table.size() == 3, "route wind must use three discrete readable strength levels")
+	for level in range(1, 4):
+		var left := TowerAscentRouteWindPolicy.build_model(-1, level)
+		var right := TowerAscentRouteWindPolicy.build_model(1, level)
+		_expect(
+			int(left.get("strength_level", 0)) == level
+			and int(right.get("strength_level", 0)) == level,
+			"both wind directions must expose strength level %d" % level
+		)
+		_expect(
+			float(left.get("bias_degrees", 0.0)) < 0.0
+			and float(right.get("bias_degrees", 0.0)) > 0.0,
+			"wind direction and future gauge bias must agree at strength %d" % level
+		)
+
+	var rng_state := {"seed": 20260820, "state": 20260820}
+	var calm_count := 0
+	var windy_count := 0
+	for _index in range(10000):
+		var result := TowerAscentRouteWindPolicy.roll_from_gameplay_state(rng_state)
+		rng_state = result.get("gameplay_rng_state", {})
+		if bool((result.get("wind", {}) as Dictionary).get("is_windy", false)):
+			windy_count += 1
+		else:
+			calm_count += 1
+	var calm_ratio := float(calm_count) / 10000.0
+	_expect(
+		absf(calm_ratio - TowerAscentRouteWindPolicy.CALM_PROBABILITY) <= 0.02,
+		"fixed gameplay seed must preserve the declared 60/40 wind distribution"
+	)
+	_expect(calm_count + windy_count == 10000, "every route entry must resolve exactly one wind state")
+
+
+func _verify_route_wind_indicator_calm_and_directional_states() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	var calm_canvas := FakeWindCanvas.new()
+	renderer.debug_draw_route_wind_indicator(
+		calm_canvas,
+		Vector2(380.0, 650.0),
+		TowerAscentRouteWindPolicy.calm_model()
+	)
+	_expect(calm_canvas.rect_calls == 8, "calm wind must still draw the panel and six strength cells")
+	_expect(calm_canvas.circle_calls == 2, "calm wind must show a centered no-wind ring")
+	_expect(calm_canvas.polygon_calls == 0, "calm wind must not invent a direction arrow")
+
+	var left_canvas := FakeWindCanvas.new()
+	renderer.debug_draw_route_wind_indicator(
+		left_canvas,
+		Vector2(380.0, 650.0),
+		TowerAscentRouteWindPolicy.build_model(-1, 3)
+	)
+	_expect(left_canvas.polygon_calls == 1, "wind must draw one procedural direction arrow")
+	_expect(left_canvas.filled_strength_cells == 3, "maximum wind must fill all three strength cells")
+	_expect(left_canvas.circle_calls == 1, "wind must keep the vane pivot without the calm ring")
+
+
+func _verify_wind_bias_reachability_and_trajectory_isolation() -> void:
+	var route_origin := Vector2(380.0, 665.0)
+	var target_positions := [
+		Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y),
+		Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y),
+	]
+	for direction in [-1, 1]:
+		var runtime := TowerAscentRouteServeRuntime.new()
+		var maximum_wind := TowerAscentRouteWindPolicy.build_model(int(direction), 3)
+		_expect(
+			bool(runtime.begin(null, null, maximum_wind).get("accepted", false)),
+			"maximum-wind reachability fixture must enter route aim"
+		)
+		var gauge_model := runtime.get_aim_gauge_model()
+		var minimum_angle := float(gauge_model.get("min_degrees", 0.0))
+		var maximum_angle := float(gauge_model.get("max_degrees", 0.0))
+		var expected_bias := float(maximum_wind.get("bias_degrees", 0.0))
+		_expect(
+			is_equal_approx(
+				float(gauge_model.get("wind_bias_degrees", 0.0)),
+				expected_bias
+			),
+			"the displayed gauge bounds and wind state must expose the same bias"
+		)
+		_expect(
+			is_equal_approx(
+				minimum_angle,
+				TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES + expected_bias
+			)
+			and is_equal_approx(
+				maximum_angle,
+				TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES + expected_bias
+			),
+			"wind must shift the whole visible sweep range instead of changing dwell time"
+		)
+		_expect(
+			is_equal_approx(
+				maximum_angle - minimum_angle,
+				TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
+				- TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
+			),
+			"wind center shift must preserve the original sweep width"
+		)
+		for target_position in target_positions:
+			var target_angle := rad_to_deg(atan2(
+				(target_position as Vector2).x - route_origin.x,
+				route_origin.y - (target_position as Vector2).y
+			))
+			_expect(
+				target_angle >= minimum_angle and target_angle <= maximum_angle,
+				"maximum wind must keep every route target inside the visible sweep range"
+			)
+		runtime.cancel()
+
+	var calm_runtime := TowerAscentRouteServeRuntime.new()
+	var windy_runtime := TowerAscentRouteServeRuntime.new()
+	calm_runtime.begin(null, null, TowerAscentRouteWindPolicy.calm_model())
+	windy_runtime.begin(null, null, TowerAscentRouteWindPolicy.build_model(1, 3))
+	var same_aim_point := Vector2(452.0, 120.0)
+	calm_runtime.debug_serve_toward(same_aim_point)
+	windy_runtime.debug_serve_toward(same_aim_point)
+	var empty_targets: Array[Dictionary] = []
+	calm_runtime.update(0.25, empty_targets)
+	windy_runtime.update(0.25, empty_targets)
+	_expect(
+		calm_runtime.get_ball_position().is_equal_approx(windy_runtime.get_ball_position()),
+		"wind must not bend equal-angle route ball trajectories after launch"
+	)
+	_expect(
+		Vector2(calm_runtime.get("_fixture_ball_velocity")).is_equal_approx(
+			Vector2(windy_runtime.get("_fixture_ball_velocity"))
+		),
+		"wind must not mutate equal-angle route ball velocity after launch"
+	)
+	calm_runtime.cancel()
+	windy_runtime.cancel()
+
+
+func _verify_route_target_uses_map_icon_without_name_text() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	var node := {
+		"id": "fixture-spring",
+		"kind": "guardian_spring",
+		"label": "수호의 샘터",
+	}
+	var presentation: Dictionary = renderer.build_map_icon_presentation(node)
+	_expect(
+		presentation.get("icon_texture", null) is Texture2D,
+		"route target must reuse the map iconography owner's loaded node texture"
+	)
+	var flow := FakeRouteAimFlow.new()
+	flow.targets = [{
+		"id": "fixture-spring",
+		"label": "수호의 샘터",
+		"kind": "guardian_spring",
+		"position": Vector2(220.0, 165.0),
+		"draw_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_DRAW_RADIUS,
+		"icon_presentation": presentation,
+	}]
+	var canvas := FakeRouteAimCanvas.new()
+	renderer.debug_draw_route_aim(canvas, flow)
+	_expect(canvas.texture_rect_calls == 1, "route target must draw the shared map icon")
+	_expect(
+		not canvas.drawn_strings.has("수호의 샘터"),
+		"an available route icon must suppress the target name string"
+	)
+
+	flow.targets[0]["icon_presentation"] = {
+		"icon_texture": null,
+		"fallback_label": "수호의 샘터",
+	}
+	var fallback_canvas := FakeRouteAimCanvas.new()
+	renderer.debug_draw_route_aim(fallback_canvas, flow)
+	_expect(
+		fallback_canvas.drawn_strings.has("수호의 샘터"),
+		"a missing shared icon must preserve the iconography owner's text fallback"
+	)
 
 
 func _verify_live_shell_meta_owner_frame_path() -> void:
@@ -600,6 +898,22 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 	_expect(
 		flow.begin_vertical_slice(owner, Callable(), {"registry": registry, "run_id": "gate-frame-route"}),
 		"production route fixture must enter ROUTE_AIM"
+	)
+	var entry_wind := flow.get_route_wind_model()
+	var entry_rng_state: Dictionary = flow.export_snapshot().get("gameplay_rng_state", {})
+	_expect(flow.get_route_wind_roll_count() == 1, "ROUTE_AIM entry must roll wind exactly once")
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	for _frame in range(24):
+		flow.update_selective(1.0 / 60.0)
+	_expect(
+		flow.get_route_wind_roll_count() == 1,
+		"multiple ROUTE_AIM frames must not reroll the entry wind"
+	)
+	_expect(flow.get_route_wind_model() == entry_wind, "entry wind must stay fixed through the serve")
+	_expect(
+		flow.export_snapshot().get("gameplay_rng_state", {}) == entry_rng_state,
+		"per-frame route updates must not consume gameplay RNG after the entry roll"
 	)
 	var targets: Array[Dictionary] = flow.get_route_aim_targets()
 	_expect(targets.size() >= 1, "generated ROUTE_AIM must expose a physical target")

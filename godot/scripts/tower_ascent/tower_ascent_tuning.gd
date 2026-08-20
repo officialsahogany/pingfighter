@@ -58,6 +58,10 @@ const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
 const TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX := 88.0
 const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
+const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
+const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
+const TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE := Vector2(12.0, 7.0)
+const TEMP_ROUTE_WIND_STRENGTH_CELL_GAP := 3.0
 
 # TEMP: the map-view overlay establishes the information hierarchy while its
 # final mobile/readability sizing is still product-tuning work.

@@ -13,6 +13,9 @@ const TowerAscentRouteCandidatePolicy := preload(
 const TowerAscentRouteServeRuntime := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
 )
+const TowerAscentRouteWindPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
+)
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
 const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 const TowerAscentNodeResolutionTransaction := preload(
@@ -123,6 +126,7 @@ var _route_source_node_id := ""
 var _route_target_ids: Array[String] = []
 var _available_route_target_ids: Array[String] = []
 var _route_aim_targets_cache: Array[Dictionary] = []
+var _route_wind_roll_count := 0
 var _selected_target_id := ""
 var _selector_position := SELECTOR_ORIGIN
 var _selector_velocity := Vector2.ZERO
@@ -240,6 +244,7 @@ func _reset_runtime_state() -> void:
 	_route_target_ids.clear()
 	_available_route_target_ids.clear()
 	_route_aim_targets_cache.clear()
+	_route_wind_roll_count = 0
 	_node_modal_kind = "guardian_spring"
 	_map_overlay_active = false
 	_map_overlay_closing = false

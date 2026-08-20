@@ -1537,7 +1537,7 @@ func _draw_modal_action_row(
 	)
 
 
-func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
+func _draw_route_aim(canvas: Object, flow: Object) -> void:
 	var font := ThemeDB.fallback_font
 	for target_variant in flow.get_route_aim_targets():
 		var target: Dictionary = target_variant
@@ -1546,21 +1546,128 @@ func _draw_route_aim(canvas: CanvasItem, flow: Object) -> void:
 		var target_fill := CINNABAR_DARK if bool(target.get("enraged", false)) else PAPER_DEEP
 		canvas.draw_circle(target_position, target_radius, target_fill)
 		canvas.draw_circle(target_position, target_radius, CINNABAR, false, 3.0)
-		var label_rect := Rect2(
-			target_position.x - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH * 0.5,
-			target_position.y - target_radius - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_GAP - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT,
-			TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH,
-			TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT
-		)
-		canvas.draw_rect(label_rect, Color(0.04, 0.025, 0.02, 0.86), true)
-		canvas.draw_rect(label_rect, GOLD, false, 1.5)
-		canvas.draw_string(font, label_rect.position + Vector2(0.0, 21.0), str(target.get("label", "행로")), HORIZONTAL_ALIGNMENT_CENTER, label_rect.size.x, 16, PAPER)
+		var icon_presentation: Dictionary = target.get("icon_presentation", {})
+		var icon_texture_value: Variant = icon_presentation.get("icon_texture", null)
+		if icon_texture_value is Texture2D:
+			var icon_size := Vector2.ONE * target_radius * 1.72
+			canvas.draw_texture_rect(
+				icon_texture_value as Texture2D,
+				Rect2(target_position - icon_size * 0.5, icon_size),
+				false
+			)
+		else:
+			var fallback_label := str(icon_presentation.get(
+				"fallback_label",
+				target.get("label", "행로")
+			))
+			var label_rect := Rect2(
+				target_position.x - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH * 0.5,
+				target_position.y - target_radius - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_GAP - TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT,
+				TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_WIDTH,
+				TowerAscentTuning.TEMP_ROUTE_TARGET_LABEL_HEIGHT
+			)
+			canvas.draw_rect(label_rect, Color(0.04, 0.025, 0.02, 0.86), true)
+			canvas.draw_rect(label_rect, GOLD, false, 1.5)
+			canvas.draw_string(font, label_rect.position + Vector2(0.0, 21.0), fallback_label, HORIZONTAL_ALIGNMENT_CENTER, label_rect.size.x, 16, PAPER)
 	_draw_route_aim_gauge(canvas, flow)
+	_draw_route_wind_indicator(canvas, flow)
 	canvas.draw_string(font, Vector2(80.0, 42.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
 	canvas.draw_string(font, Vector2(80.0, 64.0), "명중할 때까지 다시 서브할 수 있습니다", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, Color(PAPER, 0.82))
 
 
-func _draw_route_aim_gauge(canvas: CanvasItem, flow: Object) -> void:
+func debug_draw_route_aim(canvas: Object, flow: Object) -> void:
+	_draw_route_aim(canvas, flow)
+
+
+func _draw_route_wind_indicator(canvas: Object, flow: Object) -> void:
+	if (
+		not flow.has_method("get_route_aim_gauge_model")
+		or not flow.has_method("get_route_wind_model")
+	):
+		return
+	var gauge_model: Dictionary = flow.get_route_aim_gauge_model()
+	if not bool(gauge_model.get("visible", false)):
+		return
+	_draw_route_wind_indicator_model(
+		canvas,
+		_vector2(gauge_model.get("origin", Vector2.ZERO)),
+		flow.get_route_wind_model()
+	)
+
+
+func debug_draw_route_wind_indicator(
+	canvas: Object,
+	origin: Vector2,
+	wind_model: Dictionary
+) -> void:
+	_draw_route_wind_indicator_model(canvas, origin, wind_model)
+
+
+func _draw_route_wind_indicator_model(
+	canvas: Object,
+	origin: Vector2,
+	wind_model: Dictionary
+) -> void:
+	var panel_size := TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_SIZE
+	var panel_x := (
+		origin.x
+		+ TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+		+ TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_GAP
+	)
+	if panel_x + panel_size.x > PLAYFIELD_SIZE.x - 12.0:
+		panel_x = (
+			origin.x
+			- TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+			- TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_GAP
+			- panel_size.x
+		)
+	var panel := Rect2(
+		Vector2(panel_x, origin.y - panel_size.y * 0.5),
+		panel_size
+	)
+	var center := panel.get_center()
+	canvas.draw_rect(panel, Color(0.04, 0.025, 0.02, 0.88), true)
+	canvas.draw_rect(panel, GOLD, false, 1.5)
+	canvas.draw_line(
+		Vector2(panel.position.x + 10.0, center.y),
+		Vector2(panel.end.x - 10.0, center.y),
+		Color(PAPER, 0.42),
+		1.5,
+		true
+	)
+	var direction := clampi(int(wind_model.get("direction", 0)), -1, 1)
+	var strength_level := clampi(int(wind_model.get("strength_level", 0)), 0, 3)
+	var cell_size := TowerAscentTuning.TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE
+	var cell_gap := TowerAscentTuning.TEMP_ROUTE_WIND_STRENGTH_CELL_GAP
+	for side in [-1, 1]:
+		for level in range(1, 4):
+			var distance := 12.0 + float(level - 1) * (cell_size.x + cell_gap)
+			var cell_center := center + Vector2(float(side) * distance, 10.0)
+			var cell := Rect2(cell_center - cell_size * 0.5, cell_size)
+			var active: bool = direction == int(side) and level <= strength_level
+			if active:
+				canvas.draw_rect(cell, Color(CINNABAR, 0.92), true)
+			else:
+				canvas.draw_rect(cell, Color(PAPER, 0.34), false, 1.0)
+	canvas.draw_circle(center, 3.5, Color("fff1a6"))
+	if direction == 0 or strength_level == 0:
+		canvas.draw_circle(center, 8.0, Color(GOLD, 0.72), false, 1.5)
+		return
+	var arrow_direction := Vector2(float(direction), 0.0)
+	var arrow_tip := center + arrow_direction * 42.0
+	var arrow_base := center + arrow_direction * 12.0
+	var perpendicular := Vector2(0.0, 1.0)
+	canvas.draw_colored_polygon(
+		PackedVector2Array([
+			arrow_tip,
+			arrow_base + perpendicular * 6.0,
+			arrow_base - perpendicular * 6.0,
+		]),
+		Color("ffcf59")
+	)
+
+
+func _draw_route_aim_gauge(canvas: Object, flow: Object) -> void:
 	_draw_route_aim_gauge_with_textures(
 		canvas,
 		flow,

@@ -11,6 +11,9 @@ const PlayerCharacterRuntime := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentRouteWindPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
+)
 
 const STATUS_WAITING := "waiting"
 const STATUS_FLIGHT := "flight"
@@ -41,10 +44,13 @@ var _aim_elapsed_seconds := 0.0
 var _aim_angle_degrees := 0.0
 var _aim_sweep_direction := 1.0
 var _serve_arm_remaining := 0.0
+var _wind_model: Dictionary = TowerAscentRouteWindPolicy.calm_model()
 
 
-func begin(owner: Object, registry: Object) -> Dictionary:
+func begin(owner: Object, registry: Object, wind_model: Variant = {}) -> Dictionary:
 	cancel()
+	_wind_model = TowerAscentRouteWindPolicy.normalize_model(wind_model)
+	_update_aim_oscillator(0.0)
 	_owner = owner
 	_registry = registry
 	_fixture_mode = owner == null or not (owner is Node)
@@ -101,6 +107,7 @@ func cancel() -> void:
 	_fixture_ball_velocity = Vector2.ZERO
 	_fixture_ball_active = false
 	_serve_arm_remaining = 0.0
+	_wind_model = TowerAscentRouteWindPolicy.calm_model()
 
 
 func finish_selection() -> void:
@@ -172,6 +179,10 @@ func get_serve_attempt_count() -> int:
 	return _serve_attempt_count
 
 
+func get_wind_model() -> Dictionary:
+	return _wind_model.duplicate(true)
+
+
 func get_aim_gauge_model() -> Dictionary:
 	var waiting := _active and not is_ball_in_flight()
 	if not _fixture_mode and _round_state != null:
@@ -184,6 +195,7 @@ func get_aim_gauge_model() -> Dictionary:
 		)
 	)
 	var paddle_width := maxf(1.0, float(_owner_value("player_paddle_width", 155.0)))
+	var effective_bounds := _effective_aim_bounds()
 	return {
 		"visible": waiting,
 		"origin": Vector2(
@@ -192,8 +204,9 @@ func get_aim_gauge_model() -> Dictionary:
 		),
 		"angle_degrees": _aim_angle_degrees,
 		"sweep_direction": _aim_sweep_direction,
-		"min_degrees": TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES,
-		"max_degrees": TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES,
+		"min_degrees": effective_bounds.x,
+		"max_degrees": effective_bounds.y,
+		"wind_bias_degrees": float(_wind_model.get("bias_degrees", 0.0)),
 	}
 
 
@@ -215,16 +228,19 @@ func _update_aim_oscillator(delta: float) -> void:
 	var period := maxf(0.1, TowerAscentTuning.TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS)
 	_aim_elapsed_seconds = fposmod(_aim_elapsed_seconds + delta, period)
 	var phase := _aim_elapsed_seconds / period * TAU
-	var midpoint := (
-		TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
-		+ TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
-	) * 0.5
-	var amplitude := (
-		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES
-		- TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES
-	) * 0.5
+	var effective_bounds := _effective_aim_bounds()
+	var midpoint := (effective_bounds.x + effective_bounds.y) * 0.5
+	var amplitude := (effective_bounds.y - effective_bounds.x) * 0.5
 	_aim_angle_degrees = midpoint + sin(phase) * amplitude
 	_aim_sweep_direction = 1.0 if cos(phase) >= 0.0 else -1.0
+
+
+func _effective_aim_bounds() -> Vector2:
+	var bias_degrees := float(_wind_model.get("bias_degrees", 0.0))
+	return Vector2(
+		TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES + bias_degrees,
+		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES + bias_degrees
+	)
 
 
 func _read_player_input_snapshot() -> Dictionary:

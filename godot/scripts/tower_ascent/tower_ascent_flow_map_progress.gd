@@ -424,7 +424,16 @@ func _enter_route_aim() -> bool:
 	_node_modal_state.close()
 	_phase = PHASE_ROUTE_AIM
 	_reset_selector()
-	var result: Dictionary = _route_serve_runtime.begin(_active_owner, _active_registry)
+	var wind_roll: Dictionary = TowerAscentRouteWindPolicy.roll_from_gameplay_state(
+		_gameplay_rng_state
+	)
+	_gameplay_rng_state = _dictionary_copy(wind_roll.get("gameplay_rng_state", {}))
+	_route_wind_roll_count += 1
+	var result: Dictionary = _route_serve_runtime.begin(
+		_active_owner,
+		_active_registry,
+		wind_roll.get("wind", {})
+	)
 	if not bool(result.get("accepted", false)):
 		push_warning("[TowerAscent] route aim rejected: %s" % str(result.get("reason", "unknown")))
 	return bool(result.get("accepted", false))
@@ -433,6 +442,14 @@ func _update_route_serve(delta: float) -> void:
 	var result: Dictionary = _route_serve_runtime.update(delta, _route_aim_targets_cache)
 	if str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT:
 		_resolve_route_target(str(result.get("target_id", "")))
+
+
+func get_route_wind_model() -> Dictionary:
+	return _route_serve_runtime.get_wind_model()
+
+
+func get_route_wind_roll_count() -> int:
+	return _route_wind_roll_count
 
 func _resolve_route_target(target_id: String) -> void:
 	if not get_route_target_ids().has(target_id):
@@ -633,11 +650,13 @@ func _refresh_route_target_cache() -> void:
 		if not _available_route_target_ids.has(target_id):
 			continue
 		var node := _get_node(target_id)
+		var icon_presentation: Dictionary = _renderer.build_map_icon_presentation(node)
 		_route_aim_targets_cache.append({
 			"id": target_id,
 			"label": _route_target_display_label(node),
 			"kind": str(node.get("kind", "")),
 			"enraged": bool(node.get("enraged", false)),
+			"icon_presentation": icon_presentation,
 			"position": _route_target_aim_position(display_index, available_target_count),
 			"draw_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_DRAW_RADIUS,
 			"hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS,
