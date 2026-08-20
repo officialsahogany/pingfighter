@@ -12,6 +12,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentMapGenerator := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
 )
+const TowerAscentScreenSpaceSurfacePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
+)
 
 const ACCEPTANCE_VIEWPORT := Rect2(0.0, 0.0, 2020.0, 1246.0)
 
@@ -72,17 +75,38 @@ class RouteAimFlow:
 		draw_calls += 1
 
 
+class SelectorBallPlayfieldDrawer:
+	extends RefCounted
+
+	var selector_draw_calls := 0
+
+	func draw_tower_route_selector_ball(
+		_canvas: CanvasItem,
+		_registry: Object,
+		_shake_offset: Vector2,
+		_width: float,
+		_height: float
+	) -> void:
+		selector_draw_calls += 1
+
+
 class CachedFlowRegistry:
 	extends RefCounted
 
 	var flow: Object
+	var playfield: Object
 	var cold_get_calls := 0
 
-	func _init(value: Object) -> void:
+	func _init(value: Object, playfield_value: Object = null) -> void:
 		flow = value
+		playfield = playfield_value
 
 	func get_cached_instance(key: String) -> Object:
-		return flow if key == "tower_ascent_flow_owner" else null
+		if key == "tower_ascent_flow_owner":
+			return flow
+		if key == "battle_playfield_scene_drawer":
+			return playfield
+		return null
 
 	func get_instance(_key: String) -> Object:
 		cold_get_calls += 1
@@ -91,6 +115,7 @@ class CachedFlowRegistry:
 
 func _init() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_verify_rest_work_return_phase_and_retention()
 	_verify_modal_close_retains_background_until_combat_selection()
 	_verify_render_order_and_stage_fallback_contract()
 	_verify_noncombat_playfield_suppression_and_route_restore()
@@ -102,6 +127,51 @@ func _init() -> void:
 	for failure in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_rest_work_return_phase_and_retention() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "rest-return-phase-probe",
+		"current_stage": 4,
+		"map_seed": 7162,
+		"node_modal_kind": "rest",
+		"run_state": {"chance_gems": 2, "gold": 0, "muhon": 0},
+	}), "rest return phase probe must begin")
+	var rest_target := _find_target(flow.get_route_aim_targets(), "rest")
+	_expect(not rest_target.is_empty(), "rest return phase probe must expose rest")
+	if rest_target.is_empty():
+		return
+	flow.call("_resolve_route_target", str(rest_target.get("id", "")))
+	flow.call("_complete_map_transition")
+	var result: Dictionary = flow.execute_node_action(
+		"rest:restore_chance_gem",
+		"rest-return-phase-probe:restore"
+	)
+	_expect(bool(result.get("accepted", false)) and bool(result.get("applied", false)), "rest return phase probe must complete its work")
+	print("[TowerNoncombatReturnProbe] phase=%s retained=%s playfield_flow=%s" % [
+		str(flow.get_phase_name()),
+		str(flow.get_retained_noncombat_node_background_kind()),
+		str(TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
+			str(flow.get_phase_name())
+		)),
+	])
+	var escape := InputEventKey.new()
+	escape.pressed = true
+	escape.keycode = KEY_ESCAPE
+	_expect(flow.handle_input(escape), "rest work end input must be consumed")
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "rest work end must enter ROUTE_AIM")
+	_expect(flow.get_retained_noncombat_node_background_kind() == "rest", "rest work end must retain the rest arena")
+	_expect(TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
+		flow.get_phase_name()
+	), "ROUTE_AIM must remain a playfield-flow phase")
+	print("[TowerNoncombatReturnProbe] phase=%s retained=%s playfield_flow=%s" % [
+		str(flow.get_phase_name()),
+		str(flow.get_retained_noncombat_node_background_kind()),
+		str(TowerAscentScreenSpaceSurfacePolicy.uses_playfield_flow_phase(
+			str(flow.get_phase_name())
+		)),
+	])
 
 
 func _verify_modal_close_retains_background_until_combat_selection() -> void:
@@ -218,12 +288,15 @@ func _verify_noncombat_playfield_suppression_and_route_restore() -> void:
 	_expect(rest_registry.cold_get_calls == 0, "noncombat suppression must inspect only the cached tower owner")
 
 	var route_flow := RouteAimFlow.new()
-	var route_registry := CachedFlowRegistry.new(route_flow)
+	var route_playfield := SelectorBallPlayfieldDrawer.new()
+	var route_registry := CachedFlowRegistry.new(route_flow, route_playfield)
 	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
 	_expect(route_flow.draw_calls == 1, "ROUTE_AIM must keep the tower selector after stale battle composition is suppressed")
+	_expect(route_playfield.selector_draw_calls == 1, "ROUTE_AIM must restore only the production selector ball draw slice")
 	route_flow.phase = "NODE_MODAL"
 	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
 	_expect(route_flow.draw_calls == 1, "screen-space node modal must not double-render through the playfield-only fallback")
+	_expect(route_playfield.selector_draw_calls == 1, "NODE_MODAL must not draw the route selector ball")
 	_expect(route_registry.cold_get_calls == 0, "route-only draw must never cold-create the tower owner")
 
 

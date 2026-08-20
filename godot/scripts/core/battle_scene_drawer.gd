@@ -161,7 +161,7 @@ func _draw_transformed_playfield_scene(canvas: CanvasItem, registry: Object, sur
 		# The retained noncombat room owns the arena. Keep only the tower route
 		# selector in game coordinates; the stale stage actor pass also owns the
 		# previous boss, player, ball, arena floor, overlays, and lighting.
-		_draw_tower_ascent_playfield_flow_only(canvas, registry)
+		_draw_tower_ascent_playfield_flow_only(canvas, registry, width, height)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
@@ -178,7 +178,9 @@ func _should_draw_tower_battle_playfield(registry: Object) -> bool:
 
 func _draw_tower_ascent_playfield_flow_only(
 	canvas: CanvasItem,
-	registry: Object
+	registry: Object,
+	width: float = 760.0,
+	height: float = 750.0
 ) -> void:
 	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
 	if (
@@ -202,6 +204,22 @@ func _draw_tower_ascent_playfield_flow_only(
 		phase_name,
 		transition_visual_model
 	):
+		if phase_name == "ROUTE_AIM":
+			var playfield_drawer: Object = _get_cached_instance(
+				registry,
+				"battle_playfield_scene_drawer"
+			)
+			if (
+				playfield_drawer != null
+				and playfield_drawer.has_method("draw_tower_route_selector_ball")
+			):
+				playfield_drawer.draw_tower_route_selector_ball(
+					canvas,
+					registry,
+					Vector2.ZERO,
+					width,
+					height
+				)
 		flow_owner.draw(canvas)
 
 

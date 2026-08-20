@@ -37,6 +37,45 @@ var _method_accepts_argument_count_cache: Dictionary = {}
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
 
+func draw_tower_route_selector_ball(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2,
+	width: float = 760.0,
+	height: float = 750.0
+) -> void:
+	if canvas == null or registry == null:
+		return
+	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
+	if draw_context_builder == null:
+		return
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var draw_context: Dictionary = draw_context_builder.build_scene_context(
+		canvas,
+		shake_offset,
+		registry
+	)
+	var power_state: Object = _get_smasher_power_state_for_draw(registry, draw_context)
+	var draw_deps: Dictionary = draw_context_builder.build_scene_deps(
+		registry,
+		feedback,
+		power_state,
+		draw_context
+	)
+	ball_drawer.draw_ball(
+		canvas,
+		registry,
+		draw_context_builder,
+		draw_context,
+		draw_deps,
+		shake_offset,
+		width,
+		height,
+		perf_logger
+	)
+
+
 func draw(
 	canvas: CanvasItem,
 	registry: Object,
