@@ -11,6 +11,22 @@ const NODE_ICON_PATH_BY_KIND := {
 	"map_hint": ICON_ROOT + "/map_hint_imagegen_v1.png",
 }
 const BOSS_ICON_PATH_FORMAT := ICON_ROOT + "/boss_%s_imagegen_v1.png"
+const APPROVED_BOSS_ICON_IDS := [
+	"dalji",
+	"gaksital",
+	"podo",
+	"cheongringwi",
+	"molewang",
+	"arachne",
+	"yeonmyo",
+	"teddy_bear",
+	"alice",
+	"ponk",
+	"hongryun",
+	"tetriser",
+	"akamu_rigo",
+	"minotaur",
+]
 
 var _texture_by_path: Dictionary = {}
 var _load_attempt_by_path: Dictionary = {}
@@ -44,17 +60,19 @@ func resolve_boss_id_for_node(node: Dictionary) -> String:
 	var explicit_id := _safe_identifier(str(node.get("map_icon_boss_id", "")))
 	if not explicit_id.is_empty():
 		return explicit_id
-	var slot_id := str(node.get("boss_slot_id", "")).strip_edges()
-	var parts := slot_id.split("_", false)
-	if parts.size() >= 3 and parts[0] == "floor" and str(parts[1]).is_valid_int():
-		return _safe_identifier("_".join(parts.slice(2)))
 	var standin_variant: Variant = node.get("standin", {})
 	if standin_variant is Dictionary:
 		var standin := standin_variant as Dictionary
 		var variant_id := _safe_identifier(str(standin.get("variant", "")))
-		if not variant_id.is_empty():
+		if variant_id in APPROVED_BOSS_ICON_IDS:
 			return variant_id
-		return _safe_identifier(str(standin.get("boss_id", "")))
+		var standin_boss_id := _safe_identifier(str(standin.get("boss_id", "")))
+		if standin_boss_id in APPROVED_BOSS_ICON_IDS:
+			return standin_boss_id
+	var slot_id := str(node.get("boss_slot_id", "")).strip_edges()
+	var parts := slot_id.split("_", false)
+	if parts.size() >= 3 and parts[0] == "floor" and str(parts[1]).is_valid_int():
+		return _safe_identifier("_".join(parts.slice(2)))
 	return ""
 
 

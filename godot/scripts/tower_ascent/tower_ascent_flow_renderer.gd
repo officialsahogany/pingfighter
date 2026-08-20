@@ -21,6 +21,9 @@ const TowerAscentMapCameraModel := preload(
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
+const TowerMapScrollAssetCatalog := preload(
+	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -59,6 +62,16 @@ const BOSS_ART_GRID := Vector2i(2, 2)
 
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
+const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
+const MAP_SCROLL_ROW_PITCH := 160.0
+const MAP_SCROLL_NODE_ART_SIZE := 32.0
+const MAP_SCROLL_ROUTE_BRUSH_WIDTH := 18.0
+const MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH := (
+	MAP_SCROLL_ROUTE_BRUSH_WIDTH * 320.0 / 72.0
+)
+const MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE := 28.0
+const MAP_SCROLL_ROUTE_ENDPOINT_CLEARANCE_RATIO := 0.42
+const MAP_SCROLL_PLAQUE_SIZE := Vector2(184.0, 24.0)
 const MODAL_RECT := Rect2(24.0, 28.0, 712.0, 694.0)
 const MAP_NODE_RADIUS := 6.0
 const ACTIVE_NODE_RADIUS := 13.0
@@ -87,6 +100,7 @@ var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
 var _path_cache_build_count := 0
 var _path_cached_dot_count := 0
+var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
 
 
@@ -325,6 +339,7 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	model["active_candidate_ids"] = base.get("active_candidate_ids", [])
 	model["current_node_id"] = str(base.get("current_node_id", ""))
 	model["selected_target_id"] = str(base.get("selected_target_id", ""))
+	model["route_history"] = base.get("route_history", [])
 	model["transition_marker"] = _build_fullscreen_transition_marker(
 		flow,
 		base,
@@ -341,29 +356,39 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			(model.get("world_rect", Rect2()) as Rect2).end
 		)
 	)
-	var camera_zoom_multiplier := maxf(
+	var camera_intro_multiplier := maxf(
 		1.0,
 		float(transition_marker.get("camera_zoom_multiplier", 1.0))
 	)
+	var camera_base_multiplier := (
+		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
+		if not transition_marker.is_empty()
+		else 1.0
+	)
+	var camera_render_multiplier := camera_base_multiplier * camera_intro_multiplier
 	var camera_focus_x_blend := clampf(
 		inverse_lerp(
 			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER,
 			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
-			camera_zoom_multiplier
+			camera_intro_multiplier
 		),
 		0.0,
 		1.0
 	)
-	model["camera"] = TowerAscentMapCameraModel.build(
+	var camera_model := TowerAscentMapCameraModel.build(
 		model.get("content_rect", Rect2()),
 		model.get("world_rect", Rect2()),
 		focus_world_position,
 		float(model.get("art_size", 0.0))
 			* TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
 		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
-		camera_zoom_multiplier,
+		camera_render_multiplier,
 		camera_focus_x_blend
 	)
+	camera_model["base_zoom_multiplier"] = camera_base_multiplier
+	camera_model["render_zoom_multiplier"] = camera_render_multiplier
+	camera_model["zoom_multiplier"] = camera_intro_multiplier
+	model["camera"] = camera_model
 	return model
 
 
@@ -381,10 +406,6 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		)
 	)
 	var zoom_scale := maxf(2.0, TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM)
-	var world_rect := Rect2(
-		content_rect.position,
-		Vector2(content_rect.size.x, content_rect.size.y * zoom_scale)
-	)
 	var nodes: Array = base.get("nodes", [])
 	var source_min_x := INF
 	var source_max_x := -INF
@@ -402,10 +423,27 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		unique_rows[int(round(source_position.y))] = true
 	if not is_finite(source_min_y) or not is_finite(source_max_y):
 		return {}
-	var row_pitch := world_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
-	var art_size := row_pitch * TowerAscentTuning.TEMP_MAP_ART_SIZE_RATIO
-	var lane_span := content_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
-	var center_x := content_rect.get_center().x
+	var sorted_source_rows: Array = unique_rows.keys()
+	sorted_source_rows.sort()
+	var row_index_by_source_y: Dictionary = {}
+	for row_index in range(sorted_source_rows.size()):
+		row_index_by_source_y[int(sorted_source_rows[row_index])] = row_index
+	var world_rect := Rect2(
+		Vector2(
+			content_rect.get_center().x - MAP_SCROLL_TILE_SIZE.x * 0.5,
+			content_rect.position.y
+		),
+		Vector2(
+			MAP_SCROLL_TILE_SIZE.x,
+			maxf(
+				MAP_SCROLL_ROW_PITCH,
+				float(maxi(0, sorted_source_rows.size() - 1)) * MAP_SCROLL_ROW_PITCH
+			)
+		)
+	)
+	var art_size := MAP_SCROLL_NODE_ART_SIZE
+	var lane_span := world_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
+	var center_x := world_rect.get_center().x
 	var position_by_id: Dictionary = {}
 	var projected_nodes: Array[Dictionary] = []
 	for node_variant in nodes:
@@ -418,10 +456,11 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 			if not is_equal_approx(source_min_x, source_max_x)
 			else 0.0
 		)
-		var source_y_ratio := inverse_lerp(source_min_y, source_max_y, source_position.y)
+		var source_row_index := int(row_index_by_source_y.get(int(round(source_position.y)), 0))
 		var screen_position := Vector2(
 			center_x + source_x_ratio * lane_span,
-			lerpf(world_rect.position.y, world_rect.end.y, source_y_ratio)
+			world_rect.position.y
+				+ float(source_row_index) * MAP_SCROLL_ROW_PITCH
 		)
 		var node_kind := str(node.get("kind", ""))
 		node["world_position"] = screen_position
@@ -454,19 +493,21 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MIN_RATIO,
 		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MAX_RATIO,
 		TowerAscentTuning.TEMP_MAP_PATH_CURVE_SKEW_RATIO,
-		TowerAscentTuning.TEMP_MAP_PATH_ENDPOINT_CLEARANCE_RATIO,
+		MAP_SCROLL_ROUTE_ENDPOINT_CLEARANCE_RATIO,
 		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MIN,
 		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MAX
 	)
-	var projected_edges := TowerAscentMapPathGeometry.attach_dots(
+	var dotted_edges := TowerAscentMapPathGeometry.attach_dots(
 		curved_edges,
 		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO,
 		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO,
 		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO,
 		TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
 	)
+	var projected_edges := _attach_route_brush_strips(dotted_edges)
 	_path_cache_build_count += 1
 	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
+	_path_cached_brush_segment_count = _route_brush_segment_count(projected_edges)
 	var floor_bands: Array[Dictionary] = []
 	for floor_variant in base.get("floors", []):
 		if not (floor_variant is Dictionary):
@@ -480,17 +521,22 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 			continue
 		var floor_number := int(floor_data.get("floor", 0))
 		var band_y := float((position_by_id[str(gate_ids[0])] as Vector2).y)
-		var width_ratio := 0.48 + float(posmod(floor_number, 3)) * 0.035
 		floor_bands.append({
 			"floor": floor_number,
 			"y": band_y,
 			"rect": Rect2(
-				center_x - content_rect.size.x * width_ratio * 0.5,
-				band_y - row_pitch * 0.38,
-				content_rect.size.x * width_ratio,
-				maxf(12.0, row_pitch * 0.76)
+				world_rect.position.x,
+				band_y - MAP_SCROLL_TILE_SIZE.y * 0.5,
+				MAP_SCROLL_TILE_SIZE.x,
+				MAP_SCROLL_TILE_SIZE.y
 			),
 		})
+	var scroll_background := build_scroll_background_model(
+		floor_bands,
+		world_rect,
+		str(base.get("realm_kind", "human_realm")),
+		base.get("map_scroll_assets", {})
+	)
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
@@ -500,6 +546,8 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		"nodes": projected_nodes,
 		"edges": projected_edges,
 		"floor_bands": floor_bands,
+		"scroll_background": scroll_background,
+		"map_scroll_assets": base.get("map_scroll_assets", {}),
 		"position_by_id": position_by_id,
 		"art_size": art_size,
 		"map_seed": int(base.get("map_seed", 0)),
@@ -611,11 +659,6 @@ func _draw_fullscreen_map_model(
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
 	var world_rect: Rect2 = model.get("world_rect", content_rect)
 	var camera_model: Dictionary = model.get("camera", {})
-	var camera_offset := _vector2(camera_model.get("offset", Vector2.ZERO))
-	var camera_zoom_multiplier := maxf(
-		1.0,
-		float(camera_model.get("zoom_multiplier", 1.0))
-	)
 	var realm_kind := str(model.get("realm_kind", "human_realm"))
 	var immortal_realm := realm_kind == "immortal_realm"
 	canvas.draw_rect(
@@ -626,48 +669,71 @@ func _draw_fullscreen_map_model(
 	canvas.draw_rect(panel_rect, Color("dce3da") if immortal_realm else PAPER, true)
 	canvas.draw_rect(panel_rect, CINNABAR_DARK, false, 5.0)
 	canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
-	if immortal_realm:
-		_draw_immortal_realm_backdrop(canvas, content_rect)
-	_draw_fullscreen_castle(
-		canvas,
-		content_rect,
-		world_rect,
-		model.get("floor_bands", []),
-		realm_kind,
-		camera_model
+	var scroll_background_value: Variant = model.get("scroll_background", {})
+	var scroll_background: Dictionary = (
+		scroll_background_value as Dictionary
+		if scroll_background_value is Dictionary
+		else {}
 	)
+	var scroll_background_ready := bool(scroll_background.get("ready", false))
+	if scroll_background_ready:
+		_draw_scroll_background_model(canvas, scroll_background, content_rect, camera_model)
+	else:
+		if immortal_realm:
+			_draw_immortal_realm_backdrop(canvas, content_rect)
+		_draw_fullscreen_castle(
+			canvas,
+			content_rect,
+			world_rect,
+			model.get("floor_bands", []),
+			realm_kind,
+			camera_model
+		)
 	for edge_variant in model.get("edges", []):
 		if not (edge_variant is Dictionary):
 			continue
 		var edge := edge_variant as Dictionary
-		var dots: Array = edge.get("dots", [])
-		var dot_clip_rect := content_rect.grow(
-			-float(model.get("art_size", 0.0))
-				* TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO
+		var brush_asset_key := resolve_route_brush_asset_key(
+			edge,
+			model.get("route_history", []),
+			model.get("active_candidate_ids", []),
+			str(model.get("current_node_id", ""))
 		)
-		canvas.draw_set_transform(
-			camera_offset,
-			0.0,
-			Vector2.ONE * camera_zoom_multiplier
+		if not should_draw_route_edge_in_view(
+			edge,
+			brush_asset_key,
+			content_rect,
+			camera_model
+		):
+			continue
+		var brush_texture := _cached_map_scroll_texture(
+			model.get("map_scroll_assets", {}),
+			brush_asset_key
 		)
-		for dot_variant in dots:
-			if not (dot_variant is Dictionary):
-				continue
-			var dot := dot_variant as Dictionary
-			var center: Vector2 = dot.get("center", Vector2.ZERO)
-			if not dot_clip_rect.has_point(
-				_camera_world_to_screen(camera_model, center)
-			):
-				continue
-			canvas.draw_colored_polygon(
-				dot.get("outer_polygon", PackedVector2Array()),
-				Color(CINNABAR_DARK, 0.72)
+		if brush_texture != null:
+			_draw_route_brush_strip(
+				canvas,
+				_route_brush_quads_for_asset(edge, brush_asset_key),
+				brush_texture,
+				content_rect,
+				camera_model
 			)
-			canvas.draw_colored_polygon(
-				dot.get("inner_polygon", PackedVector2Array()),
-				Color(GOLD, 0.94)
+		else:
+			_draw_fullscreen_procedural_dotted_edge(
+				canvas,
+				edge,
+				content_rect,
+				camera_model,
+				float(model.get("art_size", 0.0))
 			)
-		canvas.draw_set_transform(Vector2.ZERO)
+	if scroll_background_ready:
+		_draw_fullscreen_floor_guides(
+			canvas,
+			content_rect,
+			model.get("floor_bands", []),
+			camera_model,
+			model.get("map_scroll_assets", {})
+		)
 	var active_candidate_ids: Array = model.get("active_candidate_ids", [])
 	var current_node_id := str(model.get("current_node_id", ""))
 	var selected_target_id := str(model.get("selected_target_id", ""))
@@ -832,6 +898,62 @@ func _draw_fullscreen_castle(
 		)
 
 
+func _draw_fullscreen_floor_guides(
+	canvas: CanvasItem,
+	content_rect: Rect2,
+	floor_bands_value: Variant,
+	camera_model: Dictionary,
+	resolution_by_key_value: Variant
+) -> void:
+	var floor_bands: Array = floor_bands_value if floor_bands_value is Array else []
+	var plaque_texture := _cached_map_scroll_texture(
+		resolution_by_key_value,
+		TowerMapScrollAssetCatalog.FLOOR_GATE_PLAQUE
+	)
+	for band_variant in floor_bands:
+		if not (band_variant is Dictionary):
+			continue
+		var band := band_variant as Dictionary
+		var band_rect: Rect2 = band.get("rect", Rect2())
+		var projected_y := _camera_world_to_screen(
+			camera_model,
+			Vector2(band_rect.get_center().x, float(band.get("y", band_rect.get_center().y)))
+		).y
+		if projected_y < content_rect.position.y or projected_y > content_rect.end.y:
+			continue
+		if plaque_texture != null:
+			var plaque_world_rect := build_floor_plaque_target_rect(
+				Vector2(
+					band_rect.get_center().x,
+					float(band.get("y", band_rect.get_center().y))
+				)
+			)
+			var plaque_rect := _camera_world_rect_to_screen(camera_model, plaque_world_rect)
+			_draw_floor_plaque(
+				canvas,
+				plaque_texture,
+				plaque_rect,
+				content_rect,
+				int(band.get("floor", 0))
+			)
+		else:
+			canvas.draw_line(
+				Vector2(content_rect.position.x, projected_y),
+				Vector2(content_rect.end.x, projected_y),
+				Color(GOLD, 0.28),
+				1.0
+			)
+			canvas.draw_string(
+				ThemeDB.fallback_font,
+				Vector2(content_rect.position.x + 8.0, projected_y + 4.0),
+				"%dF" % int(band.get("floor", 0)),
+				HORIZONTAL_ALIGNMENT_LEFT,
+				44.0,
+				11,
+				INK_SOFT
+			)
+
+
 func _draw_immortal_realm_backdrop(canvas: CanvasItem, content_rect: Rect2) -> void:
 	var cloud_color := Color(0.86, 0.9, 0.87, 0.78)
 	for cloud_spec in [
@@ -909,10 +1031,7 @@ func _draw_fullscreen_transition_marker(
 		camera_model,
 		_vector2(marker.get("world_position", from_position.lerp(to_position, progress)))
 	)
-	var camera_zoom_multiplier := maxf(
-		1.0,
-		float(camera_model.get("zoom_multiplier", 1.0))
-	)
+	var camera_zoom_multiplier := _camera_render_zoom(camera_model)
 	var marker_scale := clampf(float(marker.get("scale", 1.0)), 0.0, 1.0)
 	var marker_alpha := clampf(float(marker.get("alpha", 1.0)), 0.0, 1.0)
 	if marker_alpha <= 0.001 or marker_scale <= 0.001:
@@ -1007,7 +1126,6 @@ func _draw_fullscreen_map_node(
 	camera_model: Dictionary = {}
 ) -> void:
 	var node_id := str(node.get("id", ""))
-	var node_kind := str(node.get("kind", "combat"))
 	var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
 	var art_rect := _camera_world_rect_to_screen(camera_model, world_art_rect)
 	var screen_position := _camera_world_to_screen(
@@ -1023,33 +1141,33 @@ func _draw_fullscreen_map_node(
 	var skipped := bool(node.get("skipped", false))
 	var route_locked := bool(node.get("route_locked", false))
 	var enraged := bool(node.get("enraged", false))
-	var frame_color := CINNABAR if current or selected else GOLD if active else INK_SOFT
+	var frame_color := CINNABAR if current or selected else GOLD if active else INK
 	if enraged:
 		frame_color = CINNABAR
 	if route_locked or skipped:
 		frame_color = SEALED
-	canvas.draw_rect(art_rect.grow(3.0), Color(0.05, 0.032, 0.022, 0.92), true)
-	canvas.draw_rect(art_rect.grow(3.0), frame_color, false, 2.0 if current or active or selected else 1.0)
-	var texture_value: Variant = NODE_ART_TEXTURES.get(node_kind, NODE_ART_TEXTURES["combat"])
-	if texture_value is Texture2D:
-		var texture := texture_value as Texture2D
-		var grid := BOSS_ART_GRID if node_kind in ["boss", "combat", "enraged"] else Vector2i.ONE
-		var source_size := texture.get_size() / Vector2(grid)
-		var modulate := Color.WHITE
-		if route_locked or skipped:
-			modulate = Color(0.45, 0.42, 0.38, 0.72)
-		elif completed and not current:
-			modulate = Color(0.72, 0.66, 0.54, 0.82)
-		canvas.draw_texture_rect_region(
-			texture,
-			art_rect,
-			Rect2(Vector2.ZERO, source_size),
-			modulate
-		)
+	var medal_radius := art_rect.size.x * 0.5
+	var medal_fill := GOLD if completed or current else PAPER_DEEP
+	if route_locked or skipped:
+		medal_fill = SEALED
+	elif enraged:
+		medal_fill = CINNABAR_DARK
+	elif active:
+		medal_fill = Color("e6c15c")
+	if selected:
+		medal_fill = CINNABAR
+	canvas.draw_circle(screen_position, medal_radius, medal_fill)
+	canvas.draw_circle(
+		screen_position,
+		medal_radius,
+		frame_color,
+		false,
+		2.0 if current or active or selected else 1.0
+	)
 	var icon_presentation := build_map_icon_presentation(node)
 	var icon_texture_value: Variant = icon_presentation.get("icon_texture", null)
 	if icon_texture_value is Texture2D:
-		var icon_inset := art_rect.size.x * 0.12
+		var icon_inset := art_rect.size.x * 0.08
 		canvas.draw_texture_rect(
 			icon_texture_value as Texture2D,
 			art_rect.grow(-icon_inset),
@@ -1105,7 +1223,17 @@ func _draw_map_surface(
 	map_overlay: bool = false
 ) -> void:
 	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color(0.035, 0.025, 0.02, 0.92), true)
-	canvas.draw_rect(MAP_RECT, PAPER, true)
+	var render_model := build_render_model(flow)
+	var scroll_background_value: Variant = render_model.get("legacy_scroll_background", {})
+	var scroll_background: Dictionary = (
+		scroll_background_value as Dictionary
+		if scroll_background_value is Dictionary
+		else {}
+	)
+	if bool(scroll_background.get("ready", false)):
+		_draw_scroll_background_model(canvas, scroll_background, MAP_RECT)
+	else:
+		canvas.draw_rect(MAP_RECT, PAPER, true)
 	canvas.draw_rect(MAP_RECT, INK, false, 4.0)
 	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
 	_draw_title(canvas, flow, map_overlay)
@@ -1140,7 +1268,21 @@ func build_render_model(flow: Object) -> Dictionary:
 			"realm_kind": str(phase.get("realm_kind", "human_realm")),
 			"locked_phase_hints": phase.get("locked_phase_hints", []),
 			"map_seed": flow.get_map_seed() if flow.has_method("get_map_seed") else 0,
+			"map_scroll_assets": _collect_map_scroll_asset_resolutions(flow),
 		}
+		_cached_render_model["legacy_route_edges"] = _build_legacy_route_edges(
+			_cached_render_model.get("edges", []),
+			nodes
+		)
+		_cached_render_model["legacy_scroll_background"] = build_scroll_background_model(
+			_build_legacy_floor_band_markers(
+				_cached_render_model.get("floors", []),
+				nodes
+			),
+			MAP_RECT,
+			str(_cached_render_model.get("realm_kind", "human_realm")),
+			_cached_render_model.get("map_scroll_assets", {})
+		)
 		_cached_fullscreen_key = ""
 		_cached_fullscreen_model.clear()
 		_graph_cache_build_count += 1
@@ -1148,7 +1290,530 @@ func build_render_model(flow: Object) -> Dictionary:
 	result["active_candidate_ids"] = flow.get_route_target_ids() if flow.has_method("get_route_target_ids") else []
 	result["current_node_id"] = str(flow.get_current_node_id()) if flow.has_method("get_current_node_id") else ""
 	result["selected_target_id"] = str(flow.get_selected_target_id()) if flow.has_method("get_selected_target_id") else ""
+	result["route_history"] = flow.get_route_history() if flow.has_method("get_route_history") else []
 	return result
+
+
+func build_scroll_background_model(
+	floor_bands_value: Variant,
+	world_rect: Rect2,
+	realm_kind: String,
+	resolution_by_key_value: Variant
+) -> Dictionary:
+	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
+		return {"ready": false, "reason": "invalid_world_rect", "tiles": []}
+	var floor_bands: Array = floor_bands_value.duplicate(true) if floor_bands_value is Array else []
+	if floor_bands.is_empty():
+		return {"ready": false, "reason": "missing_floor_bands", "tiles": []}
+	floor_bands.sort_custom(func(a: Variant, b: Variant) -> bool:
+		return float((a as Dictionary).get("y", 0.0)) < float((b as Dictionary).get("y", 0.0))
+	)
+	var resolution_by_key: Dictionary = (
+		resolution_by_key_value as Dictionary
+		if resolution_by_key_value is Dictionary
+		else {}
+	)
+	var paper_resolution: Dictionary = resolution_by_key.get(
+		TowerMapScrollAssetCatalog.COMMON_HANJI_PAPER,
+		{}
+	)
+	var paper_texture := paper_resolution.get("texture", null) as Texture2D
+	if not bool(paper_resolution.get("ready", false)) or paper_texture == null:
+		return {"ready": false, "reason": "paper_unavailable", "tiles": []}
+	var tiles: Array[Dictionary] = []
+	var previous_asset_key := ""
+	for index in range(floor_bands.size()):
+		var band := floor_bands[index] as Dictionary
+		var floor_number := int(band.get("floor", 0))
+		var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
+			realm_kind,
+			floor_number,
+			previous_asset_key
+		)
+		var resolution: Dictionary = resolution_by_key.get(asset_key, {})
+		var texture := resolution.get("texture", null) as Texture2D
+		if not bool(resolution.get("ready", false)) or texture == null:
+			return {
+				"ready": false,
+				"reason": "band_unavailable",
+				"missing_asset_key": asset_key,
+				"tiles": [],
+			}
+		var center_y := float(band.get("y", world_rect.get_center().y))
+		tiles.append({
+			"floor": floor_number,
+			"realm_kind": realm_kind,
+			"asset_key": asset_key,
+			"rect": Rect2(
+				Vector2(
+					world_rect.position.x,
+					center_y - MAP_SCROLL_TILE_SIZE.y * 0.5
+				),
+				MAP_SCROLL_TILE_SIZE
+			),
+			"paper_texture": paper_texture,
+			"texture": texture,
+		})
+		previous_asset_key = asset_key
+	var first_tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
+	var last_tile_rect: Rect2 = (tiles[-1] as Dictionary).get("rect", Rect2())
+	var tile_world_rect := Rect2(
+		Vector2(world_rect.position.x, first_tile_rect.position.y),
+		Vector2(MAP_SCROLL_TILE_SIZE.x, last_tile_rect.end.y - first_tile_rect.position.y)
+	)
+	return {
+		"ready": true,
+		"reason": "approved_tiles_ready",
+		"world_rect": tile_world_rect,
+		"realm_kind": realm_kind,
+		"tiles": tiles,
+	}
+
+
+func _collect_map_scroll_asset_resolutions(flow: Object) -> Dictionary:
+	var result: Dictionary = {}
+	if flow == null or not flow.has_method("get_map_scroll_asset_resolution"):
+		return result
+	for asset_key in TowerMapScrollAssetCatalog.ASSET_SPECS.keys():
+		result[str(asset_key)] = flow.get_map_scroll_asset_resolution(str(asset_key))
+	return result
+
+
+func _build_legacy_floor_band_markers(floors_value: Variant, nodes: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var floors: Array = floors_value if floors_value is Array else []
+	for floor_variant in floors:
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_data := floor_variant as Dictionary
+		var rows: Array = floor_data.get("rows", [])
+		if rows.is_empty() or not (rows[rows.size() - 1] is Dictionary):
+			continue
+		var gate_ids: Array = (rows[rows.size() - 1] as Dictionary).get("node_ids", [])
+		if gate_ids.is_empty():
+			continue
+		result.append({
+			"floor": int(floor_data.get("floor", 0)),
+			"y": _find_node_position(nodes, str(gate_ids[0])).y,
+		})
+	return result
+
+
+func _build_legacy_route_edges(edges_value: Variant, nodes: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var edges: Array = edges_value if edges_value is Array else []
+	for edge_variant in edges:
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := (edge_variant as Dictionary).duplicate(true)
+		var from_position := _find_node_position(nodes, str(edge.get("from", "")))
+		var to_position := _find_node_position(nodes, str(edge.get("to", "")))
+		edge["from_position"] = from_position
+		edge["to_position"] = to_position
+		var route_points := PackedVector2Array([from_position, to_position])
+		edge["brush_quads"] = build_route_brush_strip(route_points)
+		edge["completed_brush_quads"] = build_completed_route_brush_strip(
+			route_points
+		)
+		result.append(edge)
+	return result
+
+
+func resolve_route_brush_asset_key(
+	edge: Dictionary,
+	route_history_value: Variant,
+	active_candidate_ids_value: Variant,
+	current_node_id: String
+) -> String:
+	var from_id := str(edge.get("from", ""))
+	var to_id := str(edge.get("to", ""))
+	var route_history: Array = route_history_value if route_history_value is Array else []
+	for route_variant in route_history:
+		if not (route_variant is Dictionary):
+			continue
+		var route := route_variant as Dictionary
+		if str(route.get("from", "")) == from_id and str(route.get("to", "")) == to_id:
+			return TowerMapScrollAssetCatalog.ROUTE_BRUSH_COMPLETED_GOLD
+	var active_candidate_ids: Array = (
+		active_candidate_ids_value
+		if active_candidate_ids_value is Array
+		else []
+	)
+	if from_id == current_node_id and active_candidate_ids.has(to_id):
+		return TowerMapScrollAssetCatalog.ROUTE_BRUSH_AVAILABLE
+	return TowerMapScrollAssetCatalog.ROUTE_BRUSH_UNSELECTED
+
+
+func should_draw_route_edge_in_view(
+	edge: Dictionary,
+	asset_key: String,
+	clip_rect: Rect2,
+	camera_model: Dictionary = {}
+) -> bool:
+	if asset_key == TowerMapScrollAssetCatalog.ROUTE_BRUSH_COMPLETED_GOLD:
+		return true
+	var from_screen := _camera_world_to_screen(
+		camera_model,
+		edge.get("from_position", Vector2.ZERO) as Vector2
+	)
+	var to_screen := _camera_world_to_screen(
+		camera_model,
+		edge.get("to_position", Vector2.ZERO) as Vector2
+	)
+	return clip_rect.has_point(from_screen) and clip_rect.has_point(to_screen)
+
+
+func build_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if points.size() < 2:
+		return result
+	var cumulative_distances := PackedFloat32Array([0.0])
+	var total_distance := 0.0
+	for index in range(1, points.size()):
+		total_distance += points[index - 1].distance_to(points[index])
+		cumulative_distances.append(total_distance)
+	if total_distance <= 0.001:
+		return result
+	var half_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * 0.5
+	var tile_start_distance := 0.0
+	var tile_index := 0
+	while tile_start_distance < total_distance - 0.001:
+		var tile_end_distance := minf(
+			tile_start_distance + MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			total_distance
+		)
+		var start_point := _sample_polyline_at_distance(
+			points,
+			cumulative_distances,
+			tile_start_distance
+		)
+		var end_point := _sample_polyline_at_distance(
+			points,
+			cumulative_distances,
+			tile_end_distance
+		)
+		var path_direction := (end_point - start_point).normalized()
+		if not path_direction.is_zero_approx():
+			var path_normal := Vector2(-path_direction.y, path_direction.x)
+			var quad := PackedVector2Array([
+				start_point - path_normal * half_width,
+				start_point + path_normal * half_width,
+				end_point + path_normal * half_width,
+				end_point - path_normal * half_width,
+			])
+			var end_v := clampf(
+				(tile_end_distance - tile_start_distance)
+					/ MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+				0.0,
+				1.0
+			)
+			result.append({
+				"points": quad,
+				"uvs": PackedVector2Array([
+					Vector2(0.0, 0.0),
+					Vector2(1.0, 0.0),
+					Vector2(1.0, end_v),
+					Vector2(0.0, end_v),
+				]),
+				"bounds": _packed_points_bounds(quad),
+				"world_length": tile_end_distance - tile_start_distance,
+				"target_width": MAP_SCROLL_ROUTE_BRUSH_WIDTH,
+				"tile_index": tile_index,
+				"tile_start_distance": tile_start_distance,
+				"tile_stride": MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE,
+				"path_direction": path_direction,
+			})
+		tile_start_distance += MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE
+		tile_index += 1
+	return result
+
+
+func build_completed_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if points.size() < 2:
+		return result
+	var cumulative_distances := PackedFloat32Array([0.0])
+	var total_distance := 0.0
+	for index in range(1, points.size()):
+		total_distance += points[index - 1].distance_to(points[index])
+		cumulative_distances.append(total_distance)
+	if total_distance <= 0.001:
+		return result
+	var break_distances := PackedFloat32Array([0.0])
+	for index in range(1, cumulative_distances.size() - 1):
+		break_distances.append(cumulative_distances[index])
+	var tile_boundary := MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+	while tile_boundary < total_distance - 0.001:
+		break_distances.append(tile_boundary)
+		tile_boundary += MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+	break_distances.append(total_distance)
+	break_distances.sort()
+	var half_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * 0.5
+	for index in range(1, break_distances.size()):
+		var start_distance := float(break_distances[index - 1])
+		var end_distance := float(break_distances[index])
+		if end_distance - start_distance <= 0.001:
+			continue
+		var start_point := _sample_polyline_at_distance(
+			points,
+			cumulative_distances,
+			start_distance
+		)
+		var end_point := _sample_polyline_at_distance(
+			points,
+			cumulative_distances,
+			end_distance
+		)
+		var start_normal := _polyline_normal_at_distance(
+			points,
+			cumulative_distances,
+			start_distance
+		)
+		var end_normal := _polyline_normal_at_distance(
+			points,
+			cumulative_distances,
+			end_distance
+		)
+		var tile_start_distance := floorf(
+			(start_distance + 0.001) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+		) * MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+		var start_v := clampf(
+			(start_distance - tile_start_distance) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			0.0,
+			1.0
+		)
+		var end_v := clampf(
+			(end_distance - tile_start_distance) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			0.0,
+			1.0
+		)
+		if is_zero_approx(end_v) or end_distance >= tile_start_distance + MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH - 0.001:
+			end_v = 1.0
+		var quad := PackedVector2Array([
+			start_point - start_normal * half_width,
+			start_point + start_normal * half_width,
+			end_point + end_normal * half_width,
+			end_point - end_normal * half_width,
+		])
+		result.append({
+			"points": quad,
+			"uvs": PackedVector2Array([
+				Vector2(0.0, start_v),
+				Vector2(1.0, start_v),
+				Vector2(1.0, end_v),
+				Vector2(0.0, end_v),
+			]),
+			"bounds": _packed_points_bounds(quad),
+			"world_length": end_distance - start_distance,
+			"target_width": MAP_SCROLL_ROUTE_BRUSH_WIDTH,
+		})
+	return result
+
+
+func _sample_polyline_at_distance(
+	points: PackedVector2Array,
+	cumulative_distances: PackedFloat32Array,
+	distance: float
+) -> Vector2:
+	var safe_distance := clampf(distance, 0.0, float(cumulative_distances[-1]))
+	for index in range(1, cumulative_distances.size()):
+		var segment_end := float(cumulative_distances[index])
+		if safe_distance > segment_end and index < cumulative_distances.size() - 1:
+			continue
+		var segment_start := float(cumulative_distances[index - 1])
+		var segment_length := maxf(0.001, segment_end - segment_start)
+		return points[index - 1].lerp(
+			points[index],
+			clampf((safe_distance - segment_start) / segment_length, 0.0, 1.0)
+		)
+	return points[-1]
+
+
+func _polyline_normal_at_distance(
+	points: PackedVector2Array,
+	cumulative_distances: PackedFloat32Array,
+	distance: float
+) -> Vector2:
+	var total_distance := float(cumulative_distances[-1])
+	var sample_radius := minf(1.0, total_distance * 0.01)
+	var before := _sample_polyline_at_distance(
+		points,
+		cumulative_distances,
+		maxf(0.0, distance - sample_radius)
+	)
+	var after := _sample_polyline_at_distance(
+		points,
+		cumulative_distances,
+		minf(total_distance, distance + sample_radius)
+	)
+	var tangent := (after - before).normalized()
+	if tangent.is_zero_approx():
+		tangent = Vector2.UP
+	return Vector2(-tangent.y, tangent.x)
+
+
+func _attach_route_brush_strips(edges_value: Variant) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var edges: Array = edges_value if edges_value is Array else []
+	for edge_variant in edges:
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := (edge_variant as Dictionary).duplicate(true)
+		var points: PackedVector2Array = edge.get("path_points", PackedVector2Array())
+		edge["brush_quads"] = build_route_brush_strip(points)
+		edge["completed_brush_quads"] = build_completed_route_brush_strip(points)
+		result.append(edge)
+	return result
+
+
+func _route_brush_quads_for_asset(edge: Dictionary, asset_key: String) -> Array:
+	if asset_key == TowerMapScrollAssetCatalog.ROUTE_BRUSH_COMPLETED_GOLD:
+		var completed_value: Variant = edge.get("completed_brush_quads", [])
+		return completed_value if completed_value is Array else []
+	var dense_value: Variant = edge.get("brush_quads", [])
+	return dense_value if dense_value is Array else []
+
+
+func _route_brush_segment_count(edges_value: Variant) -> int:
+	var count := 0
+	var edges: Array = edges_value if edges_value is Array else []
+	for edge_variant in edges:
+		if edge_variant is Dictionary:
+			count += ((edge_variant as Dictionary).get("brush_quads", []) as Array).size()
+	return count
+
+
+func _packed_points_bounds(points: PackedVector2Array) -> Rect2:
+	if points.is_empty():
+		return Rect2()
+	var minimum := points[0]
+	var maximum := points[0]
+	for point in points:
+		minimum.x = minf(minimum.x, point.x)
+		minimum.y = minf(minimum.y, point.y)
+		maximum.x = maxf(maximum.x, point.x)
+		maximum.y = maxf(maximum.y, point.y)
+	return Rect2(minimum, maximum - minimum)
+
+
+func _cached_map_scroll_texture(
+	resolution_by_key_value: Variant,
+	asset_key: String
+) -> Texture2D:
+	var resolution_by_key: Dictionary = (
+		resolution_by_key_value as Dictionary
+		if resolution_by_key_value is Dictionary
+		else {}
+	)
+	var resolution: Dictionary = resolution_by_key.get(asset_key, {})
+	if not bool(resolution.get("ready", false)):
+		return null
+	return resolution.get("texture", null) as Texture2D
+
+
+func _draw_route_brush_strip(
+	canvas: CanvasItem,
+	brush_quads_value: Variant,
+	texture: Texture2D,
+	clip_rect: Rect2,
+	camera_model: Dictionary = {}
+) -> void:
+	var brush_quads: Array = brush_quads_value if brush_quads_value is Array else []
+	for quad_variant in brush_quads:
+		if not (quad_variant is Dictionary):
+			continue
+		var quad := quad_variant as Dictionary
+		var world_points: PackedVector2Array = quad.get("points", PackedVector2Array())
+		var screen_points := PackedVector2Array()
+		for point in world_points:
+			screen_points.append(_camera_world_to_screen(camera_model, point))
+		if not _packed_points_bounds(screen_points).intersects(clip_rect):
+			continue
+		canvas.draw_polygon(
+			screen_points,
+			PackedColorArray([Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE]),
+			quad.get("uvs", PackedVector2Array()),
+			texture
+		)
+
+
+func _draw_fullscreen_procedural_dotted_edge(
+	canvas: CanvasItem,
+	edge: Dictionary,
+	content_rect: Rect2,
+	camera_model: Dictionary,
+	art_size: float
+) -> void:
+	var outer_radius := art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO
+	var inner_radius := art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO
+	var camera_zoom := _camera_render_zoom(camera_model)
+	for dot_variant in edge.get("dots", []):
+		if not (dot_variant is Dictionary):
+			continue
+		var center := _camera_world_to_screen(
+			camera_model,
+			(dot_variant as Dictionary).get("center", Vector2.ZERO)
+		)
+		if not content_rect.has_point(center):
+			continue
+		canvas.draw_circle(center, outer_radius * camera_zoom, Color(CINNABAR_DARK, 0.72))
+		canvas.draw_circle(center, inner_radius * camera_zoom, Color(GOLD, 0.94))
+
+
+func _draw_scroll_background_model(
+	canvas: CanvasItem,
+	model: Dictionary,
+	clip_rect: Rect2,
+	camera_model: Dictionary = {}
+) -> void:
+	if not bool(model.get("ready", false)):
+		return
+	for tile_variant in model.get("tiles", []):
+		if not (tile_variant is Dictionary):
+			continue
+		var tile := tile_variant as Dictionary
+		var world_target: Rect2 = tile.get("rect", Rect2())
+		_draw_scroll_texture_region(
+			canvas,
+			tile.get("paper_texture", null) as Texture2D,
+			world_target,
+			clip_rect,
+			camera_model
+		)
+		_draw_scroll_texture_region(
+			canvas,
+			tile.get("texture", null) as Texture2D,
+			world_target,
+			clip_rect,
+			camera_model
+		)
+
+
+func _draw_scroll_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	world_target: Rect2,
+	clip_rect: Rect2,
+	camera_model: Dictionary
+) -> void:
+	if texture == null or world_target.size.x <= 0.0 or world_target.size.y <= 0.0:
+		return
+	var projected_target := _camera_world_rect_to_screen(camera_model, world_target)
+	var visible_target := projected_target.intersection(clip_rect)
+	if visible_target.size.x <= 0.0 or visible_target.size.y <= 0.0:
+		return
+	var texture_size := texture.get_size()
+	var relative_position := (visible_target.position - projected_target.position) / projected_target.size
+	var relative_size := visible_target.size / projected_target.size
+	var source_rect := Rect2(texture_size * relative_position, texture_size * relative_size)
+	canvas.draw_texture_rect_region(
+		texture,
+		visible_target,
+		source_rect,
+		Color.WHITE,
+		false,
+		true
+	)
 
 
 func get_render_cache_debug_state() -> Dictionary:
@@ -1160,6 +1825,8 @@ func get_render_cache_debug_state() -> Dictionary:
 		"path_build_count": _path_cache_build_count,
 		"path_dot_count": _path_cached_dot_count,
 		"path_draw_call_budget": _path_cached_dot_count * 2,
+		"path_brush_segment_count": _path_cached_brush_segment_count,
+		"path_brush_draw_call_budget": _path_cached_brush_segment_count,
 	}
 
 
@@ -1198,20 +1865,55 @@ func _draw_title(canvas: CanvasItem, flow: Object, map_overlay: bool = false) ->
 
 
 func _draw_route_map(canvas: CanvasItem, flow: Object, map_overlay: bool = false) -> void:
-	var nodes: Array = flow.get_graph_nodes()
-	var edges: Array = flow.get_graph_edges()
+	var render_model := build_render_model(flow)
+	var nodes: Array = render_model.get("nodes", [])
+	var edges: Array = render_model.get("legacy_route_edges", [])
 	if nodes.is_empty():
 		return
-	var floors: Array = flow.get_graph_floors()
-	var active_candidate_ids: Array = flow.get_route_target_ids()
-	var current_node_id := str(flow.get_current_node_id())
-	var selected_target_id := str(flow.get_selected_target_id())
-	_draw_floor_bands(canvas, floors, nodes)
+	var floors: Array = render_model.get("floors", [])
+	var active_candidate_ids: Array = render_model.get("active_candidate_ids", [])
+	var current_node_id := str(render_model.get("current_node_id", ""))
+	var selected_target_id := str(render_model.get("selected_target_id", ""))
 	for edge_variant in edges:
-		var edge: Dictionary = edge_variant
-		var from_position := _find_node_position(nodes, str(edge.get("from", "")))
-		var to_position := _find_node_position(nodes, str(edge.get("to", "")))
-		canvas.draw_line(from_position, to_position, Color(INK_SOFT, 0.46), 1.5)
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var brush_asset_key := resolve_route_brush_asset_key(
+			edge,
+			render_model.get("route_history", []),
+			active_candidate_ids,
+			current_node_id
+		)
+		if not should_draw_route_edge_in_view(
+			edge,
+			brush_asset_key,
+			MAP_RECT
+		):
+			continue
+		var brush_texture := _cached_map_scroll_texture(
+			render_model.get("map_scroll_assets", {}),
+			brush_asset_key
+		)
+		if brush_texture != null:
+			_draw_route_brush_strip(
+				canvas,
+				_route_brush_quads_for_asset(edge, brush_asset_key),
+				brush_texture,
+				MAP_RECT
+			)
+		else:
+			canvas.draw_line(
+				edge.get("from_position", Vector2.ZERO),
+				edge.get("to_position", Vector2.ZERO),
+				Color(INK_SOFT, 0.46),
+				1.5
+			)
+	_draw_floor_bands(
+		canvas,
+		floors,
+		nodes,
+		render_model.get("map_scroll_assets", {})
+	)
 	for node_variant in nodes:
 		var node: Dictionary = node_variant
 		_draw_map_node(
@@ -1224,8 +1926,17 @@ func _draw_route_map(canvas: CanvasItem, flow: Object, map_overlay: bool = false
 		)
 
 
-func _draw_floor_bands(canvas: CanvasItem, floors: Array, nodes: Array) -> void:
+func _draw_floor_bands(
+	canvas: CanvasItem,
+	floors: Array,
+	nodes: Array,
+	resolution_by_key_value: Variant = {}
+) -> void:
 	var font := ThemeDB.fallback_font
+	var plaque_texture := _cached_map_scroll_texture(
+		resolution_by_key_value,
+		TowerMapScrollAssetCatalog.FLOOR_GATE_PLAQUE
+	)
 	for floor_variant in floors:
 		if not (floor_variant is Dictionary):
 			continue
@@ -1237,8 +1948,127 @@ func _draw_floor_bands(canvas: CanvasItem, floors: Array, nodes: Array) -> void:
 		if gate_ids.is_empty():
 			continue
 		var gate_position := _find_node_position(nodes, str(gate_ids[0]))
-		canvas.draw_line(Vector2(86.0, gate_position.y), Vector2(674.0, gate_position.y), Color(GOLD, 0.18), 1.0)
-		canvas.draw_string(font, Vector2(53.0, gate_position.y + 4.0), "%dF" % int(floor_data.get("floor", 0)), HORIZONTAL_ALIGNMENT_CENTER, 30.0, 11, INK_SOFT)
+		if plaque_texture != null:
+			_draw_floor_plaque(
+				canvas,
+				plaque_texture,
+				build_floor_plaque_target_rect(gate_position),
+				MAP_RECT,
+				int(floor_data.get("floor", 0))
+			)
+		else:
+			canvas.draw_line(Vector2(86.0, gate_position.y), Vector2(674.0, gate_position.y), Color(GOLD, 0.18), 1.0)
+			canvas.draw_string(font, Vector2(53.0, gate_position.y + 4.0), "%dF" % int(floor_data.get("floor", 0)), HORIZONTAL_ALIGNMENT_CENTER, 30.0, 11, INK_SOFT)
+
+
+func _draw_floor_plaque(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	target_rect: Rect2,
+	clip_rect: Rect2,
+	floor_number: int
+) -> void:
+	_draw_horizontal_three_slice(canvas, texture, target_rect, clip_rect)
+	var font_size := maxi(12, int(round(target_rect.size.y * 0.42)))
+	var baseline_y := target_rect.get_center().y + float(font_size) * 0.34
+	var number_column_width := minf(
+		target_rect.size.x * 0.2,
+		maxf(72.0, target_rect.size.y * 2.4)
+	)
+	var number_column_x := target_rect.position.x + target_rect.size.y * 0.75
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(number_column_x, baseline_y),
+		"%dF" % floor_number,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		number_column_width,
+		font_size,
+		INK
+	)
+
+
+func build_floor_plaque_target_rect(center: Vector2) -> Rect2:
+	return Rect2(center - MAP_SCROLL_PLAQUE_SIZE * 0.5, MAP_SCROLL_PLAQUE_SIZE)
+
+
+func build_horizontal_three_slice_model(
+	texture_size: Vector2,
+	target_rect: Rect2
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if texture_size.x <= 0.0 or texture_size.y <= 0.0:
+		return result
+	if target_rect.size.x <= 0.0 or target_rect.size.y <= 0.0:
+		return result
+	var source_cap := minf(texture_size.y, texture_size.x * 0.5)
+	var target_cap := minf(target_rect.size.y, target_rect.size.x * 0.5)
+	var source_middle_width := maxf(0.0, texture_size.x - source_cap * 2.0)
+	var target_middle_width := maxf(0.0, target_rect.size.x - target_cap * 2.0)
+	result.append({
+		"source_rect": Rect2(0.0, 0.0, source_cap, texture_size.y),
+		"target_rect": Rect2(target_rect.position, Vector2(target_cap, target_rect.size.y)),
+	})
+	result.append({
+		"source_rect": Rect2(source_cap, 0.0, source_middle_width, texture_size.y),
+		"target_rect": Rect2(
+			target_rect.position + Vector2(target_cap, 0.0),
+			Vector2(target_middle_width, target_rect.size.y)
+		),
+	})
+	result.append({
+		"source_rect": Rect2(texture_size.x - source_cap, 0.0, source_cap, texture_size.y),
+		"target_rect": Rect2(
+			Vector2(target_rect.end.x - target_cap, target_rect.position.y),
+			Vector2(target_cap, target_rect.size.y)
+		),
+	})
+	return result
+
+
+func _draw_horizontal_three_slice(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	target_rect: Rect2,
+	clip_rect: Rect2
+) -> void:
+	if texture == null:
+		return
+	for slice in build_horizontal_three_slice_model(texture.get_size(), target_rect):
+		_draw_clipped_screen_texture_region(
+			canvas,
+			texture,
+			slice.get("target_rect", Rect2()),
+			slice.get("source_rect", Rect2()),
+			clip_rect
+		)
+
+
+func _draw_clipped_screen_texture_region(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	target_rect: Rect2,
+	source_rect: Rect2,
+	clip_rect: Rect2
+) -> void:
+	if target_rect.size.x <= 0.0 or target_rect.size.y <= 0.0:
+		return
+	var visible_target := target_rect.intersection(clip_rect)
+	if visible_target.size.x <= 0.0 or visible_target.size.y <= 0.0:
+		return
+	var relative_position := (visible_target.position - target_rect.position) / target_rect.size
+	var relative_size := visible_target.size / target_rect.size
+	var visible_source := Rect2(
+		source_rect.position + source_rect.size * relative_position,
+		source_rect.size * relative_size
+	)
+	canvas.draw_texture_rect_region(
+		texture,
+		visible_target,
+		visible_source,
+		Color.WHITE,
+		false,
+		true
+	)
 
 
 func _find_node_position(nodes: Array, node_id: String) -> Vector2:
@@ -1578,7 +2408,7 @@ func _screen_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
 func _camera_world_to_screen(camera_model: Dictionary, point: Vector2) -> Vector2:
 	return _screen_point(
 		point,
-		maxf(1.0, float(camera_model.get("zoom_multiplier", 1.0))),
+		_camera_render_zoom(camera_model),
 		_vector2(camera_model.get("offset", Vector2.ZERO))
 	)
 
@@ -1586,8 +2416,18 @@ func _camera_world_to_screen(camera_model: Dictionary, point: Vector2) -> Vector
 func _camera_world_rect_to_screen(camera_model: Dictionary, rect: Rect2) -> Rect2:
 	return _screen_rect(
 		rect,
-		maxf(1.0, float(camera_model.get("zoom_multiplier", 1.0))),
+		_camera_render_zoom(camera_model),
 		_vector2(camera_model.get("offset", Vector2.ZERO))
+	)
+
+
+func _camera_render_zoom(camera_model: Dictionary) -> float:
+	return maxf(
+		1.0,
+		float(camera_model.get(
+			"render_zoom_multiplier",
+			camera_model.get("zoom_multiplier", 1.0)
+		))
 	)
 func _draw_node_modal(
 	canvas: CanvasItem,

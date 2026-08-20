@@ -36,8 +36,22 @@ static func build(
 	)
 	var desired_offset_x := desired_screen_x - focus_world_position.x * safe_zoom
 	var desired_offset_y := desired_screen_y - focus_world_position.y * safe_zoom
-	var offset_x := clampf(desired_offset_x, minimum_offset_x, maximum_offset_x)
-	var offset_y := clampf(desired_offset_y, minimum_offset_y, maximum_offset_y)
+	var horizontal_world_fits := (
+		(world_rect.size.x + safe_padding * 2.0) * safe_zoom <= content_rect.size.x
+	)
+	var vertical_world_fits := (
+		(world_rect.size.y + safe_padding * 2.0) * safe_zoom <= content_rect.size.y
+	)
+	var offset_x := (
+		content_rect.get_center().x - world_rect.get_center().x * safe_zoom
+		if horizontal_world_fits
+		else clampf(desired_offset_x, minimum_offset_x, maximum_offset_x)
+	)
+	var offset_y := (
+		content_rect.get_center().y - world_rect.get_center().y * safe_zoom
+		if vertical_world_fits
+		else clampf(desired_offset_y, minimum_offset_y, maximum_offset_y)
+	)
 	var screen_offset := Vector2(offset_x, offset_y)
 	var focus_screen_position := focus_world_position * safe_zoom + screen_offset
 	return {
@@ -53,8 +67,10 @@ static func build(
 		"maximum_offset_x": maximum_offset_x,
 		"minimum_offset_y": minimum_offset_y,
 		"maximum_offset_y": maximum_offset_y,
-		"at_left_boundary": is_equal_approx(offset_x, maximum_offset_x),
-		"at_right_boundary": is_equal_approx(offset_x, minimum_offset_x),
-		"at_lower_boundary": is_equal_approx(offset_y, minimum_offset_y),
-		"at_upper_boundary": is_equal_approx(offset_y, maximum_offset_y),
+		"horizontal_world_fits": horizontal_world_fits,
+		"vertical_world_fits": vertical_world_fits,
+		"at_left_boundary": not horizontal_world_fits and is_equal_approx(offset_x, maximum_offset_x),
+		"at_right_boundary": not horizontal_world_fits and is_equal_approx(offset_x, minimum_offset_x),
+		"at_lower_boundary": not vertical_world_fits and is_equal_approx(offset_y, minimum_offset_y),
+		"at_upper_boundary": not vertical_world_fits and is_equal_approx(offset_y, maximum_offset_y),
 	}

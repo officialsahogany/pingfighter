@@ -177,7 +177,6 @@ func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 		flow,
 		Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 	)
-	var expected_scale := 1246.0 / 800.0
 	var art_scale := float(live_model.get("art_size", 0.0)) / maxf(
 		1.0,
 		float(reference_model.get("art_size", 0.0))
@@ -185,10 +184,10 @@ func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 	var reference_lane_span := _world_node_x_span(reference_model)
 	var live_lane_span := _world_node_x_span(live_model)
 	var lane_scale := live_lane_span / maxf(1.0, reference_lane_span)
-	_expect(float(live_model.get("art_size", 0.0)) > 34.0, "2020x1246 node art must not stop at the old 34px absolute cap")
-	_expect(live_lane_span > 660.0, "2020x1246 node lanes must use the actual source min/max instead of half of the capped span")
-	_expect(absf(art_scale - expected_scale) <= 0.04, "node art must scale with the live viewport height")
-	_expect(absf(lane_scale - expected_scale) <= 0.06, "node lane span must scale with the live viewport height")
+	_expect(is_equal_approx(float(live_model.get("art_size", 0.0)), 32.0), "approved medal nodes must keep their fixed 32px world footprint")
+	_expect(live_lane_span > 0.0 and live_lane_span <= 692.0, "node lanes must stay inside the approved 692px scroll world")
+	_expect(is_equal_approx(art_scale, 1.0), "asset-world node size must not change with the physical viewport")
+	_expect(is_equal_approx(lane_scale, 1.0), "asset-world lane spacing must not stretch with the physical viewport")
 	var live_content: Rect2 = live_model.get("content_rect", Rect2())
 	var live_world: Rect2 = live_model.get("world_rect", Rect2())
 	var visible_world: Rect2 = (live_model.get("camera", {}) as Dictionary).get(
@@ -318,8 +317,12 @@ func _verify_seeded_curve_geometry_preserves_connections() -> void:
 		var to_position: Vector2 = edge.get("to_position", Vector2.ZERO)
 		var path_start: Vector2 = edge.get("path_start", from_position)
 		var path_end: Vector2 = edge.get("path_end", to_position)
-		_expect(path_start.distance_to(from_position) > float(model.get("art_size", 0.0)) * 0.5, "curves must clear the source node art")
-		_expect(path_end.distance_to(to_position) > float(model.get("art_size", 0.0)) * 0.5, "curves must clear the destination node art")
+		var medal_radius := float(model.get("art_size", 0.0)) * 0.5
+		var minimum_hidden_clearance := medal_radius * 0.75
+		var start_clearance := path_start.distance_to(from_position)
+		var end_clearance := path_end.distance_to(to_position)
+		_expect(start_clearance >= minimum_hidden_clearance and start_clearance <= medal_radius, "curves must terminate beneath the source medal rim")
+		_expect(end_clearance >= minimum_hidden_clearance and end_clearance <= medal_radius, "curves must terminate beneath the destination medal rim")
 
 
 func _verify_map_cache_and_six_beat_transition_contract() -> void:

@@ -87,6 +87,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	if not _build_generated_graph(current_stage):
 		push_warning("[TowerAscent] prepare rejected: generated_graph_invalid")
 		return false
+	_prewarm_map_scroll_assets()
 	if restore_existing_progress and not _restore_reentry_progress(existing_progress):
 		push_warning("[TowerAscent] prepare rejected: reentry_progress_invalid")
 		return false
@@ -289,6 +290,10 @@ func get_locked_phase_hints() -> Array:
 
 func get_route_target_ids() -> Array[String]:
 	return _available_route_target_ids
+
+
+func get_route_history() -> Array[Dictionary]:
+	return _route_history.duplicate(true)
 
 func get_current_node_id() -> String:
 	return _current_node_id

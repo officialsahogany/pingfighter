@@ -64,6 +64,13 @@ func _verify_deterministic_path_contract() -> void:
 		"the registry slot adapter must preserve the unique visual boss identity"
 	)
 	_expect(
+		iconography.resolve_boss_id_for_node({
+			"boss_slot_id": "floor_04_shell_02",
+			"standin": {"stage": 4, "boss_id": "ponk"},
+		}) == "ponk",
+		"shell slots must render the approved icon for their actual stand-in identity"
+	)
+	_expect(
 		iconography.resolve_icon_path("combat", "../unsafe").is_empty(),
 		"unsafe identifiers must fail closed instead of escaping the icon root"
 	)

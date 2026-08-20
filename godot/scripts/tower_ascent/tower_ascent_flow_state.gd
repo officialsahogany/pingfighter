@@ -69,6 +69,9 @@ const TowerAscentTransitionFadeState := preload(
 const TowerNoncombatNodeBackgroundCatalog := preload(
 	"res://scripts/tower_ascent/tower_noncombat_node_background_catalog.gd"
 )
+const TowerMapScrollAssetCatalog := preload(
+	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -170,6 +173,7 @@ var _defeat_event_ids: Array[String] = []
 var _header_subtitle := ""
 var _transition_fade_state: Object = TowerAscentTransitionFadeState.new()
 var _noncombat_node_background_catalog: Object = TowerNoncombatNodeBackgroundCatalog.new()
+var _map_scroll_asset_catalog: Object = TowerMapScrollAssetCatalog.new()
 
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
@@ -261,6 +265,7 @@ func _reset_runtime_state() -> void:
 	_map_transition_progress = 0.0
 	_transition_fade_state.reset()
 	_noncombat_node_background_catalog.clear_cache()
+	_map_scroll_asset_catalog.clear_cache()
 	_finish_callback = Callable()
 	_reset_selector()
 
@@ -275,6 +280,18 @@ func get_noncombat_node_background_resolution(node_kind: String) -> Dictionary:
 
 func get_noncombat_node_background_debug_state() -> Dictionary:
 	return _noncombat_node_background_catalog.get_debug_state()
+
+
+func _prewarm_map_scroll_assets() -> Dictionary:
+	return _map_scroll_asset_catalog.prewarm_all()
+
+
+func get_map_scroll_asset_resolution(asset_key: String) -> Dictionary:
+	return _map_scroll_asset_catalog.get_cached_resolution(asset_key)
+
+
+func get_map_scroll_asset_debug_state() -> Dictionary:
+	return _map_scroll_asset_catalog.get_debug_state()
 
 
 func _retain_noncombat_node_background(node_kind: String) -> void:
