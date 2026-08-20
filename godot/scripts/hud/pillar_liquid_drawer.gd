@@ -16,6 +16,7 @@ const LIQUID_STABLE_FULL_THRESHOLD := 0.999
 const LIQUID_STABLE_FULL_SEGMENTS := 48
 const LIQUID_FAST_LOD_SCALE := 0.60
 const LIQUID_FAST_SEGMENTS := 24
+const LIQUID_FAST_SURFACE_SAMPLES := 13
 const DASH_SECTOR_SEGMENTS := 14
 const DASH_INNER_SECTOR_SEGMENTS := 9
 const DASH_PULSE_ARC_POINTS := 9
@@ -45,7 +46,7 @@ func draw_pillar_liquid_fill(
 		_draw_stable_full_liquid(canvas, center, inner_radius, top_color, bottom_color)
 		return
 	if quality_scale <= LIQUID_FAST_LOD_SCALE:
-		_draw_fast_lod_liquid(canvas, center, inner_radius, clamped_ratio, top_color, bottom_color, wave_glow)
+		_draw_fast_lod_liquid(canvas, center, inner_radius, clamped_ratio, t, top_color, bottom_color, wave_glow)
 		return
 
 	var fill_height: float = inner_radius * 2.0 * clamped_ratio
@@ -182,11 +183,16 @@ func _draw_stable_full_liquid(canvas: CanvasItem, center: Vector2, radius: float
 	canvas.draw_polygon(fill_points, fill_colors)
 
 
+# The cheap tier is not a rare fallback: BattleRenderQuality reports 0.58 on every
+# stock FPS cap (72 or below, 120 or above), so this is the liquid the player
+# actually sees. A straight waterline here read as glass, not liquid, so keep the
+# same wave function as the full-quality path and spend fewer samples on it.
 func _draw_fast_lod_liquid(
 	canvas: CanvasItem,
 	center: Vector2,
 	radius: float,
 	fill_ratio: float,
+	t: float,
 	top_color: Color,
 	bottom_color: Color,
 	wave_glow: Color
@@ -201,16 +207,30 @@ func _draw_fast_lod_liquid(
 	while left_angle <= right_angle:
 		left_angle += TAU
 
+	var wave_amp: float = max(3.5, radius * 0.10)
+	var liquid_t: float = t * LIQUID_ANIMATION_SPEED
+	var wave_offset: float = sin(liquid_t * 2.3) * wave_amp * 0.5
+	var sample_count: int = maxi(6, LIQUID_FAST_SURFACE_SAMPLES)
+
 	var fill_points := PackedVector2Array()
 	var fill_colors := PackedColorArray()
-	var top_left := Vector2(center.x - half_width, center.y + local_y)
-	var top_right := Vector2(center.x + half_width, center.y + local_y)
-	var top_gradient: float = clamp((top_left.y - (center.y - radius)) / max(1.0, radius * 2.0), 0.0, 1.0)
-	var surface_color: Color = top_color.lerp(bottom_color, top_gradient)
-	fill_points.append(top_left)
-	fill_colors.append(surface_color)
-	fill_points.append(top_right)
-	fill_colors.append(surface_color)
+	var surface_points := PackedVector2Array()
+	for idx in range(sample_count):
+		var sample_t: float = float(idx) / float(sample_count - 1)
+		var local_x: float = lerpf(-half_width, half_width, sample_t)
+		var surface_y: float = center.y + local_y
+		# Pin both ends to the flat waterline so the surface meets the arc exactly
+		# and the polygon stays simple for triangulation.
+		if idx > 0 and idx < sample_count - 1:
+			var y_limit: float = sqrt(max(0.0, radius * radius - local_x * local_x))
+			var circle_top: float = center.y - y_limit
+			var wave_y: float = _sample_liquid_wave_top(local_x, radius, fill_top, wave_amp, wave_offset, liquid_t)
+			surface_y = clamp(max(circle_top, wave_y), circle_top, center.y + y_limit)
+		var surface_point := Vector2(center.x + local_x, surface_y)
+		var surface_gradient: float = clamp((surface_point.y - (center.y - radius)) / max(1.0, radius * 2.0), 0.0, 1.0)
+		fill_points.append(surface_point)
+		fill_colors.append(top_color.lerp(bottom_color, surface_gradient))
+		surface_points.append(surface_point)
 
 	var segment_count: int = max(8, int(ceil((left_angle - right_angle) / TAU * float(LIQUID_FAST_SEGMENTS))))
 	for idx in range(1, segment_count):
@@ -222,7 +242,8 @@ func _draw_fast_lod_liquid(
 
 	canvas.draw_polygon(fill_points, fill_colors)
 	var surface_alpha: float = clamp(0.20 + 0.18 * fill_ratio, 0.0, 0.42)
-	canvas.draw_line(top_left, top_right, Color(wave_glow.r, wave_glow.g, wave_glow.b, surface_alpha), 2.0, true)
+	if surface_points.size() > 1:
+		canvas.draw_polyline(surface_points, Color(wave_glow.r, wave_glow.g, wave_glow.b, surface_alpha), 2.0, true)
 
 
 func draw_dash_sector_liquid(
