@@ -15,6 +15,12 @@ const CommonStarpointVisualHost := preload(
 const TowerAscentMapIconography := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_iconography.gd"
 )
+const TowerAscentMapCameraModel := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
+)
+const TowerAscentMapPathGeometry := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -79,6 +85,8 @@ var _cached_fullscreen_key := ""
 var _cached_fullscreen_model: Dictionary = {}
 var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
+var _path_cache_build_count := 0
+var _path_cached_dot_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
 
 
@@ -204,8 +212,26 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	model["transition_marker"] = _build_fullscreen_transition_marker(
 		flow,
 		base,
+		model.get("world_rect", Rect2()),
+		model.get("position_by_id", {}),
+		model.get("edges", [])
+	)
+	var transition_marker: Dictionary = model.get("transition_marker", {})
+	var focus_world_position: Vector2 = (
+		transition_marker.get("world_position", Vector2.ZERO)
+		if not transition_marker.is_empty()
+		else model.get("position_by_id", {}).get(
+			str(base.get("current_node_id", "")),
+			(model.get("world_rect", Rect2()) as Rect2).end
+		)
+	)
+	model["camera"] = TowerAscentMapCameraModel.build(
 		model.get("content_rect", Rect2()),
-		model.get("position_by_id", {})
+		model.get("world_rect", Rect2()),
+		focus_world_position,
+		float(model.get("art_size", 0.0))
+			* TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
+		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO
 	)
 	return model
 
@@ -222,6 +248,11 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 			maxf(1.0, panel_rect.size.x - side_gutter * 2.0),
 			maxf(1.0, panel_rect.size.y - top_inset - bottom_inset)
 		)
+	)
+	var zoom_scale := maxf(2.0, TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM)
+	var world_rect := Rect2(
+		content_rect.position,
+		Vector2(content_rect.size.x, content_rect.size.y * zoom_scale)
 	)
 	var nodes: Array = base.get("nodes", [])
 	var source_min_x := INF
@@ -240,7 +271,7 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		unique_rows[int(round(source_position.y))] = true
 	if not is_finite(source_min_y) or not is_finite(source_max_y):
 		return {}
-	var row_pitch := content_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
+	var row_pitch := world_rect.size.y / maxf(1.0, float(maxi(1, unique_rows.size() - 1)))
 	var art_size := row_pitch * TowerAscentTuning.TEMP_MAP_ART_SIZE_RATIO
 	var lane_span := content_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
 	var center_x := content_rect.get_center().x
@@ -259,15 +290,18 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		var source_y_ratio := inverse_lerp(source_min_y, source_max_y, source_position.y)
 		var screen_position := Vector2(
 			center_x + source_x_ratio * lane_span,
-			lerpf(content_rect.position.y, content_rect.end.y, source_y_ratio)
+			lerpf(world_rect.position.y, world_rect.end.y, source_y_ratio)
 		)
 		var node_kind := str(node.get("kind", ""))
-		node["screen_position"] = screen_position
-		node["art_rect"] = Rect2(screen_position - Vector2.ONE * art_size * 0.5, Vector2.ONE * art_size)
+		node["world_position"] = screen_position
+		node["world_art_rect"] = Rect2(
+			screen_position - Vector2.ONE * art_size * 0.5,
+			Vector2.ONE * art_size
+		)
 		node["art_path"] = str(NODE_ART_PATHS.get(node_kind, NODE_ART_PATHS["combat"]))
 		position_by_id[str(node.get("id", ""))] = screen_position
 		projected_nodes.append(node)
-	var projected_edges: Array[Dictionary] = []
+	var straight_edges: Array[Dictionary] = []
 	for edge_variant in base.get("edges", []):
 		if not (edge_variant is Dictionary):
 			continue
@@ -276,12 +310,32 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		var to_id := str(edge.get("to", ""))
 		if not position_by_id.has(from_id) or not position_by_id.has(to_id):
 			continue
-		projected_edges.append({
+		straight_edges.append({
 			"from": from_id,
 			"to": to_id,
 			"from_position": position_by_id[from_id],
 			"to_position": position_by_id[to_id],
 		})
+	var curved_edges := TowerAscentMapPathGeometry.build(
+		straight_edges,
+		int(base.get("map_seed", 0)),
+		art_size,
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MIN_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MAX_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_SKEW_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_ENDPOINT_CLEARANCE_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MIN,
+		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MAX
+	)
+	var projected_edges := TowerAscentMapPathGeometry.attach_dots(
+		curved_edges,
+		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO,
+		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO,
+		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
+	)
+	_path_cache_build_count += 1
+	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
 	var floor_bands: Array[Dictionary] = []
 	for floor_variant in base.get("floors", []):
 		if not (floor_variant is Dictionary):
@@ -310,11 +364,14 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
 		"content_rect": content_rect,
+		"world_rect": world_rect,
+		"zoom_scale": zoom_scale,
 		"nodes": projected_nodes,
 		"edges": projected_edges,
 		"floor_bands": floor_bands,
 		"position_by_id": position_by_id,
 		"art_size": art_size,
+		"map_seed": int(base.get("map_seed", 0)),
 		"phase": base.get("phase", {}),
 		"realm_kind": str(base.get("realm_kind", "human_realm")),
 		"locked_phase_hints": base.get("locked_phase_hints", []),
@@ -324,8 +381,9 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 func _build_fullscreen_transition_marker(
 	flow: Object,
 	base: Dictionary,
-	content_rect: Rect2,
-	position_by_id: Dictionary
+	world_rect: Rect2,
+	position_by_id: Dictionary,
+	edges_value: Variant
 ) -> Dictionary:
 	if str(flow.get_phase_name()) != "MAP_TRANSITION":
 		return {}
@@ -333,20 +391,46 @@ func _build_fullscreen_transition_marker(
 	var target_id := str(base.get("selected_target_id", ""))
 	var target_position: Vector2 = position_by_id.get(
 		target_id,
-		content_rect.position + Vector2(content_rect.size.x * 0.5, content_rect.size.y * 0.12)
+		world_rect.position + Vector2(world_rect.size.x * 0.5, world_rect.size.y * 0.12)
 	)
 	var visual_model: Dictionary = (
 		flow.get_map_transition_visual_model()
 		if flow.has_method("get_map_transition_visual_model")
 		else {"travel_progress": flow.get_map_transition_progress(), "marker_scale": 1.0, "marker_alpha": 1.0}
 	)
+	var route_edge: Dictionary = {}
+	var edges: Array = edges_value if edges_value is Array else []
+	for edge_variant in edges:
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		if str(edge.get("from", "")) == source_id and str(edge.get("to", "")) == target_id:
+			route_edge = edge
+			break
+	var travel_progress := float(visual_model.get("travel_progress", 0.0))
+	var from_position: Vector2 = position_by_id.get(
+		source_id,
+		Vector2(world_rect.get_center().x, world_rect.end.y)
+	)
+	var world_position := (
+		TowerAscentMapPathGeometry.sample_travel_position(route_edge, travel_progress)
+		if not route_edge.is_empty()
+		else from_position.lerp(target_position, travel_progress)
+	)
+	var facing_probe := (
+		TowerAscentMapPathGeometry.sample_travel_position(
+			route_edge,
+			minf(1.0, travel_progress + 0.015)
+		)
+		if not route_edge.is_empty()
+		else target_position
+	)
 	return {
-		"from_position": position_by_id.get(
-			source_id,
-			Vector2(content_rect.get_center().x, content_rect.end.y)
-		),
+		"from_position": from_position,
 		"to_position": target_position,
-		"progress": float(visual_model.get("travel_progress", 0.0)),
+		"world_position": world_position,
+		"facing_right": facing_probe.x >= world_position.x,
+		"progress": travel_progress,
 		"scale": float(visual_model.get("marker_scale", 1.0)),
 		"alpha": float(visual_model.get("marker_alpha", 1.0)),
 		"segment": str(visual_model.get("segment", "")),
@@ -391,6 +475,9 @@ func _draw_fullscreen_map_model(
 	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
 	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
+	var world_rect: Rect2 = model.get("world_rect", content_rect)
+	var camera_model: Dictionary = model.get("camera", {})
+	var camera_offset := _vector2(camera_model.get("offset", Vector2.ZERO))
 	var realm_kind := str(model.get("realm_kind", "human_realm"))
 	var immortal_realm := realm_kind == "immortal_realm"
 	canvas.draw_rect(
@@ -403,18 +490,40 @@ func _draw_fullscreen_map_model(
 	canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
 	if immortal_realm:
 		_draw_immortal_realm_backdrop(canvas, content_rect)
-	_draw_fullscreen_castle(canvas, content_rect, model.get("floor_bands", []), realm_kind)
+	_draw_fullscreen_castle(
+		canvas,
+		content_rect,
+		world_rect,
+		model.get("floor_bands", []),
+		realm_kind,
+		camera_offset
+	)
 	for edge_variant in model.get("edges", []):
 		if not (edge_variant is Dictionary):
 			continue
 		var edge := edge_variant as Dictionary
-		canvas.draw_line(
-			_vector2(edge.get("from_position", Vector2.ZERO)),
-			_vector2(edge.get("to_position", Vector2.ZERO)),
-			Color(GOLD, 0.64),
-			2.0,
-			true
+		var dots: Array = edge.get("dots", [])
+		var dot_clip_rect := content_rect.grow(
+			-float(model.get("art_size", 0.0))
+				* TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO
 		)
+		canvas.draw_set_transform(camera_offset)
+		for dot_variant in dots:
+			if not (dot_variant is Dictionary):
+				continue
+			var dot := dot_variant as Dictionary
+			var center: Vector2 = dot.get("center", Vector2.ZERO)
+			if not dot_clip_rect.has_point(center + camera_offset):
+				continue
+			canvas.draw_colored_polygon(
+				dot.get("outer_polygon", PackedVector2Array()),
+				Color(CINNABAR_DARK, 0.72)
+			)
+			canvas.draw_colored_polygon(
+				dot.get("inner_polygon", PackedVector2Array()),
+				Color(GOLD, 0.94)
+			)
+		canvas.draw_set_transform(Vector2.ZERO)
 	var active_candidate_ids: Array = model.get("active_candidate_ids", [])
 	var current_node_id := str(model.get("current_node_id", ""))
 	var selected_target_id := str(model.get("selected_target_id", ""))
@@ -426,13 +535,15 @@ func _draw_fullscreen_map_model(
 				active_candidate_ids,
 				current_node_id,
 				selected_target_id,
-				content_rect
+				content_rect,
+				camera_offset
 			)
 	_draw_fullscreen_transition_marker(
 		canvas,
 		model.get("transition_marker", {}),
 		walker_model,
-		float(model.get("art_size", 24.0))
+		float(model.get("art_size", 24.0)),
+		camera_offset
 	)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
@@ -510,8 +621,10 @@ func _draw_fullscreen_map_model(
 func _draw_fullscreen_castle(
 	canvas: CanvasItem,
 	content_rect: Rect2,
+	world_rect: Rect2,
 	floor_bands_value: Variant,
-	realm_kind: String = "human_realm"
+	realm_kind: String = "human_realm",
+	camera_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	var tower_rect := Rect2(
 		content_rect.get_center().x - content_rect.size.x * 0.27,
@@ -526,33 +639,41 @@ func _draw_fullscreen_castle(
 		true
 	)
 	canvas.draw_rect(tower_rect, Color(GOLD, 0.5), false, 2.0)
-	var roof_y := content_rect.position.y - 9.0
-	canvas.draw_colored_polygon(
-		PackedVector2Array([
-			Vector2(tower_rect.position.x - 24.0, roof_y),
-			Vector2(tower_rect.get_center().x, roof_y - 30.0),
-			Vector2(tower_rect.end.x + 24.0, roof_y),
-			Vector2(tower_rect.end.x, roof_y + 10.0),
-			Vector2(tower_rect.position.x, roof_y + 10.0),
-		]),
-		CINNABAR_DARK
-	)
+	var roof_y := world_rect.position.y + camera_offset.y - 9.0
+	if roof_y >= content_rect.position.y - 38.0 and roof_y <= content_rect.end.y + 12.0:
+		canvas.draw_colored_polygon(
+			PackedVector2Array([
+				Vector2(tower_rect.position.x - 24.0, roof_y),
+				Vector2(tower_rect.get_center().x, roof_y - 30.0),
+				Vector2(tower_rect.end.x + 24.0, roof_y),
+				Vector2(tower_rect.end.x, roof_y + 10.0),
+				Vector2(tower_rect.position.x, roof_y + 10.0),
+			]),
+			CINNABAR_DARK
+		)
 	var floor_bands: Array = floor_bands_value if floor_bands_value is Array else []
 	for band_variant in floor_bands:
 		if not (band_variant is Dictionary):
 			continue
 		var band := band_variant as Dictionary
 		var band_rect: Rect2 = band.get("rect", Rect2())
-		canvas.draw_rect(band_rect, Color(PAPER_DEEP, 0.31), true)
+		var projected_y := float(band.get("y", band_rect.get_center().y)) + camera_offset.y
+		var projected_rect := Rect2(
+			band_rect.position + camera_offset,
+			band_rect.size
+		).intersection(content_rect)
+		if projected_rect.size.x <= 0.0 or projected_rect.size.y <= 0.0:
+			continue
+		canvas.draw_rect(projected_rect, Color(PAPER_DEEP, 0.31), true)
 		canvas.draw_line(
-			Vector2(band_rect.position.x, float(band.get("y", band_rect.get_center().y))),
-			Vector2(band_rect.end.x, float(band.get("y", band_rect.get_center().y))),
+			Vector2(projected_rect.position.x, projected_y),
+			Vector2(projected_rect.end.x, projected_y),
 			Color(GOLD, 0.5),
 			1.0
 		)
 		canvas.draw_string(
 			ThemeDB.fallback_font,
-			Vector2(content_rect.position.x - 58.0, float(band.get("y", 0.0)) + 4.0),
+			Vector2(content_rect.position.x - 58.0, projected_y + 4.0),
 			"%dF" % int(band.get("floor", 0)),
 			HORIZONTAL_ALIGNMENT_RIGHT,
 			44.0,
@@ -625,7 +746,8 @@ func _draw_fullscreen_transition_marker(
 	canvas: CanvasItem,
 	marker_value: Variant,
 	walker_model: Dictionary = {},
-	art_size: float = 24.0
+	art_size: float = 24.0,
+	camera_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	if not (marker_value is Dictionary) or (marker_value as Dictionary).is_empty():
 		return
@@ -633,10 +755,9 @@ func _draw_fullscreen_transition_marker(
 	var progress := clampf(float(marker.get("progress", 0.0)), 0.0, 1.0)
 	var from_position := _vector2(marker.get("from_position", Vector2.ZERO))
 	var to_position := _vector2(marker.get("to_position", Vector2.ZERO))
-	var position := from_position.lerp(
-		to_position,
-		progress
-	)
+	var position := _vector2(
+		marker.get("world_position", from_position.lerp(to_position, progress))
+	) + camera_offset
 	var marker_scale := clampf(float(marker.get("scale", 1.0)), 0.0, 1.0)
 	var marker_alpha := clampf(float(marker.get("alpha", 1.0)), 0.0, 1.0)
 	if marker_alpha <= 0.001 or marker_scale <= 0.001:
@@ -645,7 +766,7 @@ func _draw_fullscreen_transition_marker(
 		canvas,
 		walker_model,
 		position,
-		to_position.x >= from_position.x,
+		bool(marker.get("facing_right", to_position.x >= from_position.x)),
 		progress,
 		art_size,
 		marker_scale,
@@ -727,12 +848,18 @@ func _draw_fullscreen_map_node(
 	active_candidate_ids: Array,
 	current_node_id: String,
 	selected_target_id: String,
-	content_rect: Rect2
+	content_rect: Rect2,
+	camera_offset: Vector2 = Vector2.ZERO
 ) -> void:
 	var node_id := str(node.get("id", ""))
 	var node_kind := str(node.get("kind", "combat"))
-	var art_rect: Rect2 = node.get("art_rect", Rect2())
-	var screen_position: Vector2 = node.get("screen_position", art_rect.get_center())
+	var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
+	var art_rect := Rect2(world_art_rect.position + camera_offset, world_art_rect.size)
+	var screen_position: Vector2 = _vector2(
+		node.get("world_position", world_art_rect.get_center())
+	) + camera_offset
+	if not content_rect.grow(-3.0).encloses(art_rect.grow(3.0)):
+		return
 	var current := node_id == current_node_id
 	var active := active_candidate_ids.has(node_id)
 	var selected := not selected_target_id.is_empty() and node_id == selected_target_id
@@ -856,6 +983,7 @@ func build_render_model(flow: Object) -> Dictionary:
 			"phase": phase,
 			"realm_kind": str(phase.get("realm_kind", "human_realm")),
 			"locked_phase_hints": phase.get("locked_phase_hints", []),
+			"map_seed": flow.get_map_seed() if flow.has_method("get_map_seed") else 0,
 		}
 		_cached_fullscreen_key = ""
 		_cached_fullscreen_model.clear()
@@ -873,6 +1001,9 @@ func get_render_cache_debug_state() -> Dictionary:
 		"graph_build_count": _graph_cache_build_count,
 		"fullscreen_key": _cached_fullscreen_key,
 		"fullscreen_build_count": _fullscreen_cache_build_count,
+		"path_build_count": _path_cache_build_count,
+		"path_dot_count": _path_cached_dot_count,
+		"path_draw_call_budget": _path_cached_dot_count * 2,
 	}
 
 
@@ -1975,6 +2106,41 @@ func _draw_gauntlet_transition(canvas: CanvasItem, flow: Object) -> void:
 	)
 	canvas.draw_string(font, Vector2(132.0, 450.0), str(model.get("preserve", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 15, Color(PAPER, 0.82))
 	canvas.draw_string(font, Vector2(132.0, 516.0), str(model.get("prompt", "")), HORIZONTAL_ALIGNMENT_CENTER, 496.0, 15, Color(GOLD, 0.9))
+
+
+func _clip_line_to_rect(
+	start: Vector2,
+	finish: Vector2,
+	rect: Rect2
+) -> PackedVector2Array:
+	var delta := finish - start
+	var minimum_t := 0.0
+	var maximum_t := 1.0
+	var checks := [
+		Vector2(-delta.x, start.x - rect.position.x),
+		Vector2(delta.x, rect.end.x - start.x),
+		Vector2(-delta.y, start.y - rect.position.y),
+		Vector2(delta.y, rect.end.y - start.y),
+	]
+	for check_variant in checks:
+		var check: Vector2 = check_variant
+		var denominator: float = check.x
+		var numerator: float = check.y
+		if is_zero_approx(denominator):
+			if numerator < 0.0:
+				return PackedVector2Array()
+			continue
+		var ratio: float = numerator / denominator
+		if denominator < 0.0:
+			minimum_t = maxf(minimum_t, ratio)
+		else:
+			maximum_t = minf(maximum_t, ratio)
+		if minimum_t > maximum_t:
+			return PackedVector2Array()
+	return PackedVector2Array([
+		start + delta * minimum_t,
+		start + delta * maximum_t,
+	])
 
 
 func _vector2(value: Variant) -> Vector2:

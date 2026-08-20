@@ -16,6 +16,9 @@ const TowerAscentTransitionFadeState := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentMapPathGeometry := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -25,9 +28,11 @@ func _init() -> void:
 
 
 func _run() -> void:
-	_verify_full_disclosure_projection_and_states()
+	_verify_graph_state_model_survives_camera_crop()
 	_verify_fullscreen_projection_and_existing_art_slots()
-	_verify_live_resolution_map_content_scales_proportionally()
+	_verify_live_resolution_map_uses_tracked_zoom()
+	_verify_tracked_camera_boundaries()
+	_verify_seeded_curve_geometry_preserves_connections()
 	_verify_map_cache_and_six_beat_transition_contract()
 	_verify_live_viewport_owns_fullscreen_rect()
 	_verify_localization_catalog()
@@ -42,7 +47,7 @@ func _run() -> void:
 	quit(1)
 
 
-func _verify_full_disclosure_projection_and_states() -> void:
+func _verify_graph_state_model_survives_camera_crop() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
@@ -62,7 +67,7 @@ func _verify_full_disclosure_projection_and_states() -> void:
 	flow.handle_input(_key_event(KEY_M))
 	_expect(flow.get_phase_name() == "MAP_OVERLAY", "M must project the dedicated map-overlay phase")
 	nodes = flow.get_graph_nodes()
-	_expect(nodes.size() == 25, "the overlay must expose every generated human-realm node")
+	_expect(nodes.size() == 25, "the camera map must retain the complete generated graph model")
 	var visible_kinds: Dictionary = {}
 	var has_current := false
 	var has_completed := false
@@ -77,7 +82,7 @@ func _verify_full_disclosure_projection_and_states() -> void:
 		has_completed = has_completed or bool(node.get("completed", false))
 		has_vanished = has_vanished or bool(node.get("skipped", false))
 	for required_label in ["전투", "광폭화", "상점", "수련장", "파계승", "수호의 샘터", "휴식"]:
-		_expect(visible_kinds.has(required_label), "full disclosure must expose node kind: %s" % required_label)
+		_expect(visible_kinds.has(required_label), "the graph model must retain node kind: %s" % required_label)
 	_expect(has_current, "the overlay graph must contain the current player node")
 	_expect(has_completed, "the overlay graph must distinguish a completed node")
 	_expect(has_vanished, "the overlay graph must preserve a vanished skipped boss marker")
@@ -134,26 +139,28 @@ func _verify_fullscreen_projection_and_existing_art_slots() -> void:
 	_expect(str(model.get("realm_kind", "")) == "human_realm", "phase-1 fullscreen projection must own the human-realm treatment")
 	_expect((model.get("locked_phase_hints", []) as Array).size() == 1, "phase-1 fullscreen projection must carry the 10 through 12 lock hint")
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
+	var world_rect: Rect2 = model.get("world_rect", Rect2())
 	var min_node_y := INF
 	var max_node_y := -INF
 	for node_variant in model.get("nodes", []):
 		if not (node_variant is Dictionary):
 			continue
 		var node := node_variant as Dictionary
-		var screen_position: Vector2 = node.get("screen_position", Vector2.ZERO)
-		var art_rect: Rect2 = node.get("art_rect", Rect2())
+		var world_position: Vector2 = node.get("world_position", Vector2.ZERO)
+		var art_rect: Rect2 = node.get("world_art_rect", Rect2())
 		var art_path := str(node.get("art_path", ""))
-		_expect(content_rect.grow(0.1).has_point(screen_position), "every projected node center must remain inside the fullscreen map content")
+		_expect(world_rect.grow(0.1).has_point(world_position), "every node center must remain inside the tracked map world")
 		_expect(art_rect.size.x >= 18.0 and art_rect.size.y >= 18.0, "every node must own a readable art slot")
 		_expect(not art_path.is_empty() and FileAccess.file_exists(art_path), "every node art slot must reuse an existing asset: %s" % art_path)
-		min_node_y = minf(min_node_y, screen_position.y)
-		max_node_y = maxf(max_node_y, screen_position.y)
-	_expect(min_node_y < content_rect.get_center().y and max_node_y > content_rect.get_center().y, "the castle route must visibly ascend from bottom to top")
+		min_node_y = minf(min_node_y, world_position.y)
+		max_node_y = maxf(max_node_y, world_position.y)
+	_expect(min_node_y < world_rect.get_center().y and max_node_y > world_rect.get_center().y, "the castle route world must ascend from bottom to top")
+	_expect(world_rect.size.y >= content_rect.size.y * 2.0, "v1.13 must replace full disclosure with at least a 2x tall camera world")
 	for art_path in renderer.get_node_art_asset_paths():
 		_expect(FileAccess.file_exists(art_path), "the node-art catalog must never reserve a missing draw path: %s" % art_path)
 
 
-func _verify_live_resolution_map_content_scales_proportionally() -> void:
+func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
 		"run_id": "map-overlay-live-resolution",
@@ -175,32 +182,144 @@ func _verify_live_resolution_map_content_scales_proportionally() -> void:
 		1.0,
 		float(reference_model.get("art_size", 0.0))
 	)
-	var reference_lane_span := _projected_node_x_span(reference_model)
-	var live_lane_span := _projected_node_x_span(live_model)
+	var reference_lane_span := _world_node_x_span(reference_model)
+	var live_lane_span := _world_node_x_span(live_model)
 	var lane_scale := live_lane_span / maxf(1.0, reference_lane_span)
 	_expect(float(live_model.get("art_size", 0.0)) > 34.0, "2020x1246 node art must not stop at the old 34px absolute cap")
 	_expect(live_lane_span > 660.0, "2020x1246 node lanes must use the actual source min/max instead of half of the capped span")
 	_expect(absf(art_scale - expected_scale) <= 0.04, "node art must scale with the live viewport height")
 	_expect(absf(lane_scale - expected_scale) <= 0.06, "node lane span must scale with the live viewport height")
 	var live_content: Rect2 = live_model.get("content_rect", Rect2())
+	var live_world: Rect2 = live_model.get("world_rect", Rect2())
+	var visible_world: Rect2 = (live_model.get("camera", {}) as Dictionary).get(
+		"visible_world_rect",
+		Rect2()
+	)
+	_expect(float(live_model.get("zoom_scale", 0.0)) >= 2.0, "the tracked map zoom must stay at or above 2x")
+	_expect(live_world.size.y >= live_content.size.y * 2.0, "the map world must be cropped vertically instead of fitted into one screen")
+	_expect(is_equal_approx(visible_world.size.y, live_content.size.y), "the camera window must match the live map content height")
+	var visible_node_count := 0
 	for node_variant in live_model.get("nodes", []):
 		if node_variant is Dictionary:
-			_expect(
-				live_content.grow(0.1).has_point((node_variant as Dictionary).get("screen_position", Vector2.ZERO)),
-				"proportional live map sizing must keep every disclosed node visible"
-			)
+			if visible_world.has_point((node_variant as Dictionary).get("world_position", Vector2.ZERO)):
+				visible_node_count += 1
+	_expect(visible_node_count > 0 and visible_node_count < (live_model.get("nodes", []) as Array).size(), "v1.13 camera must reveal only a cropped subset of the graph")
 
 
-func _projected_node_x_span(model: Dictionary) -> float:
+func _world_node_x_span(model: Dictionary) -> float:
 	var min_x := INF
 	var max_x := -INF
 	for node_variant in model.get("nodes", []):
 		if not (node_variant is Dictionary):
 			continue
-		var position: Vector2 = (node_variant as Dictionary).get("screen_position", Vector2.ZERO)
+		var position: Vector2 = (node_variant as Dictionary).get("world_position", Vector2.ZERO)
 		min_x = minf(min_x, position.x)
 		max_x = maxf(max_x, position.x)
 	return 0.0 if not is_finite(min_x) or not is_finite(max_x) else max_x - min_x
+
+
+func _verify_tracked_camera_boundaries() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "map-camera-boundaries",
+		"map_seed": 83521,
+	}), "camera-boundary fixture must begin")
+	var renderer := preload(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	).new()
+	var viewport_rect := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+	var lower_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
+	var lower_camera: Dictionary = lower_model.get("camera", {})
+	var lower_content: Rect2 = lower_model.get("content_rect", Rect2())
+	var lower_world: Rect2 = lower_model.get("world_rect", Rect2())
+	var lower_padding := float(lower_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO
+	var lower_offset := float((lower_camera.get("offset", Vector2.ZERO) as Vector2).y)
+	_expect(bool(lower_camera.get("at_lower_boundary", false)), "floor 1 must clamp at the lower camera boundary")
+	_expect(is_equal_approx(lower_world.end.y + lower_padding + lower_offset, lower_content.end.y), "the lower clamp must expose no empty space below the map world")
+	var middle_node_id := ""
+	for node_variant in flow.get_graph_nodes():
+		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == 5:
+			middle_node_id = str((node_variant as Dictionary).get("id", ""))
+			break
+	flow.set("_current_node_id", middle_node_id)
+	var middle_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
+	var middle_camera: Dictionary = middle_model.get("camera", {})
+	var middle_content: Rect2 = middle_model.get("content_rect", Rect2())
+	var middle_focus: Vector2 = middle_camera.get("focus_screen_position", Vector2.ZERO)
+	_expect(not bool(middle_camera.get("at_lower_boundary", true)) and not bool(middle_camera.get("at_upper_boundary", true)), "a middle floor must use free camera tracking")
+	_expect(absf(middle_focus.y - middle_content.get_center().y) <= 0.1, "a middle-floor character must stay vertically centered")
+
+	var top_node_id := ""
+	var top_floor := -1
+	for node_variant in flow.get_graph_nodes():
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var floor_number := int(node.get("floor", 0))
+		if floor_number > top_floor:
+			top_floor = floor_number
+			top_node_id = str(node.get("id", ""))
+	flow.set("_current_node_id", top_node_id)
+	var upper_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
+	var upper_camera: Dictionary = upper_model.get("camera", {})
+	var upper_content: Rect2 = upper_model.get("content_rect", Rect2())
+	var upper_world: Rect2 = upper_model.get("world_rect", Rect2())
+	var upper_padding := float(upper_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO
+	var upper_offset := float((upper_camera.get("offset", Vector2.ZERO) as Vector2).y)
+	_expect(bool(upper_camera.get("at_upper_boundary", false)), "the final floor must clamp at the upper camera boundary")
+	_expect(is_equal_approx(upper_world.position.y - upper_padding + upper_offset, upper_content.position.y), "the upper clamp must expose no empty space above the map world")
+
+
+func _verify_seeded_curve_geometry_preserves_connections() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "map-seeded-curves",
+		"map_seed": 83521,
+	}), "seeded-curve fixture must begin")
+	var renderer := preload(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	).new()
+	var model: Dictionary = renderer.build_fullscreen_map_model(
+		flow,
+		Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+	)
+	var source_connections := TowerAscentMapPathGeometry.connection_signature(
+		flow.get_graph_edges()
+	)
+	var projected_connections := TowerAscentMapPathGeometry.connection_signature(
+		model.get("edges", [])
+	)
+	_expect(source_connections == projected_connections, "curve projection must preserve every generated from/to connection in order")
+	var first_signature := TowerAscentMapPathGeometry.curve_signature(model.get("edges", []))
+	var repeated_signature := TowerAscentMapPathGeometry.curve_signature(
+		renderer.build_fullscreen_map_model(
+			flow,
+			Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+		).get("edges", [])
+	)
+	_expect(not first_signature.is_empty() and first_signature == repeated_signature, "the same map seed and graph must reproduce byte-identical curve geometry")
+	var rebuilt_with_other_seed := TowerAscentMapPathGeometry.build(
+		model.get("edges", []),
+		83522,
+		float(model.get("art_size", 0.0)),
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MIN_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_MAX_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_CURVE_SKEW_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_ENDPOINT_CLEARANCE_RATIO,
+		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MIN,
+		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MAX
+	)
+	_expect(first_signature != TowerAscentMapPathGeometry.curve_signature(rebuilt_with_other_seed), "a different map seed must produce a different presentation curve")
+	for edge_variant in model.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var from_position: Vector2 = edge.get("from_position", Vector2.ZERO)
+		var to_position: Vector2 = edge.get("to_position", Vector2.ZERO)
+		var path_start: Vector2 = edge.get("path_start", from_position)
+		var path_end: Vector2 = edge.get("path_end", to_position)
+		_expect(path_start.distance_to(from_position) > float(model.get("art_size", 0.0)) * 0.5, "curves must clear the source node art")
+		_expect(path_end.distance_to(to_position) > float(model.get("art_size", 0.0)) * 0.5, "curves must clear the destination node art")
 
 
 func _verify_map_cache_and_six_beat_transition_contract() -> void:
@@ -218,6 +337,16 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	var cache_state: Dictionary = renderer.get_render_cache_debug_state()
 	_expect(int(cache_state.get("graph_build_count", 0)) == 1, "unchanged graph draws must reuse one cached graph model")
 	_expect(int(cache_state.get("fullscreen_build_count", 0)) == 1, "unchanged viewport draws must reuse one cached fullscreen projection")
+	_expect(int(cache_state.get("path_build_count", 0)) == 1, "unchanged map draws must not rebuild dotted path geometry per frame")
+	_expect(int(cache_state.get("path_dot_count", 0)) > 0, "the cached route must contain polygon dots")
+	_expect(int(cache_state.get("path_draw_call_budget", 0)) == int(cache_state.get("path_dot_count", 0)) * 2, "the dotted path draw-call budget must stay explicit")
+	print(
+		"tower_ascent_map_overlay_render_smoke: dotted_path_budget edges=%d dots=%d draw_calls=%d" % [
+			(_model_edge_count(renderer, flow, viewport_rect)),
+			int(cache_state.get("path_dot_count", 0)),
+			int(cache_state.get("path_draw_call_budget", 0)),
+		]
+	)
 
 	var target_ids: Array[String] = flow.get_route_target_ids()
 	_expect(not target_ids.is_empty(), "transition fixture must expose a route target")
@@ -233,7 +362,15 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 		flow.set_transition_progress_for_qa(0.5)
 		var moving_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 		var moving_marker: Dictionary = moving_model.get("transition_marker", {})
+		var moving_camera: Dictionary = moving_model.get("camera", {})
 		_expect(float(moving_marker.get("progress", 0.0)) > 0.0 and float(moving_marker.get("progress", 0.0)) < 1.0, "mid-transition marker must use the eased travel window")
+		_expect((moving_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(moving_camera.get("focus_world_position", Vector2.ONE)), "the tracked camera must consume the walker's curve position from the same physics-clock progress")
+		_expect((moving_model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(moving_camera.get("focus_screen_position", Vector2.ZERO)), "the tracked transition walker must remain inside the visible map crop")
+		var straight_midpoint := (moving_marker.get("from_position", Vector2.ZERO) as Vector2).lerp(
+			moving_marker.get("to_position", Vector2.ZERO),
+			float(moving_marker.get("progress", 0.0))
+		)
+		_expect((moving_marker.get("world_position", Vector2.ZERO) as Vector2).distance_to(straight_midpoint) > 1.0, "the transition walker must follow the cached curve instead of cutting across it")
 		_expect(int(renderer.get_render_cache_debug_state().get("fullscreen_build_count", 0)) == transition_cache_builds, "transition progress must not rebuild the cached graph projection")
 		flow.call("_complete_map_transition")
 		_expect(flow.get_current_node_id() == target_id, "the destination must become current only when the map transition completes")
@@ -264,6 +401,14 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	_expect(is_zero_approx(timeline.get_node_modal_fade_progress()), "noncombat arrival surface must begin fully covered")
 	timeline.update_node_modal_fade(TowerAscentTuning.TEMP_NODE_MODAL_FADE_IN_SEC)
 	_expect(is_equal_approx(timeline.get_node_modal_fade_progress(), 1.0), "noncombat node fade must complete on its tuning duration")
+
+
+func _model_edge_count(
+	renderer: Object,
+	flow: Object,
+	viewport_rect: Rect2
+) -> int:
+	return (renderer.build_fullscreen_map_model(flow, viewport_rect).get("edges", []) as Array).size()
 
 
 func _verify_live_viewport_owns_fullscreen_rect() -> void:

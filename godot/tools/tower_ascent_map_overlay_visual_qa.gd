@@ -282,13 +282,21 @@ func _save_boss_icon_zoom(image: Image, flow_owner: Object, output_path: String)
 		flow_owner,
 		Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
 	)
+	var camera_offset: Vector2 = (model.get("camera", {}) as Dictionary).get(
+		"offset",
+		Vector2.ZERO
+	)
 	for node_variant in model.get("nodes", []):
 		if not (node_variant is Dictionary):
 			continue
 		var node := node_variant as Dictionary
 		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
 			continue
-		var art_rect: Rect2 = node.get("art_rect", Rect2())
+		var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
+		var art_rect := Rect2(
+			world_art_rect.position + camera_offset,
+			world_art_rect.size
+		)
 		var bounds := Rect2i(art_rect.grow(6.0)).intersection(Rect2i(Vector2i.ZERO, GAME_SIZE))
 		if bounds.size.x <= 0 or bounds.size.y <= 0:
 			continue

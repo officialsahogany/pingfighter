@@ -88,6 +88,22 @@ const TEMP_MAP_LANE_SPAN_RATIO := 0.290
 const TEMP_MAP_ART_SIZE_RATIO := 0.720
 const TEMP_MAP_CONTENT_TOP_RATIO := 0.1025
 const TEMP_MAP_CONTENT_BOTTOM_RATIO := 0.1925
+# TEMP: v1.13 replaces full-map disclosure with a vertically tracked map.
+# Keep the zoom and focus policy in the shared tuning table until product feel
+# tuning is final; the camera owner still enforces a minimum 2x scale.
+const TEMP_MAP_CAMERA_ZOOM := 2.15
+const TEMP_MAP_CAMERA_FOCUS_Y_RATIO := 0.50
+const TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO := 0.78
+const TEMP_MAP_PATH_CURVE_MIN_RATIO := 0.10
+const TEMP_MAP_PATH_CURVE_MAX_RATIO := 0.24
+const TEMP_MAP_PATH_CURVE_SKEW_RATIO := 0.08
+const TEMP_MAP_PATH_ENDPOINT_CLEARANCE_RATIO := 0.68
+const TEMP_MAP_PATH_SAMPLE_MIN := 18
+const TEMP_MAP_PATH_SAMPLE_MAX := 42
+const TEMP_MAP_PATH_DOT_GAP_ART_RATIO := 0.32
+const TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO := 0.072
+const TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO := 0.030
+const TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS := 10
 
 # TEMP: v1.12 keeps the exhausted reward board visible briefly before the
 # route flow resumes. Final presentation timing remains product-tuning work.
