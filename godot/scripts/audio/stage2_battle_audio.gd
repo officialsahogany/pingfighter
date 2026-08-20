@@ -89,10 +89,9 @@ const CUE_SPECS := {
 	},
 	"molewang_spinning_claw": {
 		"player_name": "Stage2MolewangSpinningClawSfx",
-		"path": "res://assets/sounds/defense_hit.wav",
-		"gain_db": -5.0,
-		"substitution_for": "clue.wav",
-		"approved_deviation": true,
+		"path": "res://assets/sounds/clue.wav",
+		"gain_db": -6.020599913279624,
+		"source_parity": true,
 	},
 	"friend_mole_spawn": {
 		"player_name": "Stage2FriendMoleSpawnSfx",

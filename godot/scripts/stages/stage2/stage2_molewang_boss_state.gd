@@ -21,6 +21,9 @@ const FRIEND_MOLE_RADIUS := 18.0
 const FRIEND_MOLE_RISE_SEC := 12.0 / 60.0
 const FRIEND_MOLE_HOLD_SEC := 60.0 / 60.0
 const FRIEND_MOLE_FALL_SEC := 12.0 / 60.0
+const PHYSICS_TICKS_PER_SECOND := 72
+const FRIEND_MOLES_DURATION_TICKS := PHYSICS_TICKS_PER_SECOND * 10
+const FRIEND_MOLES_COOLDOWN_TICKS := PHYSICS_TICKS_PER_SECOND * 40
 
 var rng := RandomNumberGenerator.new()
 var boss_special_gauge := 0.0
@@ -38,8 +41,9 @@ var spinning_claw_direction := 1
 var hit_emerge_timer := 0.0
 var friend_moles_pending := false
 var friend_moles_triggered := false
-var friend_moles_round_count := 0
 var friend_moles_active := false
+var friend_moles_duration_ticks_remaining := 0
+var friend_moles_cooldown_ticks_remaining := 0
 var friend_moles_spawn_timer := 0.0
 var friend_moles: Array = []
 var friend_mole_particles: Array = []
@@ -64,8 +68,9 @@ func reset() -> void:
 	hit_emerge_timer = 0.0
 	friend_moles_pending = false
 	friend_moles_triggered = false
-	friend_moles_round_count = 0
 	friend_moles_active = false
+	friend_moles_duration_ticks_remaining = 0
+	friend_moles_cooldown_ticks_remaining = 0
 	friend_moles_spawn_timer = 0.0
 	friend_moles.clear()
 	friend_mole_particles.clear()
@@ -82,17 +87,11 @@ func reset_round() -> void:
 	spinning_claw_timer = 0.0
 	spinning_claw_cooldown = 0.0
 	hit_emerge_timer = 0.0
-	friend_moles.clear()
-	friend_mole_particles.clear()
-	friend_moles_active = false
-	friend_moles_spawn_timer = 0.0
+	_stop_friend_moles()
 	if friend_moles_pending:
 		friend_moles_pending = false
 		friend_moles_triggered = true
-		friend_moles_round_count = 0
-	if friend_moles_triggered and friend_moles_round_count < 2:
-		friend_moles_active = true
-		friend_moles_round_count += 1
+		friend_moles_cooldown_ticks_remaining = 0
 	status = "charging"
 
 
@@ -105,6 +104,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	spinning_claw_timer = maxf(0.0, spinning_claw_timer - step)
 	hit_emerge_timer = maxf(0.0, hit_emerge_timer - step)
 	_update_spikes(step)
+	_update_friend_moles_cycle(context)
 	var result := _update_friend_moles(step, context, deps)
 	if tunnel_active:
 		result.merge(_update_tunnel(step, context, deps), true)
@@ -148,6 +148,7 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 
 
 func handle_score_event(scoring_side: String, score_result: Dictionary, _deps: Dictionary = {}) -> void:
+	_stop_friend_moles()
 	if scoring_side == "player" and int(score_result.get("player_score", 0)) == 4 and not friend_moles_triggered:
 		friend_moles_pending = true
 
@@ -177,7 +178,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_skills": [
 			_build_skill("tunnel_raid", "땅굴 습격", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
 			_build_skill("spinning_claw", "회전발톱", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28)),
-			_build_skill("friend_moles", "친구두더지", friend_moles_active, 0.0 if friend_moles_active else 1.0, 1.0, Color(0.94, 0.72, 0.16)),
+			_build_skill("friend_moles", "친구두더지", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16)),
 		],
 	}
 
@@ -337,6 +338,34 @@ func _apply_tunnel_strike(context: Dictionary, deps: Dictionary) -> void:
 		var status_effect_state: Object = deps.get("status_effect_state", null)
 		if status_effect_state != null and status_effect_state.has_method("apply_status"):
 			status_effect_state.apply_status("player", "stun", 60.0, {"cleansable": true}, "molewang_tunnel_raid")
+
+
+func _update_friend_moles_cycle(context: Dictionary) -> void:
+	if not bool(context.get("ball_active", false)) or bool(context.get("waiting_for_serve", false)):
+		return
+	if friend_moles_cooldown_ticks_remaining > 0:
+		friend_moles_cooldown_ticks_remaining -= 1
+	if friend_moles_active:
+		friend_moles_duration_ticks_remaining -= 1
+		if friend_moles_duration_ticks_remaining <= 0:
+			_stop_friend_moles()
+	if not friend_moles_active and friend_moles_triggered and friend_moles_cooldown_ticks_remaining <= 0:
+		_activate_friend_moles()
+
+
+func _activate_friend_moles() -> void:
+	friend_moles_active = true
+	friend_moles_duration_ticks_remaining = FRIEND_MOLES_DURATION_TICKS
+	friend_moles_cooldown_ticks_remaining = FRIEND_MOLES_COOLDOWN_TICKS
+	friend_moles_spawn_timer = 0.0
+
+
+func _stop_friend_moles() -> void:
+	friend_moles_active = false
+	friend_moles_duration_ticks_remaining = 0
+	friend_moles_spawn_timer = 0.0
+	friend_moles.clear()
+	friend_mole_particles.clear()
 
 
 func _update_friend_moles(step: float, context: Dictionary, deps: Dictionary) -> Dictionary:
@@ -521,6 +550,14 @@ func _get_speech() -> String:
 	if friend_moles_active:
 		return "친구들! 도와줘!"
 	return ""
+
+
+func _get_friend_moles_hud_cooldown_sec() -> float:
+	if friend_moles_active:
+		return 0.0
+	if not friend_moles_triggered:
+		return float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND)
+	return float(friend_moles_cooldown_ticks_remaining) / float(PHYSICS_TICKS_PER_SECOND)
 
 
 func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
