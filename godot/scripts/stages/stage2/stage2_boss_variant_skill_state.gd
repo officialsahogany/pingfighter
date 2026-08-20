@@ -27,7 +27,8 @@ func reset_round() -> void:
 
 
 func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	active_variant = StageBossVariantCatalog.normalize_variant(2, context.get("stage_boss_variant", ""))
+	if not _select_explicit_variant(context):
+		return {}
 	if active_variant == "molewang":
 		return molewang_state.update(delta, context, deps)
 	if active_variant == "arachne":
@@ -36,7 +37,8 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 
 
 func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
-	active_variant = StageBossVariantCatalog.normalize_variant(2, context.get("stage_boss_variant", ""))
+	if not _select_explicit_variant(context):
+		return {}
 	if active_variant == "molewang":
 		return molewang_state.register_boss_hit(ball_vel, context, deps)
 	if active_variant == "arachne":
@@ -143,3 +145,21 @@ func _active_variant_call(method_name: String, fallback: Variant) -> Variant:
 	if state != null and state.has_method(method_name):
 		return state.call(method_name)
 	return fallback
+
+
+func _select_explicit_variant(context: Dictionary) -> bool:
+	# An ABSENT key means the caller lost the variant context, so fail closed
+	# rather than routing a variant boss into the default boss logic. A key that
+	# is PRESENT but empty is the legitimate campaign state: entering at stage 1
+	# normalizes to "" and no non-tower transition ever rewrites the owner field,
+	# so "" must still resolve to this stage's default boss.
+	if not context.has("stage_boss_variant"):
+		return false
+	var requested: Variant = context.get("stage_boss_variant", "")
+	if str(requested).strip_edges().is_empty():
+		active_variant = StageBossVariantCatalog.get_default_variant(2)
+		return true
+	if not StageBossVariantCatalog.is_ported_variant(2, requested):
+		return false
+	active_variant = StageBossVariantCatalog.normalize_variant(2, requested)
+	return true
