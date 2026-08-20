@@ -1147,14 +1147,28 @@ func _verify_source_contract() -> void:
 	_expect(state_source.find("var _failsafe_rng := RandomNumberGenerator.new()") >= 0, "failsafe choice must own a private RNG")
 	_expect(state_source.find("_failsafe_rng.randi_range(") >= 0, "failsafe choice must sample only its private RNG")
 	_expect(state_source.find("func _auto_select_first_enabled_card(") < 0, "retired first-enabled auto-selection helper must not survive S1-b")
-	var physics_begin := frame_source.find("func process_physics(")
-	var physics_autoselect_tick := frame_source.find("start_card.update_physics(delta)", physics_begin)
-	var landing_started_gate := frame_source.find("is_stage_landing_intro_started", physics_begin)
+	# The physics gate ladder may live inline in the frame controller or in the
+	# extracted gate coordinator. Follow whichever module the frame controller
+	# actually delegates to, so the ordering seal survives that refactor instead
+	# of pinning the gate to one file.
+	var gate_source := frame_source
+	var gate_owner := "battle_scene_frame_controller.gd"
+	var gate_begin := frame_source.find("func process_physics(")
+	var coordinator_path := "res://scripts/core/battle_physics_gate_coordinator.gd"
+	if (
+		frame_source.find("battle_physics_gate_coordinator.gd") >= 0
+		and FileAccess.file_exists(coordinator_path)
+	):
+		gate_source = FileAccess.get_file_as_string(coordinator_path)
+		gate_owner = "battle_physics_gate_coordinator.gd"
+		gate_begin = gate_source.find("func should_block(")
+	var physics_autoselect_tick := gate_source.find("start_card.update_physics(delta)", gate_begin)
+	var landing_started_gate := gate_source.find("is_stage_landing_intro_started", gate_begin)
 	_expect(
-		physics_begin >= 0
-		and physics_autoselect_tick > physics_begin
+		gate_begin >= 0
+		and physics_autoselect_tick > gate_begin
 		and landing_started_gate > physics_autoselect_tick,
-		"start-card clock must advance in _physics_process before the pre-intro landing-started gate"
+		"start-card clock must advance in the %s physics gate ladder before the pre-intro landing-started gate" % gate_owner
 	)
 	var idle_begin := intro_source.find("func process_idle(")
 	var idle_end := intro_source.find("func draw_intro_or_boot(", idle_begin)
