@@ -4,6 +4,8 @@ const WIDTH := 760.0
 const HEIGHT := 750.0
 const HUG_ZONE_WIDTH := 350.0
 const HUG_ZONE_TOP := 600.0
+const ELLIPSE_SEGMENTS := 32
+const ALICE_ELLIPSE_SEGMENTS := 24
 
 
 func prewarm_assets_step() -> bool:
@@ -191,11 +193,7 @@ func _draw_rabbit(canvas: CanvasItem, center: Vector2, size: float, ear_angle: f
 
 
 func _draw_alice_ellipse(canvas: CanvasItem, center: Vector2, radii: Vector2, color: Color) -> void:
-	var points := PackedVector2Array()
-	for index in range(24):
-		var angle := TAU * float(index) / 24.0
-		points.append(center + Vector2(cos(angle) * radii.x, sin(angle) * radii.y))
-	canvas.draw_colored_polygon(points, color)
+	_draw_ellipse_polygon(canvas, center, radii, color, ALICE_ELLIPSE_SEGMENTS)
 
 
 func _draw_teddy(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
@@ -418,9 +416,39 @@ func _draw_stitches(canvas: CanvasItem, center: Vector2, radii: Vector2, color: 
 
 
 func _draw_ellipse(canvas: CanvasItem, center: Vector2, radii: Vector2, color: Color) -> void:
-	canvas.draw_set_transform(center, 0.0, Vector2(maxf(0.001, radii.x), maxf(0.001, radii.y)))
-	canvas.draw_circle(Vector2.ZERO, 1.0, color)
-	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_draw_ellipse_polygon(canvas, center, radii, color, ELLIPSE_SEGMENTS)
+
+
+func _draw_ellipse_polygon(
+	canvas: CanvasItem,
+	center: Vector2,
+	radii: Vector2,
+	color: Color,
+	segments: int
+) -> void:
+	var points := build_ellipse_points_for_tests(center, radii, segments)
+	# GRT-006: even though the ordered positive-radius ellipse is convex by
+	# construction, fail closed before asking draw_colored_polygon to fill an
+	# invalid point set. This never mutates the caller-owned canvas transform.
+	if Geometry2D.triangulate_polygon(points).is_empty():
+		return
+	canvas.draw_colored_polygon(points, color)
+
+
+func build_ellipse_points_for_tests(
+	center: Vector2,
+	radii: Vector2,
+	segments: int = ELLIPSE_SEGMENTS
+) -> PackedVector2Array:
+	var safe_segments := maxi(3, segments)
+	var safe_radii := Vector2(maxf(0.001, radii.x), maxf(0.001, radii.y))
+	var points := PackedVector2Array()
+	for index in range(safe_segments):
+		var angle := TAU * float(index) / float(safe_segments)
+		points.append(
+			center + Vector2(cos(angle) * safe_radii.x, sin(angle) * safe_radii.y)
+		)
+	return points
 
 
 func _boss_bottom_center(context: Dictionary) -> Vector2:
