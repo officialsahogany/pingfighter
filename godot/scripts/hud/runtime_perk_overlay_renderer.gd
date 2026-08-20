@@ -41,6 +41,8 @@ const STARPOINT_ABSORPTION_CORE_COLOR := CommonStarpointVisualHost.MUHON_CORE_CO
 const STARPOINT_ABSORPTION_BURST_COLOR := CommonStarpointVisualHost.MUHON_OUTLINE_COLOR
 const TEMP_TOWER_REWARD_ABSORB_LIFT_RATIO := 0.22
 const TEMP_TOWER_REWARD_ABSORB_LIFT_PX := 30.0
+const TOWER_START_NOTICE_OFFSET_Y := 24.0
+const TOWER_START_COUNTDOWN_OFFSET_Y := 62.0
 const FLIGHT_SOURCE_ARC_SEGMENTS := 10
 const FLIGHT_CORE_ARC_SEGMENTS := 8
 const FLIGHT_ARRIVAL_ARC_SEGMENTS := 10
@@ -568,13 +570,34 @@ func draw_tower_start_card(
 		layout,
 		animation_time
 	)
+	var hint_pos := _get_vector2(
+		layout.get("hint_pos", Vector2(view_size.x * 0.5, view_size.y - 34.0))
+	)
 	_draw_text_centered(
 		canvas,
 		str(view_model.get("status_text", "")),
-		_get_vector2(layout.get("hint_pos", Vector2(view_size.x * 0.5, view_size.y - 34.0))),
+		hint_pos,
 		clampi(int(round(16.0 * layout_scale)), 13, 21),
 		Color(0.91, 0.86, 0.72, alpha)
 	)
+	var notice_text := str(view_model.get("random_autoselect_notice_text", ""))
+	if not notice_text.is_empty():
+		_draw_text_centered(
+			canvas,
+			notice_text,
+			hint_pos + Vector2(0.0, TOWER_START_NOTICE_OFFSET_Y * layout_scale),
+			clampi(int(round(14.0 * layout_scale)), 12, 18),
+			Color(0.82, 0.80, 0.72, alpha)
+		)
+	var countdown_seconds := int(view_model.get("countdown_seconds", 0))
+	if countdown_seconds > 0:
+		_draw_text_centered(
+			canvas,
+			str(countdown_seconds),
+			hint_pos + Vector2(0.0, TOWER_START_COUNTDOWN_OFFSET_Y * layout_scale),
+			clampi(int(round(34.0 * layout_scale)), 26, 42),
+			Color(0.96, 0.76, 0.32, alpha)
+		)
 	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, mouse_pos)
 
 

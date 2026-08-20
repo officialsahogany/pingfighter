@@ -246,6 +246,10 @@ func _run() -> void:
 	shell.set("selected_character_type", "smasher")
 	shell.set("selected_runtime_character_id", "smasher")
 	viewport.add_child(shell)
+	# Battle startup may re-enable processing from _ready(). Keep this fixture
+	# fully manual so capture waits cannot add hidden countdown physics ticks.
+	shell.set_process(false)
+	shell.set_physics_process(false)
 
 	if not flow_owner.ensure_run_started(shell, {"run_id": LIVE_RUN_IDS[0]}):
 		push_error("start-card visual fixture could not start the first seeded run")
@@ -284,6 +288,36 @@ func _run() -> void:
 		return
 	if not await _capture(viewport, shell, output_dir.path_join("start_card_three_choices.png")):
 		return
+	var physics_ticks_per_second := Engine.physics_ticks_per_second
+	var timeout_ticks := int(
+		TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC
+		* float(physics_ticks_per_second)
+	)
+	var countdown_ten_ticks := int(
+		TowerAscentTuning.TEMP_START_CARD_COUNTDOWN_WINDOW_SEC
+		* float(physics_ticks_per_second)
+	)
+	_advance_start_card_physics(shell, timeout_ticks - countdown_ten_ticks)
+	if int(start_card.get_status_for_tests().get("countdown_seconds", 0)) != 10:
+		push_error("start-card visual fixture did not reach countdown 10")
+		quit(1)
+		return
+	if not await _capture(viewport, shell, output_dir.path_join("start_card_countdown_10.png")):
+		return
+	_advance_start_card_physics(shell, 5 * physics_ticks_per_second)
+	if int(start_card.get_status_for_tests().get("countdown_seconds", 0)) != 5:
+		push_error("start-card visual fixture did not reach countdown 5")
+		quit(1)
+		return
+	if not await _capture(viewport, shell, output_dir.path_join("start_card_countdown_5.png")):
+		return
+	_advance_start_card_physics(shell, 4 * physics_ticks_per_second)
+	if int(start_card.get_status_for_tests().get("countdown_seconds", 0)) != 1:
+		push_error("start-card visual fixture did not reach countdown 1")
+		quit(1)
+		return
+	if not await _capture(viewport, shell, output_dir.path_join("start_card_countdown_1.png")):
+		return
 
 	var smasher_mugong_index := _find_kind_index(smasher_choices, "mugong")
 	if smasher_mugong_index < 0:
@@ -310,7 +344,8 @@ func _run() -> void:
 	if not await _capture(viewport, shell, output_dir.path_join("start_card_selected.png")):
 		return
 
-	shell._process(1.0)
+	shell._physics_process(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	shell._process(0.0)
 	for _frame_index in range(240):
 		shell._process(1.0 / 60.0)
 		shell.queue_redraw()
@@ -364,7 +399,8 @@ func _run() -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(false)
 	print("tower_start_card_visual_qa: evidence=%s" % output_dir)
-	print("tower_start_card_visual_qa: captures=3")
+	print("tower_start_card_visual_qa: captures=6")
+	print("tower_start_card_visual_qa: countdown_captures=10,5,1")
 	print("tower_start_card_visual_qa: live_cases=3")
 	print("tower_start_card_visual_qa: live_run_ids=%s" % ",".join(LIVE_RUN_IDS))
 	print("tower_start_card_visual_qa: retired_expansion_absent_cases=3")
@@ -440,6 +476,8 @@ func _run_non_prologue_case(
 	shell.set("selected_character_type", character_type)
 	shell.set("selected_runtime_character_id", character_type)
 	viewport.add_child(shell)
+	shell.set_process(false)
+	shell.set_physics_process(false)
 
 	var result := {"accepted": false, "character_type": character_type}
 	if not flow_owner.ensure_run_started(shell, {"run_id": run_id}):
@@ -475,7 +513,8 @@ func _run_non_prologue_case(
 				choose_mugong.pressed = true
 				choose_mugong.keycode = [KEY_1, KEY_2, KEY_3][mugong_index]
 				shell._unhandled_input(choose_mugong)
-				shell._process(1.0)
+				shell._physics_process(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+				shell._process(0.0)
 				shell._process(0.1)
 				var selection_result := start_card.get_selection_result()
 				var picked_id := str(selection_result.get("picked_perk_id", ""))
@@ -511,6 +550,12 @@ func _run_non_prologue_case(
 	get_root().remove_child(viewport)
 	viewport.free()
 	return result
+
+
+func _advance_start_card_physics(shell: Node2D, tick_count: int) -> void:
+	var tick_delta := 1.0 / float(Engine.physics_ticks_per_second)
+	for _tick_index in range(tick_count):
+		shell._physics_process(tick_delta)
 
 
 func _run_meridian_expand_fusion_case() -> Dictionary:

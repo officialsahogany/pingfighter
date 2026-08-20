@@ -45,14 +45,10 @@ func process_idle(
 	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
 		if _is_active(start_card):
-			if start_card.has_method("update"):
-				sample_start = _perf_begin(perf_logger)
-				start_card.update(delta)
-				_perf_end(perf_logger, "process.intro.tower_start_card_update", sample_start)
-			if _is_active(start_card):
-				_queue_redraw(owner)
-				return true
-			start_card_completed_this_frame = true
+			_queue_redraw(owner)
+			return true
+		if start_card != null and start_card.has_method("consume_completed_since_last_idle"):
+			start_card_completed_this_frame = bool(start_card.consume_completed_since_last_idle())
 	# Stage 1 한미량 서막이 재생 중이면 begin_stage_landing_intro를 다시
 	# 부르지 않고 시네마틱만 전진시킨다. 이 검사는 로딩 완료 hold보다
 	# 먼저 와야 한다. 서막 draw가 로딩 호스트를 숨기며 로딩 가시성 타이머를

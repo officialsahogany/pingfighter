@@ -21,6 +21,15 @@ const TEXT := {
 		"pt-BR": "Escolha 1 de 3 cartas",
 		"ru": "Выберите 1 из 3 карт",
 	},
+	"random_autoselect_notice": {
+		"ko": "선택하지 않으면 무작위 카드가 선택됩니다",
+		"en": "If you do not choose, a random card will be selected",
+		"zh": "若不选择，将随机选择一张卡牌",
+		"ja": "選択しない場合、カードがランダムに選ばれます",
+		"es": "Si no eliges, se seleccionará una carta al azar",
+		"pt-BR": "Se você não escolher, uma carta será selecionada aleatoriamente",
+		"ru": "Если вы не выберете, карта будет выбрана случайно",
+	},
 	"confirmed": {
 		"ko": "선택이 운명에 새겨졌습니다",
 		"en": "Your choice is etched into fate",

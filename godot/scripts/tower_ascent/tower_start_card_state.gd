@@ -30,8 +30,11 @@ var _icon_renderer: Object = null
 var _chosik_tooltip_renderer: Object = null
 var _active := false
 var _completed := false
+var _completed_since_last_idle := false
 var _skipped := false
 var _elapsed_sec := 0.0
+var _physics_ticks_elapsed := 0
+var _physics_ticks_per_second := 1
 var _absorb_elapsed_sec := -1.0
 var _picks_remaining := 0
 var _card_choices: Array[Dictionary] = []
@@ -47,6 +50,7 @@ var _layout: Object = RuntimePerkChoiceLayout.new()
 var _stats_owner: Object = null
 var _stats_registry: Object = null
 var _absorption_target_resolver: Object = TowerCardAbsorptionTargetResolver.new()
+var _failsafe_rng := RandomNumberGenerator.new()
 
 
 func begin(owner: Object, registry: Object) -> bool:
@@ -59,6 +63,7 @@ func begin(owner: Object, registry: Object) -> bool:
 	tear_down()
 	_owner = owner
 	_registry = registry
+	_physics_ticks_per_second = maxi(1, Engine.physics_ticks_per_second)
 	_runtime_state = _get_registry_instance(registry, "runtime_perk_state")
 	_catalog = _get_registry_instance(registry, "runtime_perk_catalog")
 	_card_renderer = _get_registry_instance(registry, "runtime_perk_overlay_renderer")
@@ -116,6 +121,7 @@ func begin(owner: Object, registry: Object) -> bool:
 		}
 		return false
 	_active = true
+	_failsafe_rng.randomize()
 	_picks_remaining = TowerAscentTuning.TEMP_START_CARD_PICK_LIMIT
 	_selected_index = 0
 	_status_text = TowerStartCardLocalization.text("instruction")
@@ -175,19 +181,20 @@ func handle_input(event: InputEvent, owner: Object, registry: Object) -> bool:
 	return true
 
 
-func update(delta: float) -> void:
+func update_physics(delta: float) -> void:
 	if not _active:
 		return
 	capture_stats_context(_owner, _registry)
 	var step := maxf(0.0, delta)
 	_elapsed_sec += step
+	_physics_ticks_elapsed += 1
 	if _absorb_elapsed_sec >= 0.0:
 		_absorb_elapsed_sec += step
 		if _absorb_elapsed_sec >= TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC:
 			_finish_phase()
 		return
-	if _elapsed_sec >= TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC:
-		if _auto_select_first_enabled_card():
+	if _physics_ticks_elapsed >= _get_failsafe_timeout_ticks():
+		if _auto_select_random_enabled_card():
 			return
 		_selection_result = {
 			"accepted": false,
@@ -290,6 +297,12 @@ func build_view_model(view_size: Vector2) -> Dictionary:
 	return {
 		"title": TowerStartCardLocalization.text("title"),
 		"status_text": _status_text,
+		"random_autoselect_notice_text": (
+			TowerStartCardLocalization.text("random_autoselect_notice")
+			if _picks_remaining > 0
+			else ""
+		),
+		"countdown_seconds": _get_countdown_seconds(),
 		"choices": model_choices,
 		"selected_index": _selected_index,
 		"animation_time": _elapsed_sec,
@@ -390,6 +403,8 @@ func get_status_for_tests() -> Dictionary:
 		"skipped": _skipped,
 		"picks_remaining": _picks_remaining,
 		"elapsed_sec": _elapsed_sec,
+		"physics_ticks_elapsed": _physics_ticks_elapsed,
+		"countdown_seconds": _get_countdown_seconds(),
 		"absorb_elapsed_sec": _absorb_elapsed_sec,
 		"card_count": _card_choices.size(),
 		"selection_result": _selection_result.duplicate(true),
@@ -398,6 +413,12 @@ func get_status_for_tests() -> Dictionary:
 		"stats_owner_attached": _stats_owner != null,
 		"stats_registry_attached": _stats_registry != null,
 	}
+
+
+func consume_completed_since_last_idle() -> bool:
+	var completed := _completed_since_last_idle
+	_completed_since_last_idle = false
+	return completed
 
 
 func capture_stats_context(owner: Object, registry: Object) -> bool:
@@ -421,8 +442,11 @@ func tear_down() -> void:
 	_chosik_tooltip_renderer = null
 	_active = false
 	_completed = false
+	_completed_since_last_idle = false
 	_skipped = false
 	_elapsed_sec = 0.0
+	_physics_ticks_elapsed = 0
+	_physics_ticks_per_second = 1
 	_absorb_elapsed_sec = -1.0
 	_picks_remaining = 0
 	_card_choices.clear()
@@ -471,22 +495,54 @@ func _has_pending_unlock_swap() -> bool:
 	)
 
 
-func _auto_select_first_enabled_card() -> bool:
+func _auto_select_random_enabled_card() -> bool:
+	var enabled_indices: Array[int] = []
 	for index in range(_card_choices.size()):
-		if not bool(_card_choices[index].get("enabled", false)):
-			continue
-		_selected_index = index
-		if not select_slot(index):
-			return false
-		_selection_result["reason"] = "start_card_failsafe_auto_selected"
-		_selection_result["auto_selected"] = true
-		return true
-	return false
+		if bool(_card_choices[index].get("enabled", false)):
+			enabled_indices.append(index)
+	if enabled_indices.is_empty():
+		return false
+	var random_offset := _failsafe_rng.randi_range(0, enabled_indices.size() - 1)
+	var selected_index := enabled_indices[random_offset]
+	_selected_index = selected_index
+	if not select_slot(selected_index):
+		return false
+	_selection_result["reason"] = "start_card_failsafe_auto_selected"
+	_selection_result["auto_selected"] = true
+	return true
+
+
+func _get_countdown_seconds() -> int:
+	if not _active or _picks_remaining <= 0 or _absorb_elapsed_sec >= 0.0:
+		return 0
+	var remaining_ticks := _get_failsafe_timeout_ticks() - _physics_ticks_elapsed
+	if remaining_ticks <= 0 or remaining_ticks > _get_countdown_window_ticks():
+		return 0
+	return clampi(
+		ceili(float(remaining_ticks) / float(_physics_ticks_per_second)),
+		1,
+		int(TowerAscentTuning.TEMP_START_CARD_COUNTDOWN_WINDOW_SEC)
+	)
+
+
+func _get_failsafe_timeout_ticks() -> int:
+	return roundi(
+		TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC
+		* float(_physics_ticks_per_second)
+	)
+
+
+func _get_countdown_window_ticks() -> int:
+	return roundi(
+		TowerAscentTuning.TEMP_START_CARD_COUNTDOWN_WINDOW_SEC
+		* float(_physics_ticks_per_second)
+	)
 
 
 func _finish_phase() -> void:
 	_active = false
 	_completed = true
+	_completed_since_last_idle = true
 
 
 func _consume_entry_request(owner: Object) -> bool:

@@ -261,6 +261,21 @@ func process_physics(
 		return
 	_perf_end(perf_logger, "physics.frame.gate.boot_warmup", sample_start)
 
+	# The start-card deadline is authoritative gameplay state. Advance it exactly
+	# once per fixed physics tick, before the stage-landing-started gate that is
+	# intentionally still closed while this pre-intro modal is visible.
+	sample_start = _perf_begin(perf_logger)
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var start_card: Object = _get_module(module_getter, "tower_start_card_state")
+		if start_card != null and start_card.has_method("is_active") and bool(start_card.is_active()):
+			if start_card.has_method("update_physics"):
+				start_card.update_physics(delta)
+			if start_card.has_method("is_active") and bool(start_card.is_active()):
+				_perf_end(perf_logger, "physics.frame.gate.tower_start_card", sample_start)
+				_perf_end(perf_logger, "physics.frame.total", total_start)
+				return
+	_perf_end(perf_logger, "physics.frame.gate.tower_start_card", sample_start)
+
 	sample_start = _perf_begin(perf_logger)
 	if not _call_bool(callbacks, "is_stage_landing_intro_started"):
 		_perf_end(perf_logger, "physics.frame.gate.stage_landing_started", sample_start)

@@ -402,14 +402,15 @@ func _run() -> void:
 	_verify_fallback_matrix()
 	_verify_target_level_path_is_single_shot()
 	_verify_apply_and_single_pick_contract()
-	_verify_failsafe_autoselects_first_enabled_card()
+	_verify_failsafe_autoselects_random_enabled_card()
+	_verify_failsafe_countdown_uses_physics_ticks()
 	_verify_pending_swap_fails_closed()
 	_verify_render_and_localization_contract()
 	await _verify_real_battle_scene_shell_wiring()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(false)
-	_expect(_leg_count == 11, "all eleven start-card S1/S2/S3 smoke legs must execute")
+	_expect(_leg_count == 12, "all twelve start-card S1/S1-b/S2/S3 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
@@ -655,7 +656,7 @@ func _verify_apply_and_single_pick_contract() -> void:
 	_expect(frozen_cards.size() == 3, "selection must preserve all three card slots")
 	for choice in frozen_cards:
 		_expect(not bool(choice.get("enabled", true)), "selection must disable every remaining card")
-	mugong_state.update(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	mugong_state.update_physics(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
 	_expect(mugong_state.is_completed() and not mugong_state.is_active(), "absorb completion must end the phase")
 
 	var chosik_fixture := _build_fixture(_standard_catalog())
@@ -667,30 +668,40 @@ func _verify_apply_and_single_pick_contract() -> void:
 	_expect((chosik_fixture.skill_config as FakeSkillConfig).equipped_skills.has(str(chosik_choice.get("unlocks_skill", ""))), "Chosik choice must equip its unlocked skill")
 
 
-func _verify_failsafe_autoselects_first_enabled_card() -> void:
+func _verify_failsafe_autoselects_random_enabled_card() -> void:
 	_leg_count += 1
 	_expect(
-		TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC >= 180.0,
-		"start-card failsafe must allow at least three minutes for deliberation"
+		is_equal_approx(TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC, 60.0),
+		"start-card failsafe must expire after exactly one minute"
 	)
 	var fixture := _build_fixture(_standard_catalog())
 	var state := TowerStartCardState.new()
 	_expect(state.begin(fixture.owner, fixture.registry), "failsafe fixture must begin")
 	var offered := state.get_card_choices()
 	_expect(offered.size() == 3, "failsafe fixture must expose three cards")
-	var first_enabled_index := -1
+	var enabled_ids: Array[String] = []
 	for index in range(offered.size()):
 		if bool(offered[index].get("enabled", false)):
-			first_enabled_index = index
-			break
-	_expect(first_enabled_index >= 0, "failsafe fixture must have an enabled card")
-	if first_enabled_index < 0:
+			enabled_ids.append(str(offered[index].get("id", "")))
+	_expect(not enabled_ids.is_empty(), "failsafe fixture must have an enabled card")
+	if enabled_ids.is_empty():
 		return
-	var expected_choice: Dictionary = offered[first_enabled_index]
-
-	state.update(TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC)
+	var private_rng := RandomNumberGenerator.new()
+	private_rng.seed = 918273
+	state.set("_failsafe_rng", private_rng)
+	seed(44017)
+	var expected_global_rng_value := randi()
+	seed(44017)
+	_advance_to_failsafe_timeout(state)
+	var actual_global_rng_value := randi()
 	var timeout_status := state.get_status_for_tests()
 	var timeout_result := state.get_selection_result()
+	var picked_id := str(timeout_result.get("picked_perk_id", ""))
+	var picked_index := -1
+	for index in range(offered.size()):
+		if str(offered[index].get("id", "")) == picked_id:
+			picked_index = index
+			break
 	_expect(state.is_active() and not state.is_completed(), "timeout auto-pick must remain visible for the absorption beat")
 	_expect(not state.was_skipped(), "timeout auto-pick must not mark the start card as skipped")
 	_expect(bool(timeout_result.get("accepted", false)), "timeout must produce an accepted acquisition result")
@@ -701,19 +712,20 @@ func _verify_failsafe_autoselects_first_enabled_card() -> void:
 		"timeout result must use the explicit auto-selection reason"
 	)
 	_expect(
-		str(timeout_result.get("picked_perk_id", "")) == str(expected_choice.get("id", ""))
-		and not str(timeout_result.get("picked_perk_id", "")).is_empty(),
-		"timeout must grant the first enabled card instead of an empty result"
+		enabled_ids.has(picked_id) and not picked_id.is_empty(),
+		"timeout must grant one of the enabled cards instead of an empty result"
 	)
+	_expect(actual_global_rng_value == expected_global_rng_value, "failsafe selection must not consume the global/gameplay RNG stream")
 	_expect(
 		float(timeout_status.get("absorb_elapsed_sec", -1.0)) >= 0.0,
 		"timeout auto-pick must play the normal absorption feedback"
 	)
 	var frozen_cards := state.get_card_choices()
 	_expect(
-		bool(frozen_cards[first_enabled_index].get("start_card_selected", false)),
-		"timeout must visibly select the first enabled card"
+		picked_index >= 0 and bool(frozen_cards[picked_index].get("start_card_selected", false)),
+		"timeout must visibly select the randomly chosen enabled card"
 	)
+	var expected_choice: Dictionary = offered[picked_index] if picked_index >= 0 else {}
 	if str(expected_choice.get("start_card_kind", "")) == "mugong":
 		_expect(
 			int((fixture.runtime_state as FakeRuntimeState).runtime_skill_levels.get(str(expected_choice.get("id", "")), 0)) == 2,
@@ -726,14 +738,104 @@ func _verify_failsafe_autoselects_first_enabled_card() -> void:
 		)
 	var recorded: Dictionary = (fixture.flow_owner as FakeFlowOwner).recorded_start_card
 	_expect(
-		str(recorded.get("picked_perk_id", "")) == str(expected_choice.get("id", "")),
+		str(recorded.get("picked_perk_id", "")) == picked_id,
 		"timeout-selected card must persist through the run-progress owner"
 	)
-	state.update(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	state.update_physics(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
 	_expect(
 		state.is_completed() and not state.is_active() and not state.was_skipped(),
 		"timeout absorption completion must release the modal without losing content"
 	)
+
+	var random_picks: Dictionary = {}
+	var first_enabled_id := enabled_ids[0]
+	var same_seed_picks: Array[String] = []
+	for probe_seed in range(1, 17):
+		var probe_fixture := _build_fixture(_standard_catalog())
+		var probe_state := TowerStartCardState.new()
+		_expect(probe_state.begin(probe_fixture.owner, probe_fixture.registry), "randomness probe fixture must begin")
+		var probe_rng := RandomNumberGenerator.new()
+		probe_rng.seed = probe_seed
+		probe_state.set("_failsafe_rng", probe_rng)
+		_advance_to_failsafe_timeout(probe_state)
+		var probe_id := str(probe_state.get_selection_result().get("picked_perk_id", ""))
+		random_picks[probe_id] = true
+		if probe_seed == 7:
+			same_seed_picks.append(probe_id)
+	var repeat_fixture := _build_fixture(_standard_catalog())
+	var repeat_state := TowerStartCardState.new()
+	_expect(repeat_state.begin(repeat_fixture.owner, repeat_fixture.registry), "repeat-seed fixture must begin")
+	var repeat_rng := RandomNumberGenerator.new()
+	repeat_rng.seed = 7
+	repeat_state.set("_failsafe_rng", repeat_rng)
+	_advance_to_failsafe_timeout(repeat_state)
+	same_seed_picks.append(str(repeat_state.get_selection_result().get("picked_perk_id", "")))
+	_expect(random_picks.size() > 1, "fixed-seed probes must select more than one enabled card across seeds")
+	_expect(random_picks.keys().any(func(value: Variant) -> bool: return str(value) != first_enabled_id), "reverse leg: random timeout selection must not stay locked to the first enabled card")
+	_expect(same_seed_picks.size() == 2 and same_seed_picks[0] == same_seed_picks[1], "the private RNG must remain reproducible when a test seed is injected")
+
+	var single_fixture := _build_fixture(_standard_catalog())
+	var single_state := TowerStartCardState.new()
+	_expect(single_state.begin(single_fixture.owner, single_fixture.registry), "single-enabled fixture must begin")
+	var single_cards := single_state.get_card_choices()
+	var only_index := single_cards.size() - 1
+	for index in range(single_cards.size()):
+		single_cards[index]["enabled"] = index == only_index
+	single_state.set("_card_choices", single_cards)
+	_advance_to_failsafe_timeout(single_state)
+	_expect(
+		str(single_state.get_selection_result().get("picked_perk_id", "")) == str(single_cards[only_index].get("id", "")),
+		"one enabled card must always be selected"
+	)
+
+	var zero_fixture := _build_fixture(_standard_catalog())
+	var zero_state := TowerStartCardState.new()
+	_expect(zero_state.begin(zero_fixture.owner, zero_fixture.registry), "zero-enabled fixture must begin")
+	var zero_cards := zero_state.get_card_choices()
+	for index in range(zero_cards.size()):
+		zero_cards[index]["enabled"] = false
+	zero_state.set("_card_choices", zero_cards)
+	_advance_to_failsafe_timeout(zero_state)
+	var zero_result := zero_state.get_selection_result()
+	_expect(zero_state.is_completed() and zero_state.was_skipped(), "zero enabled cards must fail closed without a softlock")
+	_expect(str(zero_result.get("reason", "")) == "start_card_failsafe_auto_select_failed", "zero enabled cards must retain the explicit failsafe failure reason")
+
+
+func _verify_failsafe_countdown_uses_physics_ticks() -> void:
+	_leg_count += 1
+	var physics_ticks_per_second := Engine.physics_ticks_per_second
+	_expect(physics_ticks_per_second == 72, "start-card countdown seal expects the project 72 Hz physics clock")
+	var timeout_ticks := int(TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC * float(physics_ticks_per_second))
+	var countdown_ticks := int(TowerAscentTuning.TEMP_START_CARD_COUNTDOWN_WINDOW_SEC * float(physics_ticks_per_second))
+	_expect(timeout_ticks == 4320, "60-second timeout must equal 4,320 physics ticks at 72 Hz")
+	_expect(countdown_ticks == 720, "10-second countdown window must equal 720 physics ticks at 72 Hz")
+	var fixture := _build_fixture(_standard_catalog())
+	var state := TowerStartCardState.new()
+	_expect(state.begin(fixture.owner, fixture.registry), "countdown fixture must begin")
+	var tick_delta := 1.0 / float(physics_ticks_per_second)
+	var observed_transitions: Array[int] = []
+	var previous_countdown := 0
+	var eleven_second_value := -1
+	for tick_index in range(timeout_ticks):
+		state.update_physics(tick_delta)
+		var countdown := int(state.get_status_for_tests().get("countdown_seconds", 0))
+		if tick_index + 1 == timeout_ticks - countdown_ticks - physics_ticks_per_second:
+			eleven_second_value = countdown
+		if countdown != previous_countdown:
+			if countdown > 0:
+				observed_transitions.append(countdown)
+			previous_countdown = countdown
+	_expect(eleven_second_value == 0, "countdown must remain hidden with 11 seconds left")
+	_expect(observed_transitions == [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "physics countdown must transition through integer 10 to 1 exactly once")
+	_expect(int(state.get_status_for_tests().get("countdown_seconds", -1)) == 0, "zero must never be exposed after the 1-second countdown")
+
+
+func _advance_to_failsafe_timeout(state: Object) -> void:
+	var physics_ticks_per_second := Engine.physics_ticks_per_second
+	var timeout_ticks := int(TowerAscentTuning.TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC * float(physics_ticks_per_second))
+	var tick_delta := 1.0 / float(physics_ticks_per_second)
+	for _tick_index in range(timeout_ticks):
+		state.update_physics(tick_delta)
 
 
 func _verify_pending_swap_fails_closed() -> void:
@@ -754,18 +856,21 @@ func _verify_render_and_localization_contract() -> void:
 	var locales := TowerStartCardLocalization.get_supported_locales()
 	_expect(locales == ["ko", "en", "zh", "ja", "es", "pt-BR", "ru"], "start-card copy must cover the seven supported locales")
 	for locale in locales:
-		for copy_key in ["title", "instruction", "confirmed"]:
+		for copy_key in ["title", "instruction", "random_autoselect_notice", "confirmed"]:
 			_expect(TowerStartCardLocalization.text_for_locale(copy_key, locale) != "", "%s %s copy must not be empty" % [locale, copy_key])
 	_expect(TowerStartCardLocalization.text_for_locale("title", "ko").find("—") < 0, "Korean start-card copy must not use an em dash")
 	_expect(TowerStartCardLocalization.text_for_locale("instruction", "ko").find("—") < 0, "Korean instruction copy must not use an em dash")
+	_expect(TowerStartCardLocalization.text_for_locale("random_autoselect_notice", "ko").find("—") < 0, "Korean random-selection notice must not use an em dash")
 	_expect(TowerStartCardLocalization.text_for_locale("confirmed", "ko").find("—") < 0, "Korean confirmation copy must not use an em dash")
 
 	var fixture := _build_fixture(_standard_catalog())
 	var state := TowerStartCardState.new()
 	_expect(state.begin(fixture.owner, fixture.registry), "render fixture must begin")
-	state.update(TowerAscentTuning.TEMP_START_CARD_INTRO_ANIM_SEC)
+	state.update_physics(TowerAscentTuning.TEMP_START_CARD_INTRO_ANIM_SEC)
 	var view_size := Vector2(2020.0, 1246.0)
 	var view_model := state.build_view_model(view_size)
+	_expect(str(view_model.get("random_autoselect_notice_text", "")) == TowerStartCardLocalization.text("random_autoselect_notice"), "random-selection notice must be visible from the first card frame")
+	_expect(int(view_model.get("countdown_seconds", -1)) == 0, "countdown must remain hidden before the final ten seconds")
 	var rects: Array = view_model.get("card_rects", [])
 	_expect(rects.size() == 3, "start-card view model must expose three card rects")
 	_expect(not view_model.has("stats_band_enabled"), "start-card view model must omit the stats-band contract")
@@ -850,6 +955,8 @@ func _verify_render_and_localization_contract() -> void:
 		_expect(reward_source.find(retained_reward_drawer) >= 0, "reward renderer must retain %s" % retained_reward_drawer)
 	for forbidden_surface in ["reward_pick_price_text", "balance_text", "continue_text", "draw_backdrop("]:
 		_expect(start_source.find(forbidden_surface) < 0, "start-card renderer must omit %s" % forbidden_surface)
+	_expect(start_source.find("random_autoselect_notice_text") >= 0, "start-card footer must draw the random-selection notice")
+	_expect(start_source.find("countdown_seconds") >= 0, "start-card footer must draw the integer countdown")
 
 
 func _verify_real_battle_scene_shell_wiring() -> void:
@@ -922,8 +1029,10 @@ func _verify_real_battle_scene_shell_wiring() -> void:
 	_expect(landing.begin_calls == 0, "landing intro must wait behind the start card")
 
 	shell._process(0.05)
-	_expect(float(start_card.get_status_for_tests().get("elapsed_sec", 0.0)) > 0.0, "real shell idle frames must advance the start card")
+	_expect(float(start_card.get_status_for_tests().get("elapsed_sec", 0.0)) == 0.0, "real shell idle frames must not advance the physics-owned start-card clock")
 	_expect(update_driver.update_calls == 0, "start-card idle frames must not leak into battle update")
+	shell._physics_process(1.0 / float(Engine.physics_ticks_per_second))
+	_expect(int(start_card.get_status_for_tests().get("physics_ticks_elapsed", 0)) == 1, "real shell physics must advance the start-card clock exactly once")
 	shell.queue_redraw()
 	await process_frame
 	_expect(loading.draw_calls == 0, "active start card must preempt the loading renderer")
@@ -948,9 +1057,11 @@ func _verify_real_battle_scene_shell_wiring() -> void:
 
 	loading.hold = true
 	var hold_calls_before_completion := loading.hold_calls
-	shell._process(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
-	_expect(start_card.is_completed() and not start_card.is_active(), "selection absorb must complete through the real shell frame")
-	_expect(flow.is_stage_landing_intro_started(), "the completion frame must continue directly into landing")
+	shell._physics_process(TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	_expect(start_card.is_completed() and not start_card.is_active(), "selection absorb must complete through the real shell physics frame")
+	_expect(not flow.is_stage_landing_intro_started(), "landing must wait for the next idle presentation frame after physics completion")
+	shell._process(0.0)
+	_expect(flow.is_stage_landing_intro_started(), "the first idle frame after completion must continue directly into landing")
 	_expect(bool(flow.get("_battle_bgm_started")) and audio.play_calls == 1, "the existing landing path must start BGM exactly once after completion")
 	_expect(landing.begin_calls == 1, "the existing landing intro must begin on the completion frame")
 	_expect(loading.hold_calls == hold_calls_before_completion, "completion must not re-enter the loading hold")
@@ -1023,10 +1134,35 @@ func _verify_source_contract() -> void:
 	var state_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_start_card_state.gd"
 	)
+	var frame_source := FileAccess.get_file_as_string(
+		"res://scripts/core/battle_scene_frame_controller.gd"
+	)
+	var intro_source := FileAccess.get_file_as_string(
+		"res://scripts/core/battle_scene_intro_frame_controller.gd"
+	)
 	_expect(builder_source.count("get_all_perk_data") == 2, "builder source must contain one call plus one contract comment")
 	_expect(builder_source.find("get_perk_data") < 0, "builder must not repeat per-ID catalog lookups")
 	_expect(builder_source.find("choices.shuffle") < 0, "builder must not use global Array shuffle")
 	_expect(builder_source.find("RandomNumberGenerator.new()") >= 0, "builder must own a private RNG")
+	_expect(state_source.find("var _failsafe_rng := RandomNumberGenerator.new()") >= 0, "failsafe choice must own a private RNG")
+	_expect(state_source.find("_failsafe_rng.randi_range(") >= 0, "failsafe choice must sample only its private RNG")
+	_expect(state_source.find("func _auto_select_first_enabled_card(") < 0, "retired first-enabled auto-selection helper must not survive S1-b")
+	var physics_begin := frame_source.find("func process_physics(")
+	var physics_autoselect_tick := frame_source.find("start_card.update_physics(delta)", physics_begin)
+	var landing_started_gate := frame_source.find("is_stage_landing_intro_started", physics_begin)
+	_expect(
+		physics_begin >= 0
+		and physics_autoselect_tick > physics_begin
+		and landing_started_gate > physics_autoselect_tick,
+		"start-card clock must advance in _physics_process before the pre-intro landing-started gate"
+	)
+	var idle_begin := intro_source.find("func process_idle(")
+	var idle_end := intro_source.find("func draw_intro_or_boot(", idle_begin)
+	_expect(idle_begin >= 0 and idle_end > idle_begin, "intro idle source boundary must remain discoverable")
+	if idle_begin >= 0 and idle_end > idle_begin:
+		var idle_source := intro_source.substr(idle_begin, idle_end - idle_begin)
+		_expect(idle_source.find("start_card.update(") < 0, "start-card deadline must not advance from _process delta")
+		_expect(idle_source.find("start_card.update_physics(") < 0, "start-card physics clock must not be double-ticked from idle")
 	for forbidden_method in [
 		"apply_reward_pick_purchase",
 		"finalize_reward_pick",
