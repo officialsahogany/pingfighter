@@ -409,7 +409,7 @@ func _run() -> void:
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(false)
-	_expect(_leg_count == 10, "all ten start-card S1/S2/S3 smoke legs must execute")
+	_expect(_leg_count == 11, "all eleven start-card S1/S2/S3 smoke legs must execute")
 	if _failures.is_empty():
 		print("tower_start_card_smoke: ok")
 		quit(0)
