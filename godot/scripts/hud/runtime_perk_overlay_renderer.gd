@@ -10,6 +10,7 @@ const CharacterInfoOverlayTooltipPresenter := preload("res://scripts/hud/charact
 const CharacterInfoOverlayState := preload("res://scripts/hud/character_info_overlay_state.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const RuntimePerkTrainingStatPreview := preload("res://scripts/characters/runtime_perk_training_stat_preview.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 const RuntimePerkDescriptionEmphasis := preload("res://scripts/hud/runtime_perk_description_emphasis.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -133,9 +134,12 @@ const TEXT_SIZE_CACHE_LIMIT := 160
 # 수치가 바뀌지 않지만, 어떤 경로로든 값이 갱신되면 늦어도 이 주기 안에는
 # 따라잡도록 안전망을 둔다.
 const STATS_BAND_REBUILD_INTERVAL_MSEC := 500
+const TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC := 800
+const TRAINING_STAT_PREVIEW_VISIBLE_MSEC := 400
 
 var _fallback_font: Font = null
 var _draw_now_msec := 0
+var _draw_time_override_msec := -1
 var _title_text_size := Vector2.ZERO
 var _title_text_line: TextLine = null
 var _title_text_line_font_id := 0
@@ -170,6 +174,9 @@ var _traditional_card_paper_texture: Texture2D = null
 # 여러 개 훑는 비싼 작업이라 시그니처가 바뀔 때만 다시 만들고, 매 프레임에는
 # 프레젠터의 표시 캐시 갱신 + 드로우만 돌린다.
 var _stats_character_runtime: Object = PlayerCharacterRuntime.new()
+var _training_stat_preview: Object = RuntimePerkTrainingStatPreview.new()
+var _training_stat_preview_signature := 0
+var _training_stat_preview_model: Dictionary = {}
 var _stats_rows: Array = []
 var _stats_rows_signature := 0
 var _stats_rows_built_msec := 0
@@ -356,7 +363,7 @@ func draw(
 ) -> void:
 	if canvas == null or runtime_state == null or not runtime_state.has_method("is_choice_active"):
 		return
-	_draw_now_msec = Time.get_ticks_msec()
+	_capture_draw_msec()
 	_prepare_text_caches()
 	if not bool(runtime_state.is_choice_active()):
 		var inactive_start: int = _perf_begin(perf_logger)
@@ -458,7 +465,17 @@ func draw(
 	_draw_status_panel(canvas, runtime_state, snapshot, catalog, _get_rect2(layout.get("panel_rect", Rect2())), icon_renderer, view_size)
 	_perf_end(perf_logger, "hud.perk_overlay.status_panel", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_stats_band(canvas, runtime_state, snapshot, _get_rect2(layout.get("stats_rect", Rect2())), view_size, icon_renderer)
+	_draw_stats_band(
+		canvas,
+		runtime_state,
+		snapshot,
+		_get_rect2(layout.get("stats_rect", Rect2())),
+		view_size,
+		icon_renderer,
+		null,
+		choices,
+		runtime_state.get_card_rects(view_size) if runtime_state.has_method("get_card_rects") else []
+	)
 	_perf_end(perf_logger, "hud.perk_overlay.stats_band", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_pending_hint(canvas, snapshot, _get_vector2(layout.get("hint_pos", Vector2.ZERO)), runtime_state, layout_scale)
@@ -489,7 +506,7 @@ func draw_tower_start_card(
 ) -> void:
 	if canvas == null:
 		return
-	_draw_now_msec = Time.get_ticks_msec()
+	_capture_draw_msec()
 	_prepare_text_caches()
 	var animation_time := float(view_model.get("animation_time", 0.0))
 	var alpha := clampf(
@@ -637,7 +654,7 @@ func draw_tower_node_card(
 ) -> Dictionary:
 	if canvas == null or not rect.has_area():
 		return {}
-	_draw_now_msec = Time.get_ticks_msec()
+	_capture_draw_msec()
 	var text_layout := build_tower_node_card_text_layout(action, rect)
 	var choice: Dictionary = text_layout.get("choice", {})
 	var enabled := bool(action.get("enabled", true))
@@ -851,7 +868,7 @@ func draw_tower_reward_pick(
 ) -> void:
 	if canvas == null:
 		return
-	_draw_now_msec = Time.get_ticks_msec()
+	_capture_draw_msec()
 	_prepare_text_caches()
 	var animation_time := float(view_model.get("animation_time", 0.0))
 	var alpha := clampf(animation_time / 0.18, 0.0, 1.0)
@@ -968,7 +985,9 @@ func draw_tower_reward_pick(
 		_get_rect2(layout.get("stats_rect", Rect2())),
 		view_size,
 		icon_renderer,
-		mouse_pos
+		mouse_pos,
+		choices,
+		rects
 	)
 	var continue_rect := _get_rect2(view_model.get("continue_rect", Rect2()))
 	canvas.draw_rect(continue_rect, Color(0.34, 0.12, 0.08, 0.96 * alpha), true)
@@ -2828,7 +2847,9 @@ func _draw_stats_band(
 	rect: Rect2,
 	view_size: Vector2 = Vector2.ZERO,
 	icon_renderer: Object = null,
-	mouse_pos_override: Variant = null
+	mouse_pos_override: Variant = null,
+	preview_choices: Array = [],
+	preview_card_rects: Array = []
 ) -> void:
 	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 		return
@@ -2878,8 +2899,102 @@ func _draw_stats_band(
 		_stats_hover_data,
 		_stats_hover_row_rects
 	)
+	var training_preview: Dictionary = _resolve_training_stat_preview(
+		runtime_state,
+		snapshot,
+		owner,
+		registry,
+		preview_choices,
+		preview_card_rects,
+		mouse_pos
+	)
+	if (
+		bool(training_preview.get("visible", false))
+		and is_training_stat_preview_visible_at(_get_draw_msec())
+	):
+		CharacterInfoOverlayStatsPresenter.draw_player_stat_preview_segment(
+			canvas,
+			inner,
+			CharacterInfoOverlayState.STAT_ROW_COUNT,
+			int(training_preview.get("row_index", -1)),
+			float(training_preview.get("current_fill_ratio", -1.0)),
+			float(training_preview.get("projected_fill_ratio", -1.0)),
+			CharacterInfoOverlayState.UI_TEXT_SCALE
+		)
 	if not _stats_hover_data.is_empty() and view_size.x > 0.0:
 		_draw_stats_row_tooltip(canvas, registry, font, mouse_pos, view_size, icon_renderer)
+
+
+func _resolve_training_stat_preview(
+	runtime_state: Object,
+	snapshot: Dictionary,
+	owner: Object,
+	registry: Object,
+	choices: Array,
+	card_rects: Array,
+	mouse_pos: Vector2
+) -> Dictionary:
+	var hovered_choice: Dictionary = hovered_training_choice(choices, card_rects, mouse_pos)
+	# GRT-043: the expensive production-row projection is strictly hover-gated.
+	# Retaining a previous cached model is harmless; it is never drawn after the
+	# pointer leaves the card.
+	if hovered_choice.is_empty():
+		return {}
+	var signature := hash([
+		hovered_choice,
+		snapshot.get("runtime_skill_levels", {}),
+		snapshot.get("item_perk_level_bonus", 0),
+		snapshot.get("physique_training", {}),
+		snapshot.get("reward_pick_spent_flags", []),
+		_stats_rows_signature,
+		owner.get_instance_id() if owner != null else 0,
+		registry.get_instance_id() if registry != null else 0,
+	])
+	if signature != _training_stat_preview_signature:
+		_training_stat_preview_signature = signature
+		_training_stat_preview_model = _training_stat_preview.build_preview(
+			runtime_state,
+			hovered_choice,
+			owner,
+			registry,
+			_stats_character_runtime
+		)
+	return _training_stat_preview_model
+
+
+static func hovered_training_choice(
+	choices: Array,
+	card_rects: Array,
+	mouse_pos: Vector2
+) -> Dictionary:
+	for index in range(mini(choices.size(), card_rects.size())):
+		var choice_value: Variant = choices[index]
+		var rect_value: Variant = card_rects[index]
+		if not (choice_value is Dictionary) or not (rect_value is Rect2):
+			continue
+		if not (rect_value as Rect2).has_point(mouse_pos):
+			continue
+		var choice := choice_value as Dictionary
+		if (
+			not bool(choice.get("is_physique_training", false))
+			or bool(choice.get("reward_pick_spent", false))
+			or not bool(choice.get("reward_pick_enabled", true))
+		):
+			return {}
+		return choice
+	return {}
+
+
+static func is_training_stat_preview_visible_at(draw_msec: int) -> bool:
+	return posmod(draw_msec, TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC) < TRAINING_STAT_PREVIEW_VISIBLE_MSEC
+
+
+func set_training_stat_preview_draw_msec_for_tests(draw_msec: int) -> void:
+	_draw_time_override_msec = draw_msec
+
+
+func get_training_stat_preview_build_count_for_tests() -> int:
+	return int(_training_stat_preview.build_count)
 
 
 # 능력치 행 hover 툴팁(설명 + 원인별 증감). 캐릭터 정보창의 툴팁 드로어를 그대로
@@ -3937,7 +4052,17 @@ func _get_font() -> Font:
 	return _fallback_font
 
 
+func _capture_draw_msec() -> void:
+	_draw_now_msec = (
+		_draw_time_override_msec
+		if _draw_time_override_msec >= 0
+		else Time.get_ticks_msec()
+	)
+
+
 func _get_draw_msec() -> int:
+	if _draw_time_override_msec >= 0:
+		return _draw_time_override_msec
 	if _draw_now_msec <= 0:
 		return Time.get_ticks_msec()
 	return _draw_now_msec

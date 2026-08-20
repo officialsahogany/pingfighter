@@ -501,6 +501,19 @@ func _apply_physique_training_choice(choice: Dictionary, owner: Object, registry
 	)
 
 
+func project_next_physique_training_choice(
+	choice: Dictionary,
+	registry: Object,
+	projector: Callable
+) -> Dictionary:
+	return _physique_training_runtime_state.project_next_choice_from_runtime_state(
+		self,
+		choice,
+		registry,
+		projector
+	)
+
+
 func _try_inject_physique_training_offer(
 	_dice_appeared: bool,
 	fusion_appeared: bool = false,

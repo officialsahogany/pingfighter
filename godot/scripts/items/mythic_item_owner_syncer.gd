@@ -530,9 +530,13 @@ func _build_transient_owner_values(runtime: Object, contexts: Dictionary) -> Dic
 	}
 
 
-func sync_fuel_pouch_gauge_max(runtime: Object, owner: Object, constants: Dictionary) -> void:
-	if owner == null:
-		return
+func build_fuel_pouch_gauge_projection(
+	runtime: Object,
+	constants: Dictionary,
+	current_gauge: float = 0.0
+) -> Dictionary:
+	if runtime == null:
+		return {}
 	var base_special_gauge_max: float = float(constants.get("base_special_gauge_max", 500.0))
 	var next_unblessed_max: float = maxf(
 		1.0,
@@ -560,14 +564,28 @@ func sync_fuel_pouch_gauge_max(runtime: Object, owner: Object, constants: Dictio
 			float(runtime_perk_state.get_angel_blessing_special_gauge_max(next_unblessed_max))
 		)
 		next_angel_multiplier = angel_max / next_unblessed_max
-	var current_gauge: float = max(0.0, float(runtime._safe_owner_get(owner, "special_gauge", 0.0)))
-	var resolved: Dictionary = RuntimePerkAngelBlessingGaugeCompositor.resolve_owner_values(
+	return RuntimePerkAngelBlessingGaugeCompositor.resolve_owner_values(
 		float(runtime.synced_special_gauge_unblessed_max),
 		next_unblessed_max,
 		float(runtime.synced_angel_gauge_multiplier),
 		next_angel_multiplier,
+		maxf(0.0, current_gauge)
+	)
+
+
+func sync_fuel_pouch_gauge_max(runtime: Object, owner: Object, constants: Dictionary) -> void:
+	if owner == null:
+		return
+	var current_gauge: float = max(0.0, float(runtime._safe_owner_get(owner, "special_gauge", 0.0)))
+	var resolved: Dictionary = build_fuel_pouch_gauge_projection(
+		runtime,
+		constants,
 		current_gauge
 	)
+	if resolved.is_empty():
+		return
+	var next_unblessed_max: float = float(resolved.get("next_unblessed_max", 1.0))
+	var next_angel_multiplier: float = float(resolved.get("next_angel_multiplier", 1.0))
 	var next_max: float = float(resolved.get("next_max", next_unblessed_max))
 	owner.set("special_gauge", float(resolved.get("next_gauge", minf(current_gauge, next_max))))
 	owner.set("special_gauge_max", next_max)

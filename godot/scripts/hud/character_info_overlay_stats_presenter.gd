@@ -82,7 +82,8 @@ static func build_player_stat_rows(
 	base_active_item_slot_count: int = 3,
 	stat_buff_color: Color = Color.WHITE,
 	stat_debuff_color: Color = Color.WHITE,
-	include_breakdown: bool = true
+	include_breakdown: bool = true,
+	owner_special_gauge_max_override: float = -1.0
 ) -> Array:
 	var character_type: String = character_type_override if character_type_override != "" else CharacterInfoOverlayOwnerState.character_type_from_owner(owner, character_runtime)
 	var runtime_state: Object = runtime_state_override if runtime_state_override != null else CharacterInfoOverlayOwnerState.get_instance(registry, "runtime_perk_state")
@@ -103,7 +104,13 @@ static func build_player_stat_rows(
 	var base_dash_recovery_seconds_value: float = frames_to_seconds(SmasherDashState.DASH_BASE_RECOVERY_FRAMES)
 	var base_dash_cooldown_seconds_value: float = frames_to_seconds(SmasherDashState.DASH_BASE_RECHARGE_FRAMES)
 	var base_item_cooldown_seconds_value: float = float(ActiveItemCatalog.DEFAULT_COOLDOWN_MSEC) / 1000.0
-	var max_gauge: float = effective_max_gauge(max(1.0, float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "special_gauge_max", special_gauge_max))), stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
+	var owner_special_gauge_max: float = max(
+		1.0,
+		float(CharacterInfoOverlayValueUtils.safe_owner_get(owner, "special_gauge_max", special_gauge_max))
+	)
+	if owner_special_gauge_max_override >= 1.0:
+		owner_special_gauge_max = owner_special_gauge_max_override
+	var max_gauge: float = effective_max_gauge(owner_special_gauge_max, stat_sources, Callable(CharacterInfoOverlayOwnerState, "apply_stat_chain"))
 	var move_speed: float = effective_move_speed(
 		character_type,
 		character_runtime,
@@ -779,10 +786,9 @@ static func draw_cached_player_stat_rows(
 		# (2026-07-09 stats redesign; fill/color precomputed at cache refresh).
 		var bar_fill: float = _player_stat_bar_fill_cache[i] if i < _player_stat_bar_fill_cache.size() else -1.0
 		if bar_fill >= 0.0:
-			var bar_left: float = rect.position.x + 186.0 * ui_text_scale
-			var bar_right: float = rect.end.x - value_column_width - 12.0
-			if bar_right - bar_left >= 70.0:
-				_draw_stat_gauge_bar(canvas, Rect2(bar_left, baseline_y - float(row_size) - 2.0, bar_right - bar_left, float(row_size) + 4.0), bar_fill, _player_stat_bar_color_cache[i])
+			var gauge_rect := player_stat_gauge_rect(rect, row_count, i, ui_text_scale)
+			if gauge_rect.size.x >= 70.0:
+				_draw_stat_gauge_bar(canvas, gauge_rect, bar_fill, _player_stat_bar_color_cache[i])
 		_draw_text_xy(canvas, font, value_text, value_right_x - value_width, baseline_y, row_size, value_color, ui_text_scale)
 		if i < _player_stat_tooltip_cache.size() and _player_stat_tooltip_cache[i] != "" and row_rect.has_point(mouse_pos):
 			_fill_hover_data(hover_data, str(label_cache[i]), value_text, _player_stat_tooltip_cache[i], value_color, row_rect)
@@ -809,6 +815,71 @@ static func _draw_stat_gauge_bar(canvas: CanvasItem, bar_rect: Rect2, fill_ratio
 	canvas.draw_line(Vector2(left_x, center_y), Vector2(fill_end_x, center_y), fill_color, 4.0, true)
 	canvas.draw_line(Vector2(left_x, center_y - 1.0), Vector2(fill_end_x, center_y - 1.0), Color(0.92, 0.82, 0.60, 0.18), 1.0, true)
 	CharacterInfoOverlayTextureDrawer.draw_empty_state_diamond(canvas, Vector2(fill_end_x, center_y), 5.2, Color(0.62, 0.43, 0.18, 0.94))
+
+
+static func player_stat_gauge_rect(
+	rect: Rect2,
+	row_count: int,
+	row_index: int,
+	ui_text_scale: float
+) -> Rect2:
+	if row_count <= 0 or row_index < 0 or row_index >= row_count:
+		return Rect2()
+	var start_y: float = rect.position.y + 49.0
+	var available_h: float = max(1.0, rect.end.y - start_y - 8.0)
+	var line_gap: float = min(28.0, available_h / float(max(1, row_count)))
+	var row_size: int = 14 if line_gap < 19.0 else 15 if line_gap < 23.0 else 16
+	line_gap = max(19.0, line_gap)
+	var baseline_y: float = start_y + float(row_index) * line_gap
+	if baseline_y > rect.end.y - 8.0:
+		return Rect2()
+	var value_column_width := clampf(rect.size.x * 0.11, 76.0, 104.0)
+	var bar_left: float = rect.position.x + 186.0 * ui_text_scale
+	var bar_right: float = rect.end.x - value_column_width - 12.0
+	return Rect2(
+		bar_left,
+		baseline_y - float(row_size) - 2.0,
+		maxf(0.0, bar_right - bar_left),
+		float(row_size) + 4.0
+	)
+
+
+# Draw only the predicted interval over the already-rendered current gauge.
+# Geometry comes from the same helper used by draw_cached_player_stat_rows, so
+# the overlay cannot drift to a separate row or scale contract.
+static func draw_player_stat_preview_segment(
+	canvas: CanvasItem,
+	rect: Rect2,
+	row_count: int,
+	row_index: int,
+	current_fill_ratio: float,
+	projected_fill_ratio: float,
+	ui_text_scale: float
+) -> bool:
+	if canvas == null:
+		return false
+	var gauge_rect := player_stat_gauge_rect(rect, row_count, row_index, ui_text_scale)
+	if gauge_rect.size.x < 70.0:
+		return false
+	var center_y := gauge_rect.get_center().y
+	var left_x := gauge_rect.position.x + 5.0
+	var right_x := gauge_rect.end.x - 5.0
+	var current_x := lerpf(left_x, right_x, clampf(current_fill_ratio, 0.0, 1.0))
+	var projected_x := lerpf(left_x, right_x, clampf(projected_fill_ratio, 0.0, 1.0))
+	if projected_x <= current_x + 0.5:
+		return false
+	var glow_color := Color(0.23, 0.78, 0.82, 0.28)
+	var segment_color := Color(0.12, 0.68, 0.76, 0.98)
+	canvas.draw_line(Vector2(current_x, center_y), Vector2(projected_x, center_y), glow_color, 8.0, true)
+	canvas.draw_line(Vector2(current_x, center_y), Vector2(projected_x, center_y), segment_color, 4.0, true)
+	canvas.draw_line(Vector2(current_x, center_y - 1.0), Vector2(projected_x, center_y - 1.0), Color(0.80, 1.0, 0.96, 0.72), 1.0, true)
+	CharacterInfoOverlayTextureDrawer.draw_empty_state_diamond(
+		canvas,
+		Vector2(projected_x, center_y),
+		5.8,
+		Color(0.22, 0.83, 0.84, 0.98)
+	)
+	return true
 
 
 static func draw_lingpet_stat_rows(
@@ -1045,6 +1116,18 @@ static func stat_bar_fill_ratio(base_value: float, current_value: float, higher_
 	var rel: float = current_value / safe_base
 	var ratio: float = rel * 0.5 if higher_is_better else (2.0 - rel) * 0.5
 	return clampf(ratio, 0.04, 1.0)
+
+
+static func player_stat_row_fill_ratio(row: Dictionary) -> float:
+	if row.has("bar_fill_ratio"):
+		return clampf(float(row.get("bar_fill_ratio", 0.0)), 0.0, 1.0)
+	if row.has("base") and row.has("current"):
+		return stat_bar_fill_ratio(
+			float(row.get("base", 0.0)),
+			float(row.get("current", 0.0)),
+			bool(row.get("higher_is_better", true))
+		)
+	return -1.0
 
 
 # Tooltip breakdown line: current value vs base, signed delta, and whether the

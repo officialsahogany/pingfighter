@@ -123,6 +123,56 @@ func apply_choice_from_runtime_state(
 	return true
 
 
+# Read-only one-acquisition projection. The speculative state uses the same
+# PhysiqueTrainingState.commit path as the real choice apply; only its resulting
+# raw bonus is exposed through the existing consumer-probe seam while the
+# caller rebuilds the production stat row. The live training state and owner
+# are never mutated.
+func project_next_choice_from_runtime_state(
+	runtime_state: Object,
+	choice: Dictionary,
+	registry: Object,
+	projector: Callable
+) -> Dictionary:
+	if (
+		runtime_state == null
+		or not PerkConversionFlags.is_enabled()
+		or not bool(choice.get("is_physique_training", false))
+		or not projector.is_valid()
+	):
+		return {"accepted": false, "reason": "invalid_request"}
+	var training_id := str(choice.get("id", "")).strip_edges()
+	var stat_key := str(_catalog.get_stat_key(training_id)).strip_edges()
+	if stat_key == "":
+		return {"accepted": false, "reason": "missing_stat_key"}
+	if is_saturated_from_runtime_state(runtime_state, training_id, registry):
+		return {"accepted": false, "reason": "saturated", "stat_key": stat_key}
+	var projected_state: Object = PhysiqueTrainingState.new()
+	projected_state.restore(_state.get_snapshot(), _catalog)
+	var commit_result: Dictionary = projected_state.commit(training_id, _catalog)
+	if not bool(commit_result.get("accepted", false)):
+		return {
+			"accepted": false,
+			"reason": str(commit_result.get("reason", "commit_rejected")),
+			"stat_key": stat_key,
+		}
+	var had_previous_override := _bonus_probe_override.has(stat_key)
+	var previous_override: Variant = _bonus_probe_override.get(stat_key)
+	_bonus_probe_override[stat_key] = float(projected_state.get_bonus(stat_key, _catalog))
+	var projection: Variant = projector.call()
+	if had_previous_override:
+		_bonus_probe_override[stat_key] = previous_override
+	else:
+		_bonus_probe_override.erase(stat_key)
+	return {
+		"accepted": true,
+		"reason": "projected",
+		"training_id": training_id,
+		"stat_key": stat_key,
+		"projection": projection,
+	}
+
+
 func try_inject_offer_from_runtime_state(
 	runtime_state: Object,
 	_dice_appeared: bool,
