@@ -9,7 +9,10 @@ const LIQUID_BAND_STEP_LOD := 12.0
 const LIQUID_MAX_BUBBLES := 2
 const LIQUID_WAVE_GLOW_WIDTH := 1.4
 const LIQUID_POLYGON_MAX_POINTS := 260
-const LIQUID_ANIMATION_SPEED := 0.45
+# Surface cadence, tuned to the PingFighter reference the orb is ported from
+# (primary ripple ~3.0 rad/s there, 2.55 * this here). This is a wall-clock
+# rate, not a vertex budget: it costs no extra samples or draw calls.
+const LIQUID_ANIMATION_SPEED := 1.0
 const LIQUID_EDGE_SEARCH_STEPS := 8
 const LIQUID_SURFACE_GLOW_MIN_HEIGHT := 2.0
 const LIQUID_STABLE_FULL_THRESHOLD := 0.999

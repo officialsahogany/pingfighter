@@ -465,7 +465,10 @@ func _verify_stage1_status_orb_base_render_budgets() -> void:
 	_expect(PillarLiquidDrawer.LIQUID_SURFACE_STEP <= 1.5, "Stage 1 status-orb liquid fill should keep high-quality surface sampling")
 	_expect(PillarLiquidDrawer.LIQUID_SURFACE_STEP_LOD >= 4.0, "Stage 1 status-orb liquid fill should still widen surface sampling under HUD LOD")
 	_expect(PillarLiquidDrawer.LIQUID_POLYGON_MAX_POINTS <= 260, "Stage 1 status-orb liquid fill should keep a bounded polygon vertex budget")
-	_expect(PillarLiquidDrawer.LIQUID_ANIMATION_SPEED <= 0.5, "Stage 1 status-orb liquid fill should keep a calm animation cadence")
+	# Cadence is a wall-clock rate, not a vertex budget: it adds no samples or
+	# draw calls. Bounded here only so the surface cannot become a strobe; the
+	# value tracks the PingFighter reference ripple this orb was ported from.
+	_expect(PillarLiquidDrawer.LIQUID_ANIMATION_SPEED <= 1.1, "Stage 1 status-orb liquid fill should keep a readable, non-strobing surface cadence")
 	_expect(PillarLiquidDrawer.LIQUID_EDGE_SEARCH_STEPS <= 8, "Stage 1 status-orb liquid fill should keep bounded circular-edge search work")
 	_expect(PillarLiquidDrawer.LIQUID_SURFACE_GLOW_MIN_HEIGHT >= 2.0, "Stage 1 status-orb liquid surface glow should avoid drawing edge-closing seams")
 	_expect(PillarLiquidDrawer.LIQUID_BAND_STEP_LOD >= 12.0, "Stage 1 status-orb liquid fill bands should keep a coarse LOD step")
