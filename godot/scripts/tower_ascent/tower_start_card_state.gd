@@ -15,6 +15,9 @@ const TowerStartCardLocalization := preload(
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
+const TowerCardAbsorptionTargetResolver := preload(
+	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
+)
 
 var _offer_builder: Object = TowerStartCardOfferBuilder.new()
 var _owner: Object = null
@@ -24,6 +27,7 @@ var _flow_owner: Object = null
 var _catalog: Object = null
 var _card_renderer: Object = null
 var _icon_renderer: Object = null
+var _chosik_tooltip_renderer: Object = null
 var _active := false
 var _completed := false
 var _skipped := false
@@ -42,6 +46,7 @@ var _current_perk_slot_status: Dictionary = {}
 var _layout: Object = RuntimePerkChoiceLayout.new()
 var _stats_owner: Object = null
 var _stats_registry: Object = null
+var _absorption_target_resolver: Object = TowerCardAbsorptionTargetResolver.new()
 
 
 func begin(owner: Object, registry: Object) -> bool:
@@ -58,6 +63,7 @@ func begin(owner: Object, registry: Object) -> bool:
 	_catalog = _get_registry_instance(registry, "runtime_perk_catalog")
 	_card_renderer = _get_registry_instance(registry, "runtime_perk_overlay_renderer")
 	_icon_renderer = _get_registry_instance(registry, "runtime_perk_icon_renderer")
+	_chosik_tooltip_renderer = _get_registry_instance(registry, "smasher_skill_orb_tooltip_renderer")
 	_flow_owner = _get_registry_instance(registry, "tower_ascent_flow_owner")
 	var run_id := ""
 	if _flow_owner != null and _flow_owner.has_method("get_run_id"):
@@ -277,17 +283,54 @@ func draw(
 
 func build_view_model(view_size: Vector2) -> Dictionary:
 	var layout := _build_layout(view_size)
+	var model_choices := _card_choices.duplicate(true)
+	var absorption_effect := _build_absorption_view_model(view_size)
+	if not absorption_effect.is_empty() and _selected_index >= 0 and _selected_index < model_choices.size():
+		model_choices[_selected_index]["start_card_absorbing"] = true
 	return {
 		"title": TowerStartCardLocalization.text("title"),
 		"status_text": _status_text,
-		"choices": _card_choices.duplicate(true),
+		"choices": model_choices,
 		"selected_index": _selected_index,
 		"animation_time": _elapsed_sec,
 		"absorb_elapsed_sec": _absorb_elapsed_sec,
 		"absorb_duration_sec": TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC,
+		"absorption_effect": absorption_effect,
 		"layout": layout,
 		"card_rects": get_card_rects(view_size),
 		"start_card_session_id": _session_id,
+		"chosik_tooltip_context": _build_chosik_tooltip_context(),
+	}
+
+
+func _build_absorption_view_model(view_size: Vector2) -> Dictionary:
+	if (
+		_absorb_elapsed_sec < 0.0
+		or _selected_index < 0
+		or _selected_index >= _card_choices.size()
+		or _absorption_target_resolver == null
+		or not _absorption_target_resolver.has_method("resolve_target")
+	):
+		return {}
+	var target_value: Variant = _absorption_target_resolver.call(
+		"resolve_target",
+		_card_choices[_selected_index],
+		_owner,
+		_registry,
+		view_size
+	)
+	if not (target_value is Dictionary):
+		return {}
+	var target := target_value as Dictionary
+	if not (target.get("target_pos", null) is Vector2):
+		return {}
+	var duration := maxf(0.001, TowerAscentTuning.TEMP_START_CARD_ABSORB_DURATION_SEC)
+	return {
+		"slot_index": _selected_index,
+		"progress": clampf(_absorb_elapsed_sec / duration, 0.0, 1.0),
+		"target_pos": target.get("target_pos", Vector2.ZERO),
+		"target_slot_index": int(target.get("slot_index", -1)),
+		"destination_kind": str(target.get("destination_kind", "")),
 	}
 
 
@@ -375,6 +418,7 @@ func tear_down() -> void:
 	_catalog = null
 	_card_renderer = null
 	_icon_renderer = null
+	_chosik_tooltip_renderer = null
 	_active = false
 	_completed = false
 	_skipped = false
@@ -580,3 +624,23 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 			if value is Object and value != null:
 				return value as Object
 	return null
+
+
+func _build_chosik_tooltip_context() -> Dictionary:
+	if _chosik_tooltip_renderer == null or _registry == null:
+		return {}
+	return {
+		"renderer": _chosik_tooltip_renderer,
+		"registry": _registry,
+		"scene_context": {
+			"selected_character_type": str(_get_owner_value(_owner, "selected_character_type", "smasher")),
+			"special_gauge": float(_get_owner_value(_owner, "special_gauge", 0.0)),
+		},
+	}
+
+
+func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	return fallback if value == null else value

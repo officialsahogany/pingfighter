@@ -11,6 +11,7 @@ const CharacterInfoOverlayState := preload("res://scripts/hud/character_info_ove
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
+const RuntimePerkDescriptionEmphasis := preload("res://scripts/hud/runtime_perk_description_emphasis.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const TutorialHintKeycapRenderer := preload("res://scripts/hud/tutorial_hint_keycap_renderer.gd")
 const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_roll_overlay_host.gd")
@@ -56,6 +57,11 @@ const CARD_MEDALLION_RIM_PAD := 5.0
 # 이름판 상단 비율. _draw_card의 그리기와 메달리온 밴드 계산이 같은 값을 읽는다.
 const CARD_NAMEPLATE_TOP_RATIO := 0.386
 const CARD_NAMEPLATE_HEIGHT_RATIO := 0.092
+# S3 reuses the two colors that previously painted the entire numeric-effect line
+# and the friendly body line. Only their ownership changes: body stays dark ink,
+# numeric/time/multiplier segments receive the existing warm-brown accent.
+const CARD_DESCRIPTION_BODY_COLOR := Color(50.0 / 255.0, 42.0 / 255.0, 34.0 / 255.0)
+const CARD_DESCRIPTION_EMPHASIS_COLOR := Color(96.0 / 255.0, 55.0 / 255.0, 26.0 / 255.0)
 # 메달리온이 앉을 수 있는 세로 밴드 = [종이 상단 + 위 여백, 이름판 상단 - 아래 여백].
 # 카드 높이 390 -> 316 축소(2026-08-06) 뒤 비율식 반지름(0.315 * h * 0.56 + 5)이
 # 밴드보다 커져 바깥 링이 상단 황동 테두리를 파고들고(라이브 1.32배율에서 종이면
@@ -475,7 +481,7 @@ func draw_tower_start_card(
 	icon_renderer: Object,
 	view_size: Vector2,
 	_snapshot: Dictionary,
-	_mouse_pos: Vector2
+	mouse_pos: Vector2
 ) -> void:
 	if canvas == null:
 		return
@@ -512,6 +518,7 @@ func draw_tower_start_card(
 		float(view_model.get("absorb_duration_sec", 1.0))
 	)
 	var absorb_progress := clampf(absorb_elapsed / absorb_duration, 0.0, 1.0)
+	var absorption: Dictionary = _get_dict(view_model.get("absorption_effect", {}))
 	for index in range(mini(choices.size(), rects.size())):
 		if not (choices[index] is Dictionary) or not (rects[index] is Rect2):
 			continue
@@ -519,6 +526,20 @@ func draw_tower_start_card(
 		var rect := rects[index] as Rect2
 		var selected := index == selected_index
 		var was_selected := bool(choice.get("start_card_selected", false))
+		if was_selected and absorb_elapsed >= 0.0 and not absorption.is_empty():
+			var animated_rect := _build_tower_reward_absorbing_rect(rect, absorption)
+			_draw_tower_reward_absorption(canvas, rect, absorption)
+			_draw_card(
+				canvas,
+				choice,
+				animated_rect,
+				false,
+				1.0,
+				icon_renderer,
+				_choice_visual_blend(index),
+				index
+			)
+			continue
 		if was_selected and absorb_elapsed >= 0.0:
 			var pulse := sin(absorb_progress * PI)
 			canvas.draw_rect(
@@ -554,6 +575,7 @@ func draw_tower_start_card(
 		clampi(int(round(16.0 * layout_scale)), 13, 21),
 		Color(0.91, 0.86, 0.72, alpha)
 	)
+	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, mouse_pos)
 
 
 func draw_tower_reward_pick(
@@ -708,6 +730,56 @@ func draw_tower_reward_pick(
 		14,
 		Color(0.82, 0.80, 0.72, alpha)
 	)
+	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, mouse_pos)
+
+
+func _draw_hovered_tower_chosik_tooltip(
+	canvas: CanvasItem,
+	view_model: Dictionary,
+	view_size: Vector2,
+	mouse_pos: Vector2
+) -> void:
+	var tooltip_context := _get_dict(view_model.get("chosik_tooltip_context", {}))
+	var tooltip_renderer: Object = tooltip_context.get("renderer", null)
+	var registry: Object = tooltip_context.get("registry", null)
+	if (
+		canvas == null
+		or tooltip_renderer == null
+		or registry == null
+		or not tooltip_renderer.has_method("draw_card_tooltip")
+	):
+		return
+	var choices := _get_array(view_model.get("choices", []))
+	var rects := _get_array(view_model.get("card_rects", []))
+	var avoid_rects: Array[Rect2] = []
+	for value in rects:
+		if value is Rect2:
+			avoid_rects.append(value as Rect2)
+	for index in range(mini(choices.size(), rects.size())):
+		if not (choices[index] is Dictionary) or not (rects[index] is Rect2):
+			continue
+		var choice := choices[index] as Dictionary
+		var card_rect := rects[index] as Rect2
+		if not card_rect.has_point(mouse_pos):
+			continue
+		if (
+			bool(choice.get("reward_pick_spent", false))
+			or bool(choice.get("reward_pick_absorbing", false))
+			or bool(choice.get("start_card_absorbing", false))
+		):
+			return
+		tooltip_renderer.call(
+			"draw_card_tooltip",
+			canvas,
+			registry,
+			view_size,
+			_get_dict(tooltip_context.get("scene_context", {})),
+			choice,
+			card_rect,
+			avoid_rects,
+			mouse_pos
+		)
+		return
 
 
 func build_tower_reward_balance_rows(
@@ -1969,10 +2041,10 @@ func _draw_per_card_descriptions(canvas: CanvasItem, runtime_state: Object, choi
 	var desc_rect: Rect2 = _get_rect2(layout.get("desc_rect", Rect2()))
 	if card_size.x <= 0.0 or desc_rect.size.y <= 0.0:
 		return
-	_ensure_card_desc_cache(choices, card_size.x, runtime_state)
+	_ensure_card_desc_cache(choices, card_size.x, runtime_state, desc_rect.size.y)
 	for i in range(min(choices.size(), _card_desc_cache.size())):
 		var choice: Dictionary = _get_dict(choices[i])
-		if bool(choice.get("reward_pick_spent", false)):
+		if bool(choice.get("reward_pick_spent", false)) or bool(choice.get("start_card_absorbing", false)):
 			continue
 		var col_x: float = cards_start.x + float(i) * (card_size.x + card_gap)
 		var block := Rect2(Vector2(col_x, desc_rect.position.y), Vector2(card_size.x, desc_rect.size.y))
@@ -1983,6 +2055,8 @@ func _draw_card_description_block(canvas: CanvasItem, choice: Dictionary, cached
 	var icon_color: Color = _get_color(choice.get("icon_color", Color.WHITE))
 	var accent_lines: Array = _get_array(cached.get("accent_lines", []))
 	var body_lines: Array = _get_array(cached.get("body_lines", []))
+	var accent_segment_lines: Array = _get_array(cached.get("accent_segment_lines", []))
+	var body_segment_lines: Array = _get_array(cached.get("body_segment_lines", []))
 	var font_size: int = int(cached.get("font_size", 14))
 	var line_h: float = float(font_size + 4)
 	var box := Rect2(rect.position + Vector2(14.0, 3.0), rect.size - Vector2(28.0, 6.0))
@@ -1996,16 +2070,52 @@ func _draw_card_description_block(canvas: CanvasItem, choice: Dictionary, cached
 	var text_x: float = box.position.x + 8.0
 	var y: float = box.position.y + float(font_size) + 8.0
 
-	for line in accent_lines:
-		_draw_text(canvas, str(line), Vector2(text_x, y), font_size, Color(96.0 / 255.0, 55.0 / 255.0, 26.0 / 255.0, alpha))
+	var body_color := Color(CARD_DESCRIPTION_BODY_COLOR.r, CARD_DESCRIPTION_BODY_COLOR.g, CARD_DESCRIPTION_BODY_COLOR.b, 0.96 * alpha)
+	var emphasis_color := Color(CARD_DESCRIPTION_EMPHASIS_COLOR.r, CARD_DESCRIPTION_EMPHASIS_COLOR.g, CARD_DESCRIPTION_EMPHASIS_COLOR.b, alpha)
+	for line_index in range(accent_lines.size()):
+		var segments: Array = (
+			_get_array(accent_segment_lines[line_index])
+			if line_index < accent_segment_lines.size()
+			else RuntimePerkDescriptionEmphasis.split_segments(str(accent_lines[line_index]))
+		)
+		_draw_card_description_segments(canvas, segments, Vector2(text_x, y), font_size, body_color, emphasis_color)
 		y += line_h
 
 	if not body_lines.is_empty():
 		if not accent_lines.is_empty():
 			y += 2.0
-		for line in body_lines:
-			_draw_text(canvas, str(line), Vector2(text_x, y), font_size, Color(50.0 / 255.0, 42.0 / 255.0, 34.0 / 255.0, 0.96 * alpha))
+		for line_index in range(body_lines.size()):
+			var segments: Array = (
+				_get_array(body_segment_lines[line_index])
+				if line_index < body_segment_lines.size()
+				else RuntimePerkDescriptionEmphasis.split_segments(str(body_lines[line_index]))
+			)
+			_draw_card_description_segments(canvas, segments, Vector2(text_x, y), font_size, body_color, emphasis_color)
 			y += line_h
+
+
+func _draw_card_description_segments(
+	canvas: CanvasItem,
+	segments: Array,
+	baseline: Vector2,
+	font_size: int,
+	body_color: Color,
+	emphasis_color: Color
+) -> void:
+	var font := _get_font()
+	if font == null:
+		return
+	var x := baseline.x
+	for segment_value in segments:
+		if not (segment_value is Dictionary):
+			continue
+		var segment := segment_value as Dictionary
+		var text := str(segment.get("text", ""))
+		if text == "":
+			continue
+		var color := emphasis_color if bool(segment.get("emphasized", false)) else body_color
+		canvas.draw_string(font, Vector2(x, baseline.y), text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
+		x += _get_text_size(font, text, font_size).x
 
 
 # Rebuilds the wrapped description lines only when the choice set or card width
@@ -2019,27 +2129,41 @@ func _draw_card_description_block(canvas: CanvasItem, choice: Dictionary, cached
 #    because their `description` just restates the card name ("빙혼비격 초식 비급").
 #  - body = the friendly `detail` sentence. Falls back to `description` when `detail`
 #    is absent or collapses to the same text (the non-Korean locale summary case).
-func _ensure_card_desc_cache(choices: Array, card_width: float, runtime_state: Object = null) -> void:
-	var signature: int = hash([hash(choices), int(round(card_width)), _perk_polish_cache_signature(runtime_state)])
+func _ensure_card_desc_cache(
+	choices: Array,
+	card_width: float,
+	runtime_state: Object = null,
+	description_height: float = -1.0
+) -> void:
+	var signature: int = hash([
+		hash(choices),
+		int(round(card_width)),
+		int(round(description_height)),
+		_perk_polish_cache_signature(runtime_state),
+	])
 	if signature == _card_desc_cache_signature and not _card_desc_cache.is_empty():
 		return
 	_card_desc_cache_signature = signature
 	_card_desc_cache = []
 	var inner_width: float = max(20.0, card_width - 44.0)
 	var compact_many_cards: bool = choices.size() >= 5 and card_width < 160.0
-	var minimum_font_size := 10 if compact_many_cards else 12
+	# S2 keeps the normal 18px target, but a single exhaustive mechanics card
+	# (사독귀일) needs the established compact-card 10px floor to retain every row.
+	# The catalog seal records which entries reach this floor across all locales.
+	var minimum_font_size := 10
 	var description_font_size: int = clampi(int(round(card_width / 16.4)), minimum_font_size, 18)
-	var body_line_limit := 2 if compact_many_cards else 3
+	var legacy_body_line_limit := 2 if compact_many_cards else 3
 	for choice_value in choices:
 		var choice: Dictionary = _get_dict(choice_value)
 		var description := str(choice.get("description", ""))
+		description = LanguageSettings.translate_text(description)
 		description = RuntimePerkOverflowDescriptions.append_polish_delta(
 			description,
 			str(choice.get("id", "")),
 			int(choice.get("next_level", choice.get("level", 1))),
 			runtime_state
 		)
-		var detail := str(choice.get("detail", ""))
+		var detail := LanguageSettings.translate_text(str(choice.get("detail", "")))
 		var has_distinct_detail: bool = detail != "" and detail.strip_edges() != description.strip_edges()
 		# Training has no Mugong level by contract, but its repeatable stat delta is
 		# still the primary card information and must retain the numeric accent.
@@ -2053,11 +2177,94 @@ func _ensure_card_desc_cache(choices: Array, card_width: float, runtime_state: O
 			body_text = detail
 		else:
 			body_text = description
+		var fitted: Dictionary = _fit_card_description_text(
+			accent_text,
+			body_text,
+			description_font_size,
+			minimum_font_size,
+			inner_width,
+			description_height,
+			legacy_body_line_limit
+		)
+		var accent_wrap: Dictionary = fitted.get("accent_wrap", _empty_wrap_result())
+		var body_wrap: Dictionary = fitted.get("body_wrap", _empty_wrap_result())
 		_card_desc_cache.append({
-			"font_size": description_font_size,
-			"accent_lines": _wrap_text_px(accent_text, description_font_size, inner_width, 2) if accent_text != "" else [],
-			"body_lines": _wrap_text_px(body_text, description_font_size, inner_width, body_line_limit),
+			"font_size": int(fitted.get("font_size", description_font_size)),
+			"accent_lines": accent_wrap.get("lines", []),
+			"body_lines": body_wrap.get("lines", []),
+			"accent_segment_lines": RuntimePerkDescriptionEmphasis.split_lines(accent_wrap.get("lines", [])),
+			"body_segment_lines": RuntimePerkDescriptionEmphasis.split_lines(body_wrap.get("lines", [])),
+			"source_line_count": int(accent_wrap.get("source_line_count", 0)) + int(body_wrap.get("source_line_count", 0)),
+			"appended_line_count": int(accent_wrap.get("appended_line_count", 0)) + int(body_wrap.get("appended_line_count", 0)),
+			"discarded_line_count": int(accent_wrap.get("discarded_line_count", 0)) + int(body_wrap.get("discarded_line_count", 0)),
+			"discarded_character_count": int(accent_wrap.get("discarded_character_count", 0)) + int(body_wrap.get("discarded_character_count", 0)),
+			"required_text_height": float(fitted.get("required_text_height", 0.0)),
+			"available_text_height": float(fitted.get("available_text_height", 0.0)),
+			"fits_height": bool(fitted.get("fits_height", true)),
 		})
+
+
+func _fit_card_description_text(
+	accent_text: String,
+	body_text: String,
+	preferred_font_size: int,
+	minimum_font_size: int,
+	inner_width: float,
+	description_height: float,
+	legacy_body_line_limit: int
+) -> Dictionary:
+	# Direct helper callers predating S2 do not know the layout rect. Preserve their
+	# explicit max-line contract; the production start/reward path always passes it.
+	if description_height <= 0.0:
+		var legacy_accent := _wrap_text_px_with_budget(accent_text, preferred_font_size, inner_width, 2) if accent_text != "" else _empty_wrap_result()
+		var legacy_body := _wrap_text_px_with_budget(body_text, preferred_font_size, inner_width, legacy_body_line_limit)
+		return {
+			"font_size": preferred_font_size,
+			"accent_wrap": legacy_accent,
+			"body_wrap": legacy_body,
+			"required_text_height": _description_text_height(preferred_font_size, legacy_accent, legacy_body),
+			"available_text_height": INF,
+			"fits_height": true,
+		}
+	var available_text_height := maxf(0.0, description_height - 6.0)
+	for candidate_font_size in range(preferred_font_size, minimum_font_size - 1, -1):
+		var accent_wrap := _wrap_text_px_with_budget(accent_text, candidate_font_size, inner_width, 10000) if accent_text != "" else _empty_wrap_result()
+		var body_wrap := _wrap_text_px_with_budget(body_text, candidate_font_size, inner_width, 10000)
+		var required_text_height := _description_text_height(candidate_font_size, accent_wrap, body_wrap)
+		if required_text_height <= available_text_height:
+			return {
+				"font_size": candidate_font_size,
+				"accent_wrap": accent_wrap,
+				"body_wrap": body_wrap,
+				"required_text_height": required_text_height,
+				"available_text_height": available_text_height,
+				"fits_height": true,
+			}
+	# Keep the full wrapped copy in the cache even when authored text cannot fit at
+	# the readability floor. The structural seal will fail on fits_height instead
+	# of allowing a silent ellipsis to turn the layout RED into a visual GREEN.
+	var floor_accent := _wrap_text_px_with_budget(accent_text, minimum_font_size, inner_width, 10000) if accent_text != "" else _empty_wrap_result()
+	var floor_body := _wrap_text_px_with_budget(body_text, minimum_font_size, inner_width, 10000)
+	return {
+		"font_size": minimum_font_size,
+		"accent_wrap": floor_accent,
+		"body_wrap": floor_body,
+		"required_text_height": _description_text_height(minimum_font_size, floor_accent, floor_body),
+		"available_text_height": available_text_height,
+		"fits_height": false,
+	}
+
+
+func _description_text_height(font_size: int, accent_wrap: Dictionary, body_wrap: Dictionary) -> float:
+	var accent_count := int(accent_wrap.get("appended_line_count", 0))
+	var body_count := int(body_wrap.get("appended_line_count", 0))
+	if accent_count + body_count <= 0:
+		return 0.0
+	return (
+		float(font_size + 8)
+		+ float(accent_count + body_count) * float(font_size + 4)
+		+ (2.0 if accent_count > 0 and body_count > 0 else 0.0)
+	)
 
 
 func _perk_polish_cache_signature(runtime_state: Object) -> int:
@@ -2073,15 +2280,63 @@ func _perk_polish_cache_signature(runtime_state: Object) -> int:
 # Width-aware word wrap (the plain _wrap_text is char-count based and would overflow
 # the narrow per-card columns). Measures with the cached font metrics.
 func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) -> Array:
+	return _wrap_text_px_with_budget(text, font_size, max_px, max_lines).get("lines", [])
+
+
+# GRT-021: description rows used to disappear silently at max_lines. Keep the
+# production result and its source/appended/discarded counts together so seals
+# can assert the rows that the drawer will actually receive.
+func _wrap_text_px_with_budget(text: String, font_size: int, max_px: float, max_lines: int) -> Dictionary:
 	var font: Font = _get_font()
 	if font == null or text == "" or max_lines <= 0 or max_px <= 4.0:
-		return []
+		return _empty_wrap_result()
+	var source_lines: Array = _wrap_text_px_all(font, text, font_size, max_px)
+	var appended_lines: Array = source_lines.slice(0, mini(max_lines, source_lines.size()))
+	var discarded_line_count: int = maxi(0, source_lines.size() - appended_lines.size())
+	var discarded_character_count := 0
+	if discarded_line_count > 0:
+		for line_index in range(appended_lines.size(), source_lines.size()):
+			discarded_character_count += str(source_lines[line_index]).length()
+		if not appended_lines.is_empty():
+			var unclipped_last := str(appended_lines[appended_lines.size() - 1])
+			var clipped_last := _append_clip_ellipsis(font, unclipped_last, font_size, max_px)
+			discarded_character_count += maxi(0, unclipped_last.length() - maxi(0, clipped_last.length() - 3))
+			appended_lines[appended_lines.size() - 1] = clipped_last
+	return {
+		"lines": appended_lines,
+		"source_line_count": source_lines.size(),
+		"appended_line_count": appended_lines.size(),
+		"discarded_line_count": discarded_line_count,
+		"discarded_character_count": discarded_character_count,
+	}
+
+
+func _empty_wrap_result() -> Dictionary:
+	return {
+		"lines": [],
+		"source_line_count": 0,
+		"appended_line_count": 0,
+		"discarded_line_count": 0,
+		"discarded_character_count": 0,
+	}
+
+
+func _wrap_text_px_all(font: Font, text: String, font_size: int, max_px: float) -> Array:
+	var lines: Array = []
+	var normalized_text := text.replace("\r\n", "\n").replace("\r", "\n")
+	for paragraph_value in normalized_text.split("\n", true):
+		var paragraph := str(paragraph_value)
+		if paragraph == "":
+			lines.append("")
+			continue
+		lines.append_array(_wrap_text_px_paragraph(font, paragraph, font_size, max_px))
+	return lines
+
+
+func _wrap_text_px_paragraph(font: Font, text: String, font_size: int, max_px: float) -> Array:
 	var lines: Array = []
 	var current := ""
-	var truncated := false
 	for word in text.split(" ", false):
-		if truncated:
-			break
 		# A single token wider than the column -- a long word, or a space-less CJK run
 		# (Korean/Japanese/Chinese text often has no break spaces at all) -- must be split
 		# at the character level, or it overflows the card. Flush the pending line first.
@@ -2089,16 +2344,9 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 			if current != "":
 				lines.append(current)
 				current = ""
-				if lines.size() >= max_lines:
-					truncated = true
-					break
 			for ch in word:
 				if current != "" and _get_text_size(font, current + ch, font_size).x > max_px:
 					lines.append(current)
-					if lines.size() >= max_lines:
-						truncated = true
-						current = ""
-						break
 					current = ch
 				else:
 					current += ch
@@ -2106,20 +2354,11 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 		var trial: String = word if current == "" else current + " " + word
 		if current != "" and _get_text_size(font, trial, font_size).x > max_px:
 			lines.append(current)
-			if lines.size() >= max_lines:
-				truncated = true
-				current = ""
-				break
 			current = word
 		else:
 			current = trial
 	if current != "":
-		if lines.size() < max_lines:
-			lines.append(current)
-		else:
-			truncated = true
-	if truncated and not lines.is_empty():
-		lines[lines.size() - 1] = _append_clip_ellipsis(font, str(lines[lines.size() - 1]), font_size, max_px)
+		lines.append(current)
 	return lines
 
 

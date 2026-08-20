@@ -22,6 +22,7 @@ extends SceneTree
 const RuntimePerkChoiceLayout := preload("res://scripts/characters/runtime_perk_choice_layout.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkTraditionalChrome := preload("res://scripts/hud/runtime_perk_traditional_chrome.gd")
 const CharacterInfoOverlayState := preload("res://scripts/hud/character_info_overlay_state.gd")
 const CharacterInfoOverlay := preload("res://scripts/hud/character_info_overlay.gd")
@@ -188,6 +189,7 @@ func _run() -> void:
 	_verify_band_disabled_when_it_does_not_fit()
 	_verify_card_geometry_change_keeps_font_basis()
 	_verify_worst_case_description_stays_inside_card()
+	_verify_catalog_descriptions_discard_zero_rows()
 	_verify_title_plaque_floor()
 	_verify_runtime_state_context_capture()
 	_verify_renderer_consumes_layout_rect()
@@ -338,7 +340,8 @@ func _verify_worst_case_description_stays_inside_card() -> void:
 		"next_level": 4,
 		"max_level": 5,
 	}
-	renderer._ensure_card_desc_cache([choice], card_size.x, null)
+	var description_height := card_size.y * RuntimePerkChoiceLayout.CARD_DESCRIPTION_HEIGHT_RATIO
+	renderer._ensure_card_desc_cache([choice], card_size.x, null, description_height)
 	var cached: Dictionary = renderer._card_desc_cache[0] if renderer._card_desc_cache.size() > 0 else {}
 	var accent_lines: Array = cached.get("accent_lines", []) if cached.get("accent_lines", []) is Array else []
 	var body_lines: Array = cached.get("body_lines", []) if cached.get("body_lines", []) is Array else []
@@ -346,15 +349,19 @@ func _verify_worst_case_description_stays_inside_card() -> void:
 	# 폰트 크기 계약: 카드 축소가 설명 글자를 건드리면 안 된다(clampi 상한 18).
 	_expect(font_size == 18, "shrunk card must keep the clamped max description font size (got %d)" % font_size)
 	_expect(
-		accent_lines.size() + body_lines.size() >= 5,
-		"fixture must reach the 5-line worst case (got %d + %d)" % [accent_lines.size(), body_lines.size()]
+		int(cached.get("discarded_line_count", -1)) == 0,
+		"worst-case fixture must discard zero wrapped rows (source=%d, appended=%d, discarded=%d)" % [
+			int(cached.get("source_line_count", -1)),
+			int(cached.get("appended_line_count", -1)),
+			int(cached.get("discarded_line_count", -1)),
+		]
 	)
 
 	# _draw_card_description_block 재현: box = rect + (14,3) / -(28,6),
 	# 첫 baseline = box.y + font_size + 8, 줄 간격 = font_size + 4,
 	# 강조/본문 사이 2px.
 	var desc_top: float = card_size.y * RuntimePerkChoiceLayout.CARD_DESCRIPTION_TOP_RATIO
-	var desc_h: float = card_size.y * RuntimePerkChoiceLayout.CARD_DESCRIPTION_HEIGHT_RATIO
+	var desc_h: float = description_height
 	var box_top: float = desc_top + 3.0
 	var box_bottom: float = desc_top + desc_h - 3.0
 	var line_h: float = float(font_size + 4)
@@ -375,6 +382,144 @@ func _verify_worst_case_description_stays_inside_card() -> void:
 		desc_top - rank_underline_y >= 12.0,
 		"description rule must clear the rank underline (%.1f vs %.1f)" % [desc_top, rank_underline_y]
 	)
+
+
+# 실제 카탈로그와 7개 출하 로케일을 모두 거쳐, max_lines 표 값이 아니라
+# 렌더러가 카드에 append하는 행과 버린 문자 수를 판정한다(GRT-021).
+func _verify_catalog_descriptions_discard_zero_rows() -> void:
+	var helper := RuntimePerkChoiceLayout.new()
+	var renderer: Object = RuntimePerkOverlayRenderer.new()
+	var card_width: float = _vector(helper.build_layout(SHIPPED_VIEW, 3, true).get("card_size", Vector2.ZERO)).x
+	var description_height := (
+		card_width
+		* RuntimePerkChoiceLayout.DEFAULT_CARD_SIZE.y
+		/ RuntimePerkChoiceLayout.DEFAULT_CARD_SIZE.x
+		* RuntimePerkChoiceLayout.CARD_DESCRIPTION_HEIGHT_RATIO
+	)
+	var baseline_worst: Dictionary = {}
+	var baseline_worst_by_locale: Dictionary = {}
+	var baseline_longest_by_locale: Dictionary = {}
+	var baseline_clipped_count_by_locale: Dictionary = {}
+	var baseline_clipped_samples: Array[String] = []
+	var overflow_count_by_locale: Dictionary = {}
+	var floor_font_count_by_locale: Dictionary = {}
+	var overflow_total := 0
+	var overflow_samples: Array[String] = []
+	var final_discarded_total := 0
+	var final_discarded_samples: Array[String] = []
+	var sample_count := 0
+	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		baseline_clipped_count_by_locale[locale] = 0
+		overflow_count_by_locale[locale] = 0
+		floor_font_count_by_locale[locale] = 0
+		var catalog: Dictionary = RuntimePerkCatalog.new().get_all_perk_data()
+		for perk_id_value in catalog.keys():
+			var perk_id := str(perk_id_value)
+			var perk_data: Dictionary = (catalog[perk_id_value] as Dictionary).duplicate(true)
+			var descriptions: Dictionary = perk_data.get("descriptions", {}) if perk_data.get("descriptions", {}) is Dictionary else {}
+			for level_value in descriptions.keys():
+				var level := int(level_value)
+				var choice := perk_data.duplicate(true)
+				choice["id"] = perk_id
+				choice["description"] = str(descriptions[level_value])
+				choice["current_level"] = maxi(0, level - 1)
+				choice["next_level"] = level
+				choice["max_level"] = int(perk_data.get("max_level", 1))
+
+				# S2 이전의 고정 2+3행 예산을 같은 렌더러 seam으로 재현해, 실제
+				# 버리던 행/문자 수를 보고하고 반증으로 보존한다.
+				renderer._card_desc_cache_signature = -1
+				renderer._ensure_card_desc_cache([choice], card_width, null)
+				var baseline_cached: Dictionary = (
+					(renderer._card_desc_cache[0] as Dictionary).duplicate(true)
+					if renderer._card_desc_cache.size() > 0
+					else {}
+				)
+				var baseline_discarded_rows := int(baseline_cached.get("discarded_line_count", -1))
+				var baseline_discarded_characters := int(baseline_cached.get("discarded_character_count", -1))
+				var baseline_source_rows := int(baseline_cached.get("source_line_count", -1))
+				if baseline_worst.is_empty() or baseline_discarded_characters > int(baseline_worst.get("discarded_characters", -1)):
+					baseline_worst = {
+						"locale": locale,
+						"perk_id": perk_id,
+						"level": level,
+						"source_rows": baseline_source_rows,
+						"discarded_rows": baseline_discarded_rows,
+						"discarded_characters": baseline_discarded_characters,
+					}
+				var locale_worst: Dictionary = baseline_worst_by_locale.get(locale, {}) if baseline_worst_by_locale.get(locale, {}) is Dictionary else {}
+				if locale_worst.is_empty() or baseline_discarded_characters > int(locale_worst.get("discarded_characters", -1)):
+					baseline_worst_by_locale[locale] = {
+						"perk_id": perk_id,
+						"level": level,
+						"source_rows": baseline_source_rows,
+						"discarded_rows": baseline_discarded_rows,
+						"discarded_characters": baseline_discarded_characters,
+					}
+				var locale_longest: Dictionary = baseline_longest_by_locale.get(locale, {}) if baseline_longest_by_locale.get(locale, {}) is Dictionary else {}
+				if locale_longest.is_empty() or baseline_source_rows > int(locale_longest.get("source_rows", -1)):
+					baseline_longest_by_locale[locale] = {
+						"perk_id": perk_id,
+						"level": level,
+						"source_rows": baseline_source_rows,
+						"discarded_rows": baseline_discarded_rows,
+						"discarded_characters": baseline_discarded_characters,
+					}
+				if baseline_discarded_rows > 0:
+					baseline_clipped_count_by_locale[locale] = int(baseline_clipped_count_by_locale.get(locale, 0)) + 1
+					if baseline_clipped_samples.size() < 12:
+						baseline_clipped_samples.append("%s:%s:L%d rows=%d chars=%d" % [locale, perk_id, level, baseline_discarded_rows, baseline_discarded_characters])
+
+				# 출하 시작/보상 카드가 쓰는 실제 높이 경로. append된 행 수와 원본
+				# 행 수가 같고, 그 전체가 카드 안에 들어가야 한다.
+				renderer._ensure_card_desc_cache([choice], card_width, null, description_height)
+				var cached: Dictionary = renderer._card_desc_cache[0] if renderer._card_desc_cache.size() > 0 else {}
+				var discarded_rows := int(cached.get("discarded_line_count", -1))
+				var discarded_characters := int(cached.get("discarded_character_count", -1))
+				var source_rows := int(cached.get("source_line_count", -1))
+				var appended_rows := int(cached.get("appended_line_count", -1))
+				sample_count += 1
+				if discarded_rows > 0 or discarded_characters > 0 or appended_rows != source_rows:
+					final_discarded_total += 1
+					if final_discarded_samples.size() < 12:
+						final_discarded_samples.append("%s:%s:L%d source=%d appended=%d rows=%d chars=%d" % [locale, perk_id, level, source_rows, appended_rows, discarded_rows, discarded_characters])
+				if not bool(cached.get("fits_height", false)):
+					overflow_count_by_locale[locale] = int(overflow_count_by_locale.get(locale, 0)) + 1
+					overflow_total += 1
+					if overflow_samples.size() < 12:
+						overflow_samples.append("%s:%s:L%d %.1f>%.1f font=%d rows=%d" % [
+							locale,
+							perk_id,
+							level,
+							float(cached.get("required_text_height", -1.0)),
+							float(cached.get("available_text_height", -1.0)),
+							int(cached.get("font_size", -1)),
+							source_rows,
+						])
+				if int(cached.get("font_size", -1)) == 10:
+					floor_font_count_by_locale[locale] = int(floor_font_count_by_locale.get(locale, 0)) + 1
+	print("S2 baseline audit: samples=%d worst=%s worst_by_locale=%s longest_by_locale=%s clipped_count_by_locale=%s first_clipped=%s" % [sample_count, baseline_worst, baseline_worst_by_locale, baseline_longest_by_locale, baseline_clipped_count_by_locale, baseline_clipped_samples])
+	print("S2 fixed audit: discarded=%d overflow=%s floor_font=%s first_discarded=%s first_overflow=%s" % [final_discarded_total, overflow_count_by_locale, floor_font_count_by_locale, final_discarded_samples, overflow_samples])
+	_expect(sample_count > 0, "catalog description audit must inspect real localized level descriptions")
+	_expect(
+		final_discarded_total == 0,
+		"catalog descriptions must append every source row; first mismatches: %s" % [final_discarded_samples]
+	)
+	_expect(
+		overflow_total == 0,
+		"catalog descriptions must fit the card height at the readability floor: %s" % [overflow_count_by_locale]
+	)
+	# 반증: 같은 최악 픽스처에 행 예산을 1로 낮추면 source/appended가 갈리고
+	# discarded가 양수가 된다. 이 레그가 GREEN이어야 위의 0 단언이 변별력 있다.
+	var counterproof: Dictionary = renderer._wrap_text_px_with_budget(WORST_CASE_DETAIL, 18, card_width - 44.0, 1)
+	_expect(
+		int(counterproof.get("appended_line_count", 0)) == 1
+		and int(counterproof.get("source_line_count", 0)) > 1
+		and int(counterproof.get("discarded_line_count", 0)) > 0,
+		"reducing the row budget to one must turn the append-count seal RED"
+	)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 
 
 # 5) 제목 현판 중심 하한.

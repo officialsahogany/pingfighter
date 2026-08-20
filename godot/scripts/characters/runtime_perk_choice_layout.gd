@@ -15,15 +15,15 @@ const REFERENCE_VIEW_HEIGHT := 920.0
 const MIN_LAYOUT_SCALE := 0.58
 const MAX_LAYOUT_SCALE := 1.32
 # 카드가 낮아지면 성급 밑줄(_draw_card: 이름판 0.386 + 0.092 뒤 rank + 12)과
-# 설명 블록 상단 괘선이 붙어 이중선처럼 읽힌다. 시작 비율을 0.565 -> 0.595로
-# 내려 간격을 되찾고, 높이 비율은 최대 5줄(강조 2 + 본문 3)이 폰트 크기 변화
-# 없이 들어가는 선(카드 높이 417 기준 152px)까지만 줄인다.
-const CARD_DESCRIPTION_TOP_RATIO := 0.595
-# 0.365 -> 0.375: 최악 케이스(강조 2 + 본문 3, 폰트 18)의 여유가 8.2px밖에
-# 남지 않아 늘렸다(약 12.5px). 줄 수는 _wrap_text_px가 상한을 걸어 로케일과
-# 무관하므로 이 여유는 안정적이다. 봉인:
+# 설명 블록 상단 괘선이 붙어 이중선처럼 읽힌다. S2에서는 0.595 -> 0.585로
+# 1%만 되돌려 최장 9행 문구의 세로 예산을 확보한다. 출하 크기에서 성급 밑줄과
+# 12px 이상 떨어지는 하한은 씰이 계속 잠근다.
+const CARD_DESCRIPTION_TOP_RATIO := 0.585
+# 0.375 -> 0.415 (S2): 카드 치수와 폰트 상한은 유지하면서, 카드 하단까지 남은
+# 공간을 설명 영역에 돌린다. 실제 문구는 고정 5행으로 자르지 않고 렌더러가 이
+# 높이에 맞는 가장 큰 글자 크기를 고른다. 봉인:
 # runtime_perk_choice_stats_band_smoke._verify_worst_case_description_stays_inside_card
-const CARD_DESCRIPTION_HEIGHT_RATIO := 0.375
+const CARD_DESCRIPTION_HEIGHT_RATIO := 0.415
 # 하단 능력치 원장(2026-08-06): 캐릭터 정보창의 "플레이어 능력치" 10행을 퍽
 # 선택 화면에도 그대로 싣는다. 드로어(draw_cached_player_stat_rows)는 제목 49px
 # + 행당 최소 19px + 하단 여백 8px가 필요하고, 넘치는 행은 조용히 잘라 버린다

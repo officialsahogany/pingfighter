@@ -5,6 +5,9 @@ const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_re
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SkillOrbTooltipEffectPreviewRenderer := preload("res://scripts/hud/skill_orb_tooltip_effect_preview_renderer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const TowerCardAbsorptionTargetResolver := preload(
+	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
+)
 
 const TOOLTIP_WIDTH := 300.0
 const HEADER_HEIGHT := 36.0
@@ -193,6 +196,125 @@ func draw(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dict
 		_get_dictionary(hover_state.get("hover_context", {})),
 		_get_dictionary(hover_state.get("skill_data", {}))
 	)
+
+
+# Tower start/reward cards reuse this renderer rather than growing a second
+# Chosik tooltip. The card can advertise a skill that is not equipped yet, so
+# this path resolves the canonical skill_data map directly instead of using the
+# equipped-orb-only hover lookup.
+func draw_card_tooltip(
+	canvas: CanvasItem,
+	registry: Object,
+	fallback_view_size: Vector2,
+	scene_context: Dictionary,
+	choice: Dictionary,
+	card_rect: Rect2,
+	avoid_rects: Array,
+	mouse_pos: Vector2
+) -> void:
+	var state := build_card_tooltip_state(
+		canvas,
+		registry,
+		fallback_view_size,
+		scene_context,
+		choice,
+		card_rect,
+		avoid_rects,
+		mouse_pos
+	)
+	if state.is_empty():
+		return
+	_draw_tooltip(
+		canvas,
+		_get_dictionary(state.get("hover_context", {})),
+		_get_dictionary(state.get("skill_data", {}))
+	)
+
+
+func build_card_tooltip_state(
+	canvas: CanvasItem,
+	registry: Object,
+	fallback_view_size: Vector2,
+	scene_context: Dictionary,
+	choice: Dictionary,
+	card_rect: Rect2,
+	avoid_rects: Array,
+	mouse_pos: Vector2
+) -> Dictionary:
+	if (
+		canvas == null
+		or registry == null
+		or card_rect.size.x <= 0.0
+		or card_rect.size.y <= 0.0
+		or not card_rect.has_point(mouse_pos)
+		or not TowerCardAbsorptionTargetResolver.is_chosik_choice(choice)
+	):
+		return {}
+	var skill_name := str(choice.get("unlocks_skill", "")).strip_edges()
+	if skill_name.is_empty():
+		return {}
+
+	var view_size := resolve_card_tooltip_view_size(canvas, fallback_view_size)
+	if view_size.x <= 0.0 or view_size.y <= 0.0:
+		return {}
+	var fullscreen_layout := {
+		"game_offset": Vector2.ZERO,
+		"game_size": view_size,
+	}
+	var tooltip_scene_context := scene_context.duplicate(true)
+	tooltip_scene_context["height"] = view_size.y
+	var hover_context := _build_hover_context(
+		canvas,
+		registry,
+		view_size,
+		fullscreen_layout,
+		tooltip_scene_context
+	)
+	if hover_context.is_empty():
+		return {}
+	var snapshot := _get_dictionary(hover_context.get("skill_config_snapshot", {}))
+	var skill_data_map := _get_dictionary(snapshot.get("skill_data", {}))
+	if not skill_data_map.has(skill_name):
+		return {}
+	var skill_data := _get_dictionary(skill_data_map.get(skill_name, {})).duplicate(true)
+	if skill_data.is_empty():
+		return {}
+	skill_data["slot_rect"] = card_rect
+	hover_context["mouse_pos"] = mouse_pos
+	hover_context["view_size"] = view_size
+	hover_context["card_tooltip_mode"] = true
+	hover_context["card_tooltip_anchor_rect"] = card_rect
+	hover_context["card_tooltip_avoid_rects"] = avoid_rects.duplicate()
+
+	var metrics := _build_tooltip_metrics(hover_context, skill_data)
+	if metrics.is_empty():
+		return {}
+	var tooltip_size := Vector2(
+		float(metrics.get("tooltip_width", 0.0)),
+		float(metrics.get("tooltip_height", 0.0))
+	)
+	var tooltip_position := _get_tooltip_position(
+		hover_context,
+		tooltip_size.x,
+		tooltip_size.y,
+		float(metrics.get("scale_factor", 1.0))
+	)
+	return {
+		"hover_context": hover_context,
+		"skill_data": skill_data,
+		"tooltip_rect": Rect2(tooltip_position, tooltip_size),
+	}
+
+
+# GRT-044: fullscreen card overlays use the live viewport while their canvas is
+# in the tree. The supplied size remains a deterministic fallback for isolated
+# layout tests and pre-tree callers only.
+func resolve_card_tooltip_view_size(canvas: CanvasItem, fallback_view_size: Vector2) -> Vector2:
+	if canvas != null and canvas.is_inside_tree():
+		var viewport_size := canvas.get_viewport_rect().size
+		if viewport_size.x > 0.0 and viewport_size.y > 0.0:
+			return viewport_size
+	return fallback_view_size
 
 
 func update_hover_state(canvas: CanvasItem, registry: Object, view_size: Vector2, layout: Dictionary, scene_context: Dictionary) -> Dictionary:
@@ -666,54 +788,22 @@ func _build_commando_firearm_panel_state(hover_context: Dictionary, selector_ren
 
 
 func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Dictionary) -> void:
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
+	var metrics := _build_tooltip_metrics(hover_context, skill_data)
+	if metrics.is_empty():
 		return
-
-	var scale_factor: float = float(hover_context.get("scale_factor", 1.0))
-	var tooltip_width: float = TOOLTIP_WIDTH * scale_factor
-	var padding: float = PADDING * scale_factor
-	var title_size: int = max(14, int(round(16.0 * scale_factor)))
-	var normal_size: int = max(11, int(round(12.0 * scale_factor)))
-	var small_size: int = max(9, int(round(10.0 * scale_factor)))
-	var max_text_width: float = tooltip_width - padding * 2.0
-	var description_text: String = _build_description_with_runtime_bonus(skill_data, hover_context)
-	var desc_lines: Array[String] = _wrap_text(
-		description_text,
-		font,
-		normal_size,
-		max_text_width,
-		_get_description_max_lines(skill_data, hover_context)
-	)
-	var control_rows: Array = _build_control_rows(
-		str(skill_data.get("name", "")),
-		str(hover_context.get("selected_character_type", "smasher")),
-		str(skill_data.get("motion_hint", "")),
-		font,
-		normal_size,
-		max_text_width - 16.0 * scale_factor
-	)
-	var control_lines: Array[String] = []
-	if control_rows.is_empty():
-		control_lines = _wrap_text(str(skill_data.get("how_to_use", "")), font, normal_size, max_text_width - 16.0 * scale_factor, 2)
-
-	var control_box_height: float = 0.0
-	if not control_rows.is_empty():
-		control_box_height = max(38.0 * scale_factor, float(control_rows.size()) * CONTROL_ROW_HEIGHT * scale_factor + 12.0 * scale_factor)
-	elif not control_lines.is_empty():
-		control_box_height = max(34.0 * scale_factor, float(control_lines.size()) * 18.0 * scale_factor + 16.0 * scale_factor)
-
-	var content_bottom_y: float = padding + HEADER_HEIGHT * scale_factor + 6.0 * scale_factor + 22.0 * scale_factor
-	content_bottom_y += float(desc_lines.size()) * 18.0 * scale_factor + 6.0 * scale_factor
-	if control_box_height > 0.0:
-		content_bottom_y += control_box_height + 8.0 * scale_factor
-
-	var preview_height: float = EFFECT_PREVIEW_HEIGHT * scale_factor
-	var min_height: float = 0.0
-	var skill_name: String = str(skill_data.get("name", ""))
-	if skill_name != "drive" and skill_name != "power_smashing":
-		min_height = 300.0 * scale_factor
-	var tooltip_height: float = max(min_height, content_bottom_y + preview_height + padding)
+	var font: Font = metrics.get("font", ThemeDB.fallback_font)
+	var scale_factor := float(metrics.get("scale_factor", 1.0))
+	var tooltip_width := float(metrics.get("tooltip_width", 0.0))
+	var tooltip_height := float(metrics.get("tooltip_height", 0.0))
+	var padding := float(metrics.get("padding", 0.0))
+	var title_size := int(metrics.get("title_size", 14))
+	var normal_size := int(metrics.get("normal_size", 11))
+	var small_size := int(metrics.get("small_size", 9))
+	var desc_lines: Array = _get_array(metrics.get("desc_lines", []))
+	var control_rows: Array = _get_array(metrics.get("control_rows", []))
+	var control_lines: Array = _get_array(metrics.get("control_lines", []))
+	var control_box_height := float(metrics.get("control_box_height", 0.0))
+	var preview_height := float(metrics.get("preview_height", 0.0))
 	var tooltip_pos: Vector2 = _get_tooltip_position(hover_context, tooltip_width, tooltip_height, scale_factor)
 	var tooltip_rect := Rect2(tooltip_pos, Vector2(tooltip_width, tooltip_height))
 	var skill_color: Color = _get_color(skill_data.get("color", Color.WHITE), Color.WHITE)
@@ -769,6 +859,79 @@ func _draw_tooltip(canvas: CanvasItem, hover_context: Dictionary, skill_data: Di
 	_draw_panel(canvas, effect_rect, Color(10.0 / 255.0, 15.0 / 255.0, 25.0 / 255.0, 0.78), Color(skill_color.r, skill_color.g, skill_color.b, 0.40), 1.0 * scale_factor, 6.0 * scale_factor)
 	_draw_effect_preview(canvas, effect_rect, str(skill_data.get("effect_type", "")), skill_color, float(Time.get_ticks_msec() % 2000) / 2000.0)
 	_draw_text(canvas, font, effect_rect.position + Vector2(4.0 * scale_factor, 4.0 * scale_factor), LanguageSettings.translate_text("이펙트 미리보기"), small_size, Color(150.0 / 255.0, 150.0 / 255.0, 150.0 / 255.0))
+
+
+func _build_tooltip_metrics(hover_context: Dictionary, skill_data: Dictionary) -> Dictionary:
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return {}
+	var scale_factor := float(hover_context.get("scale_factor", 1.0))
+	var tooltip_width := TOOLTIP_WIDTH * scale_factor
+	var padding := PADDING * scale_factor
+	var title_size := maxi(14, int(round(16.0 * scale_factor)))
+	var normal_size := maxi(11, int(round(12.0 * scale_factor)))
+	var small_size := maxi(9, int(round(10.0 * scale_factor)))
+	var max_text_width := tooltip_width - padding * 2.0
+	var description_text := _build_description_with_runtime_bonus(skill_data, hover_context)
+	var desc_lines: Array[String] = _wrap_text(
+		description_text,
+		font,
+		normal_size,
+		max_text_width,
+		_get_description_max_lines(skill_data, hover_context)
+	)
+	var control_rows: Array = _build_control_rows(
+		str(skill_data.get("name", "")),
+		str(hover_context.get("selected_character_type", "smasher")),
+		str(skill_data.get("motion_hint", "")),
+		font,
+		normal_size,
+		max_text_width - 16.0 * scale_factor
+	)
+	var control_lines: Array[String] = []
+	if control_rows.is_empty():
+		control_lines = _wrap_text(
+			str(skill_data.get("how_to_use", "")),
+			font,
+			normal_size,
+			max_text_width - 16.0 * scale_factor,
+			2
+		)
+	var control_box_height := 0.0
+	if not control_rows.is_empty():
+		control_box_height = max(
+			38.0 * scale_factor,
+			float(control_rows.size()) * CONTROL_ROW_HEIGHT * scale_factor + 12.0 * scale_factor
+		)
+	elif not control_lines.is_empty():
+		control_box_height = max(
+			34.0 * scale_factor,
+			float(control_lines.size()) * 18.0 * scale_factor + 16.0 * scale_factor
+		)
+	var content_bottom_y := padding + HEADER_HEIGHT * scale_factor + 6.0 * scale_factor + 22.0 * scale_factor
+	content_bottom_y += float(desc_lines.size()) * 18.0 * scale_factor + 6.0 * scale_factor
+	if control_box_height > 0.0:
+		content_bottom_y += control_box_height + 8.0 * scale_factor
+	var preview_height := EFFECT_PREVIEW_HEIGHT * scale_factor
+	var min_height := 0.0
+	var skill_name := str(skill_data.get("name", ""))
+	if skill_name != "drive" and skill_name != "power_smashing":
+		min_height = 300.0 * scale_factor
+	return {
+		"font": font,
+		"scale_factor": scale_factor,
+		"tooltip_width": tooltip_width,
+		"tooltip_height": max(min_height, content_bottom_y + preview_height + padding),
+		"padding": padding,
+		"title_size": title_size,
+		"normal_size": normal_size,
+		"small_size": small_size,
+		"desc_lines": desc_lines,
+		"control_rows": control_rows,
+		"control_lines": control_lines,
+		"control_box_height": control_box_height,
+		"preview_height": preview_height,
+	}
 
 
 func _draw_cost_and_cooldown_line(
@@ -1268,6 +1431,14 @@ func _get_runtime_skill_level(hover_context: Dictionary, skill_id: String) -> in
 
 func _get_tooltip_position(hover_context: Dictionary, tooltip_width: float, tooltip_height: float, scale_factor: float) -> Vector2:
 	var view_size: Vector2 = _get_vector2(hover_context, "view_size", Vector2(1488.0, 918.0))
+	if bool(hover_context.get("card_tooltip_mode", false)):
+		return _get_card_tooltip_position(
+			hover_context,
+			view_size,
+			tooltip_width,
+			tooltip_height,
+			scale_factor
+		)
 	var game_offset: Vector2 = _get_vector2(hover_context, "game_offset", Vector2.ZERO)
 	var mouse_pos: Vector2 = _get_vector2(hover_context, "mouse_pos", Vector2.ZERO)
 	var tooltip_x: float = game_offset.x + 10.0 * scale_factor
@@ -1275,6 +1446,106 @@ func _get_tooltip_position(hover_context: Dictionary, tooltip_width: float, tool
 	tooltip_x = clamp(tooltip_x, 5.0, max(5.0, view_size.x - tooltip_width - 5.0))
 	tooltip_y = clamp(tooltip_y, 10.0, max(10.0, view_size.y - tooltip_height - 10.0))
 	return Vector2(tooltip_x, tooltip_y)
+
+
+func _get_card_tooltip_position(
+	hover_context: Dictionary,
+	view_size: Vector2,
+	tooltip_width: float,
+	tooltip_height: float,
+	scale_factor: float
+) -> Vector2:
+	var margin := 10.0
+	var gap := 14.0 * maxf(0.5, scale_factor)
+	var safe_rect := Rect2(
+		Vector2(margin, margin),
+		Vector2(
+			maxf(0.0, view_size.x - margin * 2.0),
+			maxf(0.0, view_size.y - margin * 2.0)
+		)
+	)
+	var anchor := _get_rect2(
+		hover_context.get("card_tooltip_anchor_rect", Rect2()),
+		Rect2()
+	)
+	var avoid_rects: Array[Rect2] = []
+	for value in _get_array(hover_context.get("card_tooltip_avoid_rects", [])):
+		if value is Rect2 and (value as Rect2).size.x > 0.0 and (value as Rect2).size.y > 0.0:
+			avoid_rects.append(value as Rect2)
+	if avoid_rects.is_empty() and anchor.size.x > 0.0 and anchor.size.y > 0.0:
+		avoid_rects.append(anchor)
+	var avoid_bounds := anchor
+	for rect in avoid_rects:
+		avoid_bounds = rect if avoid_bounds.size == Vector2.ZERO else avoid_bounds.merge(rect)
+	var tooltip_size := Vector2(tooltip_width, tooltip_height)
+	var candidates: Array[Vector2] = [
+		Vector2(
+			avoid_bounds.position.x - tooltip_width - gap,
+			anchor.get_center().y - tooltip_height * 0.5
+		),
+		Vector2(
+			avoid_bounds.end.x + gap,
+			anchor.get_center().y - tooltip_height * 0.5
+		),
+		Vector2(
+			anchor.get_center().x - tooltip_width * 0.5,
+			avoid_bounds.position.y - tooltip_height - gap
+		),
+		Vector2(
+			anchor.get_center().x - tooltip_width * 0.5,
+			avoid_bounds.end.y + gap
+		),
+	]
+	for candidate in candidates:
+		var candidate_rect := Rect2(candidate, tooltip_size)
+		if _rect_is_inside(candidate_rect, safe_rect) and not _rect_overlaps_any(candidate_rect, avoid_rects):
+			return candidate
+	for candidate in candidates:
+		var clamped := Vector2(
+			clampf(candidate.x, safe_rect.position.x, maxf(safe_rect.position.x, safe_rect.end.x - tooltip_width)),
+			clampf(candidate.y, safe_rect.position.y, maxf(safe_rect.position.y, safe_rect.end.y - tooltip_height))
+		)
+		if not _rect_overlaps_any(Rect2(clamped, tooltip_size), avoid_rects):
+			return clamped
+	# Extremely small windows may have no non-overlapping solution. Keep the
+	# panel fully clipped to the viewport and choose the least-overlapping
+	# candidate rather than hiding the canonical tooltip.
+	var best_position := safe_rect.position
+	var best_overlap := INF
+	for candidate in candidates:
+		var clamped := Vector2(
+			clampf(candidate.x, safe_rect.position.x, maxf(safe_rect.position.x, safe_rect.end.x - tooltip_width)),
+			clampf(candidate.y, safe_rect.position.y, maxf(safe_rect.position.y, safe_rect.end.y - tooltip_height))
+		)
+		var overlap := _rect_overlap_area(Rect2(clamped, tooltip_size), avoid_rects)
+		if overlap < best_overlap:
+			best_overlap = overlap
+			best_position = clamped
+	return best_position
+
+
+func _rect_is_inside(inner: Rect2, outer: Rect2) -> bool:
+	return (
+		inner.position.x >= outer.position.x
+		and inner.position.y >= outer.position.y
+		and inner.end.x <= outer.end.x
+		and inner.end.y <= outer.end.y
+	)
+
+
+func _rect_overlaps_any(rect: Rect2, avoid_rects: Array[Rect2]) -> bool:
+	for avoid_rect in avoid_rects:
+		if rect.intersects(avoid_rect):
+			return true
+	return false
+
+
+func _rect_overlap_area(rect: Rect2, avoid_rects: Array[Rect2]) -> float:
+	var total := 0.0
+	for avoid_rect in avoid_rects:
+		var overlap := rect.intersection(avoid_rect)
+		total += maxf(0.0, overlap.size.x) * maxf(0.0, overlap.size.y)
+	return total
 
 
 func _build_control_rows(skill_name: String, character_type: String, motion_hint: String, font: Font, font_size: int, max_width: float) -> Array:

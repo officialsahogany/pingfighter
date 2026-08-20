@@ -15,6 +15,9 @@ const TowerAscentTuning := preload(
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
+const TowerCardAbsorptionTargetResolver := preload(
+	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
+)
 
 const VIEW_SIZE := Vector2(760.0, 750.0)
 const CONTINUE_SIZE := Vector2(220.0, 42.0)
@@ -38,6 +41,7 @@ var _runtime_state: Object = null
 var _catalog: Object = null
 var _card_renderer: Object = null
 var _icon_renderer: Object = null
+var _chosik_tooltip_renderer: Object = null
 var _finish_callback: Callable = Callable()
 var _offer: Dictionary = {}
 var _status_text := ""
@@ -52,6 +56,7 @@ var _auto_finish_attempted := false
 var _current_perk_slot_status: Dictionary = {}
 var _perk_slot_status_dirty := false
 var _reward_session_id := 0
+var _absorption_target_resolver: Object = TowerCardAbsorptionTargetResolver.new()
 
 
 func start(
@@ -79,6 +84,7 @@ func start(
 	_catalog = _get_registry_instance(registry, "runtime_perk_catalog")
 	_card_renderer = _get_registry_instance(registry, "runtime_perk_overlay_renderer")
 	_icon_renderer = _get_registry_instance(registry, "runtime_perk_icon_renderer")
+	_chosik_tooltip_renderer = _get_registry_instance(registry, "smasher_skill_orb_tooltip_renderer")
 	if _runtime_state == null or _card_renderer == null:
 		reset()
 		return false
@@ -140,6 +146,7 @@ func reset() -> void:
 	_catalog = null
 	_card_renderer = null
 	_icon_renderer = null
+	_chosik_tooltip_renderer = null
 
 
 func update(delta: float) -> void:
@@ -273,6 +280,7 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 			and (layout.get("stats_rect", Rect2()) as Rect2).size.y > 0.0
 		),
 		"reward_session_id": _reward_session_id,
+		"chosik_tooltip_context": _build_chosik_tooltip_context(),
 	}
 
 
@@ -554,31 +562,36 @@ func _get_purchase_absorption_for_slot(index: int) -> Dictionary:
 
 func _build_purchase_absorption_view_models(view_size: Vector2) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var target: Vector2 = _get_player_absorption_target(view_size)
 	for effect in purchase_absorption_effects:
+		var slot_index := int(effect.get("slot_index", -1))
+		if (
+			slot_index < 0
+			or slot_index >= choices.size()
+			or _absorption_target_resolver == null
+			or not _absorption_target_resolver.has_method("resolve_target")
+		):
+			continue
+		var target_value: Variant = _absorption_target_resolver.call(
+			"resolve_target",
+			choices[slot_index],
+			_owner,
+			_registry,
+			view_size
+		)
+		if not (target_value is Dictionary):
+			continue
+		var target := target_value as Dictionary
+		if not (target.get("target_pos", null) is Vector2):
+			continue
 		var duration: float = maxf(0.001, float(effect.get("duration", TEMP_REWARD_PICK_ABSORB_DURATION_SEC)))
 		result.append({
-			"slot_index": int(effect.get("slot_index", -1)),
+			"slot_index": slot_index,
 			"progress": clampf(float(effect.get("elapsed", 0.0)) / duration, 0.0, 1.0),
-			"target_pos": target,
+			"target_pos": target.get("target_pos", Vector2.ZERO),
+			"target_slot_index": int(target.get("slot_index", -1)),
+			"destination_kind": str(target.get("destination_kind", "")),
 		})
 	return result
-
-
-func _get_player_absorption_target(view_size: Vector2) -> Vector2:
-	var fallback := Vector2(view_size.x * 0.5, view_size.y * 0.91)
-	if _owner == null:
-		return fallback
-	var position_value: Variant = _owner.get("player_pos")
-	if not (position_value is Vector2):
-		return fallback
-	var position := position_value as Vector2
-	var width: float = maxf(1.0, float(_owner.get("player_paddle_width")))
-	var height: float = maxf(1.0, float(_owner.get("player_paddle_height")))
-	var target := position + Vector2(width * 0.5, height * 0.35)
-	if target.x < 0.0 or target.x > view_size.x or target.y < 0.0 or target.y > view_size.y:
-		return fallback
-	return target
 
 
 func _select_next_available_slot(purchased_index: int) -> void:
@@ -740,3 +753,23 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 			if value is Object and value != null:
 				return value as Object
 	return null
+
+
+func _build_chosik_tooltip_context() -> Dictionary:
+	if _chosik_tooltip_renderer == null or _registry == null:
+		return {}
+	return {
+		"renderer": _chosik_tooltip_renderer,
+		"registry": _registry,
+		"scene_context": {
+			"selected_character_type": str(_get_owner_value(_owner, "selected_character_type", "smasher")),
+			"special_gauge": float(_get_owner_value(_owner, "special_gauge", 0.0)),
+		},
+	}
+
+
+func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	return fallback if value == null else value
