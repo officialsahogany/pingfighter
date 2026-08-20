@@ -854,9 +854,15 @@ static func draw_player_stat_preview_segment(
 	row_index: int,
 	current_fill_ratio: float,
 	projected_fill_ratio: float,
-	ui_text_scale: float
+	ui_text_scale: float,
+	blink_alpha: float = 1.0
 ) -> bool:
 	if canvas == null:
+		return false
+	# The hover preview fades in and out instead of hard-toggling. A fully faded
+	# frame must cost nothing, so bail before any geometry work.
+	var fade: float = clampf(blink_alpha, 0.0, 1.0)
+	if fade <= 0.004:
 		return false
 	var gauge_rect := player_stat_gauge_rect(rect, row_count, row_index, ui_text_scale)
 	if gauge_rect.size.x < 70.0:
@@ -868,16 +874,16 @@ static func draw_player_stat_preview_segment(
 	var projected_x := lerpf(left_x, right_x, clampf(projected_fill_ratio, 0.0, 1.0))
 	if projected_x <= current_x + 0.5:
 		return false
-	var glow_color := Color(0.23, 0.78, 0.82, 0.28)
-	var segment_color := Color(0.12, 0.68, 0.76, 0.98)
+	var glow_color := Color(0.23, 0.78, 0.82, 0.28 * fade)
+	var segment_color := Color(0.12, 0.68, 0.76, 0.98 * fade)
 	canvas.draw_line(Vector2(current_x, center_y), Vector2(projected_x, center_y), glow_color, 8.0, true)
 	canvas.draw_line(Vector2(current_x, center_y), Vector2(projected_x, center_y), segment_color, 4.0, true)
-	canvas.draw_line(Vector2(current_x, center_y - 1.0), Vector2(projected_x, center_y - 1.0), Color(0.80, 1.0, 0.96, 0.72), 1.0, true)
+	canvas.draw_line(Vector2(current_x, center_y - 1.0), Vector2(projected_x, center_y - 1.0), Color(0.80, 1.0, 0.96, 0.72 * fade), 1.0, true)
 	CharacterInfoOverlayTextureDrawer.draw_empty_state_diamond(
 		canvas,
 		Vector2(projected_x, center_y),
 		5.8,
-		Color(0.22, 0.83, 0.84, 0.98)
+		Color(0.22, 0.83, 0.84, 0.98 * fade)
 	)
 	return true
 

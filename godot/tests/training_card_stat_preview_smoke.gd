@@ -216,6 +216,43 @@ func _verify_hover_release_blink_and_idle_cost() -> void:
 	_expect(RuntimePerkOverlayRenderer.is_training_stat_preview_visible_at(100), "the deterministic wall-clock visible phase must show the segment")
 	_expect(not RuntimePerkOverlayRenderer.is_training_stat_preview_visible_at(500), "the deterministic wall-clock hidden phase must remove the segment")
 	_expect(RuntimePerkOverlayRenderer.is_training_stat_preview_visible_at(900), "the visible phase must repeat without gameplay RNG")
+	# The blink is a raised-cosine fade, not a square wave. Assert the shape:
+	# it rests at full and at zero, ramps monotonically between them, and repeats
+	# on the same deterministic wall clock.
+	var cycle: int = RuntimePerkOverlayRenderer.TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC
+	_expect(
+		is_equal_approx(RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(0), 1.0),
+		"the fade must rest at full opacity on the cycle boundary"
+	)
+	_expect(
+		is_zero_approx(RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(cycle / 2)),
+		"the fade must rest at zero opacity at the trough"
+	)
+	var previous_alpha: float = RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(0)
+	var monotone_down := true
+	var intermediate_seen := false
+	for step in range(1, cycle / 2 + 1):
+		var current_alpha: float = RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(step)
+		if current_alpha > previous_alpha + 0.000001:
+			monotone_down = false
+		if current_alpha > 0.02 and current_alpha < 0.98:
+			intermediate_seen = true
+		previous_alpha = current_alpha
+	_expect(monotone_down, "the fade-out half must never brighten")
+	_expect(intermediate_seen, "a square wave would skip every partial opacity step")
+	_expect(
+		is_equal_approx(
+			RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(120),
+			RuntimePerkOverlayRenderer.training_stat_preview_alpha_at(120 + cycle)
+		),
+		"the fade must repeat exactly one cycle later"
+	)
+	_expect(
+		not CharacterInfoOverlayStatsPresenter.draw_player_stat_preview_segment(
+			null, Rect2(50.0, 500.0, 900.0, 260.0), CharacterInfoOverlayState.STAT_ROW_COUNT, 0, 0.2, 0.6, 1.0, 0.0
+		),
+		"a fully faded frame must not draw"
+	)
 	var gauge_rect := CharacterInfoOverlayStatsPresenter.player_stat_gauge_rect(
 		Rect2(50.0, 500.0, 900.0, 260.0),
 		CharacterInfoOverlayState.STAT_ROW_COUNT,

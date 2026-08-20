@@ -136,6 +136,8 @@ const TEXT_SIZE_CACHE_LIMIT := 160
 const STATS_BAND_REBUILD_INTERVAL_MSEC := 500
 const TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC := 800
 const TRAINING_STAT_PREVIEW_VISIBLE_MSEC := 400
+const TRAINING_STAT_PREVIEW_FADE_GAIN := 1.25
+const TRAINING_STAT_PREVIEW_FADE_BIAS := 0.125
 
 var _fallback_font: Font = null
 var _draw_now_msec := 0
@@ -2908,10 +2910,7 @@ func _draw_stats_band(
 		preview_card_rects,
 		mouse_pos
 	)
-	if (
-		bool(training_preview.get("visible", false))
-		and is_training_stat_preview_visible_at(_get_draw_msec())
-	):
+	if bool(training_preview.get("visible", false)):
 		CharacterInfoOverlayStatsPresenter.draw_player_stat_preview_segment(
 			canvas,
 			inner,
@@ -2919,7 +2918,8 @@ func _draw_stats_band(
 			int(training_preview.get("row_index", -1)),
 			float(training_preview.get("current_fill_ratio", -1.0)),
 			float(training_preview.get("projected_fill_ratio", -1.0)),
-			CharacterInfoOverlayState.UI_TEXT_SCALE
+			CharacterInfoOverlayState.UI_TEXT_SCALE,
+			training_stat_preview_alpha_at(_get_draw_msec())
 		)
 	if not _stats_hover_data.is_empty() and view_size.x > 0.0:
 		_draw_stats_row_tooltip(canvas, registry, font, mouse_pos, view_size, icon_renderer)
@@ -2985,8 +2985,19 @@ static func hovered_training_choice(
 	return {}
 
 
+# The projected segment fades in and out on a raised cosine instead of hard
+# toggling. The curve is stretched past both rails and clamped so the segment
+# still rests at full and at zero for a short beat, which reads as "appears and
+# disappears" without the strobe of a square wave.
+static func training_stat_preview_alpha_at(draw_msec: int) -> float:
+	var cycle: int = maxi(1, TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC)
+	var phase: float = float(posmod(draw_msec, cycle)) / float(cycle)
+	var raised: float = 0.5 + 0.5 * cos(TAU * phase)
+	return clampf(raised * TRAINING_STAT_PREVIEW_FADE_GAIN - TRAINING_STAT_PREVIEW_FADE_BIAS, 0.0, 1.0)
+
+
 static func is_training_stat_preview_visible_at(draw_msec: int) -> bool:
-	return posmod(draw_msec, TRAINING_STAT_PREVIEW_BLINK_CYCLE_MSEC) < TRAINING_STAT_PREVIEW_VISIBLE_MSEC
+	return training_stat_preview_alpha_at(draw_msec) > 0.5
 
 
 func set_training_stat_preview_draw_msec_for_tests(draw_msec: int) -> void:
