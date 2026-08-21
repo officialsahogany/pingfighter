@@ -11,6 +11,12 @@ const BattleSceneShell := preload("res://scripts/core/battle_scene_shell.gd")
 const BattleScenePlayerControlConfigBuilder := preload(
 	"res://scripts/core/battle_scene_player_control_config_builder.gd"
 )
+const Stage1PillarHudSceneDrawer := preload(
+	"res://scripts/stages/stage1/stage1_pillar_hud_scene_drawer.gd"
+)
+const Stage1PillarUiRenderer := preload(
+	"res://scripts/hud/stage1_pillar_ui_renderer.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -23,11 +29,14 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentRouteWindPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
 )
+const TowerAscentRoutePickupState := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_pickup_state.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
 
-const OUTPUT_DIR := "res://.godot/codex_captures/tower_route_serve_wind_target"
+const OUTPUT_DIR := "res://.godot/codex_captures/tower_route_wind_and_pickup"
 const VIEWPORT_SIZE := Vector2i(2020, 1246)
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const LIVE_TARGET_INDEX := 0
@@ -35,6 +44,7 @@ const SWEEP_FRAME_COUNT := 12
 const SWEEP_COLUMNS := 4
 const AIM_MATCH_TOLERANCE_DEGREES := 0.35
 const LIVE_FLIGHT_LIMIT := 360
+const PIXEL_DIFF_THRESHOLD := 0.06
 
 var _failures: Array[String] = []
 
@@ -85,6 +95,13 @@ class FakeRegistry:
 
 	func get_cached_instance(key: String) -> Variant:
 		return instances.get(key, null)
+
+
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
 
 
 class FakeInputReader:
@@ -171,11 +188,10 @@ class RouteCaptureCanvas:
 				Color(0.88, 0.72, 0.42, alpha),
 				true
 			)
-		# Keep enough of the defeated battle field visible to prove this surface is
-		# an overlay, not a replacement firing screen.
-		draw_circle(Vector2(380.0, 112.0), 48.0, Color("31251f"))
-		draw_arc(Vector2(380.0, 112.0), 48.0, 0.0, TAU, 48, Color("7c2f24"), 3.0)
-		draw_line(Vector2(350.0, 92.0), Vector2(410.0, 132.0), Color("aa5c4a"), 4.0)
+		# ROUTE_AIM retains the full court, player paddle, and selector ball while
+		# suppressing departed stage/boss actors and their detached effects.
+		draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color("b48748"), false, 3.0)
+		draw_line(Vector2(0.0, 375.0), Vector2(760.0, 375.0), Color(0.85, 0.72, 0.48, 0.16), 1.0)
 		if battle_owner != null:
 			var player_pos := BattleSceneOwnerReader.get_vector2(
 				battle_owner,
@@ -202,6 +218,26 @@ class RouteCaptureCanvas:
 			renderer.draw(self, flow)
 
 
+class PillarCaptureCanvas:
+	extends Node2D
+
+	var registry: Object = null
+	var scene_drawer: Object = Stage1PillarHudSceneDrawer.new()
+	var game_offset := Vector2.ZERO
+	var game_size := Vector2.ZERO
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, Vector2(VIEWPORT_SIZE)), Color("090706"), true)
+		scene_drawer.call(
+			"_draw_gold_hud",
+			self,
+			{"height": PLAYFIELD_SIZE.y, "current_stage": 4},
+			registry,
+			game_offset,
+			game_size
+		)
+
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -225,6 +261,8 @@ func _run() -> void:
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
+		"tower_ascent_unlock_store": FakeUnlockStore.new(),
+		"stage1_pillar_ui_renderer": Stage1PillarUiRenderer.new(),
 		"runtime_perk_state": FakeModalRuntime.new(),
 		"round_flow_state": round_state,
 		"battle_scene_ball_update_driver": FakeBallDriver.new(round_state),
@@ -241,6 +279,7 @@ func _run() -> void:
 		"run_id": "route-wind-target-visual-qa",
 		"current_stage": 4,
 		"map_seed": 83521,
+		"run_state": {"gold": 10, "muhon": 20},
 	}
 	if not flow.prepare_vertical_slice_combat(owner, flow_context):
 		_fail("production flow could not prepare the ROUTE_AIM battle resolution")
@@ -305,6 +344,11 @@ func _run() -> void:
 		(float(VIEWPORT_SIZE.x) - PLAYFIELD_SIZE.x * scale_factor) * 0.5,
 		(float(VIEWPORT_SIZE.y) - PLAYFIELD_SIZE.y * scale_factor) * 0.5
 	)
+	var pillar_canvas := PillarCaptureCanvas.new()
+	pillar_canvas.registry = registry
+	pillar_canvas.game_offset = canvas.position
+	pillar_canvas.game_size = PLAYFIELD_SIZE * scale_factor
+	get_root().add_child(pillar_canvas)
 	get_root().add_child(canvas)
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
 	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
@@ -315,6 +359,27 @@ func _run() -> void:
 	var route_runtime: Object = flow.get("_route_serve_runtime")
 	if route_runtime == null:
 		_fail("production flow did not expose its route serve runtime")
+		owner.free()
+		return
+	var initial_pickups: Array[Dictionary] = flow.get_route_pickups()
+	var gold_pickup := _first_pickup_of_kind(
+		initial_pickups,
+		TowerAscentRoutePickupState.KIND_GOLD
+	)
+	var muhon_pickup := _first_pickup_of_kind(
+		initial_pickups,
+		TowerAscentRoutePickupState.KIND_MUHON
+	)
+	if (
+		_count_pickup_kind(initial_pickups, TowerAscentRoutePickupState.KIND_GOLD) < 2
+		or _count_pickup_kind(initial_pickups, TowerAscentRoutePickupState.KIND_GOLD) > 5
+		or _count_pickup_kind(initial_pickups, TowerAscentRoutePickupState.KIND_MUHON) < 2
+		or _count_pickup_kind(initial_pickups, TowerAscentRoutePickupState.KIND_MUHON) > 5
+		or _count_pickup_kind(initial_pickups, TowerAscentRoutePickupState.KIND_ACTIVE_ITEM) != 1
+		or gold_pickup.is_empty()
+		or muhon_pickup.is_empty()
+	):
+		_fail("production ROUTE_AIM did not expose the required 2-5/2-5/1 pickup set")
 		owner.free()
 		return
 	var actual_entry_wind: Dictionary = flow.get_route_wind_model()
@@ -345,6 +410,39 @@ func _run() -> void:
 			owner.free()
 			return
 		full_images.append(image)
+	if full_images.size() != 3:
+		_fail("route wind captures did not materialize all calm/left/right frames")
+		owner.free()
+		return
+	var pickup_before_output := output_dir.path_join(
+		"route_pickups_before_collect_2020x1246.png"
+	)
+	if full_images[2].save_png(pickup_before_output) != OK:
+		_fail("could not save route pickup-before capture")
+		owner.free()
+		return
+	var wind_origin: Vector2 = flow.get_route_aim_gauge_model().get(
+		"origin",
+		Vector2(380.0, 600.0)
+	)
+	var calm_wind_crop := _capture_region(
+		full_images[0],
+		canvas,
+		_wind_panel_rect(wind_origin)
+	)
+	var windy_wind_crop := _capture_region(
+		full_images[2],
+		canvas,
+		_wind_panel_rect(wind_origin)
+	)
+	if (
+		calm_wind_crop == null
+		or windy_wind_crop == null
+		or _count_changed_pixels(calm_wind_crop, windy_wind_crop) < 80
+	):
+		_fail("calm/windy Vulkan crops did not prove the wind indicator visibility delta")
+		owner.free()
+		return
 
 	var target_crop := _capture_region(
 		full_images[0],
@@ -393,6 +491,81 @@ func _run() -> void:
 		owner.free()
 		return
 
+	var economy_before: Dictionary = flow.get_run_state_snapshot()
+	if not _drive_ball_through_pickup(flow, owner, round_state, gold_pickup):
+		_fail("production route ball did not collect the selected gold pickup")
+		owner.free()
+		return
+	if not _drive_ball_through_pickup(flow, owner, round_state, muhon_pickup):
+		_fail("production route ball did not collect the selected Muhon pickup")
+		owner.free()
+		return
+	var economy_after: Dictionary = flow.get_run_state_snapshot()
+	if (
+		int(economy_after.get("gold", -1)) != int(economy_before.get("gold", -1)) + 1
+		or int(economy_after.get("muhon", -1)) != int(economy_before.get("muhon", -1)) + 1
+	):
+		_fail("route currency pickup did not update the production Tower economy immediately")
+		owner.free()
+		return
+	_set_runtime_wind(
+		route_runtime,
+		TowerAscentRouteWindPolicy.build_model(1, 3),
+		0.0
+	)
+	pillar_canvas.queue_redraw()
+	canvas.queue_redraw()
+	for _frame in range(3):
+		await process_frame
+	var pickup_after_image := get_root().get_texture().get_image()
+	var pickup_after_output := output_dir.path_join(
+		"route_pickups_after_currency_2020x1246.png"
+	)
+	if (
+		pickup_after_image == null
+		or pickup_after_image.is_empty()
+		or pickup_after_image.save_png(pickup_after_output) != OK
+	):
+		_fail("could not save route pickup-after capture")
+		owner.free()
+		return
+	for collected_pickup in [gold_pickup, muhon_pickup]:
+		var pickup_position: Vector2 = collected_pickup.get("position", Vector2.ZERO)
+		var pickup_rect := Rect2(pickup_position - Vector2(28.0, 28.0), Vector2(56.0, 56.0))
+		var before_crop := _capture_region(full_images[2], canvas, pickup_rect)
+		var after_crop := _capture_region(pickup_after_image, canvas, pickup_rect)
+		if (
+			before_crop == null
+			or after_crop == null
+			or _count_changed_pixels(before_crop, after_crop) < 80
+		):
+			_fail("collected route pickup did not disappear visibly: %s" % collected_pickup)
+			owner.free()
+			return
+	var pillar_renderer: Object = registry.instances.get("stage1_pillar_ui_renderer", null)
+	var hud_layout: Dictionary = pillar_renderer.build_currency_hud_layout(
+		canvas.position,
+		PLAYFIELD_SIZE * scale_factor,
+		{
+			"height": PLAYFIELD_SIZE.y,
+			"gold_hud_amount": int(economy_after.get("gold", 0)),
+			"tower_muhon_hud_visible": true,
+			"tower_muhon_hud_amount": int(economy_after.get("muhon", 0)),
+		}
+	)
+	for hud_rect_key in ["gold_rect", "muhon_rect"]:
+		var hud_rect: Rect2 = hud_layout.get(hud_rect_key, Rect2())
+		var hud_before := _capture_absolute_region(full_images[2], hud_rect)
+		var hud_after := _capture_absolute_region(pickup_after_image, hud_rect)
+		if (
+			hud_before == null
+			or hud_after == null
+			or _count_changed_pixels(hud_before, hud_after) < 8
+		):
+			_fail("route pickup did not visibly refresh the %s pillar HUD" % hud_rect_key)
+			owner.free()
+			return
+
 	# Live compensated shot: restore the actual entry roll, observe it, wait for
 	# the desired physical angle, and let the production route runtime resolve
 	# the target. No debug_serve helper participates in this leg.
@@ -440,6 +613,21 @@ func _run() -> void:
 		_fail("live compensated shot did not launch the production route ball")
 		owner.free()
 		return
+	canvas.queue_redraw()
+	for _frame in range(2):
+		await process_frame
+	var live_ball_image := get_root().get_texture().get_image()
+	var live_ball_output := output_dir.path_join(
+		"route_live_ball_in_flight_2020x1246.png"
+	)
+	if (
+		live_ball_image == null
+		or live_ball_image.is_empty()
+		or live_ball_image.save_png(live_ball_output) != OK
+	):
+		_fail("could not save live route-ball capture")
+		owner.free()
+		return
 	for _frame in range(LIVE_FLIGHT_LIMIT):
 		if flow.get_phase_name() != "ROUTE_AIM":
 			break
@@ -455,11 +643,39 @@ func _run() -> void:
 		)
 		owner.free()
 		return
+	if not flow.get_route_pickups().is_empty():
+		_fail("route target resolution did not clear all remaining pickups")
+		owner.free()
+		return
+	pillar_canvas.queue_redraw()
+	canvas.queue_redraw()
+	for _frame in range(3):
+		await process_frame
+	var cleanup_image := get_root().get_texture().get_image()
+	var cleanup_output := output_dir.path_join(
+		"route_cleanup_after_target_2020x1246.png"
+	)
+	if (
+		cleanup_image == null
+		or cleanup_image.is_empty()
+		or cleanup_image.save_png(cleanup_output) != OK
+	):
+		_fail("could not save route cleanup capture")
+		owner.free()
+		return
 
 	print(
 		"tower_route_serve_wind_target_visual_qa: ok "
-		+ "wind=%s desired=%s angle=%.3f captures=%d"
-		% [actual_entry_wind, desired_target_id, desired_angle, 6]
+		+ "wind=%s desired=%s angle=%.3f gold=%d muhon=%d pickups=%d captures=%d"
+		% [
+			actual_entry_wind,
+			desired_target_id,
+			desired_angle,
+			int(economy_after.get("gold", -1)),
+			int(economy_after.get("muhon", -1)),
+			initial_pickups.size(),
+			10,
+		]
 	)
 	flow.call("_finish_vertical_slice")
 	owner.free()
@@ -487,6 +703,75 @@ func _set_runtime_wind(runtime: Object, model: Dictionary, elapsed: float) -> vo
 	runtime.call("_update_aim_oscillator", 0.0)
 
 
+func _first_pickup_of_kind(pickups: Array[Dictionary], kind: String) -> Dictionary:
+	for pickup in pickups:
+		if str(pickup.get("kind", "")) == kind:
+			return pickup
+	return {}
+
+
+func _count_pickup_kind(pickups: Array[Dictionary], kind: String) -> int:
+	var count := 0
+	for pickup in pickups:
+		if str(pickup.get("kind", "")) == kind:
+			count += 1
+	return count
+
+
+func _drive_ball_through_pickup(
+	flow: Object,
+	owner: Object,
+	round_state: FakeRoundState,
+	pickup: Dictionary
+) -> bool:
+	var pickup_id := str(pickup.get("id", ""))
+	var pickup_position: Vector2 = pickup.get("position", Vector2.ZERO)
+	if pickup_id.is_empty() or pickup_position == Vector2.ZERO:
+		return false
+	round_state.waiting = false
+	owner.set("ball_pos", pickup_position + Vector2(0.0, 52.0))
+	owner.set("ball_vel", Vector2(0.0, -8.7))
+	owner.set("ball_active", true)
+	for _frame in range(24):
+		flow.update_selective(1.0 / 60.0)
+		if not _pickup_list_has_id(flow.get_route_pickups(), pickup_id):
+			_reset_visual_route_ball(owner, round_state)
+			return true
+	_reset_visual_route_ball(owner, round_state)
+	return false
+
+
+func _pickup_list_has_id(pickups: Array[Dictionary], pickup_id: String) -> bool:
+	for pickup in pickups:
+		if str(pickup.get("id", "")) == pickup_id:
+			return true
+	return false
+
+
+func _reset_visual_route_ball(owner: Object, round_state: FakeRoundState) -> void:
+	round_state.waiting = true
+	owner.set("ball_pos", Vector2(380.0, 665.0))
+	owner.set("ball_vel", Vector2.ZERO)
+	owner.set("ball_active", false)
+
+
+func _wind_panel_rect(origin: Vector2) -> Rect2:
+	var panel_size := TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_SIZE
+	var panel_x := (
+		origin.x
+		+ TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+		+ TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_GAP
+	)
+	if panel_x + panel_size.x > PLAYFIELD_SIZE.x - 12.0:
+		panel_x = (
+			origin.x
+			- TowerAscentTuning.TEMP_ROUTE_AIM_GAUGE_RADIUS
+			- TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_GAP
+			- panel_size.x
+		)
+	return Rect2(Vector2(panel_x, origin.y - panel_size.y * 0.5), panel_size)
+
+
 func _capture_region(image: Image, canvas: Node2D, canvas_rect: Rect2) -> Image:
 	if image == null or image.is_empty():
 		return null
@@ -497,6 +782,36 @@ func _capture_region(image: Image, canvas: Node2D, canvas_rect: Rect2) -> Image:
 	if capture_rect.size.x < 1.0 or capture_rect.size.y < 1.0:
 		return null
 	return image.get_region(Rect2i(capture_rect))
+
+
+func _capture_absolute_region(image: Image, screen_rect: Rect2) -> Image:
+	if image == null or image.is_empty():
+		return null
+	var capture_rect := screen_rect.intersection(
+		Rect2(Vector2.ZERO, Vector2(image.get_size()))
+	)
+	if capture_rect.size.x < 1.0 or capture_rect.size.y < 1.0:
+		return null
+	return image.get_region(Rect2i(capture_rect))
+
+
+func _count_changed_pixels(first: Image, second: Image) -> int:
+	if (
+		first == null
+		or second == null
+		or first.is_empty()
+		or second.is_empty()
+		or first.get_size() != second.get_size()
+	):
+		return 0
+	var changed := 0
+	for y in range(first.get_height()):
+		for x in range(first.get_width()):
+			var a := first.get_pixel(x, y)
+			var b := second.get_pixel(x, y)
+			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) >= PIXEL_DIFF_THRESHOLD:
+				changed += 1
+	return changed
 
 
 func _build_strip(images: Array[Image], columns: int) -> Image:

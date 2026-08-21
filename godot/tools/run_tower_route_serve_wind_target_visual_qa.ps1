@@ -10,7 +10,7 @@ $validationPriorityContext = $null
 try {
     $validationPriorityContext = Assert-NoInteractiveGodotGame `
         -ProjectPath $ProjectPath `
-        -OperationName "Tower route wind and target Vulkan visual QA" `
+        -OperationName "Tower route wind pickup and target Vulkan visual QA" `
         -AllowDuringPlay
 
     . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
@@ -61,7 +61,7 @@ try {
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
         Remove-Item -LiteralPath $logDir -Force
     }
-    Write-Host "Tower route wind and target Vulkan visual QA passed."
+    Write-Host "Tower route wind pickup and target Vulkan visual QA passed."
 }
 finally {
     Restore-GodotValidationPriority -Context $validationPriorityContext

@@ -152,14 +152,24 @@ class FakeBallDriver:
 		owner.ball_active = true
 
 
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
+
+
 class FakeRegistry:
 	extends RefCounted
 
 	var instances: Dictionary = {}
 	var reads: Array[String] = []
+	var unlock_store := FakeUnlockStore.new()
 
 	func get_instance(key: String) -> Variant:
 		reads.append(key)
+		if key == "tower_ascent_unlock_store":
+			return unlock_store
 		return instances.get(key, null)
 
 	func get_cached_instance(key: String) -> Variant:
@@ -625,9 +635,9 @@ func _verify_route_wind_indicator_calm_and_directional_states() -> void:
 		Vector2(380.0, 650.0),
 		TowerAscentRouteWindPolicy.calm_model()
 	)
-	_expect(calm_canvas.rect_calls == 8, "calm wind must still draw the panel and six strength cells")
-	_expect(calm_canvas.circle_calls == 2, "calm wind must show a centered no-wind ring")
-	_expect(calm_canvas.polygon_calls == 0, "calm wind must not invent a direction arrow")
+	_expect(calm_canvas.rect_calls == 0, "calm wind must not draw a route wind panel")
+	_expect(calm_canvas.circle_calls == 0, "calm wind must not draw a hidden vane pivot")
+	_expect(calm_canvas.polygon_calls == 0, "calm wind must not draw a direction arrow")
 
 	var left_canvas := FakeWindCanvas.new()
 	renderer.debug_draw_route_wind_indicator(

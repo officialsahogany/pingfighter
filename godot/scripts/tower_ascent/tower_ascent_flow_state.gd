@@ -16,6 +16,9 @@ const TowerAscentRouteServeRuntime := preload(
 const TowerAscentRouteWindPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
 )
+const TowerAscentRoutePickupState := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_pickup_state.gd"
+)
 const TowerAscentRunState := preload("res://scripts/tower_ascent/tower_ascent_run_state.gd")
 const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 const TowerAscentNodeResolutionTransaction := preload(
@@ -133,6 +136,7 @@ var _route_target_ids: Array[String] = []
 var _available_route_target_ids: Array[String] = []
 var _route_aim_targets_cache: Array[Dictionary] = []
 var _route_wind_roll_count := 0
+var _route_pickup_state: Object = TowerAscentRoutePickupState.new()
 var _selected_target_id := ""
 var _selector_position := SELECTOR_ORIGIN
 var _selector_velocity := Vector2.ZERO
@@ -196,6 +200,7 @@ func _reset_selector() -> void:
 
 func _reset_runtime_state() -> void:
 	_route_serve_runtime.cancel()
+	_route_pickup_state.reset()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
 	_active_owner = null

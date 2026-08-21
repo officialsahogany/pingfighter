@@ -88,6 +88,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		push_warning("[TowerAscent] prepare rejected: generated_graph_invalid")
 		return false
 	_prewarm_map_scroll_assets()
+	_route_pickup_state.prewarm_candidates()
 	if restore_existing_progress and not _restore_reentry_progress(existing_progress):
 		push_warning("[TowerAscent] prepare rejected: reentry_progress_invalid")
 		return false
@@ -434,17 +435,35 @@ func _enter_route_aim() -> bool:
 	)
 	_gameplay_rng_state = _dictionary_copy(wind_roll.get("gameplay_rng_state", {}))
 	_route_wind_roll_count += 1
+	var pickup_roll: Dictionary = _route_pickup_state.begin(
+		_gameplay_rng_state,
+		_route_aim_targets_cache,
+		_route_pickup_state.build_active_candidates(_active_registry, _active_owner)
+	)
+	if not bool(pickup_roll.get("accepted", false)):
+		push_warning(
+			"[TowerAscent] route pickup rejected: %s"
+			% str(pickup_roll.get("reason", "unknown"))
+		)
+		return false
+	_gameplay_rng_state = _dictionary_copy(pickup_roll.get("gameplay_rng_state", {}))
 	var result: Dictionary = _route_serve_runtime.begin(
 		_active_owner,
 		_active_registry,
 		wind_roll.get("wind", {})
 	)
 	if not bool(result.get("accepted", false)):
+		_route_pickup_state.clear_route()
 		push_warning("[TowerAscent] route aim rejected: %s" % str(result.get("reason", "unknown")))
 	return bool(result.get("accepted", false))
 
 func _update_route_serve(delta: float) -> void:
-	var result: Dictionary = _route_serve_runtime.update(delta, _route_aim_targets_cache)
+	var result: Dictionary = _route_serve_runtime.update(
+		delta,
+		_route_aim_targets_cache,
+		_route_pickup_state.get_pickups()
+	)
+	_collect_route_pickup_contacts(result.get("pickup_ids", []))
 	if str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT:
 		_resolve_route_target(str(result.get("target_id", "")))
 
@@ -453,8 +472,66 @@ func get_route_wind_model() -> Dictionary:
 	return _route_serve_runtime.get_wind_model()
 
 
+func has_visible_route_wind_indicator() -> bool:
+	return _route_serve_runtime.has_visible_wind_indicator()
+
+
 func get_route_wind_roll_count() -> int:
 	return _route_wind_roll_count
+
+
+func get_route_pickups() -> Array[Dictionary]:
+	return _route_pickup_state.get_pickups()
+
+
+func get_route_pickup_roll_count() -> int:
+	return _route_pickup_state.get_roll_count()
+
+
+func _collect_route_pickup_contacts(pickup_ids: Variant) -> void:
+	if not pickup_ids is Array:
+		return
+	for pickup_id_value in pickup_ids as Array:
+		var pickup_id := str(pickup_id_value)
+		var pickup: Dictionary = _route_pickup_state.get_pickup(pickup_id)
+		if pickup.is_empty() or bool(pickup.get("consumed", false)):
+			continue
+		var accepted := false
+		match str(pickup.get("kind", "")):
+			TowerAscentRoutePickupState.KIND_GOLD:
+				var gold_result: Variant = call("collect_gold", int(pickup.get("amount", 1)))
+				accepted = (
+					gold_result is Dictionary
+					and bool((gold_result as Dictionary).get("accepted", false))
+				)
+			TowerAscentRoutePickupState.KIND_MUHON:
+				var muhon_result: Variant = call(
+					"collect_muhon",
+					int(pickup.get("amount", 1)),
+					_active_owner
+				)
+				accepted = (
+					muhon_result is Dictionary
+					and bool((muhon_result as Dictionary).get("accepted", false))
+				)
+			TowerAscentRoutePickupState.KIND_ACTIVE_ITEM:
+				var active_item_runtime := _get_registry_instance(
+					_active_registry,
+					"active_item_runtime"
+				)
+				if (
+					active_item_runtime != null
+					and active_item_runtime.has_method("collect_item_by_name")
+				):
+					accepted = bool(active_item_runtime.call(
+						"collect_item_by_name",
+						str(pickup.get("item_name", "")),
+						_vector2(pickup.get("position", Vector2.ZERO)),
+						_active_owner,
+						_active_registry
+					))
+		if accepted:
+			_route_pickup_state.consume(pickup_id)
 
 func _resolve_route_target(target_id: String) -> void:
 	if not get_route_target_ids().has(target_id):
@@ -470,6 +547,7 @@ func _resolve_route_target(target_id: String) -> void:
 		# transition frame. The departed noncombat arena must never bleed into battle.
 		_clear_retained_noncombat_node_background()
 	_route_serve_runtime.finish_selection()
+	_route_pickup_state.clear_route()
 	_selected_target_id = target_id
 	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})
 	for candidate_id in _route_target_ids:

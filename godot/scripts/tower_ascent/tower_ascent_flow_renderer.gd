@@ -18,6 +18,12 @@ const TowerAscentMapIconography := preload(
 const TowerAscentMapCameraModel := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
 )
+const TowerAscentRouteWindPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
+)
+const TowerAscentRoutePickupState := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_pickup_state.gd"
+)
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
@@ -36,6 +42,9 @@ const ROUTE_AIM_GAUGE_FAN_TEXTURE := preload(
 )
 const ROUTE_AIM_GAUGE_ARROW_TEXTURE := preload(
 	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
+)
+const ROUTE_PICKUP_BAG_TEXTURE := preload(
+	"res://assets/sprites/perks/item_bag_expansion_perk_icon.png"
 )
 
 const NODE_ART_PATHS := {
@@ -2738,6 +2747,7 @@ func _draw_route_aim(canvas: Object, flow: Object) -> void:
 			canvas.draw_rect(label_rect, Color(0.04, 0.025, 0.02, 0.86), true)
 			canvas.draw_rect(label_rect, GOLD, false, 1.5)
 			canvas.draw_string(font, label_rect.position + Vector2(0.0, 21.0), fallback_label, HORIZONTAL_ALIGNMENT_CENTER, label_rect.size.x, 16, PAPER)
+	_draw_route_pickups(canvas, flow)
 	_draw_route_aim_gauge(canvas, flow)
 	_draw_route_wind_indicator(canvas, flow)
 	canvas.draw_string(font, Vector2(80.0, 42.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
@@ -2748,10 +2758,57 @@ func debug_draw_route_aim(canvas: Object, flow: Object) -> void:
 	_draw_route_aim(canvas, flow)
 
 
+func _draw_route_pickups(canvas: Object, flow: Object) -> void:
+	if not flow.has_method("get_route_pickups"):
+		return
+	for pickup_variant in flow.get_route_pickups():
+		var pickup: Dictionary = pickup_variant
+		var center := _vector2(pickup.get("position", Vector2.ZERO))
+		var radius := maxf(4.0, float(pickup.get(
+			"draw_radius",
+			TowerAscentTuning.TEMP_ROUTE_PICKUP_DRAW_RADIUS
+		)))
+		match str(pickup.get("kind", "")):
+			TowerAscentRoutePickupState.KIND_GOLD:
+				_draw_gold_coin_icon(canvas, center, radius * 1.55, 1.0)
+			TowerAscentRoutePickupState.KIND_MUHON:
+				CommonStarpointVisualHost.draw_muhon_fallback(
+					canvas,
+					center,
+					radius * 0.52,
+					1.0,
+					0.72,
+					false,
+					0.0
+				)
+			TowerAscentRoutePickupState.KIND_ACTIVE_ITEM:
+				canvas.draw_circle(center, radius, Color(CINNABAR_DARK, 0.72))
+				canvas.draw_circle(center, radius, GOLD, false, 2.0)
+				var icon_size := Vector2.ONE * radius * 1.82
+				canvas.draw_texture_rect(
+					ROUTE_PICKUP_BAG_TEXTURE,
+					Rect2(center - icon_size * 0.5, icon_size),
+					false
+				)
+
+
+func debug_draw_route_pickups(canvas: Object, flow: Object) -> void:
+	_draw_route_pickups(canvas, flow)
+
+
 func _draw_route_wind_indicator(canvas: Object, flow: Object) -> void:
 	if (
 		not flow.has_method("get_route_aim_gauge_model")
 		or not flow.has_method("get_route_wind_model")
+	):
+		return
+	# GRT-043: calm route entries exit before the gauge/wind draw models are
+	# built. A gate inside the panel painter would still build-then-discard.
+	if flow.has_method("has_visible_route_wind_indicator"):
+		if not bool(flow.has_visible_route_wind_indicator()):
+			return
+	elif not TowerAscentRouteWindPolicy.is_indicator_visible(
+		flow.get_route_wind_model()
 	):
 		return
 	var gauge_model: Dictionary = flow.get_route_aim_gauge_model()
@@ -2772,11 +2829,17 @@ func debug_draw_route_wind_indicator(
 	_draw_route_wind_indicator_model(canvas, origin, wind_model)
 
 
+func debug_draw_route_wind_from_flow(canvas: Object, flow: Object) -> void:
+	_draw_route_wind_indicator(canvas, flow)
+
+
 func _draw_route_wind_indicator_model(
 	canvas: Object,
 	origin: Vector2,
 	wind_model: Dictionary
 ) -> void:
+	if not TowerAscentRouteWindPolicy.is_indicator_visible(wind_model):
+		return
 	var panel_size := TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_SIZE
 	var panel_x := (
 		origin.x

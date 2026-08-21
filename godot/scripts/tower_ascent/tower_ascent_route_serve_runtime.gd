@@ -115,11 +115,15 @@ func finish_selection() -> void:
 	_active = false
 
 
-func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
+func update(
+	delta: float,
+	targets: Array[Dictionary],
+	pickups: Array[Dictionary] = []
+) -> Dictionary:
 	if not _active:
 		return {"status": STATUS_WAITING}
 	if _fixture_mode:
-		return _update_fixture_flight(delta, targets)
+		return _update_fixture_flight(delta, targets, pickups)
 	var input_snapshot := _read_player_input_snapshot()
 	var safe_delta := maxf(0.0, delta)
 	var serve_input_armed := _serve_arm_remaining <= 0.0
@@ -141,7 +145,7 @@ func update(delta: float, targets: Array[Dictionary]) -> Dictionary:
 	if not bool(_owner_value("ball_active", false)):
 		_prepare_next_serve()
 		return {"status": STATUS_MISS}
-	return _advance_live_ball(delta, targets)
+	return _advance_live_ball(delta, targets, pickups)
 
 
 func debug_serve_toward(target_position: Vector2) -> void:
@@ -181,6 +185,10 @@ func get_serve_attempt_count() -> int:
 
 func get_wind_model() -> Dictionary:
 	return _wind_model.duplicate(true)
+
+
+func has_visible_wind_indicator() -> bool:
+	return TowerAscentRouteWindPolicy.is_indicator_visible(_wind_model)
 
 
 func get_aim_gauge_model() -> Dictionary:
@@ -290,7 +298,11 @@ func _update_player_route_movement(delta: float, input_snapshot: Dictionary) -> 
 	)
 
 
-func _advance_live_ball(delta: float, targets: Array[Dictionary]) -> Dictionary:
+func _advance_live_ball(
+	delta: float,
+	targets: Array[Dictionary],
+	pickups: Array[Dictionary]
+) -> Dictionary:
 	var previous := _owner_vector2("ball_pos", Vector2.ZERO)
 	var velocity := _owner_vector2("ball_vel", Vector2.ZERO)
 	var impact_boost := maxf(0.0, float(_owner_value("ball_impact_boost", 1.0)))
@@ -302,18 +314,19 @@ func _advance_live_ball(delta: float, targets: Array[Dictionary]) -> Dictionary:
 		_build_route_motion_context()
 	)
 	var current := _vector2(step_result.get("ball_pos", previous), previous)
+	var pickup_ids := _find_hit_pickup_ids(previous, current, _ball_radius(), pickups)
 	var target_id := _find_hit_target(previous, current, _ball_radius(), targets)
 	if not target_id.is_empty():
 		_set_owner_value("ball_pos", current)
 		_hide_owned_ball()
-		return {"status": STATUS_HIT, "target_id": target_id}
+		return {"status": STATUS_HIT, "target_id": target_id, "pickup_ids": pickup_ids}
 	match str(step_result.get("event", "none")):
 		"wall":
 			var side := str(step_result.get("side", ""))
 			velocity.x = absf(velocity.x) if side == "left" else -absf(velocity.x)
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", velocity)
-			return {"status": STATUS_FLIGHT}
+			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"player_paddle":
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", _resolve_player_paddle_bounce(
@@ -322,43 +335,53 @@ func _advance_live_ball(delta: float, targets: Array[Dictionary]) -> Dictionary:
 				float(step_result.get("paddle_x", 0.0)),
 				maxf(1.0, float(step_result.get("paddle_w", 155.0)))
 			))
-			return {"status": STATUS_FLIGHT}
+			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"player_scored":
 			current.y = _ball_radius()
 			velocity.y = absf(velocity.y)
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", velocity)
-			return {"status": STATUS_FLIGHT}
+			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"boss_scored":
 			_prepare_next_serve()
-			return {"status": STATUS_MISS}
+			return {"status": STATUS_MISS, "pickup_ids": pickup_ids}
 	_set_owner_value("ball_pos", current)
-	return {"status": STATUS_FLIGHT}
+	return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 
 
-func _update_fixture_flight(delta: float, targets: Array[Dictionary]) -> Dictionary:
+func _update_fixture_flight(
+	delta: float,
+	targets: Array[Dictionary],
+	pickups: Array[Dictionary]
+) -> Dictionary:
 	if not _fixture_ball_active:
 		return {"status": STATUS_WAITING}
 	var previous := _fixture_ball_position
 	_fixture_ball_position += _fixture_ball_velocity * maxf(0.0, delta) * 60.0
+	var pickup_ids := _find_hit_pickup_ids(
+		previous,
+		_fixture_ball_position,
+		_ball_radius(),
+		pickups
+	)
 	var target_id := _find_hit_target(previous, _fixture_ball_position, _ball_radius(), targets)
 	if not target_id.is_empty():
 		_fixture_ball_active = false
 		_sync_fixture_to_owner()
-		return {"status": STATUS_HIT, "target_id": target_id}
+		return {"status": STATUS_HIT, "target_id": target_id, "pickup_ids": pickup_ids}
 	if _fixture_ball_position.y < _ball_radius():
 		_fixture_ball_position.y = _ball_radius()
 		_fixture_ball_velocity.y = absf(_fixture_ball_velocity.y)
 		_sync_fixture_to_owner()
-		return {"status": STATUS_FLIGHT}
+		return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 	if _fixture_ball_position.y > BattleSceneConfig.HEIGHT:
 		_fixture_ball_active = false
 		_fixture_ball_position = Vector2(BattleSceneConfig.WIDTH * 0.5, BattleSceneConfig.HEIGHT - 85.0)
 		_fixture_ball_velocity = Vector2.ZERO
 		_sync_fixture_to_owner()
-		return {"status": STATUS_MISS}
+		return {"status": STATUS_MISS, "pickup_ids": pickup_ids}
 	_sync_fixture_to_owner()
-	return {"status": STATUS_FLIGHT}
+	return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 
 
 func _prepare_next_serve() -> void:
@@ -391,6 +414,31 @@ func _find_hit_target(
 		if _distance_to_segment(target_position, segment_start, segment_end) <= hit_radius:
 			return str(target.get("id", ""))
 	return ""
+
+
+func _find_hit_pickup_ids(
+	segment_start: Vector2,
+	segment_end: Vector2,
+	ball_radius: float,
+	pickups: Array[Dictionary]
+) -> Array[String]:
+	var result: Array[String] = []
+	for pickup in pickups:
+		if bool(pickup.get("consumed", false)):
+			continue
+		var pickup_id := str(pickup.get("id", ""))
+		var pickup_position := _vector2(
+			pickup.get("position", Vector2.ZERO),
+			Vector2.ZERO
+		)
+		var hit_radius := maxf(0.0, float(pickup.get("hit_radius", 0.0))) + ball_radius
+		if (
+			not pickup_id.is_empty()
+			and hit_radius > 0.0
+			and _distance_to_segment(pickup_position, segment_start, segment_end) <= hit_radius
+		):
+			result.append(pickup_id)
+	return result
 
 
 func _distance_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:

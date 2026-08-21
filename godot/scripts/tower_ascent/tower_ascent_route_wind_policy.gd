@@ -7,6 +7,7 @@ const DIRECTION_CALM := 0
 const DIRECTION_RIGHT := 1
 const STRENGTH_MIN := 1
 const STRENGTH_MAX := 3
+const INDICATOR_VISIBLE_STRENGTH_THRESHOLD := 0.01
 const WIND_STRENGTH_TABLE := [
 	{"level": 1, "key": "weak", "bias_degrees": 6.0, "bar_ratio": 0.34},
 	{"level": 2, "key": "steady", "bias_degrees": 12.0, "bar_ratio": 0.67},
@@ -38,6 +39,14 @@ static func roll_from_gameplay_state(gameplay_rng_state: Dictionary) -> Dictiona
 
 static func is_calm_roll(value: float) -> bool:
 	return clampf(value, 0.0, 1.0) < CALM_PROBABILITY
+
+
+static func is_indicator_visible(wind_model: Dictionary) -> bool:
+	return (
+		bool(wind_model.get("is_windy", false))
+		and float(wind_model.get("strength_ratio", 0.0))
+		>= INDICATOR_VISIBLE_STRENGTH_THRESHOLD
+	)
 
 
 static func calm_model() -> Dictionary:

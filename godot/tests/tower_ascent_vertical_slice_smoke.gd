@@ -18,6 +18,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -343,6 +346,13 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
+
+
 class ModuleHolder:
 	extends RefCounted
 
@@ -377,6 +387,7 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 	var registry := FakeRegistry.new()
 	var runtime_state := FakeTowerModalRuntime.new()
 	registry.instances = {
+		TowerAscentUnlockFilter.STORE_KEY: FakeUnlockStore.new(),
 		"runtime_perk_state": runtime_state,
 		"round_flow_state": FakeRoundFlowState.new(),
 		"battle_scene_ball_update_driver": FakeBallUpdateDriver.new(),
