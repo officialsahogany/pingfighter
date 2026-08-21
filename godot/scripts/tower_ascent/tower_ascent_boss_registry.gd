@@ -6,6 +6,9 @@ const TowerAscentTuning := preload(
 const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
+const StageBossVariantCatalog := preload(
+	"res://scripts/stages/common/stage_boss_variant_catalog.gd"
+)
 
 const STATUS_PORTED := "ported"
 const STATUS_UNPORTED := "unported"
@@ -19,14 +22,14 @@ const FLOOR_BOSS_SLOTS := {
 		{"slot_id": "floor_01_podo", "display_name": "포도대장", "status": STATUS_PORTED, "stage": 1, "boss_id": "podo", "variant": "podo"},
 	],
 	2: [
-		{"slot_id": "floor_02_cheongringwi", "display_name": "청린귀", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi"},
-		{"slot_id": "floor_02_molewang", "display_name": "두더지왕", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "molewang"},
-		{"slot_id": "floor_02_arachne", "display_name": "아라크네", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "arachne"},
+		{"slot_id": "floor_02_cheongringwi", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi"},
+		{"slot_id": "floor_02_molewang", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "molewang"},
+		{"slot_id": "floor_02_arachne", "status": STATUS_PORTED, "stage": 2, "boss_id": "cheongringwi", "variant": "arachne"},
 	],
 	3: [
-		{"slot_id": "floor_03_yeonmyo", "display_name": "환묘 연묘", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo"},
-		{"slot_id": "floor_03_teddy_bear", "display_name": "테디베어", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "teddy_bear"},
-		{"slot_id": "floor_03_alice", "display_name": "엘리스", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "alice"},
+		{"slot_id": "floor_03_yeonmyo", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo"},
+		{"slot_id": "floor_03_teddy_bear", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "teddy_bear"},
+		{"slot_id": "floor_03_alice", "status": STATUS_PORTED, "stage": 3, "boss_id": "yeonmyo", "variant": "alice"},
 	],
 	4: [
 		{"slot_id": "floor_04_ponk", "display_name": "퐁크", "status": STATUS_PORTED, "stage": 4, "boss_id": "ponk"},
@@ -77,8 +80,21 @@ func get_floor_slots(floor_number: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for slot_variant in FLOOR_BOSS_SLOTS.get(floor_number, []):
 		if slot_variant is Dictionary:
-			result.append((slot_variant as Dictionary).duplicate(true))
+			var slot: Dictionary = (slot_variant as Dictionary).duplicate(true)
+			result.append(_with_canonical_display_name(slot))
 	return result
+
+
+func _with_canonical_display_name(slot: Dictionary) -> Dictionary:
+	var stage_id: int = int(slot.get("stage", 0))
+	if stage_id not in StageBossVariantCatalog.DEFAULT_VARIANT_BY_STAGE:
+		return slot
+	var variant_id: String = str(slot.get("variant", slot.get("boss_id", "")))
+	var entry: Dictionary = StageBossVariantCatalog.get_entry(stage_id, variant_id)
+	var display_name: String = str(entry.get("display_name", ""))
+	if display_name != "":
+		slot["display_name"] = display_name
+	return slot
 
 
 func get_seeded_floor_slots(floor_number: int, map_seed: int) -> Array[Dictionary]:

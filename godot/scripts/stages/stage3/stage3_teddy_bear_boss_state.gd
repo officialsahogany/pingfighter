@@ -1,6 +1,7 @@
 extends RefCounted
 
 const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 const STAGE_ID := 3
 const VARIANT_ID := "teddy_bear"
@@ -576,7 +577,9 @@ func _update_visual_particles(step: float) -> void:
 func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}) -> Dictionary:
 	return {
 		"stage3_boss_skill_hud_active": true,
-		"stage3_boss_skill_hud_boss_name": "테디베어",
+		"stage3_boss_skill_hud_boss_name": str(
+			StageBossVariantCatalog.get_entry(STAGE_ID, VARIANT_ID).get("display_name", "보스")
+		),
 		"stage3_boss_skill_hud_status": status,
 		"stage3_boss_skill_hud_boss_gauge": boss_special_gauge,
 		"stage3_boss_skill_hud_boss_gauge_max": GAUGE_MAX,

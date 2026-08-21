@@ -258,7 +258,7 @@ func _verify_cleanup_and_hud() -> void:
 	state.cotton_bombs = [{"pos": Vector2.ONE}]
 	state.deadly_hug_timer = 2.0
 	var hud := state.get_hud_context()
-	_expect(hud.get("stage3_boss_skill_hud_boss_name", "") == "테디베어", "HUD must use the player-facing Korean boss name")
+	_expect(hud.get("stage3_boss_skill_hud_boss_name", "") == "포웅귀", "HUD must use the catalog-backed Korean boss name")
 	_expect(bool(hud.get("stage3_boss_skill_hud_show_boss_gauge", false)), "Teddy HUD must expose the shared boss gauge")
 	_expect((hud.get("stage3_boss_skill_hud_skills", []) as Array).size() == 4, "Teddy HUD must list all four skills")
 	state.reset_round()

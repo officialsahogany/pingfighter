@@ -196,7 +196,7 @@ func _verify_cleanup_hud_and_negative_route() -> void:
 	state.rabbit_projectiles = [{"pos": Vector2.ONE}]
 	state.rabbit_active = true
 	var hud := state.get_hud_context()
-	_expect(hud.get("stage3_boss_skill_hud_boss_name", "") == "엘리스", "HUD must use the registry-facing Korean boss name")
+	_expect(hud.get("stage3_boss_skill_hud_boss_name", "") == "옥토선자", "HUD must use the catalog-backed Korean boss name")
 	_expect((hud.get("stage3_boss_skill_hud_skills", []) as Array).size() == 3, "Alice HUD must list all three skills")
 	state.reset_round()
 	_expect(is_equal_approx(state.boss_special_gauge, 275.0), "round cleanup must preserve Alice gauge")

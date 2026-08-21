@@ -14,13 +14,13 @@ const VARIANTS := {
 	},
 	"molewang": {
 		"stage": 2,
-		"display_name": "두더지왕",
+		"display_name": "지굴왕",
 		"codex_key": "boss.molewang",
 		"ported": true,
 	},
 	"arachne": {
 		"stage": 2,
-		"display_name": "아라크네",
+		"display_name": "거미각시",
 		"codex_key": "boss.arachne",
 		"boss_paddle_scale": 1.30,
 		"ported": true,
@@ -33,13 +33,13 @@ const VARIANTS := {
 	},
 	"teddy_bear": {
 		"stage": 3,
-		"display_name": "테디베어",
+		"display_name": "포웅귀",
 		"codex_key": "boss.teddy_bear",
 		"ported": true,
 	},
 	"alice": {
 		"stage": 3,
-		"display_name": "엘리스",
+		"display_name": "옥토선자",
 		"codex_key": "boss.alice",
 		"ported": true,
 	},

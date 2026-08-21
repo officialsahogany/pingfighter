@@ -1,5 +1,7 @@
 extends RefCounted
 
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+
 const STAGE_ID := 2
 const VARIANT_ID := "arachne"
 const GAUGE_MAX := 500.0
@@ -218,7 +220,9 @@ func get_boss_ai_context(_stage_background: Object = null) -> Dictionary:
 func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}) -> Dictionary:
 	return {
 		"stage2_boss_skill_hud_active": true,
-		"stage2_boss_skill_hud_boss_name": "아라크네",
+		"stage2_boss_skill_hud_boss_name": str(
+			StageBossVariantCatalog.get_entry(STAGE_ID, VARIANT_ID).get("display_name", "보스")
+		),
 		"stage2_boss_skill_hud_speech": _get_speech(),
 		"stage2_boss_skill_hud_status": status,
 		"stage2_boss_skill_hud_boss_gauge": boss_special_gauge,
