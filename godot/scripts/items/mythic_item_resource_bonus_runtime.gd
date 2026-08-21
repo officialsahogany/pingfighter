@@ -14,9 +14,17 @@ func is_fuel_pouch_equipped(runtime: Object) -> bool:
 	return runtime.roll_query.has_equipped_item_name(runtime, ITEM_FUEL_POUCH)
 
 
-func get_fuel_pouch_gauge_bonus(runtime: Object) -> float:
+func get_fuel_pouch_gauge_bonus(
+	runtime: Object,
+	runtime_perk_state_override: Object = null
+) -> float:
 	if PerkConversionFlags.is_enabled():
-		return _get_converted_perk_value(runtime, ITEM_FUEL_POUCH, "fuel_bonus_flat")
+		return _get_converted_perk_value(
+			runtime,
+			ITEM_FUEL_POUCH,
+			"fuel_bonus_flat",
+			runtime_perk_state_override
+		)
 	if not is_fuel_pouch_equipped(runtime):
 		return 0.0
 	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_FUEL_POUCH, "fuel_bonus_flat"), 0.0, 1000.0)
@@ -24,9 +32,13 @@ func get_fuel_pouch_gauge_bonus(runtime: Object) -> float:
 
 func get_effective_special_gauge_max(
 	runtime: Object,
-	base_max: float
+	base_max: float,
+	runtime_perk_state_override: Object = null
 ) -> float:
-	return max(1.0, float(base_max) + get_fuel_pouch_gauge_bonus(runtime))
+	return max(
+		1.0,
+		float(base_max) + get_fuel_pouch_gauge_bonus(runtime, runtime_perk_state_override)
+	)
 
 
 func is_bluetooth_ring_equipped(runtime: Object) -> bool:
@@ -135,8 +147,15 @@ func should_lucky_coin_double_spawn(runtime: Object) -> bool:
 	return chance > 0.0 and randf() < chance
 
 
-func _get_converted_perk_value(runtime: Object, perk_id: String, key: String) -> float:
-	var runtime_state: Object = runtime.runtime_perk_state_ref if runtime != null else null
+func _get_converted_perk_value(
+	runtime: Object,
+	perk_id: String,
+	key: String,
+	runtime_perk_state_override: Object = null
+) -> float:
+	var runtime_state: Object = runtime_perk_state_override
+	if runtime_state == null or not is_instance_valid(runtime_state):
+		runtime_state = runtime.runtime_perk_state_ref if runtime != null else null
 	if runtime_state != null and runtime_state.has_method("get_converted_perk_option_value"):
 		return float(runtime_state.get_converted_perk_option_value(perk_id, key))
 	var level := 0

@@ -15,7 +15,7 @@ const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.g
 const VIEW_SIZE := Vector2i(2020, 1246)
 const DEFAULT_OUTPUT_DIR := "res://.godot/codex_artifacts/training_card_stat_preview"
 const VISIBLE_DRAW_MSEC := 100
-const HIDDEN_DRAW_MSEC := 500
+const HIDDEN_DRAW_MSEC := 400
 const PIXEL_DIFF_THRESHOLD := 0.055
 
 
@@ -127,7 +127,7 @@ func _run() -> void:
 	viewport.transparent_bg = false
 	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	get_root().add_child(viewport)
-	var fixture: Dictionary = _build_fixture("physique_move_speed", false)
+	var fixture: Dictionary = _build_fixture("physique_max_gauge", false)
 	var canvas := PreviewCanvas.new()
 	canvas.renderer = fixture["renderer"]
 	canvas.runtime_state = fixture["state"]
@@ -161,7 +161,7 @@ func _run() -> void:
 		renderer,
 		card_rect.get_center(),
 		HIDDEN_DRAW_MSEC,
-		output_dir.path_join("hover_hidden_2020x1246.png")
+		output_dir.path_join("taeheo_hover_hidden_2020x1246.png")
 	)
 	var visible: Image = await _capture_case(
 		viewport,
@@ -170,12 +170,21 @@ func _run() -> void:
 		renderer,
 		card_rect.get_center(),
 		VISIBLE_DRAW_MSEC,
-		output_dir.path_join("hover_visible_2020x1246.png")
+		output_dir.path_join("taeheo_hover_visible_2020x1246.png")
 	)
 	if no_hover == null or hidden == null or visible == null:
 		quit(1)
 		return
 	var preview_model: Dictionary = renderer.get("_training_stat_preview_model")
+	print(
+		"[TrainingCardStatPreviewVisualQA] taeheo_hover row_index=%d current_fill_ratio=%.6f projected_fill_ratio=%.6f reason=%s"
+		% [
+			int(preview_model.get("row_index", -1)),
+			float(preview_model.get("current_fill_ratio", -1.0)),
+			float(preview_model.get("projected_fill_ratio", -1.0)),
+			str(preview_model.get("reason", "missing")),
+		]
+	)
 	var segment_rect := _preview_segment_rect(state, preview_model)
 	var visible_delta := _count_changed_pixels(hidden, visible, segment_rect)
 	var hidden_delta := _count_changed_pixels(no_hover, hidden, segment_rect)
@@ -245,7 +254,9 @@ func _build_fixture(training_id: String, saturated: bool) -> Dictionary:
 	var registry := CaptureRegistry.new()
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var icon_renderer := RuntimePerkIconRenderer.new()
-	mythic.runtime_perk_state_ref = state
+	# Reproduce the card-opening frame where the stats context is authoritative
+	# but the shared mythic compatibility cache has not been primed yet.
+	mythic.runtime_perk_state_ref = null
 	registry.instances = {
 		"runtime_perk_state": state,
 		"mythic_item_runtime": mythic,

@@ -22,8 +22,10 @@ const PREVIEWABLE_TRAINING_IDS: Array[String] = [
 	"physique_hit_gauge",
 	"physique_active_item_cooldown",
 ]
+const EXPECTED_LEG_COUNT := 7
 
 var _failures: Array[String] = []
+var _leg_count := 0
 var _catalog: Object = PhysiqueTrainingCatalog.new()
 var _character_runtime: Object = PlayerCharacterRuntime.new()
 
@@ -31,12 +33,16 @@ var _character_runtime: Object = PlayerCharacterRuntime.new()
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_source_mapping_and_exclusions()
+	_verify_taeheo_production_hover_projection()
+	_verify_shared_fuel_pouch_sync_contract()
 	_verify_prediction_matches_actual_apply()
 	_verify_maximum_has_no_preview()
 	_verify_hover_release_blink_and_idle_cost()
 	_verify_surface_scope_and_render_contracts()
+	_expect(_leg_count == EXPECTED_LEG_COUNT, "all training preview smoke legs must execute")
 	PerkConversionFlags.debug_set_enabled(false)
 	if _failures.is_empty():
+		print("training_card_stat_preview_smoke: PASS=%d" % _leg_count)
 		print("training_card_stat_preview_smoke: ok")
 		quit(0)
 		return
@@ -46,6 +52,7 @@ func _init() -> void:
 
 
 func _verify_source_mapping_and_exclusions() -> void:
+	_leg_count += 1
 	var resolver := RuntimePerkTrainingStatPreview.new()
 	for training_id: String in PREVIEWABLE_TRAINING_IDS:
 		var card: Dictionary = _catalog.build_card(training_id, 0)
@@ -67,8 +74,108 @@ func _verify_source_mapping_and_exclusions() -> void:
 	)
 
 
+func _verify_taeheo_production_hover_projection() -> void:
+	_leg_count += 1
+	var fixture: Dictionary = _build_fixture()
+	var state: Object = fixture["state"]
+	var owner: Object = fixture["owner"]
+	var registry: Object = fixture["registry"]
+	var mythic: Object = registry.get_instance("mythic_item_runtime")
+	# The stats context already supplies the authoritative runtime state, while
+	# the shared mythic runtime's compatibility cache can still be unset on the
+	# card-opening frame. Taeheo must project from the supplied context.
+	mythic.runtime_perk_state_ref = null
+	state.runtime_skill_levels["training_mastery"] = 5
+	state.item_perk_level_bonus = 2
+	var card: Dictionary = _catalog.build_card(
+		"physique_max_gauge",
+		state.get_physique_training_count("physique_max_gauge"),
+		state.get_physique_training_multiplier()
+	)
+	var card_rect := Rect2(100.0, 80.0, 240.0, 320.0)
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var preview: Dictionary = renderer._resolve_training_stat_preview(
+		state,
+		state.get_snapshot(),
+		owner,
+		registry,
+		[card],
+		[card_rect],
+		card_rect.get_center()
+	)
+	print(
+		"[TrainingCardStatPreview] taeheo_hover row_index=%d current_fill_ratio=%.6f projected_fill_ratio=%.6f reason=%s"
+		% [
+			int(preview.get("row_index", -1)),
+			float(preview.get("current_fill_ratio", -1.0)),
+			float(preview.get("projected_fill_ratio", -1.0)),
+			str(preview.get("reason", "missing")),
+		]
+	)
+	_expect(int(preview.get("row_index", -1)) == 3, "Taeheo production hover must resolve the max-gauge row")
+	_expect(bool(preview.get("visible", false)), "Taeheo production hover must expose a visible projection: %s" % preview)
+	_expect(
+		float(preview.get("projected_fill_ratio", -1.0)) > float(preview.get("current_fill_ratio", -1.0)),
+		"Taeheo production hover must increase the max-gauge fill ratio: %s" % preview
+	)
+	if not bool(preview.get("visible", false)):
+		return
+	_expect(state.apply_choice(card, owner, registry), "Taeheo production-hover fixture must apply one real step")
+	var actual_rows: Array = _build_rows(state, owner, registry)
+	var actual_row: Dictionary = actual_rows[int(preview.get("row_index", -1))] as Dictionary
+	_expect(
+		str(actual_row.get("value", "")) == str(preview.get("projected_value", "")),
+		"Taeheo hover projected value must equal the actual one-step value"
+	)
+	_expect(
+		is_equal_approx(
+			CharacterInfoOverlayStatsPresenter.player_stat_row_fill_ratio(actual_row),
+			float(preview.get("projected_fill_ratio", -1.0))
+		),
+		"Taeheo hover projected fill must equal the actual one-step fill"
+	)
+
+
+func _verify_shared_fuel_pouch_sync_contract() -> void:
+	_leg_count += 1
+	var fixture: Dictionary = _build_fixture()
+	var state: Object = fixture["state"]
+	var owner: Object = fixture["owner"]
+	var registry: Object = fixture["registry"]
+	var mythic: Object = registry.get_instance("mythic_item_runtime")
+	state.runtime_skill_levels["fuel_pouch"] = 2
+	mythic.runtime_perk_state_ref = state
+	owner.special_gauge = 250.0
+	var constants := {"base_special_gauge_max": CharacterInfoOverlayState.SPECIAL_GAUGE_MAX}
+	var syncer := MythicItemOwnerSyncer.new()
+	var expected: Dictionary = syncer.build_fuel_pouch_gauge_projection(
+		mythic,
+		constants,
+		owner.special_gauge
+	)
+	syncer.sync_fuel_pouch_gauge_max(mythic, owner, constants)
+	_expect(not expected.is_empty(), "the shared fuel-pouch sync projection must stay available")
+	_expect(
+		is_equal_approx(owner.special_gauge, float(expected.get("next_gauge", -1.0)))
+		and is_equal_approx(owner.special_gauge_max, float(expected.get("next_max", -1.0)))
+		and is_equal_approx(
+			mythic.synced_special_gauge_unblessed_max,
+			float(expected.get("next_unblessed_max", -1.0))
+		)
+		and is_equal_approx(
+			mythic.synced_angel_gauge_multiplier,
+			float(expected.get("next_angel_multiplier", -1.0))
+		),
+		"sync_fuel_pouch_gauge_max must retain the existing owner/cache mutation contract"
+	)
+
+
 func _verify_prediction_matches_actual_apply() -> void:
+	_leg_count += 1
+	var other_training_count := 0
 	for training_id: String in PREVIEWABLE_TRAINING_IDS:
+		if training_id != "physique_max_gauge":
+			other_training_count += 1
 		var fixture: Dictionary = _build_fixture()
 		var state: Object = fixture["state"]
 		var owner: Object = fixture["owner"]
@@ -121,9 +228,11 @@ func _verify_prediction_matches_actual_apply() -> void:
 			is_equal_approx(actual_fill, float(preview.get("projected_fill_ratio", -1.0))),
 			"%s projected fill %.6f must equal actual fill %.6f" % [training_id, float(preview.get("projected_fill_ratio", -1.0)), actual_fill]
 		)
+	_expect(other_training_count == 8, "all eight non-Taeheo preview routes must execute unchanged")
 
 
 func _verify_maximum_has_no_preview() -> void:
+	_leg_count += 1
 	var fixture: Dictionary = _build_fixture()
 	var state: Object = fixture["state"]
 	var owner: Object = fixture["owner"]
@@ -148,6 +257,7 @@ func _verify_maximum_has_no_preview() -> void:
 
 
 func _verify_hover_release_blink_and_idle_cost() -> void:
+	_leg_count += 1
 	var fixture: Dictionary = _build_fixture()
 	var state: Object = fixture["state"]
 	var owner: Object = fixture["owner"]
@@ -263,6 +373,7 @@ func _verify_hover_release_blink_and_idle_cost() -> void:
 
 
 func _verify_surface_scope_and_render_contracts() -> void:
+	_leg_count += 1
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 	)

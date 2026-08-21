@@ -140,7 +140,9 @@ func _build_projected_rows(
 			return []
 		var gauge_projection: Dictionary = _mythic_owner_syncer.build_fuel_pouch_gauge_projection(
 			mythic_item_runtime,
-			MythicItemRuntimeConstants.CONTEXT_CONSTANTS
+			MythicItemRuntimeConstants.CONTEXT_CONSTANTS,
+			0.0,
+			runtime_state
 		)
 		projected_owner_gauge_max = float(gauge_projection.get("next_max", -1.0))
 	return _build_rows(

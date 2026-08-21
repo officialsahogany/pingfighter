@@ -2,8 +2,10 @@ extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const RuntimePerkAngelBlessingGaugeCompositor := preload("res://scripts/characters/runtime_perk_angel_blessing_gauge_compositor.gd")
+const MythicItemResourceBonusRuntime := preload("res://scripts/items/mythic_item_resource_bonus_runtime.gd")
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
+var _resource_bonus_runtime: Object = MythicItemResourceBonusRuntime.new()
 
 # Last values PUSHED to the owner by the per-tick transient sync. Clean ticks
 # compare against this cache and never touch the owner (the previous
@@ -533,17 +535,31 @@ func _build_transient_owner_values(runtime: Object, contexts: Dictionary) -> Dic
 func build_fuel_pouch_gauge_projection(
 	runtime: Object,
 	constants: Dictionary,
-	current_gauge: float = 0.0
+	current_gauge: float = 0.0,
+	runtime_perk_state_override: Object = null
 ) -> Dictionary:
 	if runtime == null:
 		return {}
 	var base_special_gauge_max: float = float(constants.get("base_special_gauge_max", 500.0))
-	var next_unblessed_max: float = maxf(
-		1.0,
-		float(runtime.get_effective_special_gauge_max(base_special_gauge_max))
-	)
+	var next_unblessed_max := 1.0
+	if runtime_perk_state_override != null and is_instance_valid(runtime_perk_state_override):
+		next_unblessed_max = maxf(
+			1.0,
+			float(_resource_bonus_runtime.get_effective_special_gauge_max(
+				runtime,
+				base_special_gauge_max,
+				runtime_perk_state_override
+			))
+		)
+	else:
+		next_unblessed_max = maxf(
+			1.0,
+			float(runtime.get_effective_special_gauge_max(base_special_gauge_max))
+		)
 	var next_angel_multiplier: float = maxf(0.0, float(runtime.synced_angel_gauge_multiplier))
-	var runtime_perk_state: Object = runtime.runtime_perk_state_ref
+	var runtime_perk_state: Object = runtime_perk_state_override
+	if runtime_perk_state == null or not is_instance_valid(runtime_perk_state):
+		runtime_perk_state = runtime.runtime_perk_state_ref
 	if (
 		runtime_perk_state != null
 		and is_instance_valid(runtime_perk_state)
