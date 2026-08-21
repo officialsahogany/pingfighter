@@ -134,6 +134,7 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
 			return
+		_node_modal_state.cancel_pointer_press()
 		if key_event.keycode in [KEY_UP, KEY_W]:
 			_node_modal_state.move_selection(-1)
 			return
@@ -146,19 +147,35 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 			_confirm_node_modal_action()
 		return
+	if event is InputEventMouseMotion:
+		var motion_event := event as InputEventMouseMotion
+		_node_modal_state.update_hover_at_position(motion_event.position, view_size)
+		return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
-		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			if _node_modal_state.select_at_position(mouse_event.position, view_size):
-				_confirm_node_modal_action()
+		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+			return
+		if mouse_event.pressed:
+			_node_modal_state.begin_pointer_press(mouse_event.position, view_size)
+		else:
+			var released_action: Dictionary = _node_modal_state.release_pointer_at_position(
+				mouse_event.position,
+				view_size
+			)
+			if not released_action.is_empty():
+				_confirm_node_modal_action(released_action)
 		return
 	if event is InputEventScreenTouch:
 		var touch_event := event as InputEventScreenTouch
-		if (
-			touch_event.pressed
-			and _node_modal_state.select_at_position(touch_event.position, view_size)
-		):
-			_confirm_node_modal_action()
+		if touch_event.pressed:
+			_node_modal_state.begin_pointer_press(touch_event.position, view_size)
+		else:
+			var released_action: Dictionary = _node_modal_state.release_pointer_at_position(
+				touch_event.position,
+				view_size
+			)
+			if not released_action.is_empty():
+				_confirm_node_modal_action(released_action)
 
 
 func _get_node_modal_view_size() -> Vector2:
@@ -175,8 +192,12 @@ func _get_node_modal_view_size() -> Vector2:
 				return viewport_size
 	return TowerAscentNodeModalState.BASE_VIEW_SIZE
 
-func _confirm_node_modal_action() -> void:
-	var action: Dictionary = _node_modal_state.get_selected_action()
+func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
+	var action: Dictionary = (
+		pointer_action.duplicate(true)
+		if not pointer_action.is_empty()
+		else _node_modal_state.get_selected_action()
+	)
 	if action.is_empty():
 		return
 	if not bool(action.get("enabled", true)):

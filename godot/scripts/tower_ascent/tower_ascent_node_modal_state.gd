@@ -21,7 +21,9 @@ const END_WORK_RECT := Rect2(246.0, 602.0, 268.0, 40.0)
 var _node_id := ""
 var _node_kind := "common_shell"
 var _actions: Array[Dictionary] = []
-var _selected_index := 0
+var _keyboard_selected_index := 0
+var _hovered_index := -1
+var _pressed_index := -1
 var _balances := {"gold": 0, "muhon": 0, "chance_gems": 0}
 var _status_text := ""
 
@@ -37,18 +39,10 @@ func open(
 	if not TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.has(_node_kind):
 		_node_kind = "common_shell"
 	_balances = _normalize_balances(balances)
-	_actions.clear()
-	for action_value in actions:
-		if action_value is Dictionary:
-			_actions.append(_normalize_action(action_value as Dictionary))
-	_actions.append(_normalize_action({
-		"id": ACTION_END_WORK,
-		"label": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_END_WORK
-		),
-		"enabled": true,
-	}))
-	_selected_index = 0
+	_replace_actions(actions)
+	_keyboard_selected_index = 0
+	_hovered_index = -1
+	_pressed_index = -1
 	_status_text = TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_STATUS_READY
 	)
@@ -57,12 +51,24 @@ func open(
 func close() -> void:
 	_node_id = ""
 	_actions.clear()
-	_selected_index = 0
+	_keyboard_selected_index = 0
+	_hovered_index = -1
+	_pressed_index = -1
 	_status_text = ""
 
 
 func set_actions(actions: Array) -> void:
-	open(_node_id, _node_kind, _balances, actions)
+	var previous_keyboard_index := _keyboard_selected_index
+	var keyboard_action_id := _action_id_at_index(_keyboard_selected_index)
+	var hovered_action_id := _action_id_at_index(_hovered_index)
+	_replace_actions(actions)
+	var restored_keyboard_index := _find_action_index_by_id(keyboard_action_id)
+	if restored_keyboard_index >= 0:
+		_keyboard_selected_index = restored_keyboard_index
+	else:
+		_keyboard_selected_index = clampi(previous_keyboard_index, 0, _actions.size() - 1)
+	_hovered_index = _find_action_index_by_id(hovered_action_id)
+	_pressed_index = -1
 
 
 func set_balances(balances: Dictionary) -> void:
@@ -76,13 +82,16 @@ func set_status_text(value: String) -> void:
 func move_selection(direction: int) -> void:
 	if _actions.is_empty() or direction == 0:
 		return
-	_selected_index = posmod(_selected_index + signi(direction), _actions.size())
+	_keyboard_selected_index = posmod(
+		_keyboard_selected_index + signi(direction),
+		_actions.size()
+	)
 
 
 func select_index(index: int) -> bool:
 	if index < 0 or index >= _actions.size():
 		return false
-	_selected_index = index
+	_keyboard_selected_index = index
 	return true
 
 
@@ -90,13 +99,53 @@ func select_at_position(
 	position: Vector2,
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
-	var rects := get_action_rects(view_size)
-	# Reverse iteration makes a future overlap deterministic and agrees with the
-	# visual topmost-card rule instead of accepting row-gap clicks.
-	for index in range(rects.size() - 1, -1, -1):
-		if (rects[index] as Rect2).has_point(position):
-			return select_index(index)
-	return false
+	return select_index(_action_index_at_position(position, view_size))
+
+
+func update_hover_at_position(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	var next_hovered_index := _action_index_at_position(position, view_size)
+	if next_hovered_index == _hovered_index:
+		return false
+	_hovered_index = next_hovered_index
+	return true
+
+
+func begin_pointer_press(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	_pressed_index = _action_index_at_position(position, view_size)
+	return _pressed_index >= 0
+
+
+func release_pointer_at_position(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> Dictionary:
+	var armed_index := _pressed_index
+	_pressed_index = -1
+	if armed_index < 0 or armed_index != _action_index_at_position(position, view_size):
+		return {}
+	return _action_at_index(armed_index)
+
+
+func cancel_pointer_press() -> void:
+	_pressed_index = -1
+
+
+func get_keyboard_selected_index() -> int:
+	return _keyboard_selected_index
+
+
+func get_hovered_index() -> int:
+	return _hovered_index
+
+
+func get_pressed_index() -> int:
+	return _pressed_index
 
 
 func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
@@ -136,9 +185,7 @@ func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
 
 
 func get_selected_action() -> Dictionary:
-	if _selected_index < 0 or _selected_index >= _actions.size():
-		return {}
-	return _actions[_selected_index].duplicate(true)
+	return _action_at_index(_keyboard_selected_index)
 
 
 func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
@@ -159,7 +206,10 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		),
 		"actions": _actions.duplicate(true),
 		"action_rects": get_action_rects(view_size),
-		"selected_index": _selected_index,
+		"selected_index": _keyboard_selected_index,
+		"keyboard_selected_index": _keyboard_selected_index,
+		"hovered_index": _hovered_index,
+		"pressed_index": _pressed_index,
 		"status_text": _status_text,
 		"view_size": view_size,
 		"modal_rect": layout.get("modal_rect", MODAL_RECT),
@@ -187,6 +237,51 @@ func build_screen_layout(view_size: Vector2) -> Dictionary:
 
 func _scale_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
 	return Rect2(offset + rect.position * scale_value, rect.size * scale_value)
+
+
+func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
+	var rects := get_action_rects(view_size)
+	# Reverse iteration makes a future overlap deterministic and agrees with the
+	# visual topmost-card rule instead of accepting row-gap clicks.
+	for index in range(rects.size() - 1, -1, -1):
+		if (rects[index] as Rect2).has_point(position):
+			return index
+	return -1
+
+
+func _action_at_index(index: int) -> Dictionary:
+	if index < 0 or index >= _actions.size():
+		return {}
+	return _actions[index].duplicate(true)
+
+
+func _action_id_at_index(index: int) -> String:
+	if index < 0 or index >= _actions.size():
+		return ""
+	return str(_actions[index].get("id", ""))
+
+
+func _find_action_index_by_id(action_id: String) -> int:
+	if action_id.is_empty():
+		return -1
+	for index in range(_actions.size()):
+		if str(_actions[index].get("id", "")) == action_id:
+			return index
+	return -1
+
+
+func _replace_actions(actions: Array) -> void:
+	_actions.clear()
+	for action_value in actions:
+		if action_value is Dictionary:
+			_actions.append(_normalize_action(action_value as Dictionary))
+	_actions.append(_normalize_action({
+		"id": ACTION_END_WORK,
+		"label": TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_END_WORK
+		),
+		"enabled": true,
+	}))
 
 
 func _normalize_action(source: Dictionary) -> Dictionary:

@@ -11,6 +11,7 @@ const TowerAscentFlowRenderer := preload(
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
+const TowerAscentFlowOwner := preload("res://scripts/tower_ascent/tower_ascent_flow_owner.gd")
 const TowerAscentNodeModalState := preload("res://scripts/tower_ascent/tower_ascent_node_modal_state.gd")
 const TowerAscentScreenSpaceSurfacePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
@@ -31,10 +32,67 @@ class FakeOwner:
 		redraw_requests += 1
 
 
+class FakeModalRuntimeState:
+	extends RefCounted
+	var capture_calls := 0
+	var pause_calls := 0
+	var resume_calls := 0
+	var safety_calls := 0
+
+	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
+		capture_calls += 1
+
+	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
+		pause_calls += 1
+
+	func _resume_skill_cooldowns_for_choice() -> void:
+		resume_calls += 1
+
+	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
+		safety_calls += 1
+
+
+class FakeModalAudio:
+	extends RefCounted
+	var stop_calls := 0
+
+	func stop_dash_delay() -> void:
+		stop_calls += 1
+
+
+class FakeModalRegistry:
+	extends RefCounted
+	var runtime_state: Object
+	var audio: Object
+
+	func _init(runtime_state_value: Object, audio_value: Object) -> void:
+		runtime_state = runtime_state_value
+		audio = audio_value
+
+	func get_instance(key: String) -> Object:
+		if key == "runtime_perk_state":
+			return runtime_state
+		if key == "game_audio":
+			return audio
+		return null
+
+	func get_cached_instance(key: String) -> Object:
+		return get_instance(key)
+
+
+class FakeRouteServeRuntime:
+	extends RefCounted
+	var cancel_calls := 0
+
+	func cancel() -> void:
+		cancel_calls += 1
+
+
 class FakeFlow:
 	extends RefCounted
 	var modal := TowerAscentNodeModalState.new()
 	var confirmed := false
+	var confirm_count := 0
 	var received_position := Vector2.ZERO
 	var phase := "NODE_MODAL"
 	var fullscreen_draw_calls := 0
@@ -51,14 +109,24 @@ class FakeFlow:
 		return phase
 
 	func handle_input(event: InputEvent) -> bool:
+		if event is InputEventMouseMotion:
+			var motion_event := event as InputEventMouseMotion
+			received_position = motion_event.position
+			modal.update_hover_at_position(motion_event.position, LIVE_VIEW_SIZE)
 		if event is InputEventMouseButton:
 			var mouse_event := event as InputEventMouseButton
 			received_position = mouse_event.position
-			confirmed = (
-				mouse_event.pressed
-				and mouse_event.button_index == MOUSE_BUTTON_LEFT
-				and modal.select_at_position(mouse_event.position, LIVE_VIEW_SIZE)
-			)
+			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+				if mouse_event.pressed:
+					modal.begin_pointer_press(mouse_event.position, LIVE_VIEW_SIZE)
+				else:
+					var action := modal.release_pointer_at_position(
+						mouse_event.position,
+						LIVE_VIEW_SIZE
+					)
+					if not action.is_empty():
+						confirmed = true
+						confirm_count += 1
 		return true
 
 	func draw_fullscreen_surface(_canvas: CanvasItem, fallback_rect: Rect2) -> void:
@@ -155,6 +223,9 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_node_modal_top_corner_uses_screen_coordinates()
+	_verify_shared_pointer_state_contract()
+	_verify_production_release_inside_contract()
+	_verify_physical_modal_lifecycle_contract()
 	_verify_balance_row_is_horizontal_unboxed_and_not_clickable()
 	_verify_playfield_phase_keeps_coordinate_projection()
 	_verify_reward_pick_uses_screen_coordinates_and_view_size()
@@ -188,10 +259,173 @@ func _verify_node_modal_top_corner_uses_screen_coordinates() -> void:
 		Callable(holder, "get_module"),
 		{}
 	)
+	_expect(not flow.confirmed, "a top-corner press must arm without executing the action")
+	var release_event := InputEventMouseButton.new()
+	release_event.pressed = false
+	release_event.button_index = MOUSE_BUTTON_LEFT
+	release_event.position = screen_top_corner
+	BattleSceneInputController.new().handle_unhandled_input(
+		release_event,
+		owner,
+		registry,
+		Callable(holder, "get_module"),
+		{}
+	)
 	var old_projected := (screen_top_corner - Vector2(700.0, 120.0)) / 2.0
-	_expect(flow.confirmed, "the fullscreen node action's rendered top corner must be mouse-selectable")
+	_expect(flow.confirmed and flow.confirm_count == 1, "the fullscreen node action's rendered top corner must execute once on release-inside")
 	_expect(flow.received_position.is_equal_approx(screen_top_corner), "NODE_MODAL must receive the same unscaled screen coordinate used by rendering")
 	_expect(not (screen_rects[0] as Rect2).has_point(old_projected), "counterproof requires the old playfield projection to miss the fullscreen action")
+
+
+func _verify_shared_pointer_state_contract() -> void:
+	var modal := TowerAscentNodeModalState.new()
+	modal.open("state-contract", "shop", {"gold": 70}, [
+		{"id": "alpha", "label": "첫 카드"},
+		{"id": "bravo", "label": "둘째 카드"},
+		{"id": "charlie", "label": "셋째 카드"},
+	])
+	var fixed_rects := modal.get_action_rects(LIVE_VIEW_SIZE)
+	var alpha_top_corner := (fixed_rects[0] as Rect2).position + Vector2(2.0, 2.0)
+	var charlie_top_corner := (fixed_rects[2] as Rect2).position + Vector2(2.0, 2.0)
+	_expect(modal.select_index(1), "keyboard focus fixture must select the second action")
+	_expect(modal.update_hover_at_position(alpha_top_corner, LIVE_VIEW_SIZE), "mouse motion into a card must change hover state")
+	var hovered_model := modal.build_view_model(LIVE_VIEW_SIZE)
+	_expect(int(hovered_model.get("keyboard_selected_index", -1)) == 1, "pointer hover must not destroy keyboard focus")
+	_expect(int(hovered_model.get("selected_index", -1)) == 1, "legacy selected_index must remain the keyboard-focus projection")
+	_expect(int(hovered_model.get("hovered_index", -1)) == 0, "card top-corner hover must expose its action index")
+	_expect(not modal.update_hover_at_position(alpha_top_corner, LIVE_VIEW_SIZE), "stationary hover must not report a state change")
+	_expect(modal.begin_pointer_press(alpha_top_corner, LIVE_VIEW_SIZE), "card top-corner press must arm its fixed rect")
+	_expect(modal.get_pressed_index() == 0, "pressed state must expose the armed card index")
+	var pressed_rects := modal.get_action_rects(LIVE_VIEW_SIZE)
+	_expect(pressed_rects.size() == fixed_rects.size(), "hover and press must not change the shared action-rect count")
+	for index in range(mini(pressed_rects.size(), fixed_rects.size())):
+		_expect((pressed_rects[index] as Rect2).is_equal_approx(fixed_rects[index] as Rect2), "hover and press must keep fixed action rect %d" % index)
+	var released_action := modal.release_pointer_at_position(alpha_top_corner, LIVE_VIEW_SIZE)
+	_expect(str(released_action.get("id", "")) == "alpha", "release inside the armed top-corner rect must return that action")
+	_expect(modal.get_pressed_index() == -1, "release must clear pressed state")
+	_expect(modal.release_pointer_at_position(alpha_top_corner, LIVE_VIEW_SIZE).is_empty(), "a second release must not execute without a new press")
+	_expect(modal.begin_pointer_press(alpha_top_corner, LIVE_VIEW_SIZE), "drag-cancel fixture must arm from the card top corner")
+	_expect(modal.release_pointer_at_position((fixed_rects[0] as Rect2).position - Vector2(2.0, 2.0), LIVE_VIEW_SIZE).is_empty(), "release outside the armed rect must cancel")
+	_expect(not modal.begin_pointer_press(Vector2.ZERO, LIVE_VIEW_SIZE), "press outside every action rect must not arm")
+	_expect(modal.release_pointer_at_position(alpha_top_corner, LIVE_VIEW_SIZE).is_empty(), "outside press followed by inside release must not execute")
+	modal.set_status_text("상태 보존")
+	modal.select_index(1)
+	modal.update_hover_at_position(charlie_top_corner, LIVE_VIEW_SIZE)
+	modal.begin_pointer_press(alpha_top_corner, LIVE_VIEW_SIZE)
+	modal.set_actions([
+		{"id": "charlie", "label": "셋째 카드 갱신"},
+		{"id": "bravo", "label": "둘째 카드 갱신"},
+		{"id": "alpha", "label": "첫 카드 갱신"},
+	])
+	var refreshed_model := modal.build_view_model(LIVE_VIEW_SIZE)
+	var refreshed_actions: Array = refreshed_model.get("actions", [])
+	_expect(str(refreshed_actions[int(refreshed_model.get("keyboard_selected_index", -1))].get("id", "")) == "bravo", "set_actions must preserve keyboard focus by action ID")
+	_expect(str(refreshed_actions[int(refreshed_model.get("hovered_index", -1))].get("id", "")) == "charlie", "set_actions must preserve hover by action ID")
+	_expect(int(refreshed_model.get("pressed_index", 99)) == -1, "set_actions must cancel an in-flight pointer press")
+	_expect(str(refreshed_model.get("status_text", "")) == "상태 보존", "set_actions must preserve the current result/status text")
+	_expect(str(refreshed_model.get("node_id", "")) == "state-contract", "set_actions must preserve modal identity")
+	modal.set_actions([{"id": "charlie", "label": "셋째 카드만"}])
+	_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "removed keyboard action must fall back to the same clamped slot deterministically")
+	_expect(modal.update_hover_at_position(Vector2.ZERO, LIVE_VIEW_SIZE), "moving outside must clear hover")
+	_expect(modal.get_hovered_index() == -1, "outside motion must expose no hovered action")
+
+
+func _verify_production_release_inside_contract() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	flow.set("_active", true)
+	flow.set("_phase", 1)
+	var modal: Object = flow.get("_node_modal_state")
+	modal.open("production-pointer", "rest", {}, [{
+		"id": "disabled-action",
+		"label": "사용 불가",
+		"enabled": false,
+		"unavailable_reason": "release-confirmed",
+	}])
+	modal.select_index(1)
+	var action_rect := modal.get_action_rects()[0] as Rect2
+	var top_corner := action_rect.position + Vector2(2.0, 2.0)
+	var motion := InputEventMouseMotion.new()
+	motion.position = top_corner
+	_expect(flow.handle_input(motion), "production NODE_MODAL must consume mouse motion")
+	var hovered_model: Dictionary = modal.build_view_model()
+	_expect(int(hovered_model.get("hovered_index", -1)) == 0, "production mouse motion must update shared hover state")
+	_expect(int(hovered_model.get("keyboard_selected_index", -1)) == 1, "production mouse motion must retain keyboard focus")
+	modal.set_status_text("press-not-release")
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = top_corner
+	flow.handle_input(press)
+	_expect(modal.get_pressed_index() == 0, "production press must arm the card at its top corner")
+	_expect(str(modal.build_view_model().get("status_text", "")) == "press-not-release", "production press must not execute before release")
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = top_corner
+	flow.handle_input(release)
+	_expect(str(modal.build_view_model().get("status_text", "")) == "release-confirmed", "production release-inside must execute the armed action")
+	modal.set_status_text("single-release")
+	flow.handle_input(release)
+	_expect(str(modal.build_view_model().get("status_text", "")) == "single-release", "production repeated release must execute zero additional actions")
+	modal.set_status_text("drag-cancelled")
+	flow.handle_input(press)
+	release.position = action_rect.position - Vector2(2.0, 2.0)
+	flow.handle_input(release)
+	_expect(str(modal.build_view_model().get("status_text", "")) == "drag-cancelled", "production drag outside must cancel without executing")
+	modal.set_status_text("keyboard-cancelled")
+	flow.handle_input(press)
+	var keyboard_move := InputEventKey.new()
+	keyboard_move.keycode = KEY_DOWN
+	keyboard_move.pressed = true
+	flow.handle_input(keyboard_move)
+	_expect(modal.get_pressed_index() == -1, "keyboard input must cancel an in-flight pointer press")
+	release.position = top_corner
+	flow.handle_input(release)
+	_expect(str(modal.build_view_model().get("status_text", "")) == "keyboard-cancelled", "release after keyboard cancellation must execute zero pointer actions")
+	modal.update_hover_at_position(Vector2.ZERO)
+	modal.set_status_text("touch-press")
+	var touch := InputEventScreenTouch.new()
+	touch.position = top_corner
+	touch.pressed = true
+	flow.handle_input(touch)
+	_expect(modal.get_hovered_index() == -1, "touch press must not synthesize mouse hover")
+	_expect(str(modal.build_view_model().get("status_text", "")) == "touch-press", "touch press must wait for release")
+	touch.pressed = false
+	flow.handle_input(touch)
+	_expect(str(modal.build_view_model().get("status_text", "")) == "release-confirmed", "touch release-inside must execute the armed action")
+
+
+func _verify_physical_modal_lifecycle_contract() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	var owner := FakeOwner.new()
+	var runtime_state := FakeModalRuntimeState.new()
+	var audio := FakeModalAudio.new()
+	var registry := FakeModalRegistry.new(runtime_state, audio)
+	var lifecycle: Object = flow.get("_modal_lifecycle")
+	var enter_result: Dictionary = lifecycle.enter(owner, registry)
+	_expect(bool(enter_result.get("accepted", false)) and bool(enter_result.get("changed", false)), "GRT-058 entry must activate the shared modal lifecycle")
+	_expect(runtime_state.capture_calls == 1 and runtime_state.pause_calls == 1, "GRT-058 entry must capture and pause exactly once")
+	_expect(audio.stop_calls == 1, "GRT-058 entry must stop registered loop audio exactly once")
+	var repeated_enter: Dictionary = lifecycle.enter(owner, registry)
+	_expect(bool(repeated_enter.get("accepted", false)) and not bool(repeated_enter.get("changed", true)), "GRT-058 repeated entry must be idempotent")
+	_expect(runtime_state.capture_calls == 1 and runtime_state.pause_calls == 1, "GRT-058 repeated entry must not duplicate capture or pause")
+	var route_serve := FakeRouteServeRuntime.new()
+	flow.set("_route_serve_runtime", route_serve)
+	flow.set("_active", true)
+	flow.set("_active_owner", owner)
+	flow.set("_active_registry", registry)
+	flow.set("_phase", 1)
+	var modal: Object = flow.get("_node_modal_state")
+	modal.open("lifecycle-node", "rest", {}, [{"id": "rest", "label": "휴식"}])
+	_expect(flow.blocks_battle_physics(), "active NODE_MODAL must physically block battle simulation")
+	flow.call("_finish_vertical_slice")
+	_expect(route_serve.cancel_calls == 1, "production close must cancel route presentation once")
+	_expect(runtime_state.resume_calls == 1 and runtime_state.safety_calls == 1, "GRT-058 production close must resume and arm safety exactly once")
+	_expect(not flow.is_active() and not flow.blocks_battle_physics(), "production close must release the physical battle block")
+	_expect(str(modal.build_view_model().get("node_id", "sentinel")) == "", "production close must clear shared node-modal state")
+	var repeated_leave: Dictionary = lifecycle.leave()
+	_expect(bool(repeated_leave.get("accepted", false)) and not bool(repeated_leave.get("changed", true)), "GRT-058 repeated leave must be idempotent")
+	_expect(runtime_state.resume_calls == 1 and runtime_state.safety_calls == 1, "GRT-058 repeated leave must not duplicate resume or safety")
 
 
 func _verify_balance_row_is_horizontal_unboxed_and_not_clickable() -> void:
