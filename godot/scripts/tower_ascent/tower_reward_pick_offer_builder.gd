@@ -213,7 +213,8 @@ func _build_basic_pool(
 		"reward_pick:%s" % str(context.get("node_resolution_id", "")),
 		int(context.get("map_seed", 0)),
 		owner,
-		registry
+		registry,
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
 	)
 	var result: Array[Dictionary] = []
 	if bool(generated.get("accepted", false)):

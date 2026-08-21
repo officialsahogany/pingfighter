@@ -27,6 +27,12 @@ const TowerAscentUnlockFilter := preload(
 const TowerAscentTrainingOfferBuilder := preload(
 	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
 )
+const TowerAscentNodeModalLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
+)
+const LanguageSettings := preload(
+	"res://scripts/core/language_settings.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -45,8 +51,10 @@ class FakeOwner:
 class FakeUnlockStore:
 	extends RefCounted
 
-	func is_unlocked(_content_type: String, _content_id: String) -> bool:
-		return true
+	var allowed_ids: Array[String] = []
+
+	func is_unlocked(_content_type: String, content_id: String) -> bool:
+		return allowed_ids.is_empty() or allowed_ids.has(content_id)
 
 
 class FakeRuntimePerkCatalog:
@@ -96,6 +104,7 @@ class FakeRuntimePerkState:
 	var apply_calls := 0
 	var restore_calls := 0
 	var allow_apply := true
+	var saturated_ids: Array[String] = []
 
 	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
 		pass
@@ -115,8 +124,8 @@ class FakeRuntimePerkState:
 	func get_physique_training_multiplier() -> float:
 		return 1.0
 
-	func is_physique_training_saturated(_training_id: String, _registry: Object = null) -> bool:
-		return false
+	func is_physique_training_saturated(training_id: String, _registry: Object = null) -> bool:
+		return saturated_ids.has(training_id)
 
 	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
 		apply_calls += 1
@@ -167,10 +176,12 @@ class FakeRegistry:
 
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
-	_verify_repeated_choice_live_levels_and_snapshot()
+	_verify_training_only_six_cards_repeated_choice_and_snapshot()
 	_verify_finite_maximum_rejection_is_no_op()
 	_verify_unlimited_physique_level_contract()
+	_verify_saturated_fallback_and_candidate_shortage_boundary()
 	_verify_insufficient_muhon_and_grant_rejection_are_no_ops()
+	_verify_training_subtitle_locales()
 	_verify_flag_off_is_untouched()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -185,7 +196,7 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_repeated_choice_live_levels_and_snapshot() -> void:
+func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
 	var perk_catalog := FakeRuntimePerkCatalog.new()
@@ -203,24 +214,31 @@ func _verify_repeated_choice_live_levels_and_snapshot() -> void:
 	var generated := flow.get_generated_training_offers()
 	_expect(generated.size() == 1, "one training visit must generate one node-owned offer")
 	var offer: Dictionary = generated[0]
-	_expect((offer.get("stat_choices", []) as Array).size() == RuntimePerkCatalog.BASE_CHOICE_COUNT, "stat training must reuse the existing three-choice count")
-	_expect((offer.get("mugong_choices", []) as Array).size() == RuntimePerkCatalog.BASE_CHOICE_COUNT, "Mugong library must reuse the existing three-choice count")
+	var stat_choices: Array = offer.get("stat_choices", [])
+	_expect(stat_choices.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT, "training must present exactly six training cards")
+	_expect((offer.get("mugong_choices", []) as Array).is_empty(), "training must present zero Mugong cards")
+	for choice_value in stat_choices:
+		_expect(
+			choice_value is Dictionary
+			and bool((choice_value as Dictionary).get("is_physique_training", false)),
+			"every training offer card must come from the physique training catalog"
+		)
 	var actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	_expect(actions.size() == RuntimePerkCatalog.BASE_CHOICE_COUNT * 2 + 1, "training modal must expose both choice groups plus the shared end-work action")
-	_expect(perk_catalog.choice_calls == 1, "training offers must be generated once per node visit")
+	_expect(actions.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT + 1, "training modal must expose six training cards plus the shared end-work action")
+	_expect(perk_catalog.choice_calls == 0, "training must never query the Mugong choice catalog")
 
-	var stat_action := _find_action_with_prefix(actions, "training_stat:")
-	var mugong_action := _find_action_by_id(actions, "training_mugong:mugong_alpha")
-	_expect(not stat_action.is_empty() and not mugong_action.is_empty(), "training modal must expose stat and Mugong actions")
-	var initial_choice: Dictionary = mugong_action.get("payload", {}).get("choice", {})
-	_expect(str(initial_choice.get("level_text", "")) == "0 / 5", "finite Mugong must show current and canonical maximum before purchase")
+	var stat_action := _find_unlimited_stat_action(actions)
+	_expect(not stat_action.is_empty(), "training modal must expose a repeatable training action")
+	var choice_id := str(stat_action.get("payload", {}).get("choice_id", ""))
+	var initial_choice: Dictionary = stat_action.get("payload", {}).get("choice", {})
+	_expect(str(initial_choice.get("level_text", "")) == "Lv.0", "repeatable training must show its live level before purchase")
 
-	var mugong_index := _find_action_index(actions, str(mugong_action.get("id", "")))
-	var mugong_rect: Rect2 = (flow.get_node_modal_view_model().get("action_rects", []) as Array)[mugong_index]
+	var stat_index := _find_action_index(actions, str(stat_action.get("id", "")))
+	var stat_rect: Rect2 = (flow.get_node_modal_view_model().get("action_rects", []) as Array)[stat_index]
 	var press := InputEventMouseButton.new()
 	press.pressed = true
 	press.button_index = MOUSE_BUTTON_LEFT
-	press.position = mugong_rect.position + Vector2(2.0, 2.0)
+	press.position = stat_rect.position + Vector2(2.0, 2.0)
 	flow.handle_input(press)
 	var release := InputEventMouseButton.new()
 	release.pressed = false
@@ -228,25 +246,25 @@ func _verify_repeated_choice_live_levels_and_snapshot() -> void:
 	release.position = press.position
 	flow.handle_input(release)
 	_expect(runtime_state.apply_calls == 1 and flow.get_training_history().size() == 1, "one mouse press plus release must commit exactly one training step")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 28, "one Mugong click must debit exactly two Muhon")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "one training click must debit exactly one Muhon")
 
 	for purchase_index in range(2, 4):
 		var repeated_result := flow.execute_node_action(
-			str(mugong_action.get("id", "")),
-			"training-contract:mugong-%d" % purchase_index
+			str(stat_action.get("id", "")),
+			"training-contract:stat-%d" % purchase_index
 		)
-		_expect(bool(repeated_result.get("accepted", false)) and bool(repeated_result.get("applied", false)), "same Mugong card purchase %d must commit" % purchase_index)
+		_expect(bool(repeated_result.get("accepted", false)) and bool(repeated_result.get("applied", false)), "same training card purchase %d must commit" % purchase_index)
 	var refreshed_actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var refreshed_mugong := _find_action_by_id(refreshed_actions, str(mugong_action.get("id", "")))
-	var refreshed_choice: Dictionary = refreshed_mugong.get("payload", {}).get("choice", {})
-	_expect(bool(refreshed_mugong.get("enabled", false)), "same Mugong card must remain enabled below its finite maximum")
-	_expect(str(refreshed_choice.get("level_text", "")) == "3 / 5", "same Mugong card must refresh to the live level after three purchases")
-	_expect(runtime_state.apply_calls == 3 and int(runtime_state.runtime_skill_levels.get("mugong_alpha", 0)) == 3, "three repeated purchases must apply exactly three runtime levels")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 24, "three repeated Mugong purchases must debit six Muhon")
+	var refreshed_stat := _find_action_by_id(refreshed_actions, str(stat_action.get("id", "")))
+	var refreshed_choice: Dictionary = refreshed_stat.get("payload", {}).get("choice", {})
+	_expect(bool(refreshed_stat.get("enabled", false)), "repeatable training must remain enabled after three purchases")
+	_expect(str(refreshed_choice.get("level_text", "")) == "Lv.3", "training card must refresh to the live level after three purchases")
+	_expect(runtime_state.apply_calls == 3 and int(runtime_state.training_counts.get(choice_id, 0)) == 3, "three repeated purchases must apply exactly three training levels")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "three repeated training purchases must debit three Muhon")
 
-	var duplicate := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:mugong-3")
+	var duplicate := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:stat-3")
 	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "duplicate node_resolution_id must remain an accepted no-op before grant")
-	_expect(runtime_state.apply_calls == 3 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 24, "duplicate transaction must neither grant nor debit")
+	_expect(runtime_state.apply_calls == 3 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "duplicate transaction must neither grant nor debit")
 
 	var snapshot := flow.export_persistable_snapshot()
 	_expect((snapshot.get("generated_training_offers", []) as Array).size() == 1, "training offers must be part of the stable run snapshot")
@@ -257,9 +275,9 @@ func _verify_repeated_choice_live_levels_and_snapshot() -> void:
 	var restored_registry := _build_registry(restored_runtime, restored_catalog)
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot, Callable(), FakeOwner.new(), restored_registry), "stable training snapshot must restore")
-	_expect(restored_catalog.choice_calls == 0, "restoring a training node must not reroll either choice group")
+	_expect(restored_catalog.choice_calls == 0, "restoring a training node must not query or reroll Mugong choices")
 	_expect(var_to_bytes(restored.get_generated_training_offers()) == var_to_bytes(generated), "restored training offers must match byte-for-byte")
-	_expect(restored_runtime.restore_calls == 1 and int(restored_runtime.runtime_skill_levels.get("mugong_alpha", 0)) == 3, "restore must keep all repeated levels through runtime_perk_state's existing run-save codec")
+	_expect(restored_runtime.restore_calls == 1 and int(restored_runtime.training_counts.get(choice_id, 0)) == 3, "restore must keep all repeated training levels through runtime_perk_state's existing run-save codec")
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
 
@@ -267,7 +285,16 @@ func _verify_repeated_choice_live_levels_and_snapshot() -> void:
 func _verify_finite_maximum_rejection_is_no_op() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
-	runtime_state.runtime_skill_levels["mugong_alpha"] = 4
+	runtime_state.training_counts["physique_storage"] = 2
+	var unlock_store := FakeUnlockStore.new()
+	unlock_store.allowed_ids.assign([
+		"physique_storage",
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+		"physique_max_gauge",
+		"physique_hit_gauge",
+	])
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
@@ -275,18 +302,18 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 		"map_seed": 5,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 10},
-		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new()),
+		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new(), unlock_store),
 	}), "finite-maximum fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "finite-maximum fixture must arrive at training")
-	var action_id := "training_mugong:mugong_alpha"
+	var action_id := "training_stat:physique_storage"
 	var before := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
-	_expect(str(before.get("payload", {}).get("choice", {}).get("level_text", "")) == "4 / 5", "finite Mugong must expose the pre-maximum level")
+	_expect(str(before.get("payload", {}).get("choice", {}).get("level_text", "")) == "2 / 3", "finite training must expose the pre-maximum level")
 	var final_purchase := flow.execute_node_action(action_id, "training-maximum:final")
-	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite Mugong final level must commit")
+	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite training final level must commit")
 	var maximum_action := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
-	_expect(not bool(maximum_action.get("enabled", true)), "finite Mugong must disable at its canonical maximum")
+	_expect(not bool(maximum_action.get("enabled", true)), "finite training must disable at its canonical maximum")
 	_expect(str(maximum_action.get("disabled_reason", "")) == "training_maximum_reached", "finite maximum must have a distinct disabled reason")
-	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "5 / 5", "finite Mugong maximum card must show current and maximum")
+	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "3 / 3", "finite training maximum card must show current and maximum")
 	var muhon_before_rejection := int(flow.get_run_state_snapshot().get("muhon", -1))
 	var rejected := flow.execute_node_action(action_id, "training-maximum:blocked")
 	_expect(str(rejected.get("reason", "")) == "training_maximum_reached", "direct finite-maximum execution must reject before transaction")
@@ -325,6 +352,52 @@ func _verify_unlimited_physique_level_contract() -> void:
 	_expect(str(storage_projection.get("level_text", "")) == "2 / 3", "finite storage training must show current and canonical maximum")
 
 
+func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
+	var builder := TowerAscentTrainingOfferBuilder.new()
+	var runtime_state := FakeRuntimePerkState.new()
+	var saturated_store := FakeUnlockStore.new()
+	saturated_store.allowed_ids.assign([
+		"physique_storage",
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+		"physique_max_gauge",
+		"physique_hit_gauge",
+	])
+	runtime_state.training_counts["physique_storage"] = 3
+	runtime_state.saturated_ids.append("physique_storage")
+	var saturated_offer: Dictionary = builder.build_offer(
+		"training-saturated-fill",
+		17,
+		FakeOwner.new(),
+		_build_registry(runtime_state, FakeRuntimePerkCatalog.new(), saturated_store),
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING
+	)
+	var saturated_choices: Array = saturated_offer.get("stat_choices", [])
+	_expect(bool(saturated_offer.get("accepted", false)), "one saturated training must not collapse a six-card storefront")
+	_expect(saturated_choices.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT, "saturated fallback must preserve exactly six cards")
+	_expect(_choice_ids(saturated_choices).has("physique_storage"), "saturated fallback must retain the disabled finite training card when it is needed to fill six slots")
+
+	var shortage_store := FakeUnlockStore.new()
+	shortage_store.allowed_ids.assign([
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+		"physique_max_gauge",
+		"physique_hit_gauge",
+	])
+	var shortage_offer: Dictionary = builder.build_offer(
+		"training-shortage",
+		17,
+		FakeOwner.new(),
+		_build_registry(FakeRuntimePerkState.new(), FakeRuntimePerkCatalog.new(), shortage_store),
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING
+	)
+	_expect(not bool(shortage_offer.get("accepted", true)), "fewer than six unlocked trainings must fail closed instead of showing a partial storefront")
+	_expect(str(shortage_offer.get("reason", "")) == "insufficient_training_candidates", "candidate shortage must expose its distinct reason")
+	_expect(int(shortage_offer.get("candidate_count", -1)) == 5, "candidate shortage must report the five available training cards")
+
+
 func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var poor_runtime := FakeRuntimePerkState.new()
@@ -359,11 +432,29 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 		"registry": _build_registry(rejected_runtime, FakeRuntimePerkCatalog.new()),
 	}), "grant-rejection fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(rejected_flow, "training", rejected_owner), "grant-rejection fixture must arrive at training")
-	var rejected_action := _find_action_with_prefix(rejected_flow.get_node_modal_view_model().get("actions", []), "training_mugong:")
+	var rejected_action := _find_action_with_prefix(rejected_flow.get_node_modal_view_model().get("actions", []), "training_stat:")
 	var rejected_result := rejected_flow.execute_node_action(str(rejected_action.get("id", "")), "training-rejected:attempt")
 	_expect(str(rejected_result.get("reason", "")) == "effect_rejected", "runtime grant rejection must surface before payment")
 	_expect(int(rejected_flow.get_run_state_snapshot().get("muhon", -1)) == 30 and rejected_flow.get_training_history().is_empty(), "failed runtime grant must not debit or emit transaction history")
 	_finish_flow(rejected_flow, rejected_owner)
+
+
+func _verify_training_subtitle_locales() -> void:
+	var expected := {
+		LanguageSettings.LANGUAGE_KOREAN: "무혼을 다듬어 몸을 수련합니다.",
+		LanguageSettings.LANGUAGE_ENGLISH: "Refine your body through focused training.",
+		LanguageSettings.LANGUAGE_CHINESE: "锤炼体魄，精进根基。",
+		LanguageSettings.LANGUAGE_JAPANESE: "身体を鍛え、基礎を磨きます。",
+		LanguageSettings.LANGUAGE_SPANISH: "Fortalece el cuerpo mediante el entrenamiento.",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Fortaleça o corpo por meio do treinamento.",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Закаляйте тело упорными тренировками.",
+	}
+	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		var subtitle := TowerAscentNodeModalLocalization.node_description("training")
+		_expect(subtitle == str(expected.get(locale, "")), "%s training subtitle must use its registered locale copy" % locale)
+		_expect(not subtitle.contains("—"), "%s training subtitle must not contain an em dash" % locale)
+	LanguageSettings.set_test_locale_override("")
 
 
 func _verify_flag_off_is_untouched() -> void:
@@ -384,20 +475,28 @@ func _verify_source_contract() -> void:
 	var builder_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd")
 	var tuning_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 	_expect(flow_source.find("apply_choice") >= 0 and flow_source.find("build_unlock_save_snapshot") >= 0, "training must reuse the existing runtime perk grant and save boundaries")
-	_expect(builder_source.find("get_choices") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training choices must consume existing Mugong and physique catalogs")
-	_expect(builder_source.find("BASE_CHOICE_COUNT") >= 0, "choice count must reuse the existing catalog constant")
+	_expect(builder_source.find("OFFER_KIND_TRAINING") >= 0 and builder_source.find("OFFER_KIND_MIXED_REWARD") >= 0, "shared builder consumers must declare training-only versus mixed reward intent")
+	_expect(builder_source.find("TRAINING_CARD_COUNT := 6") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training must use six cards from the physique catalog")
+	_expect(flow_source.find("TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING") >= 0, "production training flow must request the training-only builder lane")
+	_expect(flow_source.find('var prefix := "training_stat:"') >= 0 and flow_source.find('"training_mugong:"') < 0, "training execution must accept only stat action ids")
 	_expect(not tuning_source.contains("TEMP_PHASE_C_TRAINING_USES_PER_VISIT"), "the per-visit training cap constant must stay deleted")
 	_expect(not flow_source.contains("training_visit_complete") and not flow_source.contains("training_choice_used"), "display and execution paths must not retain visit-cap or one-use consumers")
-	var mugong_data := RuntimePerkCatalog.new().get_perk_data("common_swiftness")
-	_expect(int(mugong_data.get("max_level", 0)) > 0, "the real Mugong catalog must remain the finite-maximum authority")
 
 
-func _build_registry(runtime_state: Object, perk_catalog: Object) -> FakeRegistry:
+func _build_registry(
+	runtime_state: Object,
+	perk_catalog: Object,
+	unlock_store: Object = null
+) -> FakeRegistry:
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"runtime_perk_state": runtime_state,
 		"runtime_perk_catalog": perk_catalog,
-		TowerAscentUnlockFilter.STORE_KEY: FakeUnlockStore.new(),
+		TowerAscentUnlockFilter.STORE_KEY: (
+			unlock_store
+			if unlock_store != null
+			else FakeUnlockStore.new()
+		),
 	}
 	return registry
 
@@ -414,6 +513,28 @@ func _find_action_by_id(actions: Array, action_id: String) -> Dictionary:
 		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")) == action_id:
 			return action_value as Dictionary
 	return {}
+
+
+func _find_unlimited_stat_action(actions: Array) -> Dictionary:
+	for action_value in actions:
+		if not (action_value is Dictionary):
+			continue
+		var action := action_value as Dictionary
+		var choice: Dictionary = action.get("payload", {}).get("choice", {})
+		if (
+			str(action.get("id", "")).begins_with("training_stat:")
+			and int(choice.get("training_max_count", 0)) < 0
+		):
+			return action
+	return {}
+
+
+func _choice_ids(choices: Array) -> Array[String]:
+	var result: Array[String] = []
+	for choice_value in choices:
+		if choice_value is Dictionary:
+			result.append(str((choice_value as Dictionary).get("id", "")))
+	return result
 
 
 func _find_action_index(actions: Array, action_id: String) -> int:

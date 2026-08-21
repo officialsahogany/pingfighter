@@ -31,6 +31,8 @@ func _init() -> void:
 	_expect(qa_source.find("get_node_modal_render_context") >= 0, "visual fixture must expose the same renderer context as the production flow")
 	_expect(qa_source.find("_rect_has_visual_detail") >= 0, "each captured card rect must carry a rendered-pixel counterproof")
 	_expect(qa_source.find("_capture_live_training_round") >= 0 and qa_source.find("execute_node_action") >= 0, "one windowed run must enter the production flow and purchase the same card")
+	_expect(qa_source.find('begins_with("training_stat:")') >= 0, "live training capture must purchase a training-only card")
+	_expect(qa_source.find("무공 서가 선택지") < 0, "training capture fixtures must contain no Mugong library cards")
 	_expect(qa_source.find("CAPTURE_SPECS.size()") >= 0, "visual QA must drive its exact capture manifest")
 	_expect(qa_source.find("—") < 0, "visual QA player-facing fixture copy must not use an em dash")
 	_expect(wrapper_source.find("-AllowDuringPlay") >= 0, "visual wrapper must explicitly declare play-mode-safe execution")

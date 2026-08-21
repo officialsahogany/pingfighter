@@ -26,7 +26,6 @@ const KEY_SHOP_INVENTORY_UNAVAILABLE := "tower_ascent.node_modal.shop.inventory_
 const KEY_COST_MUHON := "tower_ascent.node_modal.cost.muhon"
 const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
 const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
-const KEY_TRAINING_MUGONG_OPTION := "tower_ascent.node_modal.training.mugong_option"
 const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_OFFER_UNAVAILABLE := "tower_ascent.node_modal.training.offer_unavailable"
@@ -102,7 +101,6 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_MUHON: "{amount} 무혼",
 		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
 		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
-		KEY_TRAINING_MUGONG_OPTION: "무공 서가: {name}",
 		KEY_TRAINING_MAXIMUM: "최대 단계에 도달했습니다.",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
 		KEY_TRAINING_OFFER_UNAVAILABLE: "수련 선택지를 준비할 수 없습니다.",
@@ -137,7 +135,7 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",
-		"tower_ascent.node_modal.training.description": "무혼을 다듬어 몸과 무공을 수련합니다.",
+		"tower_ascent.node_modal.training.description": "무혼을 다듬어 몸을 수련합니다.",
 		"tower_ascent.node_modal.fallen_monk.title": "파계승",
 		"tower_ascent.node_modal.fallen_monk.description": "초식을 익히고 덜어내며 자리를 바꿉니다.",
 		"tower_ascent.node_modal.guardian_spring.title": "수호의 샘터",
@@ -152,36 +150,42 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} Gold",
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
 		KEY_TRAINING_MAXIMUM: "Maximum level reached.",
+		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
 		KEY_BALANCE_GOLD: "金币 {amount}",
 		KEY_COST_GOLD: "{amount} 金币",
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
 		KEY_TRAINING_MAXIMUM: "已达到最高等级。",
+		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
 		KEY_BALANCE_GOLD: "金貨 {amount}",
 		KEY_COST_GOLD: "{amount} 金貨",
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
 		KEY_TRAINING_MAXIMUM: "最大レベルに達しました。",
+		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
 		KEY_BALANCE_GOLD: "Oro {amount}",
 		KEY_COST_GOLD: "{amount} de oro",
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Se alcanzó el nivel máximo.",
+		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
 		KEY_BALANCE_GOLD: "Ouro {amount}",
 		KEY_COST_GOLD: "{amount} de ouro",
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Nível máximo alcançado.",
+		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
 		KEY_BALANCE_GOLD: "Золото: {amount}",
 		KEY_COST_GOLD: "{amount} золота",
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Достигнут максимальный уровень.",
+		"tower_ascent.node_modal.training.description": "Закаляйте тело упорными тренировками.",
 	},
 }
 

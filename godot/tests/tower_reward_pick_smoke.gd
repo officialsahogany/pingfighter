@@ -467,11 +467,12 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 		"retired-expansion-filter",
 		77,
 		FakeOwner.new(),
-		registry
+		registry,
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
 	)
-	_expect(bool(offer.get("accepted", false)), "flag-ON tower training offer must remain available")
+	_expect(bool(offer.get("accepted", false)), "flag-ON mixed reward source offer must remain available")
 	var mugong_choices: Array = offer.get("mugong_choices", [])
-	_expect(mugong_choices.size() == 3, "flag-ON tower training must retain three eligible Mugong choices")
+	_expect(mugong_choices.size() == 3, "mixed reward source must retain three eligible Mugong choices")
 	for choice_value in mugong_choices:
 		if choice_value is Dictionary:
 			_expect(

@@ -13,7 +13,10 @@ const TowerAscentPerkCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
 )
 
-const OFFER_VERSION := "tower_training_offer_v1"
+const OFFER_VERSION := "tower_training_offer_v2"
+const OFFER_KIND_TRAINING := "training"
+const OFFER_KIND_MIXED_REWARD := "mixed_reward"
+const TRAINING_CARD_COUNT := 6
 
 var _physique_catalog: Object = PhysiqueTrainingCatalog.new()
 var _perk_candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
@@ -23,37 +26,77 @@ func build_offer(
 	node_id: String,
 	map_seed: int,
 	owner: Object,
-	registry: Object
+	registry: Object,
+	offer_kind: String = OFFER_KIND_TRAINING
 ) -> Dictionary:
 	var normalized_node_id := node_id.strip_edges()
 	if normalized_node_id.is_empty():
 		return {"accepted": false, "reason": "invalid_node_id"}
+	var normalized_offer_kind := offer_kind.strip_edges()
+	if normalized_offer_kind not in [OFFER_KIND_TRAINING, OFFER_KIND_MIXED_REWARD]:
+		return {"accepted": false, "reason": "invalid_offer_kind"}
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
-	var perk_catalog := _get_registry_instance(registry, "runtime_perk_catalog")
-	if runtime_state == null or perk_catalog == null:
+	if runtime_state == null:
 		return {"accepted": false, "reason": "missing_runtime_perk_contract"}
+	var training_only := normalized_offer_kind == OFFER_KIND_TRAINING
 	var stat_choices := _build_stat_choices(
 		normalized_node_id,
 		map_seed,
 		runtime_state,
-		registry
-	)
-	var mugong_choices := _build_mugong_choices(
-		owner,
 		registry,
-		runtime_state,
-		perk_catalog
+		TRAINING_CARD_COUNT if training_only else RuntimePerkCatalog.BASE_CHOICE_COUNT,
+		training_only
 	)
+	if training_only and stat_choices.size() != TRAINING_CARD_COUNT:
+		return {
+			"accepted": false,
+			"reason": "insufficient_training_candidates",
+			"candidate_count": stat_choices.size(),
+		}
+	var mugong_choices: Array[Dictionary] = []
+	if not training_only:
+		var perk_catalog := _get_registry_instance(registry, "runtime_perk_catalog")
+		if perk_catalog == null:
+			return {"accepted": false, "reason": "missing_runtime_perk_contract"}
+		mugong_choices = _build_mugong_choices(
+			owner,
+			registry,
+			runtime_state,
+			perk_catalog
+		)
 	if stat_choices.is_empty() and mugong_choices.is_empty():
 		return {"accepted": false, "reason": "empty_training_offer"}
 	return {
 		"accepted": true,
 		"reason": "generated",
 		"offer_version": OFFER_VERSION,
+		"offer_kind": normalized_offer_kind,
 		"node_id": normalized_node_id,
 		"stat_choices": stat_choices,
 		"mugong_choices": mugong_choices,
 	}
+
+
+func is_current_training_offer(offer: Dictionary) -> bool:
+	if (
+		str(offer.get("offer_version", "")) != OFFER_VERSION
+		or str(offer.get("offer_kind", "")) != OFFER_KIND_TRAINING
+	):
+		return false
+	var stat_choices_value: Variant = offer.get("stat_choices", [])
+	var mugong_choices_value: Variant = offer.get("mugong_choices", [])
+	if not (stat_choices_value is Array) or not (mugong_choices_value is Array):
+		return false
+	var stat_choices := stat_choices_value as Array
+	if stat_choices.size() != TRAINING_CARD_COUNT or not (mugong_choices_value as Array).is_empty():
+		return false
+	for choice_value in stat_choices:
+		if not (choice_value is Dictionary) or not bool((choice_value as Dictionary).get(
+			"is_physique_training",
+			false
+		)):
+			return false
+	return true
 
 
 func build_live_choice_projection(
@@ -154,7 +197,9 @@ func _build_stat_choices(
 	node_id: String,
 	map_seed: int,
 	runtime_state: Object,
-	registry: Object
+	registry: Object,
+	requested_count: int,
+	use_saturated_fallback: bool
 ) -> Array[Dictionary]:
 	if (
 		not runtime_state.has_method("get_physique_training_count")
@@ -162,6 +207,7 @@ func _build_stat_choices(
 	):
 		return []
 	var candidates: Array[Dictionary] = []
+	var saturated_candidates: Array[Dictionary] = []
 	for data_value in _physique_catalog.get_all_training_data():
 		if not (data_value is Dictionary):
 			continue
@@ -175,30 +221,63 @@ func _build_stat_choices(
 			training_id
 		):
 			continue
-		if bool(runtime_state.call("is_physique_training_saturated", training_id, registry)):
-			continue
 		var acquired_count := int(runtime_state.call("get_physique_training_count", training_id))
 		var max_count := int(_physique_catalog.get_max_count(training_id))
-		if max_count >= 0 and acquired_count >= max_count:
+		var saturated := (
+			bool(runtime_state.call("is_physique_training_saturated", training_id, registry))
+			or (max_count >= 0 and acquired_count >= max_count)
+		)
+		if saturated and not use_saturated_fallback:
 			continue
-		candidates.append({
+		var candidate := {
 			"id": training_id,
 			"weight": maxf(0.0, float(data.get("weight", 1.0))),
-		})
+		}
+		if saturated:
+			saturated_candidates.append(candidate)
+		else:
+			candidates.append(candidate)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = absi(hash("%d:%s:%s:stat" % [map_seed, node_id, OFFER_VERSION]))
 	var result: Array[Dictionary] = []
-	var choice_limit := mini(RuntimePerkCatalog.BASE_CHOICE_COUNT, candidates.size())
-	for _index in range(choice_limit):
+	var multiplier := 1.0
+	if runtime_state.has_method("get_physique_training_multiplier"):
+		multiplier = maxf(
+			1.0,
+			float(runtime_state.call("get_physique_training_multiplier"))
+		)
+	_append_stat_choices(
+		result,
+		candidates,
+		maxi(0, requested_count),
+		rng,
+		runtime_state,
+		multiplier
+	)
+	if use_saturated_fallback and result.size() < requested_count:
+		_append_stat_choices(
+			result,
+			saturated_candidates,
+			requested_count,
+			rng,
+			runtime_state,
+			multiplier
+		)
+	return result
+
+
+func _append_stat_choices(
+	result: Array[Dictionary],
+	candidates: Array[Dictionary],
+	requested_count: int,
+	rng: RandomNumberGenerator,
+	runtime_state: Object,
+	multiplier: float
+) -> void:
+	while result.size() < requested_count and not candidates.is_empty():
 		var picked_id := _take_weighted_id(candidates, rng)
 		if picked_id.is_empty():
 			break
-		var multiplier := 1.0
-		if runtime_state.has_method("get_physique_training_multiplier"):
-			multiplier = maxf(
-				1.0,
-				float(runtime_state.call("get_physique_training_multiplier"))
-			)
 		var card: Dictionary = _physique_catalog.build_card(
 			picked_id,
 			int(runtime_state.call("get_physique_training_count", picked_id)),
@@ -206,7 +285,6 @@ func _build_stat_choices(
 		)
 		if not card.is_empty():
 			result.append(card)
-	return result
 
 
 func _build_mugong_choices(

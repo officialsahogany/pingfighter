@@ -441,14 +441,6 @@ func _build_training_actions() -> Array[Dictionary]:
 				TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST,
 				balances
 			))
-	for choice_value in offer.get("mugong_choices", []):
-		if choice_value is Dictionary:
-			result.append(_build_training_action(
-				"mugong",
-				choice_value as Dictionary,
-				TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST,
-				balances
-			))
 	return result
 
 func _build_training_action(
@@ -493,15 +485,10 @@ func _build_training_action(
 			}
 		)
 	var display_name := str(live_choice.get("name", choice_id))
-	var label_key := (
-		TowerAscentNodeModalLocalization.KEY_TRAINING_STAT_OPTION
-		if choice_kind == "stat"
-		else TowerAscentNodeModalLocalization.KEY_TRAINING_MUGONG_OPTION
-	)
 	return {
 		"id": action_id,
 		"label": TowerAscentNodeModalLocalization.text(
-			label_key,
+			TowerAscentNodeModalLocalization.KEY_TRAINING_STAT_OPTION,
 			{"name": display_name}
 		),
 		"cost_text": TowerAscentNodeModalLocalization.text(
@@ -551,11 +538,7 @@ func _execute_training_action(
 			"reason": "training_maximum_reached",
 			"message": maximum_message,
 		}
-	var cost := (
-		TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
-		if choice_kind == "stat"
-		else TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
-	)
+	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
 	var affordability: Dictionary = _run_state.can_afford({"muhon": cost})
 	if not bool(affordability.get("accepted", false)):
 		var insufficient_message := TowerAscentNodeModalLocalization.text(
@@ -600,10 +583,9 @@ func _execute_training_action(
 	}
 	_training_history.append(record)
 	_capture_runtime_perk_build_state()
-	var build_key := "mugong" if choice_kind == "mugong" else "training"
-	var build_entries: Array = _build_state.get(build_key, [])
+	var build_entries: Array = _build_state.get("training", [])
 	build_entries.append(record.duplicate(true))
-	_build_state[build_key] = build_entries
+	_build_state["training"] = build_entries
 	var success_message := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_TRAINING_COMPLETED,
 		{"name": display_name}
@@ -621,7 +603,8 @@ func _get_or_create_training_offer() -> Dictionary:
 		_current_node_id,
 		_map_seed,
 		_active_owner,
-		_active_registry
+		_active_registry,
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING
 	)
 	if not bool(generated.get("accepted", false)):
 		return {}
@@ -630,14 +613,18 @@ func _get_or_create_training_offer() -> Dictionary:
 
 func _get_training_offer_entry() -> Dictionary:
 	for offer in _generated_training_offers:
-		if str(offer.get("node_id", "")) == _current_node_id:
+		if (
+			str(offer.get("node_id", "")) == _current_node_id
+			and _training_offer_builder.is_current_training_offer(offer)
+		):
 			return offer
 	return {}
 
 func _find_training_choice(choice_kind: String, choice_id: String) -> Dictionary:
+	if choice_kind != "stat":
+		return {}
 	var offer := _get_or_create_training_offer()
-	var list_key := "stat_choices" if choice_kind == "stat" else "mugong_choices"
-	for choice_value in offer.get(list_key, []):
+	for choice_value in offer.get("stat_choices", []):
 		if (
 			choice_value is Dictionary
 			and str((choice_value as Dictionary).get("id", (choice_value as Dictionary).get("perk_id", ""))) == choice_id
@@ -646,12 +633,11 @@ func _find_training_choice(choice_kind: String, choice_id: String) -> Dictionary
 	return {}
 
 func _parse_training_action_id(action_id: String) -> Dictionary:
-	for choice_kind in ["stat", "mugong"]:
-		var prefix := "training_%s:" % choice_kind
-		if action_id.begins_with(prefix):
-			var choice_id := action_id.trim_prefix(prefix).strip_edges()
-			if not choice_id.is_empty():
-				return {"choice_kind": choice_kind, "choice_id": choice_id}
+	var prefix := "training_stat:"
+	if action_id.begins_with(prefix):
+		var choice_id := action_id.trim_prefix(prefix).strip_edges()
+		if not choice_id.is_empty():
+			return {"choice_kind": "stat", "choice_id": choice_id}
 	return {}
 
 func _grant_training_choice(choice: Dictionary) -> bool:

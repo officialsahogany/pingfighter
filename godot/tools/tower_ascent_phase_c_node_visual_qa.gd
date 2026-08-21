@@ -97,9 +97,9 @@ const CAPTURE_SPECS := [
 			{"label": "체질 수련 선택지 A", "cost_text": "1 무혼", "enabled": true},
 			{"label": "체질 수련 선택지 B", "cost_text": "1 무혼", "enabled": true},
 			{"label": "체질 수련 선택지 C", "cost_text": "1 무혼", "enabled": true},
-			{"label": "무공 서가 선택지 A", "cost_text": "2 무혼", "enabled": true},
-			{"label": "무공 서가 선택지 B", "cost_text": "2 무혼", "enabled": true},
-			{"label": "무공 서가 선택지 C", "cost_text": "2 무혼", "enabled": true},
+			{"label": "체질 수련 선택지 D", "cost_text": "1 무혼", "enabled": true},
+			{"label": "체질 수련 선택지 E", "cost_text": "1 무혼", "enabled": true},
+			{"label": "체질 수련 선택지 F", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -111,9 +111,9 @@ const CAPTURE_SPECS := [
 			{"label": "비천보 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "청류심법", "cost_text": "2 무혼", "enabled": true},
-			{"label": "철벽심법", "cost_text": "2 무혼", "enabled": true},
-			{"label": "비연심법", "cost_text": "2 무혼", "enabled": true},
+			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": true},
+			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": true},
+			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -124,9 +124,9 @@ const CAPTURE_SPECS := [
 			{"label": "수납술 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "최대 단계에 도달했습니다."},
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "청류심법", "cost_text": "2 무혼", "enabled": true},
-			{"label": "철벽심법", "cost_text": "2 무혼", "enabled": true},
-			{"label": "비연심법", "cost_text": "2 무혼", "enabled": true},
+			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": true},
+			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": true},
+			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -138,9 +138,9 @@ const CAPTURE_SPECS := [
 			{"label": "비천보 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
-			{"label": "청류심법", "cost_text": "2 무혼", "enabled": false, "unavailable_reason": "무혼 2 필요, 2 부족"},
-			{"label": "철벽심법", "cost_text": "2 무혼", "enabled": false, "unavailable_reason": "무혼 2 필요, 2 부족"},
-			{"label": "비연심법", "cost_text": "2 무혼", "enabled": false, "unavailable_reason": "무혼 2 필요, 2 부족"},
+			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
+			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
+			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 		],
 	},
 	{
@@ -789,7 +789,22 @@ func _capture_live_training_round(spec: Dictionary, output_dir: String) -> bool:
 		push_error("live training round did not enter the production training modal")
 		quit(1)
 		return false
-	var action_id := "training_mugong:live_mugong_alpha"
+	var action_id := ""
+	for action_value in flow.get_node_modal_view_model(Vector2(GAME_SIZE)).get("actions", []):
+		if not (action_value is Dictionary):
+			continue
+		var action := action_value as Dictionary
+		var choice: Dictionary = action.get("payload", {}).get("choice", {})
+		if (
+			str(action.get("id", "")).begins_with("training_stat:")
+			and int(choice.get("training_max_count", 0)) < 0
+		):
+			action_id = str(action.get("id", ""))
+			break
+	if action_id.is_empty():
+		push_error("live training round did not expose a repeatable training card")
+		quit(1)
+		return false
 	for purchase_index in range(3):
 		var result: Dictionary = flow.execute_node_action(
 			action_id,
@@ -806,8 +821,8 @@ func _capture_live_training_round(spec: Dictionary, output_dir: String) -> bool:
 	var live_choice: Dictionary = live_action.get("payload", {}).get("choice", {})
 	if (
 		flow.get_training_history().size() != 3
-		or int(flow.get_run_state_snapshot().get("muhon", -1)) != 24
-		or str(live_choice.get("level_text", "")) != "3 / 5"
+		or int(flow.get_run_state_snapshot().get("muhon", -1)) != 27
+		or str(live_choice.get("level_text", "")) != "Lv.3"
 		or not bool(live_action.get("enabled", false))
 	):
 		push_error("live repeated training state did not retain three purchases")
@@ -850,7 +865,7 @@ func _build_card_choice(spec: Dictionary, action: Dictionary, index: int) -> Dic
 	if node_kind == "shop":
 		return _build_shop_card_choice(action, index)
 	var scenario := str(spec.get("scenario", "baseline"))
-	var stat_card := node_kind == "training" and index < 3
+	var stat_card := node_kind == "training"
 	var current_level := 0
 	var maximum_level := -1 if stat_card else 5
 	if scenario == "three_purchases" and index == 0:
@@ -865,22 +880,34 @@ func _build_card_choice(spec: Dictionary, action: Dictionary, index: int) -> Dic
 	)
 	if node_kind == "fallen_monk":
 		level_text = "비급" if index < 3 else "0 / 5"
-	return {
-		"id": [
+	var choice_ids := (
+		[
 			"physique_dash_distance",
 			"physique_move_speed",
 			"physique_paddle_size",
+			"physique_max_gauge",
+			"physique_hit_gauge",
+			"physique_active_item_cooldown",
+		]
+		if node_kind == "training"
+		else [
+			"fallen_monk_chosik_a",
+			"fallen_monk_chosik_b",
+			"fallen_monk_chosik_c",
 			"common_swiftness",
 			"common_bulk_up",
 			"common_training",
-		][index],
+		]
+	)
+	return {
+		"id": choice_ids[index],
 		"name": str(action.get("label", "선택지")),
 		"description": (
 			"같은 카드를 반복 수련해도 현재 단계가 즉시 갱신되고 다음 효과를 확인할 수 있습니다."
 			if scenario == "three_purchases" and index == 0
 			else "카드 설명과 효과 수치를 확인하고 원하는 수련을 선택합니다."
 		),
-		"detail": "무공 보상 카드와 같은 문법을 사용하는 승천탑 선택 카드입니다.",
+		"detail": "보상 카드와 같은 문법을 사용하는 승천탑 선택 카드입니다.",
 		"level_text": level_text,
 		"current_level": current_level,
 		"next_level": current_level + 1,
