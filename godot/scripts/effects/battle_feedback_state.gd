@@ -24,6 +24,10 @@ const POWER_SMASH_HIT_VIBRATION_DURATION := 0.28
 
 var screen_shake := 0.0
 var screen_shake_intensity := 0.0
+# 원본 파리티 채널: duration 동안 진폭을 감쇠 없이 유지하고 하드 스톱한다.
+# 기본 감쇠 채널(screen_shake)과 독립이며 최종 진폭은 둘의 max로 합친다.
+var sustained_shake_timer := 0.0
+var sustained_shake_intensity := 0.0
 var fixed_shake_offset := Vector2.ZERO
 var gauge_flash_timer := 0.0
 var dash_flash_timer := 0.0
@@ -35,6 +39,9 @@ var _last_paddle_hit_vibration_msec := -1000000
 func update(delta: float, dash_token_max: int) -> void:
 	fixed_shake_offset = Vector2.ZERO
 	screen_shake = move_toward(screen_shake, 0.0, delta * 2.0)
+	sustained_shake_timer = maxf(0.0, sustained_shake_timer - delta)
+	if sustained_shake_timer <= 0.0:
+		sustained_shake_intensity = 0.0
 	gauge_flash_timer = max(0.0, gauge_flash_timer - delta)
 	dash_flash_timer = max(0.0, dash_flash_timer - delta)
 	if dash_token_max != dash_prev_token_max:
@@ -46,6 +53,8 @@ func update(delta: float, dash_token_max: int) -> void:
 
 func reset_round(dash_token_max: int) -> void:
 	fixed_shake_offset = Vector2.ZERO
+	sustained_shake_timer = 0.0
+	sustained_shake_intensity = 0.0
 	gauge_flash_timer = 0.0
 	dash_flash_timer = 0.0
 	dash_divider_anim_progress = 1.0
@@ -61,6 +70,12 @@ func set_screen_shake(amount: float, intensity: float) -> void:
 func max_screen_shake(amount: float, intensity: float) -> void:
 	screen_shake = max(screen_shake, amount)
 	screen_shake_intensity = max(screen_shake_intensity, intensity)
+
+
+# duration초 동안 ±intensity를 감쇠 없이 유지한다(pygame 원본의 사각 포락 셰이크).
+func max_sustained_screen_shake(duration: float, intensity: float) -> void:
+	sustained_shake_timer = maxf(sustained_shake_timer, duration)
+	sustained_shake_intensity = maxf(sustained_shake_intensity, intensity)
 
 
 func push_fixed_shake_offset(offset: Vector2) -> void:
@@ -154,13 +169,24 @@ func _start_gamepad_vibration(vibration: Dictionary) -> bool:
 
 
 func get_shake_offset() -> Vector2:
+	var amplitude := get_shake_amplitude()
 	var random_offset := Vector2.ZERO
-	if screen_shake > 0.0:
+	if amplitude > 0.0:
 		random_offset = Vector2(
-			randf_range(-screen_shake_intensity, screen_shake_intensity),
-			randf_range(-screen_shake_intensity, screen_shake_intensity)
-		) * screen_shake
+			randf_range(-amplitude, amplitude),
+			randf_range(-amplitude, amplitude)
+		)
 	return fixed_shake_offset + random_offset
+
+
+# 감쇠 채널은 남은 타이머를 곱한 값, 지속 채널은 설정 진폭 그대로 쓴다.
+func get_shake_amplitude() -> float:
+	var amplitude := 0.0
+	if screen_shake > 0.0:
+		amplitude = screen_shake_intensity * screen_shake
+	if sustained_shake_timer > 0.0:
+		amplitude = maxf(amplitude, sustained_shake_intensity)
+	return amplitude
 
 
 func get_gauge_flash_timer() -> float:

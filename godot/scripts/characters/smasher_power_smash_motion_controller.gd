@@ -23,7 +23,10 @@ func update_freeze(delta: float, ball_pos: Vector2, context: Dictionary, deps: D
 		var combo_consumed: int = int(power_state.get_combo_consumed())
 		var feedback = deps.get("feedback", null)
 		if feedback != null and combo_consumed >= 2:
-			feedback.max_screen_shake(
+			# 원본 파워스매싱 파리티: (15 + 콤보*2)프레임 동안 ±(10 + 콤보*2)를
+			# 감쇠 없이 유지한다. 기본 감쇠 채널은 진폭에 남은 타이머를 곱해
+			# 같은 상수로도 최고 진폭이 1/3 토막 나므로 지속 채널로 보낸다.
+			feedback.max_sustained_screen_shake(
 				float(15 + combo_consumed * 2) / 60.0,
 				10.0 + float(combo_consumed * 2)
 			)
