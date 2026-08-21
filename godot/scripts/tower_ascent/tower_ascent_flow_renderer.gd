@@ -2580,7 +2580,15 @@ func _draw_node_modal(
 		)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
+	var interaction_visuals: Array = model.get("interaction_visuals", [])
+	var has_pointer_visuals := bool(model.get("has_pointer_visuals", false))
 	var selected_index := int(model.get("selected_index", 0))
+	var node_accent := GOLD
+	if has_pointer_visuals:
+		node_accent = build_node_modal_backdrop_model(
+			str(model.get("node_kind", "common_shell")),
+			Rect2(Vector2.ZERO, model.get("view_size", Vector2(760.0, 750.0)))
+		).get("accent", GOLD)
 	for index in range(actions.size()):
 		if not (actions[index] is Dictionary):
 			continue
@@ -2603,16 +2611,37 @@ func _draw_node_modal(
 			and card_renderer.has_method("draw_tower_node_card")
 		)
 		if draws_card:
-			card_renderer.call(
-				"draw_tower_node_card",
-				canvas,
-				action,
-				row_rect,
-				index == selected_index,
-				icon_renderer,
-				index,
-				render_context.get("active_item_hud_visuals", null)
-			)
+			if has_pointer_visuals:
+				var visual_state: Dictionary = (
+					interaction_visuals[index] as Dictionary
+					if index < interaction_visuals.size()
+					and interaction_visuals[index] is Dictionary
+					else {}
+				)
+				visual_state["node_accent"] = node_accent
+				card_renderer.call(
+					"draw_tower_node_card",
+					canvas,
+					action,
+					row_rect,
+					index == selected_index,
+					icon_renderer,
+					index,
+					render_context.get("active_item_hud_visuals", null),
+					visual_state,
+					render_context.get("hover_detail_context", {})
+				)
+			else:
+				card_renderer.call(
+					"draw_tower_node_card",
+					canvas,
+					action,
+					row_rect,
+					index == selected_index,
+					icon_renderer,
+					index,
+					render_context.get("active_item_hud_visuals", null)
+				)
 		else:
 			_draw_modal_action_row(
 				canvas,

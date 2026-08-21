@@ -53,5 +53,6 @@ func apply_once(
 		"node_resolution_id": normalized_resolution_id,
 		"costs": economy_result.get("costs", {}),
 		"rewards": economy_result.get("rewards", {}),
+		"balances_before": affordability.get("balances", {}),
 		"balances": economy_result.get("balances", {}),
 	}

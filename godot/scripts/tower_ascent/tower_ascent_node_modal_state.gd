@@ -17,6 +17,10 @@ const CARD_GRID_ROWS := 2
 const GRID_COLUMN_GAP := 12.0
 const GRID_ROW_GAP := 14.0
 const END_WORK_RECT := Rect2(246.0, 602.0, 268.0, 40.0)
+const HOVER_ENTER_MSEC := 120
+const HOVER_EXIT_MSEC := 90
+const SUCCESS_RECEIPT_MSEC := 420
+const REJECTION_FEEDBACK_MSEC := 160
 
 var _node_id := ""
 var _node_kind := "common_shell"
@@ -26,6 +30,9 @@ var _hovered_index := -1
 var _pressed_index := -1
 var _balances := {"gold": 0, "muhon": 0, "chance_gems": 0}
 var _status_text := ""
+var _hover_transitions: Dictionary = {}
+var _interaction_receipt: Dictionary = {}
+var _clock_override_msec := -1
 
 
 func open(
@@ -43,6 +50,8 @@ func open(
 	_keyboard_selected_index = 0
 	_hovered_index = -1
 	_pressed_index = -1
+	_hover_transitions.clear()
+	_interaction_receipt.clear()
 	_status_text = TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_STATUS_READY
 	)
@@ -55,6 +64,8 @@ func close() -> void:
 	_hovered_index = -1
 	_pressed_index = -1
 	_status_text = ""
+	_hover_transitions.clear()
+	_interaction_receipt.clear()
 
 
 func set_actions(actions: Array) -> void:
@@ -109,7 +120,14 @@ func update_hover_at_position(
 	var next_hovered_index := _action_index_at_position(position, view_size)
 	if next_hovered_index == _hovered_index:
 		return false
+	var now_msec := _now_msec()
+	var previous_action_id := _action_id_at_index(_hovered_index)
+	if not previous_action_id.is_empty():
+		_set_hover_target(previous_action_id, 0.0, now_msec, HOVER_EXIT_MSEC)
 	_hovered_index = next_hovered_index
+	var next_action_id := _action_id_at_index(_hovered_index)
+	if not next_action_id.is_empty():
+		_set_hover_target(next_action_id, 1.0, now_msec, HOVER_ENTER_MSEC)
 	return true
 
 
@@ -136,6 +154,44 @@ func cancel_pointer_press() -> void:
 	_pressed_index = -1
 
 
+func record_action_feedback(action: Dictionary, result: Dictionary) -> void:
+	var action_id := str(action.get("id", "")).strip_edges()
+	if action_id.is_empty():
+		return
+	var accepted := bool(result.get("accepted", false))
+	var applied := bool(result.get("applied", false))
+	var success := accepted and applied
+	var message := str(result.get("message", result.get("reason", ""))).strip_edges()
+	if message.is_empty():
+		message = str(action.get("unavailable_reason", "")).strip_edges()
+	_interaction_receipt = {
+		"action_id": action_id,
+		"fallback_index": int(action.get(
+			"_feedback_index",
+			_find_action_index_by_id(action_id)
+		)),
+		"success": success,
+		"rejected": not success,
+		"message": message,
+		"started_msec": _now_msec(),
+		"duration_msec": SUCCESS_RECEIPT_MSEC if success else REJECTION_FEEDBACK_MSEC,
+		# These are presentation snapshots copied from the transaction authority.
+		# The modal never reconstructs a purchase from prices or tuning constants.
+		"costs": _dictionary_copy(result.get("costs", {})),
+		"rewards": _dictionary_copy(result.get("rewards", {})),
+		"balances_before": _dictionary_copy(result.get("balances_before", {})),
+		"balances": _dictionary_copy(result.get("balances", {})),
+	}
+
+
+func set_clock_msec_for_tests(value: int) -> void:
+	_clock_override_msec = value
+
+
+func clear_clock_msec_for_tests() -> void:
+	_clock_override_msec = -1
+
+
 func get_keyboard_selected_index() -> int:
 	return _keyboard_selected_index
 
@@ -146,6 +202,15 @@ func get_hovered_index() -> int:
 
 func get_pressed_index() -> int:
 	return _pressed_index
+
+
+func has_hover_visuals() -> bool:
+	_prune_hover_transitions(_now_msec())
+	return not _hover_transitions.is_empty()
+
+
+func get_action_index_by_id(action_id: String) -> int:
+	return _find_action_index_by_id(action_id)
 
 
 func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
@@ -190,26 +255,34 @@ func get_selected_action() -> Dictionary:
 
 func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 	var layout := build_screen_layout(view_size)
+	var interaction_model := _build_interaction_model()
+	var balance_receipt_texts: Dictionary = interaction_model.get(
+		"balance_receipt_texts",
+		{}
+	)
 	return {
 		"node_id": _node_id,
 		"node_kind": _node_kind,
 		"title": TowerAscentNodeModalLocalization.node_title(_node_kind),
 		"description": TowerAscentNodeModalLocalization.node_description(_node_kind),
 		"balances": _balances.duplicate(true),
-		"muhon_text": TowerAscentNodeModalLocalization.text(
+		"muhon_text": str(balance_receipt_texts.get("muhon", TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_BALANCE_MUHON,
 			{"amount": int(_balances.get("muhon", 0))}
-		),
-		"gold_text": TowerAscentNodeModalLocalization.text(
+		))),
+		"gold_text": str(balance_receipt_texts.get("gold", TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_BALANCE_GOLD,
 			{"amount": int(_balances.get("gold", 0))}
-		),
+		))),
 		"actions": _actions.duplicate(true),
 		"action_rects": get_action_rects(view_size),
 		"selected_index": _keyboard_selected_index,
 		"keyboard_selected_index": _keyboard_selected_index,
 		"hovered_index": _hovered_index,
 		"pressed_index": _pressed_index,
+		"interaction_visuals": interaction_model.get("visuals", []),
+		"has_pointer_visuals": bool(interaction_model.get("has_pointer_visuals", false)),
+		"interaction_receipt": interaction_model.get("receipt", {}),
 		"status_text": _status_text,
 		"view_size": view_size,
 		"modal_rect": layout.get("modal_rect", MODAL_RECT),
@@ -282,6 +355,150 @@ func _replace_actions(actions: Array) -> void:
 		),
 		"enabled": true,
 	}))
+
+
+func _build_interaction_model() -> Dictionary:
+	var now_msec := _now_msec()
+	_prune_hover_transitions(now_msec)
+	var receipt := _active_receipt(now_msec)
+	# GRT-043 fast path: the prevalent idle frame allocates no per-card visual
+	# dictionaries and leaves the renderer on its invariant seven-argument call.
+	if _hover_transitions.is_empty() and _pressed_index < 0 and receipt.is_empty():
+		return {
+			"visuals": [],
+			"has_pointer_visuals": false,
+			"receipt": {},
+			"balance_receipt_texts": {},
+		}
+	var receipt_index := -1
+	if not receipt.is_empty():
+		receipt_index = _find_action_index_by_id(str(receipt.get("action_id", "")))
+		if receipt_index < 0:
+			receipt_index = clampi(int(receipt.get("fallback_index", -1)), 0, _actions.size() - 1)
+	var strongest_hover := 0.0
+	var hover_blends: Array[float] = []
+	for index in range(_actions.size()):
+		var blend := _hover_blend(str(_actions[index].get("id", "")), now_msec)
+		hover_blends.append(blend)
+		strongest_hover = maxf(strongest_hover, blend)
+	var visuals: Array[Dictionary] = []
+	var has_pointer_visuals := _pressed_index >= 0 or not receipt.is_empty()
+	for index in range(_actions.size()):
+		var hover_blend := hover_blends[index]
+		var visual := {
+			"hover_blend": hover_blend,
+			"other_dim_amount": (
+				0.10 * strongest_hover
+				if strongest_hover > 0.0 and hover_blend < strongest_hover
+				else 0.0
+			),
+			"pressed": index == _pressed_index,
+			"success_progress": -1.0,
+			"rejection_progress": -1.0,
+			"receipt_message": "",
+		}
+		if hover_blend > 0.0:
+			has_pointer_visuals = true
+		if index == receipt_index:
+			var progress := float(receipt.get("progress", 0.0))
+			visual["receipt_message"] = str(receipt.get("message", ""))
+			if bool(receipt.get("success", false)):
+				visual["success_progress"] = progress
+			else:
+				visual["rejection_progress"] = progress
+		visuals.append(visual)
+	return {
+		"visuals": visuals,
+		"has_pointer_visuals": has_pointer_visuals,
+		"receipt": receipt,
+		"balance_receipt_texts": _build_balance_receipt_texts(receipt),
+	}
+
+
+func _set_hover_target(action_id: String, target: float, now_msec: int, duration_msec: int) -> void:
+	var current := _hover_blend(action_id, now_msec)
+	_hover_transitions[action_id] = {
+		"from": current,
+		"target": clampf(target, 0.0, 1.0),
+		"started_msec": now_msec,
+		"duration_msec": maxi(1, duration_msec),
+	}
+
+
+func _hover_blend(action_id: String, now_msec: int) -> float:
+	var transition_value: Variant = _hover_transitions.get(action_id, {})
+	if not (transition_value is Dictionary) or (transition_value as Dictionary).is_empty():
+		return 0.0
+	var transition := transition_value as Dictionary
+	var elapsed := maxi(0, now_msec - int(transition.get("started_msec", now_msec)))
+	var duration := maxi(1, int(transition.get("duration_msec", 1)))
+	var progress := clampf(float(elapsed) / float(duration), 0.0, 1.0)
+	return lerpf(
+		float(transition.get("from", 0.0)),
+		float(transition.get("target", 0.0)),
+		progress * progress * (3.0 - 2.0 * progress)
+	)
+
+
+func _prune_hover_transitions(now_msec: int) -> void:
+	for action_id_value in _hover_transitions.keys():
+		var action_id := str(action_id_value)
+		var transition: Dictionary = _hover_transitions.get(action_id, {})
+		var elapsed := maxi(0, now_msec - int(transition.get("started_msec", now_msec)))
+		if elapsed < int(transition.get("duration_msec", 1)):
+			continue
+		if float(transition.get("target", 0.0)) <= 0.0:
+			_hover_transitions.erase(action_id)
+
+
+func _active_receipt(now_msec: int) -> Dictionary:
+	if _interaction_receipt.is_empty():
+		return {}
+	var elapsed := maxi(
+		0,
+		now_msec - int(_interaction_receipt.get("started_msec", now_msec))
+	)
+	var duration := maxi(1, int(_interaction_receipt.get("duration_msec", 1)))
+	if elapsed >= duration:
+		_interaction_receipt.clear()
+		return {}
+	var result := _interaction_receipt.duplicate(true)
+	result["progress"] = clampf(float(elapsed) / float(duration), 0.0, 1.0)
+	return result
+
+
+func _build_balance_receipt_texts(receipt: Dictionary) -> Dictionary:
+	if receipt.is_empty() or not bool(receipt.get("success", false)):
+		return {}
+	var before: Dictionary = receipt.get("balances_before", {})
+	var after: Dictionary = receipt.get("balances", {})
+	var result := {}
+	for currency in ["muhon", "gold"]:
+		if not before.has(currency) or not after.has(currency):
+			continue
+		var before_value := int(before.get(currency, 0))
+		var after_value := int(after.get(currency, 0))
+		if before_value == after_value:
+			continue
+		var key := (
+			TowerAscentNodeModalLocalization.KEY_BALANCE_RECEIPT_MUHON
+			if currency == "muhon"
+			else TowerAscentNodeModalLocalization.KEY_BALANCE_RECEIPT_GOLD
+		)
+		result[currency] = TowerAscentNodeModalLocalization.text(key, {
+			"before": before_value,
+			"after": after_value,
+			"delta": "%+d" % (after_value - before_value),
+		})
+	return result
+
+
+func _now_msec() -> int:
+	return _clock_override_msec if _clock_override_msec >= 0 else int(Time.get_ticks_msec())
+
+
+func _dictionary_copy(value: Variant) -> Dictionary:
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
 
 
 func _normalize_action(source: Dictionary) -> Dictionary:

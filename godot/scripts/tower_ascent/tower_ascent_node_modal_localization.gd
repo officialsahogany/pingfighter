@@ -5,6 +5,14 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const KEY_HEADER_TITLE := "tower_ascent.node_modal.header.title"
 const KEY_BALANCE_MUHON := "tower_ascent.node_modal.balance.muhon"
 const KEY_BALANCE_GOLD := "tower_ascent.node_modal.balance.gold"
+const KEY_BALANCE_RECEIPT_MUHON := "tower_ascent.node_modal.balance_receipt.muhon"
+const KEY_BALANCE_RECEIPT_GOLD := "tower_ascent.node_modal.balance_receipt.gold"
+const KEY_HOVER_CURRENT_RESULT := "tower_ascent.node_modal.hover.current_result"
+const KEY_HOVER_TARGET_COST := "tower_ascent.node_modal.hover.target_cost"
+const KEY_HOVER_REJECTION := "tower_ascent.node_modal.hover.rejection"
+const KEY_STATE_LISTED := "tower_ascent.node_modal.state.listed"
+const KEY_STATE_OWNED := "tower_ascent.node_modal.state.owned"
+const KEY_STATE_EMPTY := "tower_ascent.node_modal.state.empty"
 const KEY_END_WORK := "tower_ascent.node_modal.action.end_work"
 const KEY_STATUS_READY := "tower_ascent.node_modal.status.ready"
 const KEY_STATUS_DISABLED := "tower_ascent.node_modal.status.disabled"
@@ -80,6 +88,14 @@ const TEXT_BY_LOCALE := {
 		KEY_HEADER_TITLE: "승천탑 행로",
 		KEY_BALANCE_MUHON: "무혼 {amount}",
 		KEY_BALANCE_GOLD: "금화 {amount}",
+		KEY_BALANCE_RECEIPT_MUHON: "무혼 {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "금화 {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "현재 {current} → 결과 {result}",
+		KEY_HOVER_TARGET_COST: "대상 {target} · 비용 {cost}",
+		KEY_HOVER_REJECTION: "거부 {reason}",
+		KEY_STATE_LISTED: "진열 중",
+		KEY_STATE_OWNED: "획득",
+		KEY_STATE_EMPTY: "빈 자리",
 		KEY_END_WORK: "업무 종료",
 		KEY_STATUS_READY: "할 일을 고르거나 업무를 마치세요.",
 		KEY_STATUS_DISABLED: "지금은 선택할 수 없습니다.",
@@ -146,6 +162,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_BALANCE_RECEIPT_MUHON: "Mugong Soul {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "Gold {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "Now {current} → Result {result}",
+		KEY_HOVER_TARGET_COST: "Target {target} · Cost {cost}",
+		KEY_HOVER_REJECTION: "Blocked: {reason}",
+		KEY_STATE_LISTED: "Listed",
+		KEY_STATE_OWNED: "Acquired",
+		KEY_STATE_EMPTY: "Empty slot",
 		KEY_BALANCE_GOLD: "Gold {amount}",
 		KEY_COST_GOLD: "{amount} Gold",
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
@@ -153,6 +177,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_BALANCE_RECEIPT_MUHON: "武魂 {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "金币 {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "当前 {current} → 结果 {result}",
+		KEY_HOVER_TARGET_COST: "目标 {target} · 花费 {cost}",
+		KEY_HOVER_REJECTION: "无法执行：{reason}",
+		KEY_STATE_LISTED: "陈列中",
+		KEY_STATE_OWNED: "已获得",
+		KEY_STATE_EMPTY: "空位",
 		KEY_BALANCE_GOLD: "金币 {amount}",
 		KEY_COST_GOLD: "{amount} 金币",
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
@@ -160,6 +192,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_BALANCE_RECEIPT_MUHON: "武魂 {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "金貨 {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "現在 {current} → 結果 {result}",
+		KEY_HOVER_TARGET_COST: "対象 {target} · 費用 {cost}",
+		KEY_HOVER_REJECTION: "実行不可：{reason}",
+		KEY_STATE_LISTED: "陳列中",
+		KEY_STATE_OWNED: "獲得",
+		KEY_STATE_EMPTY: "空き枠",
 		KEY_BALANCE_GOLD: "金貨 {amount}",
 		KEY_COST_GOLD: "{amount} 金貨",
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
@@ -167,6 +207,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_BALANCE_RECEIPT_MUHON: "Alma marcial {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "Oro {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "Ahora {current} → Resultado {result}",
+		KEY_HOVER_TARGET_COST: "Objetivo {target} · Coste {cost}",
+		KEY_HOVER_REJECTION: "Bloqueado: {reason}",
+		KEY_STATE_LISTED: "Expuesto",
+		KEY_STATE_OWNED: "Obtenido",
+		KEY_STATE_EMPTY: "Hueco vacío",
 		KEY_BALANCE_GOLD: "Oro {amount}",
 		KEY_COST_GOLD: "{amount} de oro",
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
@@ -174,6 +222,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_BALANCE_RECEIPT_MUHON: "Alma marcial {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "Ouro {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "Agora {current} → Resultado {result}",
+		KEY_HOVER_TARGET_COST: "Alvo {target} · Custo {cost}",
+		KEY_HOVER_REJECTION: "Bloqueado: {reason}",
+		KEY_STATE_LISTED: "Em exposição",
+		KEY_STATE_OWNED: "Obtido",
+		KEY_STATE_EMPTY: "Espaço vazio",
 		KEY_BALANCE_GOLD: "Ouro {amount}",
 		KEY_COST_GOLD: "{amount} de ouro",
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
@@ -181,6 +237,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_BALANCE_RECEIPT_MUHON: "Душа боя {before} → {after}, {delta}",
+		KEY_BALANCE_RECEIPT_GOLD: "Золото {before} → {after}, {delta}",
+		KEY_HOVER_CURRENT_RESULT: "Сейчас {current} → Итог {result}",
+		KEY_HOVER_TARGET_COST: "Цель {target} · Цена {cost}",
+		KEY_HOVER_REJECTION: "Недоступно: {reason}",
+		KEY_STATE_LISTED: "На витрине",
+		KEY_STATE_OWNED: "Получено",
+		KEY_STATE_EMPTY: "Пустое место",
 		KEY_BALANCE_GOLD: "Золото: {amount}",
 		KEY_COST_GOLD: "{amount} золота",
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",

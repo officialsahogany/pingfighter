@@ -47,7 +47,7 @@ func get_node_modal_kind() -> String:
 	return _node_modal_kind
 
 func get_node_modal_render_context() -> Dictionary:
-	return {
+	var context := {
 		"card_renderer": _get_cached_node_modal_render_module(
 			"runtime_perk_overlay_renderer"
 		),
@@ -58,6 +58,20 @@ func get_node_modal_render_context() -> Dictionary:
 			"active_item_hud_visuals"
 		),
 	}
+	# GRT-043: runtime stat projection is not even requested until a training
+	# card has pointer prevalence. The invariant modal path keeps its old three
+	# warmed render-module reads and adds zero detail lookups.
+	if (
+		_node_modal_kind == "training"
+		and _node_modal_state != null
+		and _node_modal_state.has_hover_visuals()
+	):
+		context["hover_detail_context"] = {
+			"runtime_state": _get_cached_node_modal_render_module("runtime_perk_state"),
+			"owner": _active_owner,
+			"registry": _active_registry,
+		}
+	return context
 
 
 func _get_cached_node_modal_render_module(key: String) -> Object:
@@ -200,13 +214,24 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	)
 	if action.is_empty():
 		return
+	action["_feedback_index"] = _node_modal_state.get_action_index_by_id(
+		str(action.get("id", ""))
+	)
 	if not bool(action.get("enabled", true)):
-		_node_modal_state.set_status_text(str(action.get("unavailable_reason", "")))
+		var unavailable_reason := str(action.get("unavailable_reason", ""))
+		_node_modal_state.set_status_text(unavailable_reason)
+		_node_modal_state.record_action_feedback(action, {
+			"accepted": false,
+			"applied": false,
+			"reason": str(action.get("disabled_reason", "disabled")),
+			"message": unavailable_reason,
+		})
 		return
 	if str(action.get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK:
 		_enter_route_aim()
 		return
 	var action_result := execute_node_action(str(action.get("id", "")))
+	_node_modal_state.record_action_feedback(action, action_result)
 	if not bool(action_result.get("accepted", false)):
 		_node_modal_state.set_status_text(str(action_result.get("message", action_result.get("reason", ""))))
 

@@ -403,6 +403,12 @@ func _build_action(
 			"choice": choice.duplicate(true),
 			"unlocked_skill": unlocked_skill,
 			"removed_skill": removed_skill,
+			"presentation": _build_presentation(
+				operation,
+				choice,
+				new_name,
+				old_name
+			),
 		},
 	}
 
@@ -431,7 +437,35 @@ func _build_mugong_action(choice: Dictionary, balances: Dictionary) -> Dictionar
 			"operation": OP_MUGONG,
 			"choice": choice.duplicate(true),
 			"removed_skill": "",
+			"presentation": {
+				"current": "Lv.%d" % int(choice.get("current_level", 0)),
+				"result": "Lv.%d" % int(choice.get("next_level", 1)),
+				"target": str(choice.get("name", choice_id)),
+			},
 		},
+	}
+
+
+func _build_presentation(
+	operation: String,
+	choice: Dictionary,
+	new_name: String,
+	old_name: String
+) -> Dictionary:
+	if operation == OP_SWAP:
+		return {"current": old_name, "result": new_name, "target": new_name}
+	if operation == OP_REMOVE:
+		return {
+			"current": new_name,
+			"result": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_STATE_EMPTY
+			),
+			"target": new_name,
+		}
+	return {
+		"current": "Lv.%d" % int(choice.get("current_level", 0)),
+		"result": "Lv.%d" % int(choice.get("next_level", 1)),
+		"target": new_name,
 	}
 
 

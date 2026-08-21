@@ -215,6 +215,17 @@ func _build_shop_actions() -> Array[Dictionary]:
 			"payload": {
 				"stock_id": str(stock.get("stock_id", "")),
 				"choice": _shop_card_choice(stock),
+				"presentation": {
+					"current": TowerAscentNodeModalLocalization.text(
+						TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+						if sold
+						else TowerAscentNodeModalLocalization.KEY_STATE_LISTED
+					),
+					"result": TowerAscentNodeModalLocalization.text(
+						TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+					),
+					"target": _shop_stock_label(stock),
+				},
 			},
 		})
 	return result
@@ -502,6 +513,11 @@ func _build_training_action(
 			"choice_kind": choice_kind,
 			"choice_id": choice_id,
 			"choice": live_choice,
+			"presentation": {
+				"current": "Lv.%d" % int(live_choice.get("current_level", 0)),
+				"result": "Lv.%d" % int(live_choice.get("next_level", 1)),
+				"target": display_name,
+			},
 		},
 	}
 

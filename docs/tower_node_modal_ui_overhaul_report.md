@@ -1,4 +1,61 @@
-# 탑 노드 모달 UI 전면 개선 S1 감사 및 S2 착지 보고
+# 탑 노드 모달 UI 전면 개선 S3 착지 보고
+
+## S3 공용 호버와 거래 영수증 착지
+
+### 기준, 아트, 시계 판정
+
+- 구현 기준 본 트리 HEAD: `2141f618f943babd4f07325b12b73fbe8537a9df`.
+- 격리 브랜치: `codex/tower-node-modal-s3-2141f618f`. 본 트리에 통합하지 않았다.
+- 새 아트 판정은 **불필요 유지**다. 기존 카드 종이·아이콘·노드 배경과 텍스트,
+  코드 네이티브 금선·광륜을 재사용했으며 후보 생성이나 임시 아트 배선은 없다.
+- 120ms 진입, 90ms 해제, 420ms 성공, 160ms 거부는 **벽시계**
+  `Time.get_ticks_msec()`를 정본으로 삼는다. `NODE_MODAL`이 전투 물리를 막아도 표현
+  마감은 실제 경과시간대로 진행되어야 하고, 물리 catch-up 횟수와 시각 피드백을
+  결합하면 같은 입력도 프레임 상황에 따라 다른 길이로 보이기 때문이다. 테스트만
+  명시 시각을 주입한다.
+- 호버·영수증에는 난수를 쓰지 않는다. 진동은 벽시계 진행률의 결정적 사인 곡선이라
+  gameplay RNG와 독립 표현 RNG 모두 소비 0회다.
+
+### 공용 계약과 노드별 연결
+
+1. `TowerAscentNodeModalState`가 action ID별 호버 보간과 짧은
+   `interaction_receipt`를 소유한다. `get_action_rects()`는 호버·press·영수증 전후
+   같은 rect를 반환하며, 내용만 안에서 최대 5px 들리거나 press 때 정확히 2px
+   내려간다.
+2. 거래 성공 영수증은 `tower_ascent_node_action_transaction.gd`가 반환한
+   `costs`, `rewards`, `balances_before`, `balances`를 그대로 복사한다. 가격이나
+   조정값으로 잔액을 다시 계산하지 않는다. 실패·취소에는 재화 delta가 없다.
+3. `draw_tower_node_card()` 하나가 안쪽 금선·그림자, 1.08배 아이콘, 노드 accent
+   이름표, 다른 카드 10% dim, 하단 3행 정보, 성공 인장·광륜, 거부 진동을 그린다.
+   상점, 수련장, 파계승은 각 생산 행동 빌더의 `payload.presentation`만 추가했다.
+4. GRT-021의 호버 하단 예산은 최장 한국어 거부 문구에서 실제 append 3행이며 거부
+   행이 남는 것을 단언한다. 신규 문구 8개는 7개 지원 locale block 모두에 있다.
+5. GRT-043 무호버 fast path는 per-card 시각 딕셔너리를 만들지 않고 기존 드로어
+   호출로 돌아간다. 집중 씰이 수련 실상태 조회 0회, 호버 layout 조립 0회, 신규
+   동적 레이어 0회를 단언한다. 호버 중 같은 상세 layout과 수련 투영은 signature
+   캐시가 한 번만 만든다.
+
+### S3 단독 검증
+
+- 집중 스모크 8개: `tower_node_modal_feedback_smoke.gd`, 기존 포인터·모달 셸·배경,
+  상점·수련장·파계승 생산 씰, 수련 능력치 프리뷰 씰 모두 GREEN.
+  종단은 `Smoke summary: PASS=8 FAIL=0 TOTAL=8`,
+  `All Godot smoke tests passed.`다.
+- GRT-022 반증은 2020×1246 카드 상단 모서리 `+2px`이며 hover/press 전후 rect가
+  완전히 같다. GRT-058은 기존 생산 모달 셸과 포인터 씰의 진입·해제 양방향이
+  함께 GREEN이다.
+- touched GDScript 10개 경고 0건. 헤드리스 로드는
+  `[ApplicationQuitCoordinator] graceful headless shutdown complete`와
+  `Godot headless load check passed.`로 끝났다.
+- 신규 씰은 CI와 pre-push 리터럴 목록에 함께 등재했다. 두 목록 모두 200개에서
+  **201개**가 됐다.
+- Forward Mobile Vulkan, NVIDIA GeForce RTX 5070, 2020×1246에서 idle, hover
+  0/60/120ms, press, 성공 0/210/419ms, 거부 0/40/159ms와 상점·파계승 hover를
+  합계 13장으로 캡처했다. hover·성공·거부는 각각 시작·중간·끝 3프레임 스트립도
+  저장했다. 증거 경로는
+  `godot/.godot/codex_captures/tower_node_modal_feedback_s3/`다.
+- 격리 Vulkan 픽셀은 확인했지만 사용자가 통합한 본 트리의 직접 플레이 체감은
+  **unverified**다.
 
 ## S2 공용 포인터 상태 착지
 
