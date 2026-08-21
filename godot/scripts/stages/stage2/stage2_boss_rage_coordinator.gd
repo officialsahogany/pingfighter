@@ -2,6 +2,9 @@ extends RefCounted
 
 const Stage2AudioRouter := preload("res://scripts/stages/stage2/stage2_audio_router.gd")
 const Stage2BossRageState := preload("res://scripts/stages/stage2/stage2_boss_rage_state.gd")
+const StageBossVariantCatalog := preload(
+	"res://scripts/stages/common/stage_boss_variant_catalog.gd"
+)
 
 # 2026-07-31 7점제 재보정: 4/5(80%) -> 6/7(86%). 듀스 발동선(DEUCE_TRIGGER)과
 # 같은 점수라는 관계도 5점제와 동일하게 유지된다.
@@ -63,6 +66,12 @@ func reset() -> void:
 
 func reserve_crisis(context: Dictionary) -> bool:
 	if rage_state == null:
+		return false
+	var stage2_variant := StageBossVariantCatalog.normalize_variant(
+		2,
+		context.get("stage_boss_variant", "")
+	)
+	if stage2_variant != StageBossVariantCatalog.get_default_variant(2):
 		return false
 	return rage_state.reserve_crisis(context, CRISIS_PLAYER_SCORE)
 

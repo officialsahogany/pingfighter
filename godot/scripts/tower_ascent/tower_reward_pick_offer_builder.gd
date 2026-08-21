@@ -26,6 +26,7 @@ const OFFER_VERSION := "tower_reward_pick_v1"
 const CARD_COUNT := 4
 const TEMP_TRAINING_COST := 1
 const TEMP_MUGONG_COST := 2
+const TEMP_DASH_AMPLIFICATION_COST := 3
 const TEMP_FUSION_COST := 3
 const TEMP_VISION_COST := 3
 const TEMP_SUPREME_COST := 5
@@ -87,9 +88,7 @@ func build_offer(
 		if choices.size() >= CARD_COUNT:
 			break
 		var kind := str(basic.get("reward_pick_kind", "mugong"))
-		var cost := TEMP_TRAINING_COST if kind == "training" else (
-			TEMP_FUSION_COST if kind == "fusion" else TEMP_MUGONG_COST
-		)
+		var cost := resolve_basic_reward_pick_cost(basic)
 		_append_choice(choices, seen, basic, cost, kind)
 
 	if choices.size() != CARD_COUNT:
@@ -112,6 +111,17 @@ func build_offer(
 		"supreme_chance": supreme_chance,
 		"choices": choices,
 	}
+
+
+static func resolve_basic_reward_pick_cost(choice: Dictionary) -> int:
+	var kind := str(choice.get("reward_pick_kind", "mugong"))
+	if kind == "training":
+		return TEMP_TRAINING_COST
+	if kind == "fusion":
+		return TEMP_FUSION_COST
+	if str(choice.get("id", choice.get("perk_id", ""))) == "dash_amplification":
+		return TEMP_DASH_AMPLIFICATION_COST
+	return TEMP_MUGONG_COST
 
 
 func _build_vision_choice(

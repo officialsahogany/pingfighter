@@ -472,6 +472,14 @@ func get_route_wind_model() -> Dictionary:
 	return _route_serve_runtime.get_wind_model()
 
 
+func get_route_wind_visual_state() -> Object:
+	return _route_serve_runtime.get_wind_visual_state()
+
+
+func get_route_wind_visual_snapshot() -> Dictionary:
+	return _route_serve_runtime.get_wind_visual_snapshot()
+
+
 func has_visible_route_wind_indicator() -> bool:
 	return _route_serve_runtime.has_visible_wind_indicator()
 

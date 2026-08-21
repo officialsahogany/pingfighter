@@ -484,9 +484,24 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 func _verify_offer_order_eligibility_and_prices() -> void:
 	_expect(TowerRewardPickOfferBuilder.TEMP_TRAINING_COST == 1, "training reward card must cost one Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_MUGONG_COST == 2, "Mugong reward card must cost two Muhon")
+	_expect(TowerRewardPickOfferBuilder.TEMP_DASH_AMPLIFICATION_COST == 3, "Glide Orb reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_FUSION_COST == 3, "fusion reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_VISION_COST == 3, "Vision reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_SUPREME_COST == 5, "Peerless reward card must cost five Muhon")
+	_expect(
+		TowerRewardPickOfferBuilder.resolve_basic_reward_pick_cost({
+			"id": "dash_amplification",
+			"reward_pick_kind": "mugong",
+		}) == 3,
+		"Glide Orb must use its temporary three-Muhon reward-pick exception"
+	)
+	_expect(
+		TowerRewardPickOfferBuilder.resolve_basic_reward_pick_cost({
+			"id": "mugong_a",
+			"reward_pick_kind": "mugong",
+		}) == 2,
+		"other Mugong cards must retain the two-Muhon price"
+	)
 
 	var runtime := FakeRuntimeState.new()
 	var skill_config := FakeSkillConfig.new()

@@ -29,7 +29,7 @@ const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_camera_tracking"
 const LOWER_NAME := "map_camera_floor01_lower.png"
 const MIDDLE_NAME := "map_camera_floor05_middle.png"
 const UPPER_NAME := "map_camera_floor09_upper.png"
-const CROSSING_NAME := "map_camera_curve_crossing_zoom4.png"
+const PATH_DETAIL_NAME := "map_camera_curve_detail_zoom4.png"
 const STRIP_NAME := "map_camera_walker_zoom_full_transition_strip.png"
 const ZOOM_STRIP_NAME := "map_camera_walker_zoom_intro_dense_strip.png"
 
@@ -80,6 +80,10 @@ func _run() -> void:
 		return
 	flow.set("_current_node_id", original_node_id)
 	var lower_image := await _capture(canvas, viewport)
+	var fullscreen_extent_failure := _fullscreen_extent_failure(flow, lower_image)
+	if not fullscreen_extent_failure.is_empty():
+		_fail(fullscreen_extent_failure)
+		return
 	if not _save(lower_image, output_dir.path_join(LOWER_NAME)):
 		_fail("lower-boundary capture failed")
 		return
@@ -88,13 +92,15 @@ func _run() -> void:
 	if not _save(middle_image, output_dir.path_join(MIDDLE_NAME)):
 		_fail("middle-floor capture failed")
 		return
-	var crossing_point := _find_curve_crossing(flow)
-	if crossing_point.x < 0.0 or not _save_crossing_zoom(
+	var path_detail_point := _find_curve_crossing(flow)
+	if path_detail_point.x < 0.0:
+		path_detail_point = _find_visible_curve_detail(flow)
+	if path_detail_point.x < 0.0 or not _save_crossing_zoom(
 		middle_image,
-		crossing_point,
-		output_dir.path_join(CROSSING_NAME)
+		path_detail_point,
+		output_dir.path_join(PATH_DETAIL_NAME)
 	):
-		_fail("visible curve crossing could not be captured")
+		_fail("visible curved route detail could not be captured")
 		return
 	flow.set("_current_node_id", upper_node_id)
 	var upper_image := await _capture(canvas, viewport)
@@ -186,6 +192,34 @@ func _save(image: Image, path: String) -> bool:
 	)
 
 
+func _fullscreen_extent_failure(flow: Object, image: Image) -> String:
+	var renderer := TowerAscentFlowRenderer.new()
+	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	if model.get("panel_rect", Rect2()) != VIEWPORT_RECT:
+		return "fullscreen paper model does not reach the actual viewport edges"
+	var safe_content_bounds: Rect2 = model.get("safe_content_bounds", Rect2())
+	if not safe_content_bounds.encloses(model.get("content_rect", Rect2())):
+		return "fullscreen paper expansion displaced the established map content bounds"
+	if not is_equal_approx(float((model.get("world_rect", Rect2()) as Rect2).size.x), 692.0):
+		return "fullscreen paper expansion stretched the approved 692px map band"
+	for floor_variant in model.get("floor_bands", []):
+		if (
+			floor_variant is Dictionary
+			and not ((floor_variant as Dictionary).get("rect", Rect2()) as Rect2).size.is_equal_approx(Vector2(692.0, 320.0))
+		):
+			return "fullscreen paper expansion stretched an approved 692x320 floor band"
+	var samples: Array[Vector2i] = [
+		Vector2i(20, 20),
+		Vector2i(GAME_SIZE.x - 21, 20),
+		Vector2i(20, GAME_SIZE.y - 21),
+		Vector2i(GAME_SIZE.x - 21, GAME_SIZE.y - 21),
+	]
+	for sample in samples:
+		if image.get_pixelv(sample).get_luminance() <= 0.35:
+			return "fullscreen paper does not visibly cover viewport corner %s" % sample
+	return ""
+
+
 func _node_id_for_floor(flow: Object, floor_number: int) -> String:
 	for node_variant in flow.get_graph_nodes():
 		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == floor_number:
@@ -219,7 +253,10 @@ func _find_curve_crossing(flow: Object) -> Vector2:
 		"offset",
 		Vector2.ZERO
 	)
-	var camera_zoom_multiplier := maxf(1.0, float(camera.get("zoom_multiplier", 1.0)))
+	var camera_zoom_multiplier := maxf(
+		1.0,
+		float(camera.get("render_zoom_multiplier", camera.get("zoom_multiplier", 1.0)))
+	)
 	var art_clearance := float(model.get("art_size", 0.0)) * 0.34
 	var positions: Dictionary = model.get("position_by_id", {})
 	for first_index in range(edges.size()):
@@ -252,6 +289,31 @@ func _find_curve_crossing(flow: Object) -> Vector2:
 							break
 					if clears_nodes:
 						return screen_crossing
+	return Vector2(-1.0, -1.0)
+
+
+func _find_visible_curve_detail(flow: Object) -> Vector2:
+	var renderer := TowerAscentFlowRenderer.new()
+	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var content: Rect2 = model.get("content_rect", Rect2()).grow(-40.0)
+	var camera: Dictionary = model.get("camera", {})
+	var camera_offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var camera_zoom_multiplier := maxf(
+		1.0,
+		float(camera.get("render_zoom_multiplier", camera.get("zoom_multiplier", 1.0)))
+	)
+	for edge_variant in model.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var path_points: PackedVector2Array = (edge_variant as Dictionary).get(
+			"path_points",
+			PackedVector2Array()
+		)
+		if path_points.size() < 3:
+			continue
+		var screen_point := path_points[int(path_points.size() / 2)] * camera_zoom_multiplier + camera_offset
+		if content.has_point(screen_point):
+			return screen_point
 	return Vector2(-1.0, -1.0)
 
 

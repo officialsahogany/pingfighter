@@ -22,8 +22,14 @@ const TowerAscentRouteWindPolicy := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const WeatherEventRenderer := preload(
+	"res://scripts/stages/common/weather_event_renderer.gd"
+)
+const WeatherEventState := preload(
+	"res://scripts/stages/common/weather_event_state.gd"
+)
 
-const EXPECTED_LEG_COUNT := 9
+const EXPECTED_LEG_COUNT := 13
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -132,6 +138,10 @@ func _init() -> void:
 	_verify_route_wind_asset_import_and_frames()
 	_verify_calm_draw_gate_skips_models_and_canvas()
 	_verify_missing_wind_asset_uses_procedural_fallback()
+	_verify_route_wind_visual_density_profiles()
+	_verify_calm_wind_visual_zero_payload()
+	_verify_weather_wind_reverse_contract()
+	_verify_route_wind_visual_does_not_change_flight()
 	_verify_pickup_roll_layout_and_rng()
 	_verify_swept_pickup_contact()
 	_verify_currency_collection_and_double_consume_guard()
@@ -250,6 +260,114 @@ func _verify_missing_wind_asset_uses_procedural_fallback() -> void:
 	)
 	_expect(canvas.texture_region_calls == 0, "missing wind art must not issue a texture draw")
 	_expect(canvas.draw_calls > 0, "missing wind art must draw the procedural fallback")
+
+
+func _verify_route_wind_visual_density_profiles() -> void:
+	_leg_count += 1
+	var weather_renderer := WeatherEventRenderer.new()
+	var payload_counts: Array[int] = []
+	var rendered_counts: Array[int] = []
+	for strength_level in range(1, 4):
+		var runtime := TowerAscentRouteServeRuntime.new()
+		runtime.begin(
+			null,
+			null,
+			TowerAscentRouteWindPolicy.build_model(1, strength_level)
+		)
+		for _frame in range(8):
+			runtime.update(1.0 / 60.0, [], [])
+		var snapshot: Dictionary = runtime.get_wind_visual_snapshot()
+		var expected_target := WeatherEventState.get_presentation_wind_particle_target(
+			strength_level
+		)
+		_expect(
+			int(snapshot.get("particle_target", 0)) == expected_target,
+			"route strength %d must map to weather target %d" % [
+				strength_level,
+				expected_target,
+			]
+		)
+		_expect(
+			int(snapshot.get("particle_count", 0)) == expected_target,
+			"route strength %d must materialize its weather payload target" % strength_level
+		)
+		var draw_snapshot := weather_renderer.build_visual_snapshot(
+			runtime.get_wind_visual_state()
+		)
+		payload_counts.append(int(draw_snapshot.get("particle_count", 0)))
+		rendered_counts.append(int(draw_snapshot.get("rendered_particle_count", 0)))
+	_expect(payload_counts == [14, 28, 34], "weak, medium, strong payload counts must be distinct")
+	_expect(rendered_counts == [14, 28, 32], "weak, medium, strong draw counts must be distinct")
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	_expect(
+		renderer_source.contains("_route_wind_effect_renderer.draw_wind_particles"),
+		"route wind must reuse the weather renderer instead of copying streak drawing"
+	)
+	_expect(
+		renderer_source.contains("Rect2(Vector2.ZERO, PLAYFIELD_SIZE)"),
+		"GRT-045 route wind must upload a playfield clip rect"
+	)
+
+
+func _verify_calm_wind_visual_zero_payload() -> void:
+	_leg_count += 1
+	var runtime := TowerAscentRouteServeRuntime.new()
+	runtime.begin(null, null, TowerAscentRouteWindPolicy.calm_model())
+	for _frame in range(8):
+		runtime.update(1.0 / 60.0, [], [])
+	var snapshot: Dictionary = runtime.get_wind_visual_snapshot()
+	_expect(not bool(snapshot.get("active", true)), "calm route wind visuals must stay inactive")
+	_expect(int(snapshot.get("particle_count", -1)) == 0, "GRT-043 calm wind must build zero payloads")
+	_expect(
+		int(WeatherEventRenderer.new().build_visual_snapshot(
+			runtime.get_wind_visual_state()
+		).get("rendered_particle_count", -1)) == 0,
+		"GRT-043 calm wind must expose zero weather draw candidates"
+	)
+
+
+func _verify_weather_wind_reverse_contract() -> void:
+	_leg_count += 1
+	var weather := WeatherEventState.new()
+	var renderer := WeatherEventRenderer.new()
+	weather.force_start_weather_event("breeze", 3, 1)
+	for _frame in range(8):
+		weather.update(null, null, 1.0 / 60.0)
+	var breeze_snapshot := renderer.build_visual_snapshot(weather)
+	_expect(
+		int(breeze_snapshot.get("particle_count", 0))
+		== WeatherEventState.BREEZE_VISUAL_PARTICLE_TARGET,
+		"ordinary breeze weather must retain its authored payload count"
+	)
+	weather.force_start_weather_event("gust", 1, -1)
+	for _frame in range(8):
+		weather.update(null, null, 1.0 / 60.0)
+	var gust_snapshot := renderer.build_visual_snapshot(weather)
+	_expect(
+		int(gust_snapshot.get("particle_count", 0))
+		== WeatherEventState.GUST_VISUAL_PARTICLE_TARGET,
+		"ordinary gust weather must retain its authored payload count"
+	)
+	_expect(weather.get_weather_direction() == -1, "ordinary weather direction must remain authoritative")
+
+
+func _verify_route_wind_visual_does_not_change_flight() -> void:
+	_leg_count += 1
+	var calm := TowerAscentRouteServeRuntime.new()
+	var strong := TowerAscentRouteServeRuntime.new()
+	calm.begin(null, null, TowerAscentRouteWindPolicy.calm_model())
+	strong.begin(null, null, TowerAscentRouteWindPolicy.build_model(1, 3))
+	var target := Vector2(380.0, 120.0)
+	calm.debug_serve_toward(target)
+	strong.debug_serve_toward(target)
+	calm.update(1.0 / 60.0, [], [])
+	strong.update(1.0 / 60.0, [], [])
+	_expect(
+		calm.get_ball_position().is_equal_approx(strong.get_ball_position()),
+		"route weather visuals must not add post-launch wind force"
+	)
 
 
 func _verify_pickup_roll_layout_and_rng() -> void:

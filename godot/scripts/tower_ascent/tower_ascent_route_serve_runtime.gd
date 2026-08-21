@@ -14,6 +14,9 @@ const TowerAscentTuning := preload(
 const TowerAscentRouteWindPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
 )
+const WeatherEventState := preload(
+	"res://scripts/stages/common/weather_event_state.gd"
+)
 
 const STATUS_WAITING := "waiting"
 const STATUS_FLIGHT := "flight"
@@ -45,11 +48,13 @@ var _aim_angle_degrees := 0.0
 var _aim_sweep_direction := 1.0
 var _serve_arm_remaining := 0.0
 var _wind_model: Dictionary = TowerAscentRouteWindPolicy.calm_model()
+var _wind_visual_state: Object = WeatherEventState.new()
 
 
 func begin(owner: Object, registry: Object, wind_model: Variant = {}) -> Dictionary:
 	cancel()
 	_wind_model = TowerAscentRouteWindPolicy.normalize_model(wind_model)
+	_sync_wind_visual_profile()
 	_update_aim_oscillator(0.0)
 	_owner = owner
 	_registry = registry
@@ -108,11 +113,13 @@ func cancel() -> void:
 	_fixture_ball_active = false
 	_serve_arm_remaining = 0.0
 	_wind_model = TowerAscentRouteWindPolicy.calm_model()
+	_wind_visual_state.clear_presentation_wind()
 
 
 func finish_selection() -> void:
 	_hide_owned_ball()
 	_active = false
+	_wind_visual_state.clear_presentation_wind()
 
 
 func update(
@@ -122,6 +129,7 @@ func update(
 ) -> Dictionary:
 	if not _active:
 		return {"status": STATUS_WAITING}
+	_wind_visual_state.update_presentation_wind(maxf(0.0, delta))
 	if _fixture_mode:
 		return _update_fixture_flight(delta, targets, pickups)
 	var input_snapshot := _read_player_input_snapshot()
@@ -187,6 +195,14 @@ func get_wind_model() -> Dictionary:
 	return _wind_model.duplicate(true)
 
 
+func get_wind_visual_state() -> Object:
+	return _wind_visual_state
+
+
+func get_wind_visual_snapshot() -> Dictionary:
+	return _wind_visual_state.get_presentation_wind_snapshot()
+
+
 func has_visible_wind_indicator() -> bool:
 	return TowerAscentRouteWindPolicy.is_indicator_visible(_wind_model)
 
@@ -248,6 +264,16 @@ func _effective_aim_bounds() -> Vector2:
 	return Vector2(
 		TowerAscentTuning.TEMP_ROUTE_AIM_MIN_DEGREES + bias_degrees,
 		TowerAscentTuning.TEMP_ROUTE_AIM_MAX_DEGREES + bias_degrees
+	)
+
+
+func _sync_wind_visual_profile() -> void:
+	if not TowerAscentRouteWindPolicy.is_indicator_visible(_wind_model):
+		_wind_visual_state.clear_presentation_wind()
+		return
+	_wind_visual_state.configure_presentation_wind(
+		int(_wind_model.get("direction", 0)),
+		int(_wind_model.get("strength_level", 0))
 	)
 
 

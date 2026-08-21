@@ -75,6 +75,10 @@ func prewarm_assets() -> void:
 		pass
 
 
+func prewarm_wind_assets() -> void:
+	_get_texture("wind_ribbon")
+
+
 func prewarm_assets_step() -> bool:
 	if _prewarm_texture_index >= PREWARM_TEXTURE_KEYS.size():
 		_prewarm_texture_index = 0
@@ -95,6 +99,28 @@ func draw(weather: Object, canvas: CanvasItem, shake_offset: Vector2 = Vector2.Z
 	_draw_sand_segments(weather, canvas, shake_offset, effect_lod_scale)
 	_draw_particles(weather, canvas, shake_offset, effect_lod_scale)
 	_draw_weather_message(canvas, context)
+
+
+func draw_wind_particles(
+	weather: Object,
+	canvas: CanvasItem,
+	shake_offset: Vector2 = Vector2.ZERO,
+	effect_lod_scale: float = 1.0,
+	clip_rect: Rect2 = Rect2(Vector2.ZERO, Vector2(FIELD_WIDTH, FIELD_HEIGHT))
+) -> int:
+	if weather == null or canvas == null:
+		return 0
+	var context: Dictionary = _get_weather_context(weather)
+	var weather_type: String = str(context.get("type", ""))
+	if weather_type != "breeze" and weather_type != "gust":
+		return 0
+	var particles: Array = _get_particles(weather)
+	var rendered_count: int = mini(particles.size(), _get_render_particle_limit(
+		context,
+		effect_lod_scale
+	))
+	_draw_particles(weather, canvas, shake_offset, effect_lod_scale, clip_rect)
+	return rendered_count
 
 
 func build_visual_snapshot(weather: Object) -> Dictionary:
@@ -427,7 +453,13 @@ func _build_sand_highlight_polyline(side: String, depths: Array, shake_offset: V
 	return runs
 
 
-func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2, effect_lod_scale: float = 1.0) -> void:
+func _draw_particles(
+	weather: Object,
+	canvas: CanvasItem,
+	shake_offset: Vector2,
+	effect_lod_scale: float = 1.0,
+	clip_rect: Rect2 = Rect2()
+) -> void:
 	var particles: Array = _get_particles(weather)
 	var context: Dictionary = _get_weather_context(weather)
 	var weather_type: String = str(context.get("type", ""))
@@ -534,7 +566,21 @@ func _draw_particles(weather: Object, canvas: CanvasItem, shake_offset: Vector2,
 				)
 			_:
 				var width: float = max(18.0, abs(float(particle.get("vx", 0.0))) * 8.0 + 14.0)
-				_draw_texture_piece(canvas, "wind_ribbon", pos, Vector2(width, max(3.0, float(particle.get("size", 2.0)) * 2.0)), color)
+				var wind_size := Vector2(
+					width,
+					max(3.0, float(particle.get("size", 2.0)) * 2.0)
+				)
+				if clip_rect.size.x > 0.0 and clip_rect.size.y > 0.0:
+					_draw_texture_piece_clipped(
+						canvas,
+						"wind_ribbon",
+						pos,
+						wind_size,
+						color,
+						clip_rect
+					)
+				else:
+					_draw_texture_piece(canvas, "wind_ribbon", pos, wind_size, color)
 
 
 func _draw_texture_piece(canvas: CanvasItem, texture_key: String, center: Vector2, size: Vector2, color: Color) -> void:
@@ -543,6 +589,29 @@ func _draw_texture_piece(canvas: CanvasItem, texture_key: String, center: Vector
 		return
 	var rect: Rect2 = Rect2(center - size * 0.5, size)
 	canvas.draw_texture_rect(texture, rect, false, color)
+
+
+func _draw_texture_piece_clipped(
+	canvas: CanvasItem,
+	texture_key: String,
+	center: Vector2,
+	size: Vector2,
+	color: Color,
+	clip_rect: Rect2
+) -> void:
+	var texture := _get_texture(texture_key)
+	if texture == null or size.x <= 0.0 or size.y <= 0.0:
+		return
+	var target_rect := Rect2(center - size * 0.5, size)
+	var clipped_rect := target_rect.intersection(clip_rect)
+	if clipped_rect.size.x <= 0.0 or clipped_rect.size.y <= 0.0:
+		return
+	var source_size := Vector2(texture.get_size())
+	var source_rect := Rect2(
+		(clipped_rect.position - target_rect.position) / target_rect.size * source_size,
+		clipped_rect.size / target_rect.size * source_size
+	)
+	canvas.draw_texture_rect_region(texture, clipped_rect, source_rect, color)
 
 
 func _draw_hail_particle(canvas: CanvasItem, center: Vector2, size: float, alpha: float, base_color: Color) -> void:

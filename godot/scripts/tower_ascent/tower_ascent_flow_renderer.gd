@@ -33,6 +33,9 @@ const TowerMapScrollAssetCatalog := preload(
 const ProjectResourceLoader := preload(
 	"res://scripts/resources/project_resource_loader.gd"
 )
+const WeatherEventRenderer := preload(
+	"res://scripts/stages/common/weather_event_renderer.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -129,6 +132,7 @@ var _path_cached_dot_count := 0
 var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
+var _route_wind_effect_renderer: Object = WeatherEventRenderer.new()
 
 
 func _init() -> void:
@@ -137,6 +141,7 @@ func _init() -> void:
 		"Tower route wind-vane atlas is missing; using the procedural fallback",
 		"Tower route wind-vane atlas failed to load; using the procedural fallback"
 	)
+	_route_wind_effect_renderer.prewarm_wind_assets()
 
 
 func get_route_aim_gauge_asset_paths() -> PackedStringArray:
@@ -476,15 +481,16 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 
 func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) -> Dictionary:
 	var outer_margin := minf(viewport_rect.size.x, viewport_rect.size.y) * TowerAscentTuning.TEMP_MAP_OUTER_MARGIN_RATIO
-	var panel_rect := viewport_rect.grow(-outer_margin)
-	var side_gutter := panel_rect.size.x * TowerAscentTuning.TEMP_MAP_SIDE_GUTTER_RATIO
+	var safe_content_bounds := viewport_rect.grow(-outer_margin)
+	var panel_rect := viewport_rect
+	var side_gutter := safe_content_bounds.size.x * TowerAscentTuning.TEMP_MAP_SIDE_GUTTER_RATIO
 	var top_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_TOP_RATIO
 	var bottom_inset := viewport_rect.size.y * TowerAscentTuning.TEMP_MAP_CONTENT_BOTTOM_RATIO
 	var content_rect := Rect2(
-		panel_rect.position + Vector2(side_gutter, top_inset),
+		safe_content_bounds.position + Vector2(side_gutter, top_inset),
 		Vector2(
-			maxf(1.0, panel_rect.size.x - side_gutter * 2.0),
-			maxf(1.0, panel_rect.size.y - top_inset - bottom_inset)
+			maxf(1.0, safe_content_bounds.size.x - side_gutter * 2.0),
+			maxf(1.0, safe_content_bounds.size.y - top_inset - bottom_inset)
 		)
 	)
 	var zoom_scale := maxf(2.0, TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM)
@@ -622,6 +628,7 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
+		"safe_content_bounds": safe_content_bounds,
 		"content_rect": content_rect,
 		"world_rect": world_rect,
 		"zoom_scale": zoom_scale,
@@ -2790,6 +2797,7 @@ func _draw_modal_action_row(
 
 func _draw_route_aim(canvas: Object, flow: Object) -> void:
 	var font := ThemeDB.fallback_font
+	_draw_route_wind_effect(canvas, flow)
 	for target_variant in flow.get_route_aim_targets():
 		var target: Dictionary = target_variant
 		var target_position := _vector2(target.get("position", Vector2.ZERO))
@@ -2825,6 +2833,35 @@ func _draw_route_aim(canvas: Object, flow: Object) -> void:
 	_draw_route_wind_indicator(canvas, flow)
 	canvas.draw_string(font, Vector2(80.0, 42.0), "서브로 다음 행로의 표적을 맞히세요", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 18, PAPER)
 	canvas.draw_string(font, Vector2(80.0, 64.0), "명중할 때까지 다시 서브할 수 있습니다", HORIZONTAL_ALIGNMENT_CENTER, 600.0, 15, Color(PAPER, 0.82))
+
+
+func _draw_route_wind_effect(canvas: Object, flow: Object) -> int:
+	if (
+		canvas == null
+		or not (canvas is CanvasItem)
+		or flow == null
+		or not flow.has_method("get_route_wind_visual_state")
+	):
+		return 0
+	if flow.has_method("has_visible_route_wind_indicator"):
+		if not bool(flow.has_visible_route_wind_indicator()):
+			return 0
+	elif (
+		not flow.has_method("get_route_wind_model")
+		or not TowerAscentRouteWindPolicy.is_indicator_visible(flow.get_route_wind_model())
+	):
+		return 0
+	return _route_wind_effect_renderer.draw_wind_particles(
+		flow.get_route_wind_visual_state(),
+		canvas as CanvasItem,
+		Vector2.ZERO,
+		1.0,
+		Rect2(Vector2.ZERO, PLAYFIELD_SIZE)
+	)
+
+
+func debug_draw_route_wind_effect(canvas: Object, flow: Object) -> int:
+	return _draw_route_wind_effect(canvas, flow)
 
 
 func debug_draw_route_aim(canvas: Object, flow: Object) -> void:

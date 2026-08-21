@@ -404,6 +404,14 @@ func _run() -> void:
 			"name": "route_wind_max_right.png",
 			"model": TowerAscentRouteWindPolicy.build_model(1, 3),
 		},
+		{
+			"name": "route_wind_weak_right.png",
+			"model": TowerAscentRouteWindPolicy.build_model(1, 1),
+		},
+		{
+			"name": "route_wind_medium_right.png",
+			"model": TowerAscentRouteWindPolicy.build_model(1, 2),
+		},
 	]
 	var full_images: Array[Image] = []
 	for capture_model in capture_models:
@@ -418,8 +426,34 @@ func _run() -> void:
 			owner.free()
 			return
 		full_images.append(image)
-	if full_images.size() != 3:
-		_fail("route wind captures did not materialize all calm/left/right frames")
+	if full_images.size() != 5:
+		_fail("route wind captures did not materialize calm/left/right/weak/medium frames")
+		owner.free()
+		return
+	var calm_field := _capture_region(full_images[0], canvas, Rect2(0.0, 0.0, 760.0, 480.0))
+	var strong_field := _capture_region(full_images[2], canvas, Rect2(0.0, 0.0, 760.0, 480.0))
+	var weak_field := _capture_region(full_images[3], canvas, Rect2(0.0, 0.0, 760.0, 480.0))
+	var medium_field := _capture_region(full_images[4], canvas, Rect2(0.0, 0.0, 760.0, 480.0))
+	var weak_delta := _count_changed_pixels(calm_field, weak_field)
+	var medium_delta := _count_changed_pixels(calm_field, medium_field)
+	var strong_delta := _count_changed_pixels(calm_field, strong_field)
+	if not (weak_delta > 0 and weak_delta < medium_delta and medium_delta < strong_delta):
+		_fail(
+			"route weather density must increase weak < medium < strong: %d/%d/%d"
+			% [weak_delta, medium_delta, strong_delta]
+		)
+		owner.free()
+		return
+	var letterbox_leak_count := _count_changed_pixels_outside_canvas(
+		full_images[0],
+		full_images[2],
+		canvas
+	)
+	if letterbox_leak_count != 0:
+		_fail(
+			"GRT-045 route wind must leak zero pixels outside the playfield, got %d"
+			% letterbox_leak_count
+		)
 		owner.free()
 		return
 	var pickup_before_output := output_dir.path_join(
@@ -784,7 +818,7 @@ func _run() -> void:
 			int(economy_after.get("gold", -1)),
 			int(economy_after.get("muhon", -1)),
 			initial_pickups.size(),
-			18,
+			20,
 		]
 	)
 	flow.call("_finish_vertical_slice")
@@ -809,6 +843,10 @@ func _prepare_owner(owner: Object) -> void:
 
 func _set_runtime_wind(runtime: Object, model: Dictionary, elapsed: float) -> void:
 	runtime.set("_wind_model", TowerAscentRouteWindPolicy.normalize_model(model))
+	runtime.call("_sync_wind_visual_profile")
+	var visual_state: Object = runtime.get_wind_visual_state()
+	for _frame in range(8):
+		visual_state.update_presentation_wind(1.0 / 60.0)
 	runtime.set("_aim_elapsed_seconds", elapsed)
 	runtime.call("_update_aim_oscillator", 0.0)
 
@@ -920,6 +958,32 @@ func _count_changed_pixels(first: Image, second: Image) -> int:
 			var a := first.get_pixel(x, y)
 			var b := second.get_pixel(x, y)
 			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) >= PIXEL_DIFF_THRESHOLD:
+				changed += 1
+	return changed
+
+
+func _count_changed_pixels_outside_canvas(
+	first: Image,
+	second: Image,
+	canvas: Node2D
+) -> int:
+	if first == null or second == null or first.get_size() != second.get_size():
+		return -1
+	var playfield_rect := Rect2(
+		canvas.position,
+		PLAYFIELD_SIZE * canvas.scale
+	)
+	var changed := 0
+	for y in range(first.get_height()):
+		for x in range(first.get_width()):
+			if playfield_rect.has_point(Vector2(float(x), float(y))):
+				continue
+			var a := first.get_pixel(x, y)
+			var b := second.get_pixel(x, y)
+			if (
+				absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b)
+				>= PIXEL_DIFF_THRESHOLD
+			):
 				changed += 1
 	return changed
 
