@@ -4,6 +4,7 @@ const EnergyBallOrbitRenderer := preload("res://scripts/ball/energy_ball_orbit_r
 const EnergyBallFxHost := preload("res://scripts/ball/energy_ball_fx_host.gd")
 const EnergyBallParticleRenderer := preload("res://scripts/ball/energy_ball_particle_renderer.gd")
 const EnergyBallTextureCache := preload("res://scripts/ball/energy_ball_texture_cache.gd")
+const BallDeformationTextureQuad := preload("res://scripts/ball/ball_deformation_texture_quad.gd")
 const ImpactFlareTextureCache := preload("res://scripts/effects/impact_flare_texture_cache.gd")
 
 const BALL_VISUAL_SCALE := 1.575
@@ -54,6 +55,10 @@ var fx_host: Node = null
 var fx_host_add_pending := false
 var _prewarm_assets_step_index := 0
 var _prewarm_runtime_nodes_step_index := 0
+# draw() resets this before any private draw helper runs. Any future drawing
+# entry point must set it explicitly too, so a prior phantom draw cannot leak.
+var _draw_alpha := 1.0
+var _draw_deformation: Dictionary = {}
 
 
 func _init() -> void:
@@ -126,6 +131,7 @@ func _ensure_fx_host(owner: Object = null) -> bool:
 
 
 func clear() -> void:
+	_draw_deformation = {}
 	particle_renderer.clear()
 	hide_node_fx()
 
@@ -139,8 +145,12 @@ func draw(
 	hit_pulse_event: Dictionary = {},
 	skill_fx_mode: String = "",
 	enable_node_fx: bool = true,
-	fx_lod_scale: float = 1.0
+	fx_lod_scale: float = 1.0,
+	visual_alpha: float = 1.0,
+	contact_deformation: Dictionary = {}
 ) -> void:
+	_draw_alpha = clampf(visual_alpha, 0.0, 1.0)
+	_draw_deformation = contact_deformation if bool(contact_deformation.get("active", false)) else {}
 	var lod_scale: float = clamp(fx_lod_scale, 0.35, 1.0)
 	var lod_radius_scale: float = lerp(0.80, 1.0, lod_scale)
 	var current_time_ms: float = float(Time.get_ticks_msec())
@@ -194,7 +204,7 @@ func draw(
 		ball_ring_color = ball_ring_color.lerp(GHOST_RING_COLOR, 0.72 + skill_strength * 0.14)
 		ball_core_color = ball_core_color.lerp(GHOST_CORE_COLOR, 0.62 + skill_strength * 0.12)
 
-	ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * 0.88 * pulse * lod_radius_scale, ball_outer_color, 0.11 * BALL_BRIGHTNESS)
+	_draw_body_glow(canvas, pos, pos, BALL_RENDER_RADIUS * 0.88 * pulse * lod_radius_scale, ball_outer_color, 0.11 * BALL_BRIGHTNESS * _draw_alpha)
 	_draw_skill_upgrade_aura(canvas, pos, t, ball_vel, skill_mode, skill_strength, ball_ring_color, ball_inner_color, lod_scale)
 	_draw_saturn_ring_stack(
 		canvas,
@@ -218,7 +228,8 @@ func draw(
 		BALL_RENDER_RADIUS,
 		ball_ring_color,
 		ball_inner_color,
-		lod_scale
+		lod_scale,
+		_draw_alpha
 	)
 
 	var core_size: float = BALL_RENDER_RADIUS * BALL_CORE_SCALE
@@ -241,33 +252,36 @@ func draw(
 		highlight_alpha = 0.30
 		core_spark_alpha = 0.64
 	var chroma_offset: Vector2 = Vector2(cos(t * 2.1), sin(t * 1.7)) * core_size * 0.12
-	ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * 0.52 * pulse2 * lod_radius_scale, ball_inner_color, 0.30 * BALL_BRIGHTNESS)
+	_draw_body_glow(canvas, pos, pos, BALL_RENDER_RADIUS * 0.52 * pulse2 * lod_radius_scale, ball_inner_color, 0.30 * BALL_BRIGHTNESS * _draw_alpha)
 	if lod_scale >= 0.68:
-		ImpactFlareTextureCache.draw_glow(canvas, pos + chroma_offset, core_size * 0.70, chroma_cyan_color, chroma_cyan_color.a * BALL_BRIGHTNESS)
-		ImpactFlareTextureCache.draw_glow(canvas, pos - chroma_offset * 0.75, core_size * 0.56, chroma_violet_color, chroma_violet_color.a * BALL_BRIGHTNESS)
-	EnergyBallTextureCache.draw_core(
+		_draw_body_glow(canvas, pos + chroma_offset, pos, core_size * 0.70, chroma_cyan_color, chroma_cyan_color.a * BALL_BRIGHTNESS * _draw_alpha)
+		_draw_body_glow(canvas, pos - chroma_offset * 0.75, pos, core_size * 0.56, chroma_violet_color, chroma_violet_color.a * BALL_BRIGHTNESS * _draw_alpha)
+	_draw_body_core(
 		canvas,
+		pos,
 		pos,
 		BALL_RENDER_RADIUS * BALL_SOLID_CORE_SCALE * core_pulse,
 		ball_inner_color,
-		0.86 * BALL_BRIGHTNESS
+		0.86 * BALL_BRIGHTNESS * _draw_alpha
 	)
-	EnergyBallTextureCache.draw_core(
+	_draw_body_core(
 		canvas,
+		pos,
 		pos,
 		BALL_RENDER_RADIUS * BALL_SOLID_CORE_SCALE * 0.64 * core_pulse,
 		core_main,
-		0.98 * BALL_BRIGHTNESS
+		0.98 * BALL_BRIGHTNESS * _draw_alpha
 	)
-	EnergyBallTextureCache.draw_highlight(
+	_draw_body_highlight(
 		canvas,
 		pos + Vector2(-BALL_RENDER_RADIUS * 0.16, -BALL_RENDER_RADIUS * 0.16),
+		pos,
 		BALL_RENDER_RADIUS * 0.36 * core_pulse,
 		highlight_color,
-		highlight_alpha * BALL_BRIGHTNESS
+		highlight_alpha * BALL_BRIGHTNESS * _draw_alpha
 	)
-	ImpactFlareTextureCache.draw_sparkle(canvas, pos, max(4.0, core_size * BALL_CORE_HIGHLIGHT_SCALE), core_main, core_spark_alpha * BALL_BRIGHTNESS)
-	ImpactFlareTextureCache.draw_sparkle(canvas, pos + Vector2(-BALL_RENDER_RADIUS * 0.12, -BALL_RENDER_RADIUS * 0.12), 3.0, highlight_color, 0.22 * BALL_BRIGHTNESS)
+	_draw_body_sparkle(canvas, pos, pos, max(4.0, core_size * BALL_CORE_HIGHLIGHT_SCALE), core_main, core_spark_alpha * BALL_BRIGHTNESS * _draw_alpha)
+	_draw_body_sparkle(canvas, pos + Vector2(-BALL_RENDER_RADIUS * 0.12, -BALL_RENDER_RADIUS * 0.12), pos, 3.0, highlight_color, 0.22 * BALL_BRIGHTNESS * _draw_alpha)
 	_draw_saturn_ring_stack(
 		canvas,
 		pos,
@@ -284,7 +298,7 @@ func draw(
 	_draw_skill_motion_accents(canvas, pos, t, ball_vel, skill_mode, skill_strength, ball_ring_color, ball_inner_color, lod_scale)
 
 	if lod_scale >= SEVERE_LOD_PARTICLE_DRAW_MIN_SCALE:
-		particle_renderer.draw(canvas, pos, lod_scale)
+		particle_renderer.draw(canvas, pos, lod_scale, _draw_alpha)
 	else:
 		particle_renderer.clear()
 	if enable_node_fx:
@@ -296,10 +310,103 @@ func draw(
 			node_fx_layout,
 			hit_pulse_event,
 			skill_mode,
-			fx_lod_scale
+			fx_lod_scale,
+			_draw_deformation
 		)
 	else:
 		hide_node_fx()
+
+
+func _draw_body_glow(
+	canvas: CanvasItem,
+	center: Vector2,
+	pivot: Vector2,
+	radius: float,
+	color: Color,
+	alpha: float
+) -> void:
+	if _draw_deformation.is_empty():
+		ImpactFlareTextureCache.draw_glow(canvas, center, radius, color, alpha)
+		return
+	BallDeformationTextureQuad.draw_centered(
+		canvas,
+		ImpactFlareTextureCache.get_glow_texture(),
+		center,
+		radius * 2.0,
+		color,
+		alpha,
+		pivot,
+		_draw_deformation
+	)
+
+
+func _draw_body_core(
+	canvas: CanvasItem,
+	center: Vector2,
+	pivot: Vector2,
+	radius: float,
+	color: Color,
+	alpha: float
+) -> void:
+	if _draw_deformation.is_empty():
+		EnergyBallTextureCache.draw_core(canvas, center, radius, color, alpha)
+		return
+	BallDeformationTextureQuad.draw_centered(
+		canvas,
+		EnergyBallTextureCache.get_core_texture(),
+		center,
+		radius * 2.0,
+		color,
+		alpha,
+		pivot,
+		_draw_deformation
+	)
+
+
+func _draw_body_highlight(
+	canvas: CanvasItem,
+	center: Vector2,
+	pivot: Vector2,
+	radius: float,
+	color: Color,
+	alpha: float
+) -> void:
+	if _draw_deformation.is_empty():
+		EnergyBallTextureCache.draw_highlight(canvas, center, radius, color, alpha)
+		return
+	BallDeformationTextureQuad.draw_centered(
+		canvas,
+		EnergyBallTextureCache.get_highlight_texture(),
+		center,
+		radius * 2.0,
+		color,
+		alpha,
+		pivot,
+		_draw_deformation
+	)
+
+
+func _draw_body_sparkle(
+	canvas: CanvasItem,
+	center: Vector2,
+	pivot: Vector2,
+	radius: float,
+	color: Color,
+	alpha: float
+) -> void:
+	if _draw_deformation.is_empty():
+		ImpactFlareTextureCache.draw_sparkle(canvas, center, radius, color, alpha)
+		return
+	BallDeformationTextureQuad.draw_centered(
+		canvas,
+		ImpactFlareTextureCache.get_sparkle_texture(),
+		center,
+		radius * 2.0,
+		color,
+		alpha,
+		pivot,
+		_draw_deformation
+	)
 
 
 func hide_node_fx() -> void:
@@ -316,7 +423,8 @@ func _sync_node_fx(
 	node_fx_layout: Dictionary,
 	hit_pulse_event: Dictionary,
 	skill_fx_mode: String = "",
-	fx_lod_scale: float = 1.0
+	fx_lod_scale: float = 1.0,
+	contact_deformation: Dictionary = {}
 ) -> void:
 	var host: Node = _get_or_create_fx_host(canvas)
 	if host == null or not host.has_method("sync_state"):
@@ -333,6 +441,32 @@ func _sync_node_fx(
 		screen_hit_pulse_event,
 		skill_fx_mode,
 		fx_lod_scale
+	)
+	_apply_node_fx_deformation(host, render_scale, contact_deformation)
+
+
+func _apply_node_fx_deformation(
+	host: Node,
+	render_scale: float,
+	contact_deformation: Dictionary
+) -> void:
+	if not host is Node2D:
+		return
+	var host_2d := host as Node2D
+	var base_scale: float = maxf(0.01, render_scale) * BALL_VISUAL_SCALE
+	if not bool(contact_deformation.get("active", false)):
+		host_2d.rotation = 0.0
+		host_2d.scale = Vector2.ONE * base_scale
+		return
+	var axis_value: Variant = contact_deformation.get("axis", Vector2.UP)
+	var axis: Vector2 = axis_value as Vector2 if axis_value is Vector2 else Vector2.UP
+	if axis.length_squared() <= 0.001:
+		axis = Vector2.UP
+	axis = axis.normalized()
+	host_2d.rotation = axis.angle()
+	host_2d.scale = Vector2(
+		base_scale * float(contact_deformation.get("axis_scale", 1.0)),
+		base_scale * float(contact_deformation.get("perpendicular_scale", 1.0))
 	)
 
 
@@ -466,7 +600,7 @@ func _draw_saturn_ring_stack(
 			deg_to_rad(rotation_deg),
 			tilt_scale,
 			ring_color,
-			base_alpha * alpha_mult * skill_alpha_boost * BALL_BRIGHTNESS * (0.88 + lod_scale * 0.12),
+			base_alpha * alpha_mult * skill_alpha_boost * BALL_BRIGHTNESS * _draw_alpha * (0.88 + lod_scale * 0.12),
 			front_half
 		)
 
@@ -493,12 +627,12 @@ func _draw_skill_upgrade_aura(
 	elif skill_fx_mode == SKILL_FX_GHOST:
 		aura_color = GHOST_RING_COLOR
 	var aura_radius: float = BALL_RENDER_RADIUS * (1.28 + skill_strength * 0.28 + pulse * 0.08)
-	var aura_alpha: float = (0.075 + skill_strength * 0.045) * BALL_BRIGHTNESS
+	var aura_alpha: float = (0.075 + skill_strength * 0.045) * BALL_BRIGHTNESS * _draw_alpha
 	ImpactFlareTextureCache.draw_glow(canvas, pos, aura_radius, aura_color.lerp(ball_inner_color, 0.18), aura_alpha * lod_scale)
 	if skill_fx_mode == SKILL_FX_POWER:
-		ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * (0.72 + pulse * 0.08), POWER_INNER_COLOR, 0.16 * skill_strength * BALL_BRIGHTNESS)
+		ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * (0.72 + pulse * 0.08), POWER_INNER_COLOR, 0.16 * skill_strength * BALL_BRIGHTNESS * _draw_alpha)
 	elif skill_fx_mode == SKILL_FX_GHOST:
-		ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * (1.02 + pulse * 0.10), GHOST_OUTER_COLOR, 0.22 * skill_strength * BALL_BRIGHTNESS)
+		ImpactFlareTextureCache.draw_glow(canvas, pos, BALL_RENDER_RADIUS * (1.02 + pulse * 0.10), GHOST_OUTER_COLOR, 0.22 * skill_strength * BALL_BRIGHTNESS * _draw_alpha)
 		_draw_ghost_void_arcs(canvas, pos, time_seconds, skill_strength, aura_color, lod_scale)
 	else:
 		_draw_drive_curve_arc(canvas, pos, time_seconds, skill_strength, ball_ring_color, lod_scale)
@@ -550,7 +684,7 @@ func _draw_skill_velocity_wake(
 		var ghost_tail_boost: float = 1.24 if skill_fx_mode == SKILL_FX_GHOST else 1.0
 		var start: Vector2 = pos - direction * tail_len * ghost_tail_boost + offset
 		var finish: Vector2 = pos - direction * BALL_RENDER_RADIUS * 0.22 + offset * 0.35
-		var alpha: float = (0.16 - abs(side) * 0.025 + skill_strength * 0.035) * BALL_BRIGHTNESS
+		var alpha: float = (0.16 - abs(side) * 0.025 + skill_strength * 0.035) * BALL_BRIGHTNESS * _draw_alpha
 		canvas.draw_line(start, finish, Color(color.r, color.g, color.b, alpha), 1.2 + skill_strength * 0.8, true)
 
 
@@ -562,7 +696,7 @@ func _draw_ghost_void_arcs(canvas: CanvasItem, pos: Vector2, time_seconds: float
 		var radius: float = BALL_RENDER_RADIUS * (1.12 + ring_ratio * 0.18 + skill_strength * 0.08)
 		var start_angle: float = -time_seconds * (2.1 + ring_ratio * 0.35) + ring_ratio * TAU / 3.0
 		var sweep: float = PI * (0.46 + ring_ratio * 0.08)
-		var alpha: float = (0.14 - ring_ratio * 0.026 + skill_strength * 0.035) * BALL_BRIGHTNESS
+		var alpha: float = (0.14 - ring_ratio * 0.026 + skill_strength * 0.035) * BALL_BRIGHTNESS * _draw_alpha
 		_draw_arc_polyline(canvas, pos, radius, start_angle, sweep, Color(color.r, color.g, color.b, alpha), 1.2 + skill_strength * 0.4, lod_scale)
 		if lod_scale >= 0.68:
 			_draw_arc_polyline(canvas, pos, radius * 0.72, start_angle + PI * 0.72, -sweep * 0.62, Color(GHOST_OUTER_COLOR.r, GHOST_OUTER_COLOR.g, GHOST_OUTER_COLOR.b, alpha * 1.35), 1.0, lod_scale)
@@ -573,9 +707,9 @@ func _draw_drive_curve_arc(canvas: CanvasItem, pos: Vector2, time_seconds: float
 	var radius: float = BALL_RENDER_RADIUS * (1.34 + skill_strength * 0.10)
 	var start_angle: float = time_seconds * 2.9
 	var sweep: float = PI * 0.78
-	_draw_arc_polyline(canvas, pos, radius, start_angle, sweep, Color(color.r, color.g, color.b, 0.24 * skill_strength * BALL_BRIGHTNESS), 1.6, lod_scale)
+	_draw_arc_polyline(canvas, pos, radius, start_angle, sweep, Color(color.r, color.g, color.b, 0.24 * skill_strength * BALL_BRIGHTNESS * _draw_alpha), 1.6, lod_scale)
 	if lod_scale >= 0.68:
-		_draw_arc_polyline(canvas, pos, radius * 0.82, start_angle + PI, -sweep * 0.72, Color(DRIVE_INNER_COLOR.r, DRIVE_INNER_COLOR.g, DRIVE_INNER_COLOR.b, 0.16 * skill_strength * BALL_BRIGHTNESS), 1.2, lod_scale)
+		_draw_arc_polyline(canvas, pos, radius * 0.82, start_angle + PI, -sweep * 0.72, Color(DRIVE_INNER_COLOR.r, DRIVE_INNER_COLOR.g, DRIVE_INNER_COLOR.b, 0.16 * skill_strength * BALL_BRIGHTNESS * _draw_alpha), 1.2, lod_scale)
 
 
 func _draw_power_smash_crush_lines(
@@ -594,7 +728,7 @@ func _draw_power_smash_crush_lines(
 		var direction := Vector2(cos(angle), sin(angle))
 		var inner: float = BALL_RENDER_RADIUS * (0.72 + 0.04 * sin(time_seconds * 8.0 + float(i)))
 		var outer: float = BALL_RENDER_RADIUS * (1.42 + skill_strength * 0.18)
-		var alpha: float = (0.14 + skill_strength * 0.05) * BALL_BRIGHTNESS
+		var alpha: float = (0.14 + skill_strength * 0.05) * BALL_BRIGHTNESS * _draw_alpha
 		canvas.draw_line(
 			pos + direction * inner,
 			pos + direction * outer,
@@ -602,7 +736,7 @@ func _draw_power_smash_crush_lines(
 			1.2 + skill_strength * 0.6,
 			true
 		)
-	ImpactFlareTextureCache.draw_sparkle(canvas, pos, BALL_RENDER_RADIUS * (0.58 + skill_strength * 0.06), ball_inner_color, 0.20 * skill_strength * BALL_BRIGHTNESS)
+	ImpactFlareTextureCache.draw_sparkle(canvas, pos, BALL_RENDER_RADIUS * (0.58 + skill_strength * 0.06), ball_inner_color, 0.20 * skill_strength * BALL_BRIGHTNESS * _draw_alpha)
 
 
 func _draw_arc_polyline(

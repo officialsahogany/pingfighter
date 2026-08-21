@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallStatusOverlayRenderer := preload("res://scripts/ball/ball_status_overlay_renderer.gd")
+const BallContactDeformationState := preload("res://scripts/ball/ball_contact_deformation_state.gd")
 const BombBallRenderer := preload("res://scripts/ball/bomb_ball_renderer.gd")
 const EnergyBallRenderer := preload("res://scripts/ball/energy_ball_renderer.gd")
 const PingpongBallRenderer := preload("res://scripts/ball/pingpong_ball_renderer.gd")
@@ -14,6 +15,7 @@ const GROUND_SHADOW_ALPHAS := [0.045, 0.078]
 const GROUND_SHADOW_SEGMENTS := 12
 
 var bomb_renderer: Object = BombBallRenderer.new()
+var contact_deformation_state: Object = BallContactDeformationState.new()
 var energy_renderer: Object = EnergyBallRenderer.new()
 var pingpong_renderer: Object = PingpongBallRenderer.new()
 var prism_renderer: Object = PrismBallRenderer.new()
@@ -47,6 +49,7 @@ func prewarm_runtime_nodes_step(owner: Object = null) -> bool:
 
 
 func clear() -> void:
+	contact_deformation_state.clear()
 	energy_renderer.clear()
 	pingpong_renderer.clear()
 	status_overlay_renderer.clear()
@@ -68,6 +71,19 @@ func draw_current(
 	var draw_as_prism: bool = visual_type == "prism"
 	var skill_fx_mode: String = _get_skill_fx_mode(context)
 	var render_alpha: float = clampf(float(context.get("ball_render_alpha", 1.0)), 0.0, 1.0)
+	var hit_pulse_event: Dictionary = _get_dict(context.get("hit_pulse_event", {}))
+	var deformation_now_msec: float = float(context.get(
+		"ball_contact_deformation_now_msec",
+		Time.get_ticks_msec()
+	))
+	var contact_deformation: Dictionary = _resolve_contact_deformation(
+		context,
+		visual_type,
+		draw_as_prism,
+		skill_fx_mode,
+		hit_pulse_event,
+		deformation_now_msec
+	)
 	var sample_start: int = _perf_begin(perf_logger)
 	_draw_ground_shadow(canvas, pos, context)
 	_perf_end(perf_logger, "ball.ground_shadow", sample_start)
@@ -98,11 +114,12 @@ func draw_current(
 			bool(context.get("boost_charging_active", false)),
 			context.get("ball_vel", Vector2.ZERO),
 			_get_dict(context.get("node_fx_layout", {})),
-			_get_dict(context.get("hit_pulse_event", {})),
+			hit_pulse_event,
 			skill_fx_mode,
 			clamp(float(context.get("effect_lod_scale", 1.0)), 0.25, 1.0),
 			enable_node_fx,
-			render_alpha
+			render_alpha,
+			contact_deformation
 		)
 		_perf_end(perf_logger, "ball.visual.energy", sample_start)
 
@@ -201,7 +218,8 @@ func _draw_energy_ball(
 	skill_fx_mode: String = "",
 	fx_lod_scale: float = 1.0,
 	enable_node_fx: bool = true,
-	visual_alpha: float = 1.0
+	visual_alpha: float = 1.0,
+	contact_deformation: Dictionary = {}
 ) -> void:
 	energy_renderer.draw(
 		canvas,
@@ -213,7 +231,8 @@ func _draw_energy_ball(
 		skill_fx_mode,
 		enable_node_fx,
 		fx_lod_scale,
-		visual_alpha
+		visual_alpha,
+		contact_deformation
 	)
 
 
@@ -246,6 +265,26 @@ func _get_skill_fx_mode(context: Dictionary) -> String:
 	if bool(context.get("drive_ball_active", false)):
 		return "drive"
 	return ""
+
+
+func _resolve_contact_deformation(
+	context: Dictionary,
+	visual_type: String,
+	draw_as_prism: bool,
+	skill_fx_mode: String,
+	hit_pulse_event: Dictionary,
+	now_msec: float
+) -> Dictionary:
+	contact_deformation_state.sync_event(hit_pulse_event, now_msec)
+	if (
+		not bool(context.get("ball_contact_deformation_enabled", true))
+		or draw_as_prism
+		or visual_type == "pingpong"
+		or bool(context.get("bomb_ball_loaded", false))
+		or skill_fx_mode != ""
+	):
+		return {}
+	return contact_deformation_state.get_snapshot(now_msec)
 
 
 func _perf_begin(perf_logger: Object) -> int:

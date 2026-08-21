@@ -24,10 +24,15 @@ func clear() -> void:
 	particles.clear()
 
 
-func draw(canvas: CanvasItem, pos: Vector2, fx_lod_scale: float = 1.0) -> void:
+func draw(
+	canvas: CanvasItem,
+	pos: Vector2,
+	fx_lod_scale: float = 1.0,
+	visual_alpha: float = 1.0
+) -> void:
 	var lod_scale: float = clamp(fx_lod_scale, 0.35, 1.0)
 	_spawn_particles(lod_scale)
-	_draw_particles(canvas, pos, lod_scale)
+	_draw_particles(canvas, pos, lod_scale, clampf(visual_alpha, 0.0, 1.0))
 
 
 func _spawn_particles(lod_scale: float) -> void:
@@ -51,7 +56,9 @@ func _spawn_particles(lod_scale: float) -> void:
 		particles.pop_front()
 
 
-func _draw_particles(canvas: CanvasItem, pos: Vector2, lod_scale: float) -> void:
+func _draw_particles(
+	canvas: CanvasItem, pos: Vector2, lod_scale: float, alpha_scale: float
+) -> void:
 	var write_idx: int = 0
 	for particle_index in range(particles.size()):
 		var p: Dictionary = particles[particle_index]
@@ -70,8 +77,8 @@ func _draw_particles(canvas: CanvasItem, pos: Vector2, lod_scale: float) -> void
 			var alpha: float = (200.0 * (life / max_life)) / 255.0
 			var size: float = max(1.0, floor(base_size * (life / max_life)))
 			var particle_pos: Vector2 = pos + Vector2(px, py)
-			ImpactFlareTextureCache.draw_glow(canvas, particle_pos, size + 2.0, color, alpha * 0.22 * BALL_PARTICLE_BRIGHTNESS * lod_scale)
-			ImpactFlareTextureCache.draw_sparkle(canvas, particle_pos, size, color, alpha * 0.72 * BALL_PARTICLE_BRIGHTNESS)
+			ImpactFlareTextureCache.draw_glow(canvas, particle_pos, size + 2.0, color, alpha * 0.22 * BALL_PARTICLE_BRIGHTNESS * lod_scale * alpha_scale)
+			ImpactFlareTextureCache.draw_sparkle(canvas, particle_pos, size, color, alpha * 0.72 * BALL_PARTICLE_BRIGHTNESS * alpha_scale)
 			particles[write_idx] = p
 			write_idx += 1
 

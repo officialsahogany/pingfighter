@@ -13,7 +13,8 @@ func draw(
 	ball_radius: float,
 	ball_ring_color: Color,
 	ball_inner_color: Color,
-	fx_lod_scale: float = 1.0
+	fx_lod_scale: float = 1.0,
+	visual_alpha: float = 1.0
 ) -> void:
 	var lod_scale: float = clamp(fx_lod_scale, 0.35, 1.0)
 	var ring_angles: Array[float] = [
@@ -41,5 +42,6 @@ func draw(
 			ring_tilts[ring_idx],
 			ring_radii[ring_idx],
 			ring_idx,
-			lod_scale
+			lod_scale,
+			visual_alpha
 		)
