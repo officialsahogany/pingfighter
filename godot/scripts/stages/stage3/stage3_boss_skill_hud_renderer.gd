@@ -7,7 +7,11 @@ const Stage3BossSkillHudAssets := preload("res://scripts/stages/stage3/stage3_bo
 
 const SKILLCARD_ATLAS_PATH := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_PATH
 const SKILLCARD_ID_TO_INDEX := Stage3BossSkillHudAssets.SKILLCARD_ID_TO_INDEX
-const SKILLCARD_ATLAS_COLUMNS := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_COLUMNS
+const SKILLCARD_ATLAS_COLS := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_COLS
+const SKILLCARD_ATLAS_ROWS := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_ROWS
+const SKILLCARD_ATLAS_FRAMES := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_FRAMES
+const SKILLCARD_FRAME_SIZE := Stage3BossSkillHudAssets.SKILLCARD_FRAME_SIZE
+const SKILLCARD_ATLAS_SIZE := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_SIZE
 
 var _skillcard_atlas: Texture2D = null
 var _metrics_cache_pillar_width := -1.0
@@ -20,6 +24,24 @@ func prewarm_assets() -> void:
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:
 	return BossSkillCardHudSpec.get_card_metrics(pillar_width)
+
+
+func get_debug_skillcard_source_rect(texture_size: Vector2, skill_id: String) -> Rect2:
+	if not SKILLCARD_ID_TO_INDEX.has(skill_id):
+		return Rect2()
+	if not texture_size.is_equal_approx(Vector2(SKILLCARD_ATLAS_SIZE)):
+		return Rect2()
+	var frame_index: int = int(SKILLCARD_ID_TO_INDEX[skill_id])
+	if frame_index < 0 or frame_index >= SKILLCARD_ATLAS_FRAMES:
+		return Rect2()
+	var frame_col: int = frame_index % SKILLCARD_ATLAS_COLS
+	var frame_row: int = floori(float(frame_index) / float(SKILLCARD_ATLAS_COLS))
+	if frame_row < 0 or frame_row >= SKILLCARD_ATLAS_ROWS:
+		return Rect2()
+	return Rect2(
+		Vector2(frame_col * SKILLCARD_FRAME_SIZE.x, frame_row * SKILLCARD_FRAME_SIZE.y),
+		Vector2(SKILLCARD_FRAME_SIZE)
+	)
 
 
 func draw(canvas: CanvasItem, context: Dictionary) -> void:
@@ -140,19 +162,16 @@ func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fi
 	var clamped_fill: float = clamp(fill_ratio, 0.0, 1.0)
 	var atlas: Texture2D = _get_skillcard_atlas()
 	canvas.draw_rect(rect, Color(0.055, 0.035, 0.060, 0.94))
-	if atlas == null or not SKILLCARD_ID_TO_INDEX.has(skill_id):
+	var source_rect := Rect2()
+	if atlas != null:
+		source_rect = get_debug_skillcard_source_rect(atlas.get_size(), skill_id)
+	if atlas == null or not source_rect.has_area():
 		if clamped_fill > 0.0:
 			canvas.draw_rect(
 				Rect2(rect.position, Vector2(rect.size.x * clamped_fill, rect.size.y)),
 				Color(fallback_color.r * 0.62, fallback_color.g * 0.55, fallback_color.b * 0.62, 0.78)
 			)
 		return
-	var texture_size: Vector2 = atlas.get_size()
-	var source_w: float = texture_size.x / float(SKILLCARD_ATLAS_COLUMNS)
-	var source_rect := Rect2(
-		Vector2(source_w * float(SKILLCARD_ID_TO_INDEX[skill_id]), 0.0),
-		Vector2(source_w, texture_size.y)
-	)
 	# 종횡비 보존(cover) 게이지 draw는 공용 스펙으로 단일화(찌그러짐 방지).
 	BossSkillCardHudSpec.draw_skillcard_gauge_fill(
 		canvas,
@@ -204,8 +223,8 @@ func _get_skillcard_atlas() -> Texture2D:
 		return _skillcard_atlas
 	_skillcard_atlas = ProjectResourceLoader.load_texture(
 		SKILLCARD_ATLAS_PATH,
-		"[Stage3MenheraSkillHud] missing skillcard atlas: %s",
-		"[Stage3MenheraSkillHud] failed to load skillcard atlas: %s"
+		"[Stage3HwangyeokjeonSkillHud] missing skillcard atlas: %s",
+		"[Stage3HwangyeokjeonSkillHud] failed to load skillcard atlas: %s"
 	)
 	return _skillcard_atlas
 
