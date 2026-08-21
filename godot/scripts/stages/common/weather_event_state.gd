@@ -23,6 +23,9 @@ const PARTICLE_RENDER_STRIDE_LOD := WeatherEventRenderBudget.PARTICLE_RENDER_STR
 const PARTICLE_RENDER_STRIDE_SEVERE_LOD := WeatherEventRenderBudget.PARTICLE_RENDER_STRIDE_SEVERE_LOD
 const BREEZE_VISUAL_PARTICLE_TARGET := 28
 const GUST_VISUAL_PARTICLE_TARGET := 34
+const PRESENTATION_WIND_WEAK_PARTICLE_TARGET := 14
+const PRESENTATION_WIND_MEDIUM_PARTICLE_TARGET := BREEZE_VISUAL_PARTICLE_TARGET
+const PRESENTATION_WIND_STRONG_PARTICLE_TARGET := GUST_VISUAL_PARTICLE_TARGET
 const WARNING_FRAMES := 180.0
 const END_FRAMES := 180.0
 const FIELD_WIDTH := 760.0
@@ -157,6 +160,9 @@ var ice_boss_slide_direction := 0
 var _previous_player_dash_active := false
 var _previous_boss_dash_active := false
 var _phase := 0.0
+var _presentation_wind_visual_only := false
+var _presentation_wind_particle_target := -1
+var _presentation_wind_rng := RandomNumberGenerator.new()
 
 
 func reset() -> void:
@@ -183,6 +189,73 @@ func reset() -> void:
 	hail_destroy_count = 0
 	hail_hit_count = 0
 	_reset_ice_slide_state()
+	_presentation_wind_visual_only = false
+	_presentation_wind_particle_target = -1
+
+
+func configure_presentation_wind(direction: int, strength_level: int) -> Dictionary:
+	var normalized_direction := -1 if direction < 0 else 1 if direction > 0 else 0
+	var normalized_strength := clampi(strength_level, 0, 3)
+	if normalized_direction == 0 or normalized_strength == 0:
+		reset()
+		return get_presentation_wind_snapshot()
+	var next_type := "gust" if normalized_strength == 3 else "breeze"
+	var target := get_presentation_wind_particle_target(normalized_strength)
+	var profile_changed := (
+		not _presentation_wind_visual_only
+		or weather_event_type != next_type
+		or weather_event_direction != normalized_direction
+		or _presentation_wind_particle_target != target
+	)
+	weather_event_active = true
+	weather_event_type = next_type
+	weather_event_direction = normalized_direction
+	weather_event_remaining_rounds = 0
+	warning_timer_frames = 0.0
+	end_timer_frames = 0.0
+	warning_text = ""
+	end_text = ""
+	_presentation_wind_visual_only = true
+	_presentation_wind_particle_target = target
+	if profile_changed:
+		weather_particles.clear()
+		_presentation_wind_rng.seed = 50221 + normalized_strength * 101 + normalized_direction * 17
+	return get_presentation_wind_snapshot()
+
+
+func update_presentation_wind(delta: float) -> void:
+	if not _presentation_wind_visual_only or not is_weather_active():
+		return
+	var fps_scale := maxf(0.0, delta * 60.0)
+	_phase += fps_scale
+	_spawn_weather_particles(fps_scale)
+	_update_weather_particles(fps_scale)
+
+
+func clear_presentation_wind() -> void:
+	reset()
+
+
+func get_presentation_wind_snapshot() -> Dictionary:
+	return {
+		"active": _presentation_wind_visual_only and is_weather_active(),
+		"type": weather_event_type if _presentation_wind_visual_only else "",
+		"direction": weather_event_direction if _presentation_wind_visual_only else 0,
+		"particle_target": maxi(0, _presentation_wind_particle_target),
+		"particle_count": weather_particles.size() if _presentation_wind_visual_only else 0,
+	}
+
+
+static func get_presentation_wind_particle_target(strength_level: int) -> int:
+	match clampi(strength_level, 0, 3):
+		1:
+			return PRESENTATION_WIND_WEAK_PARTICLE_TARGET
+		2:
+			return PRESENTATION_WIND_MEDIUM_PARTICLE_TARGET
+		3:
+			return PRESENTATION_WIND_STRONG_PARTICLE_TARGET
+		_:
+			return 0
 
 
 func advance_round_start(owner: Object = null, registry: Object = null) -> Dictionary:
@@ -243,6 +316,8 @@ func force_start_weather_event(
 			"remaining_rounds": 0,
 			"message": "",
 		}
+	_presentation_wind_visual_only = false
+	_presentation_wind_particle_target = -1
 	weather_event_active = true
 	weather_event_type = next_type
 	weather_event_direction = _roll_wind_direction(direction)
@@ -920,6 +995,8 @@ func _spawn_weather_particles(fps_scale: float) -> void:
 		target = BREEZE_VISUAL_PARTICLE_TARGET
 	elif weather_event_type == "gust":
 		target = GUST_VISUAL_PARTICLE_TARGET
+	if _presentation_wind_visual_only and _presentation_wind_particle_target >= 0:
+		target = _presentation_wind_particle_target
 	if weather_event_type == "sand":
 		return
 	var spawn_budget: int = min(max(0, target - weather_particles.size()), max(1, int(ceil(fps_scale * 5.0))))
@@ -991,19 +1068,25 @@ func _make_particle(next_type: String) -> Dictionary:
 			if is_zero_approx(wind_direction):
 				wind_direction = 1.0
 			var source_x: float = -30.0 if wind_direction > 0.0 else FIELD_WIDTH + 30.0
-			var speed: float = randf_range(3.8, 7.0)
+			var speed: float = _wind_visual_randf_range(3.8, 7.0)
 			return {
 				"x": source_x,
-				"y": randf_range(60.0, FIELD_HEIGHT - 60.0),
+				"y": _wind_visual_randf_range(60.0, FIELD_HEIGHT - 60.0),
 				"vx": wind_direction * speed,
-				"vy": randf_range(-0.35, 0.35),
-				"life": randf_range(54.0, 84.0),
+				"vy": _wind_visual_randf_range(-0.35, 0.35),
+				"life": _wind_visual_randf_range(54.0, 84.0),
 				"max_life": 84.0,
-				"size": randf_range(1.5, 3.0),
+				"size": _wind_visual_randf_range(1.5, 3.0),
 				"kind": "wind",
 				"weather_type": next_type,
 				"color": color,
 			}
+
+
+func _wind_visual_randf_range(from: float, to: float) -> float:
+	if _presentation_wind_visual_only:
+		return _presentation_wind_rng.randf_range(from, to)
+	return randf_range(from, to)
 
 
 func _get_render_particle_limit(effect_lod_scale: float = 1.0) -> int:
