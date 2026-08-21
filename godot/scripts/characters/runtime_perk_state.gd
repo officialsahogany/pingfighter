@@ -357,7 +357,7 @@ func _get_perk_fusion_dash_amplification_count() -> int:
 # 황금 궤적: 부산물 런타임이 라운드 40 실골드 캡을 소유한다. 골드 배수
 # (아이템 배수·점화 오라)는 클램프 "이전"에 적용해, 배수로 부풀린 지급이
 # 실 저장 골드 기준 캡을 넘지 못하게 한다.
-func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary) -> int:
+func award_perk_fusion_wall_bounce_gold(_context: Dictionary, deps: Dictionary) -> int:
 	var actual: int = int(_fusion_runtime_state.consume_wall_bounce_gold_award(
 		item_gold_gain_multiplier,
 		viper_ignition_aura_active
@@ -367,7 +367,7 @@ func award_perk_fusion_wall_bounce_gold(_context: Dictionary, _deps: Dictionary)
 	# The byproduct owner has already applied every multiplier and recorded the
 	# actual capped amount. Store that exact amount through the canonical gold
 	# flow so feedback state stays in sync without applying modifiers twice.
-	_gold_award_flow.store_gold_gain_from_runtime_state(self, actual, 1.0, true)
+	_gold_award_flow.store_gold_gain_from_runtime_state(self, actual, 1.0, true, deps)
 	return actual
 
 

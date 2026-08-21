@@ -3,6 +3,26 @@ extends "res://scripts/tower_ascent/tower_ascent_flow_map_progress.gd"
 func get_run_state_snapshot() -> Dictionary:
 	return _run_state.export_economy()
 
+
+func collect_gold(amount: int) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "reason": "feature_disabled"}
+	if amount <= 0:
+		return {"accepted": false, "reason": "invalid_amount"}
+	# Battle gold must join an already-started run. Unlike the stage-entry Muhon
+	# prewarm path below, an award must never create Tower state in a normal
+	# campaign merely because the flow module is cached.
+	if not _run_state.has_started():
+		return {"accepted": false, "reason": "run_unavailable"}
+	var apply_result: Dictionary = _run_state.apply_reward_bundle({"gold": amount})
+	return {
+		"accepted": true,
+		"reason": "collected",
+		"amount": amount,
+		"balances": apply_result.get("balances", {}),
+	}
+
+
 func collect_muhon(amount: int, owner: Object = null) -> Dictionary:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		return {"accepted": false, "reason": "feature_disabled"}
