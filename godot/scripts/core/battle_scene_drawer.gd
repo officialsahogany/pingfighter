@@ -158,15 +158,23 @@ func _draw_transformed_playfield_scene(canvas: CanvasItem, registry: Object, sur
 	if _should_draw_tower_battle_playfield(registry):
 		_draw_playfield_scene(canvas, registry, Vector2.ZERO, width, height, pillar_width)
 	else:
-		# The retained noncombat room owns the arena. Keep only the tower route
-		# selector in game coordinates; the stale stage actor pass also owns the
-		# previous boss, player, ball, arena floor, overlays, and lighting.
+		# Tower route aim owns a deliberately small same-scene composition. The
+		# full stage pass also owns the previous boss, balloons/obstacles, combat
+		# FX, arena art, and the live ball, so restore only the named route slices.
 		_draw_tower_ascent_playfield_flow_only(canvas, registry, width, height)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _should_draw_tower_battle_playfield(registry: Object) -> bool:
 	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner != null
+		and flow_owner.has_method("is_active")
+		and bool(flow_owner.is_active())
+		and flow_owner.has_method("get_phase_name")
+		and str(flow_owner.get_phase_name()) == "ROUTE_AIM"
+	):
+		return false
 	return (
 		flow_owner == null
 		or not flow_owner.has_method(
@@ -209,6 +217,19 @@ func _draw_tower_ascent_playfield_flow_only(
 				registry,
 				"battle_playfield_scene_drawer"
 			)
+			if playfield_drawer != null:
+				if playfield_drawer.has_method("draw_tower_route_playfield_border"):
+					playfield_drawer.draw_tower_route_playfield_border(
+						canvas,
+						width,
+						height
+					)
+				if playfield_drawer.has_method("draw_tower_route_player"):
+					playfield_drawer.draw_tower_route_player(
+						canvas,
+						registry,
+						Vector2.ZERO
+					)
 			if (
 				playfield_drawer != null
 				and playfield_drawer.has_method("draw_tower_route_selector_ball")
@@ -491,6 +512,7 @@ func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_
 		context = draw_context_builder.build_pillar_scene_context(context_source, view_size, layout, 0.0)
 	_append_viper_lod_context(context, registry)
 	context["battle_perf_logger"] = _get_instance(registry, "battle_perf_logger")
+	context["suppress_boss_skill_hud"] = _should_suppress_tower_boss_skill_hud(registry)
 	var current_stage: int = int(context.get("current_stage", 1))
 	var pillar_scene_drawer: Object = _get_stage_instance(registry, current_stage, "pillar_scene_drawer", "stage1_pillar_scene_drawer")
 	if (
@@ -503,6 +525,15 @@ func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_
 		canvas,
 		context,
 		registry
+	)
+
+
+func _should_suppress_tower_boss_skill_hud(registry: Object) -> bool:
+	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	return (
+		flow_owner != null
+		and flow_owner.has_method("is_active")
+		and bool(flow_owner.is_active())
 	)
 
 

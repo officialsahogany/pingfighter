@@ -50,6 +50,8 @@ func draw_post_playfield_hud(canvas: CanvasItem, context: Dictionary, registry: 
 	var sample_start: int = _perf_begin(perf_logger)
 	hud_scene_drawer.draw_active_item_hud(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage4.pillar.post_active_hud", sample_start)
+	if bool(context.get("suppress_boss_skill_hud", false)):
+		return
 	sample_start = _perf_begin(perf_logger)
 	var drew_ponk_boss_hud := _draw_stage4_ponk_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage4.pillar.ponk_boss_hud", sample_start)

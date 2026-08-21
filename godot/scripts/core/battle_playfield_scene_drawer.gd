@@ -24,6 +24,9 @@ const BLOCKING_OVERLAY_LOD_METHODS := [
 	"is_pause_menu_active",
 	"is_active_item_debug_spawn_menu_open",
 ]
+const TOWER_ROUTE_BORDER_SHADOW := Color(0.015, 0.025, 0.045, 0.96)
+const TOWER_ROUTE_BORDER_OUTER := Color(0.72, 0.48, 0.14, 0.96)
+const TOWER_ROUTE_BORDER_INNER := Color(1.0, 0.84, 0.38, 0.88)
 
 var ball_drawer: Object = BattlePlayfieldBallDrawer.new()
 var effects_drawer: Object = BattlePlayfieldEffectsDrawer.new()
@@ -35,6 +38,62 @@ var _mythic_draw_field_effects_accepts_draw_context: int = -1
 var _method_argument_count_cache: Dictionary = {}
 var _method_accepts_argument_count_cache: Dictionary = {}
 var _character_runtime: Object = PlayerCharacterRuntime.new()
+
+
+func draw_tower_route_playfield_border(
+	canvas: CanvasItem,
+	width: float = 760.0,
+	height: float = 750.0
+) -> void:
+	if canvas == null:
+		return
+	var outer_rect := Rect2(4.0, 4.0, maxf(1.0, width - 8.0), maxf(1.0, height - 8.0))
+	var inner_rect := Rect2(8.0, 8.0, maxf(1.0, width - 16.0), maxf(1.0, height - 16.0))
+	canvas.draw_rect(outer_rect, TOWER_ROUTE_BORDER_SHADOW, false, 8.0, true)
+	canvas.draw_rect(outer_rect, TOWER_ROUTE_BORDER_OUTER, false, 4.0, true)
+	canvas.draw_rect(inner_rect, TOWER_ROUTE_BORDER_INNER, false, 1.5, true)
+
+
+func draw_tower_route_player(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2 = Vector2.ZERO
+) -> void:
+	if canvas == null or registry == null:
+		return
+	var draw_context_builder: Object = _get_instance(registry, "battle_draw_context")
+	if draw_context_builder == null:
+		return
+	var feedback: Object = _get_instance(registry, "battle_feedback_state")
+	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
+	var draw_context: Dictionary = draw_context_builder.build_scene_context(
+		canvas,
+		shake_offset,
+		registry
+	)
+	var power_state: Object = _get_smasher_power_state_for_draw(registry, draw_context)
+	var draw_deps: Dictionary = draw_context_builder.build_scene_deps(
+		registry,
+		feedback,
+		power_state,
+		draw_context
+	)
+	var actor_context: Dictionary = {}
+	if _method_accepts_argument_count(draw_context_builder, "build_actor_context", 3):
+		actor_context = draw_context_builder.build_actor_context(
+			draw_context,
+			draw_deps,
+			perf_logger
+		)
+	else:
+		actor_context = draw_context_builder.build_actor_context(draw_context, draw_deps)
+	effects_drawer.draw_tower_route_player(
+		canvas,
+		registry,
+		draw_context,
+		actor_context,
+		perf_logger
+	)
 
 
 func draw_tower_route_selector_ball(

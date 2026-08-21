@@ -203,7 +203,7 @@ func draw_active_item_hud(
 	sample_start = _perf_begin(perf_logger)
 	active_item_drawer.draw(canvas, context, registry, view_size, game_offset, game_size)
 	_perf_end(perf_logger, "stage1.pillar.active_item_hud", sample_start)
-	if include_stage1_boss_skill_hud:
+	if include_stage1_boss_skill_hud and not bool(context.get("suppress_boss_skill_hud", false)):
 		sample_start = _perf_begin(perf_logger)
 		_draw_stage1_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
 		_perf_end(perf_logger, "stage1.pillar.boss_skill_hud", sample_start)

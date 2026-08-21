@@ -47,7 +47,7 @@ try {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
     $okMarker = "tower_noncombat_return_selector_visual_qa: ok"
-    $captureMarker = "tower_noncombat_return_selector_visual_qa: captures=3"
+    $captureMarker = "tower_noncombat_return_selector_visual_qa: captures=5"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `

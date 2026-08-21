@@ -60,7 +60,7 @@ class RouteAimFlow:
 	var phase := "ROUTE_AIM"
 
 	func has_renderable_retained_noncombat_node_background() -> bool:
-		return true
+		return false
 
 	func is_active() -> bool:
 		return true
@@ -79,6 +79,22 @@ class SelectorBallPlayfieldDrawer:
 	extends RefCounted
 
 	var selector_draw_calls := 0
+	var border_draw_calls := 0
+	var player_draw_calls := 0
+
+	func draw_tower_route_playfield_border(
+		_canvas: CanvasItem,
+		_width: float,
+		_height: float
+	) -> void:
+		border_draw_calls += 1
+
+	func draw_tower_route_player(
+		_canvas: CanvasItem,
+		_registry: Object,
+		_shake_offset: Vector2
+	) -> void:
+		player_draw_calls += 1
 
 	func draw_tower_route_selector_ball(
 		_canvas: CanvasItem,
@@ -281,6 +297,7 @@ func _verify_noncombat_playfield_suppression_and_route_restore() -> void:
 	var drawer := preload("res://scripts/core/battle_scene_drawer.gd").new()
 	var fallback_registry := CachedFlowRegistry.new(StageFallbackFlow.new())
 	_expect(bool(drawer.call("_should_draw_tower_battle_playfield", fallback_registry)), "missing-art fallback must preserve the normal stage playfield")
+	_expect(not bool(drawer.call("_should_suppress_tower_boss_skill_hud", fallback_registry)), "inactive/non-Tower fallback must preserve its battle boss-skill rail")
 	_expect(fallback_registry.cold_get_calls == 0, "fallback decision must inspect only the cached tower owner")
 
 	var rest_registry := CachedFlowRegistry.new(RestCampFlow.new())
@@ -290,12 +307,18 @@ func _verify_noncombat_playfield_suppression_and_route_restore() -> void:
 	var route_flow := RouteAimFlow.new()
 	var route_playfield := SelectorBallPlayfieldDrawer.new()
 	var route_registry := CachedFlowRegistry.new(route_flow, route_playfield)
+	_expect(not bool(drawer.call("_should_draw_tower_battle_playfield", route_registry)), "initial ROUTE_AIM must suppress the stale full battle composition without a retained room")
+	_expect(bool(drawer.call("_should_suppress_tower_boss_skill_hud", route_registry)), "active Tower route aim must suppress the previous boss-skill rail")
 	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
 	_expect(route_flow.draw_calls == 1, "ROUTE_AIM must keep the tower selector after stale battle composition is suppressed")
-	_expect(route_playfield.selector_draw_calls == 1, "ROUTE_AIM must restore only the production selector ball draw slice")
+	_expect(route_playfield.border_draw_calls == 1, "ROUTE_AIM must restore the explicit playfield border slice")
+	_expect(route_playfield.player_draw_calls == 1, "ROUTE_AIM must restore the production player slice")
+	_expect(route_playfield.selector_draw_calls == 1, "ROUTE_AIM must restore the production selector ball slice")
 	route_flow.phase = "NODE_MODAL"
 	drawer.call("_draw_tower_ascent_playfield_flow_only", null, route_registry)
 	_expect(route_flow.draw_calls == 1, "screen-space node modal must not double-render through the playfield-only fallback")
+	_expect(route_playfield.border_draw_calls == 1, "NODE_MODAL must not draw the route border")
+	_expect(route_playfield.player_draw_calls == 1, "NODE_MODAL must not draw the route player")
 	_expect(route_playfield.selector_draw_calls == 1, "NODE_MODAL must not draw the route selector ball")
 	_expect(route_registry.cold_get_calls == 0, "route-only draw must never cold-create the tower owner")
 

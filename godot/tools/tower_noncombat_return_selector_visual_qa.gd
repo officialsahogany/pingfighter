@@ -20,15 +20,21 @@ const TowerAscentTuning := preload(
 
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_noncombat_return_selector"
 const CAPTURE_SIZE := Vector2i(2020, 1246)
-const REST_MODAL_OUTPUT := "rest_node_modal_no_previous_boss.png"
-const ROUTE_SELECTOR_OUTPUT := "rest_return_route_selector.png"
+const INITIAL_ROUTE_OUTPUT := "stage1_initial_route_clean.png"
+const TRAINING_MODAL_OUTPUT := "training_node_modal_no_previous_boss.png"
+const ROUTE_SELECTOR_OUTPUT := "training_return_route_clean.png"
 const COMBAT_RETURN_OUTPUT := "combat_return_restored.png"
-const REST_MAP_SEED := 7162
+const NONTOWER_OUTPUT := "nontower_campaign_unchanged.png"
+const TRAINING_MAP_SEED := 5
 const INITIAL_PLAYER_POS := Vector2(230.0, 680.0)
-const SENTINEL_RECT := Rect2(330.0, 90.0, 80.0, 80.0)
+const BOSS_SENTINEL_RECT := Rect2(330.0, 90.0, 80.0, 80.0)
+const STAGE_OBJECT_SENTINEL_RECT := Rect2(90.0, 250.0, 72.0, 72.0)
+const SKILL_RAIL_SENTINEL_RECT := Rect2(112.0, 330.0, 64.0, 64.0)
 const MIN_SELECTOR_CHANGED_PIXELS := 120
 const MIN_SELECTOR_BRIGHT_PIXELS := 40
 const MIN_COMBAT_SENTINEL_PIXELS := 900
+const MIN_BORDER_CHANGED_PIXELS := 800
+const MIN_PLAYER_CHANGED_PIXELS := 120
 
 
 class InstrumentedPlayfieldDrawer:
@@ -36,13 +42,19 @@ class InstrumentedPlayfieldDrawer:
 
 	var production: Object
 	var full_draw_calls := 0
+	var route_border_draw_calls := 0
+	var route_player_draw_calls := 0
 	var route_selector_ball_draw_calls := 0
+	var draw_route_border := true
+	var draw_route_player := true
 
 	func _init(value: Object) -> void:
 		production = value
 
 	func reset_counts() -> void:
 		full_draw_calls = 0
+		route_border_draw_calls = 0
+		route_player_draw_calls = 0
 		route_selector_ball_draw_calls = 0
 
 	func draw(
@@ -63,9 +75,36 @@ class InstrumentedPlayfieldDrawer:
 				height,
 				pillar_width
 			)
-		# Exact-magenta QA sentinel: this is emitted only when the stale full
-		# battle composition (including the previous boss) is allowed through.
-		canvas.draw_rect(SENTINEL_RECT, Color.MAGENTA, true)
+		# Exact-color QA sentinels are emitted only when the stale full battle
+		# composition (previous boss and stage objects) is allowed through.
+		canvas.draw_rect(BOSS_SENTINEL_RECT, Color.MAGENTA, true)
+		canvas.draw_rect(STAGE_OBJECT_SENTINEL_RECT, Color.LIME, true)
+
+	func draw_tower_route_playfield_border(
+		canvas: CanvasItem,
+		width: float,
+		height: float
+	) -> void:
+		route_border_draw_calls += 1
+		if (
+			draw_route_border
+			and production != null
+			and production.has_method("draw_tower_route_playfield_border")
+		):
+			production.draw_tower_route_playfield_border(canvas, width, height)
+
+	func draw_tower_route_player(
+		canvas: CanvasItem,
+		registry: Object,
+		shake_offset: Vector2
+	) -> void:
+		route_player_draw_calls += 1
+		if (
+			draw_route_player
+			and production != null
+			and production.has_method("draw_tower_route_player")
+		):
+			production.draw_tower_route_player(canvas, registry, shake_offset)
 
 	func draw_tower_route_selector_ball(
 		canvas: CanvasItem,
@@ -86,6 +125,19 @@ class InstrumentedPlayfieldDrawer:
 				width,
 				height
 			)
+
+
+class BossSkillRailSentinelRenderer:
+	extends RefCounted
+
+	var draw_calls := 0
+
+	func reset_counts() -> void:
+		draw_calls = 0
+
+	func draw(canvas: CanvasItem, _context: Dictionary) -> void:
+		draw_calls += 1
+		canvas.draw_rect(SKILL_RAIL_SENTINEL_RECT, Color.CYAN, true)
 
 
 class BaselineEnergyRendererAdapter:
@@ -185,17 +237,26 @@ class DelegatingRegistry:
 	var base: Object
 	var instrumented_playfield: Object
 	var tower_flow: Object
+	var boss_skill_rail: Object
 
-	func _init(base_registry: Object, playfield: Object, flow: Object) -> void:
+	func _init(
+		base_registry: Object,
+		playfield: Object,
+		flow: Object,
+		rail: Object
+	) -> void:
 		base = base_registry
 		instrumented_playfield = playfield
 		tower_flow = flow
+		boss_skill_rail = rail
 
 	func get_instance(key: String) -> Variant:
 		if key == "battle_playfield_scene_drawer":
 			return instrumented_playfield
 		if key == "tower_ascent_flow_owner":
 			return tower_flow
+		if key == "stage1_dalji_boss_skill_hud_renderer":
+			return boss_skill_rail
 		return base.get_instance(key) if base != null and base.has_method("get_instance") else null
 
 	func get_cached_instance(key: String) -> Variant:
@@ -203,6 +264,8 @@ class DelegatingRegistry:
 			return instrumented_playfield
 		if key == "tower_ascent_flow_owner":
 			return tower_flow
+		if key == "stage1_dalji_boss_skill_hud_renderer":
+			return boss_skill_rail
 		return (
 			base.get_cached_instance(key)
 			if base != null and base.has_method("get_cached_instance")
@@ -234,7 +297,7 @@ func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_release_test_input()
 	DisplayServer.window_set_size(CAPTURE_SIZE)
-	DisplayServer.window_set_title("승천탑 휴식처 복귀 선택 공 P0 QA")
+	DisplayServer.window_set_title("Tower route screen cleanup QA")
 	if not _prepare_selection_state():
 		_fail("GameSelectionState was unavailable")
 		return
@@ -268,10 +331,21 @@ func _run() -> void:
 		return
 	# The ordinary boot warmup is skipped by this harness. Materialize the exact
 	# modules consumed by the cached-only retained-arena draw path before capture.
-	for module_key in ["stage1_pillar_ui_renderer", "tower_ascent_flow_owner"]:
+	for module_key in [
+		"stage1_pillar_ui_renderer",
+		"stage1_actor_renderer",
+		"stage1_dalji_boss_skill_cooldown_state",
+		"tower_ascent_flow_owner",
+	]:
 		_base_registry.get_instance(module_key)
 	var instrumented := InstrumentedPlayfieldDrawer.new(production_playfield)
-	var registry := DelegatingRegistry.new(_base_registry, instrumented, flow)
+	var boss_skill_rail := BossSkillRailSentinelRenderer.new()
+	var registry := DelegatingRegistry.new(
+		_base_registry,
+		instrumented,
+		flow,
+		boss_skill_rail
+	)
 	_main_node.set("gameplay_modules", registry)
 
 	if not bool(flow.begin_vertical_slice(
@@ -279,35 +353,105 @@ func _run() -> void:
 		Callable(),
 		{
 			"registry": registry,
-			"run_id": "noncombat-return-selector-visual-qa",
-			"current_stage": 4,
-			"map_seed": REST_MAP_SEED,
-			"node_modal_kind": "rest",
-			"run_state": {"chance_gems": 2, "gold": 0, "muhon": 0},
+			"run_id": "tower-route-screen-cleanup-visual-qa",
+			"current_stage": 1,
+			"map_seed": TRAINING_MAP_SEED,
+			"node_modal_kind": "training",
+			"run_state": {"chance_gems": 2, "gold": 0, "muhon": 120},
 		}
 	)):
-		_fail("live battle scene could not begin the deterministic rest route")
+		_fail("live battle scene could not begin the deterministic Stage 1 training route")
 		return
 	print("[TowerNoncombatReturnSelectorQA] initial_phase=%s targets=%s" % [
 		str(flow.get_phase_name()),
 		str(flow.get_route_aim_targets()),
 	])
-	if not _enter_target_node(flow, "rest"):
-		_fail("live route did not arrive at the rest node: phase=%s kind=%s" % [
+	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
+	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
+		_fail("could not create route cleanup QA capture directory")
+		return
+
+	# The initial post-combat route has no retained room. This is the exact Stage
+	# 1 balloon/boss leak leg that used to fall back to the full battle draw.
+	instrumented.reset_counts()
+	boss_skill_rail.reset_counts()
+	var initial_image := await _capture_current_frame(
+		output_dir.path_join(INITIAL_ROUTE_OUTPUT)
+	)
+	if initial_image == null:
+		return
+	var initial_border_calls := instrumented.route_border_draw_calls
+	var initial_player_calls := instrumented.route_player_draw_calls
+	var initial_full_calls := instrumented.full_draw_calls
+	var playfield_crop := _game_rect_to_capture(
+		_main_node,
+		Rect2(Vector2.ZERO, Vector2(760.0, 750.0)),
+		initial_image
+	)
+	instrumented.draw_route_border = false
+	var border_hidden_image := await _capture_current_frame("")
+	instrumented.draw_route_border = true
+	instrumented.draw_route_player = false
+	var player_hidden_image := await _capture_current_frame("")
+	instrumented.draw_route_player = true
+	if border_hidden_image == null or player_hidden_image == null:
+		return
+	var border_changed_pixels := _count_changed_border_pixels(
+		initial_image,
+		border_hidden_image,
+		playfield_crop
+	)
+	var player_crop := _game_rect_to_capture(
+		_main_node,
+		Rect2(INITIAL_PLAYER_POS - Vector2(100.0, 92.0), Vector2(200.0, 162.0)),
+		initial_image
+	)
+	var player_changed_pixels := _count_changed_pixels(
+		initial_image,
+		player_hidden_image,
+		player_crop
+	)
+	var initial_boss_pixels := _count_magenta_pixels(
+		initial_image,
+		_game_rect_to_capture(_main_node, BOSS_SENTINEL_RECT, initial_image)
+	)
+	var initial_stage_object_pixels := _count_lime_pixels(
+		initial_image,
+		_game_rect_to_capture(_main_node, STAGE_OBJECT_SENTINEL_RECT, initial_image)
+	)
+	var initial_skill_rail_pixels := _count_cyan_pixels(initial_image)
+	print("[TowerRouteCleanupQA] initial full=%d border_calls=%d player_calls=%d border_pixels=%d player_pixels=%d boss_pixels=%d stage_object_pixels=%d skill_rail_calls=%d skill_rail_pixels=%d" % [
+		initial_full_calls,
+		initial_border_calls,
+		initial_player_calls,
+		border_changed_pixels,
+		player_changed_pixels,
+		initial_boss_pixels,
+		initial_stage_object_pixels,
+		boss_skill_rail.draw_calls,
+		initial_skill_rail_pixels,
+	])
+	if initial_full_calls != 0 or initial_boss_pixels != 0 or initial_stage_object_pixels != 0:
+		_fail("initial Stage 1 route retained the stale boss/stage-object composition")
+		return
+	if boss_skill_rail.draw_calls != 0 or initial_skill_rail_pixels != 0:
+		_fail("initial Stage 1 route retained the Dalji boss-skill rail")
+		return
+	if initial_border_calls <= 0 or border_changed_pixels < MIN_BORDER_CHANGED_PIXELS:
+		_fail("initial Stage 1 route border pixel delta was below threshold: %d < %d" % [border_changed_pixels, MIN_BORDER_CHANGED_PIXELS])
+		return
+	if initial_player_calls <= 0 or player_changed_pixels < MIN_PLAYER_CHANGED_PIXELS:
+		_fail("initial Stage 1 route player pixel delta was below threshold: %d < %d" % [player_changed_pixels, MIN_PLAYER_CHANGED_PIXELS])
+		return
+
+	if not _enter_target_node(flow, "training"):
+		_fail("live route did not arrive at the training node: phase=%s kind=%s" % [
 			str(flow.get_phase_name()),
 			str(flow.get_node_modal_kind()),
 		])
 		return
-	flow.update_selective(1.0, _main_node)
-	var rest_result: Dictionary = flow.execute_node_action(
-		"rest:restore_chance_gem",
-		"noncombat-return-selector-visual-qa:rest"
-	)
-	if not bool(rest_result.get("accepted", false)) or not bool(rest_result.get("applied", false)):
-		_fail("live rest work did not complete: %s" % rest_result)
-		return
 	if str(flow.get_phase_name()) != "NODE_MODAL":
-		_fail("rest work did not remain in NODE_MODAL")
+		_fail("training arrival did not remain in NODE_MODAL")
 		return
 	print("[TowerNoncombatReturnSelectorQA] phase=%s retained=%s playfield_flow=%s" % [
 		str(flow.get_phase_name()),
@@ -317,28 +461,24 @@ func _run() -> void:
 		)),
 	])
 
-	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
-	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
-		_fail("could not create selector QA capture directory")
-		return
 	instrumented.reset_counts()
 	var modal_image := await _capture_current_frame(
-		output_dir.path_join(REST_MODAL_OUTPUT)
+		output_dir.path_join(TRAINING_MODAL_OUTPUT)
 	)
 	if modal_image == null:
 		return
 	if instrumented.full_draw_calls != 0:
-		_fail("rest NODE_MODAL called the stale full battle playfield")
+		_fail("training NODE_MODAL called the stale full battle playfield")
 		return
 
 	if not _finish_node_work_through_pointer(flow):
-		_fail("rest end-work pointer route was not consumed")
+		_fail("training end-work pointer route was not consumed")
 		return
 	if (
 		str(flow.get_phase_name()) != "ROUTE_AIM"
-		or str(flow.get_retained_noncombat_node_background_kind()) != "rest"
+		or str(flow.get_retained_noncombat_node_background_kind()) != "training"
 	):
-		_fail("rest return state mismatch: phase=%s retained=%s" % [
+		_fail("training return state mismatch: phase=%s retained=%s" % [
 			str(flow.get_phase_name()),
 			str(flow.get_retained_noncombat_node_background_kind()),
 		])
@@ -370,7 +510,7 @@ func _run() -> void:
 		str(flow.is_selector_launched()),
 	])
 	if not bool(BattleSceneOwnerReader.get_value(_main_node, "ball_active", false)):
-		_fail("rest return selector did not launch the production ball")
+		_fail("training return selector did not launch the production ball")
 		return
 	var ball_pos := BattleSceneOwnerReader.get_vector2(
 		_main_node,
@@ -381,7 +521,7 @@ func _run() -> void:
 		_fail("selector resolved before the requested in-flight pixel frame")
 		return
 	if not bool(flow.is_selector_launched()):
-		_fail("rest return selector did not remain in flight for the pixel frame")
+		_fail("training return selector did not remain in flight for the pixel frame")
 		return
 
 	instrumented.reset_counts()
@@ -393,10 +533,15 @@ func _run() -> void:
 	var route_selector_calls := instrumented.route_selector_ball_draw_calls
 	var sentinel_crop := _game_rect_to_capture(
 		_main_node,
-		SENTINEL_RECT,
+		BOSS_SENTINEL_RECT,
 		route_image
 	)
 	var route_sentinel_pixels := _count_magenta_pixels(route_image, sentinel_crop)
+	var route_stage_object_pixels := _count_lime_pixels(
+		route_image,
+		_game_rect_to_capture(_main_node, STAGE_OBJECT_SENTINEL_RECT, route_image)
+	)
+	var route_skill_rail_pixels := _count_cyan_pixels(route_image)
 	_main_node.set("ball_active", false)
 	var hidden_image := await _capture_current_frame("")
 	_main_node.set("ball_active", true)
@@ -413,29 +558,36 @@ func _run() -> void:
 		hidden_image,
 		selector_crop
 	)
-	print("[TowerNoncombatReturnSelectorQA] selector_pos=%s crop=%s changed_pixels=%d bright_pixels=%d route_draw_calls=%d full_draw_calls=%d stale_boss_pixels=%d" % [
+	print("[TowerRouteCleanupQA] selector_pos=%s crop=%s changed_pixels=%d bright_pixels=%d route_draw_calls=%d border_calls=%d player_calls=%d full_draw_calls=%d stale_boss_pixels=%d stage_object_pixels=%d skill_rail_pixels=%d" % [
 		ball_pos,
 		selector_crop,
 		selector_changed_pixels,
 		selector_bright_pixels,
 		route_selector_calls,
+		instrumented.route_border_draw_calls,
+		instrumented.route_player_draw_calls,
 		route_full_draw_calls,
 		route_sentinel_pixels,
+		route_stage_object_pixels,
+		route_skill_rail_pixels,
 	])
-	if route_full_draw_calls != 0 or route_sentinel_pixels != 0:
-		_fail("rest ROUTE_AIM restored the stale battle composition")
+	if route_full_draw_calls != 0 or route_sentinel_pixels != 0 or route_stage_object_pixels != 0:
+		_fail("training ROUTE_AIM restored the stale battle composition")
+		return
+	if route_skill_rail_pixels != 0 or boss_skill_rail.draw_calls != 0:
+		_fail("training ROUTE_AIM restored the stale boss-skill rail")
 		return
 	if route_selector_calls <= 0:
-		_fail("rest ROUTE_AIM did not call the selector-ball-only draw owner")
+		_fail("training ROUTE_AIM did not call the selector-ball draw owner")
 		return
 	if selector_changed_pixels < MIN_SELECTOR_CHANGED_PIXELS:
-		_fail("rest return selector pixel delta was below threshold: %d < %d" % [
+		_fail("training return selector pixel delta was below threshold: %d < %d" % [
 			selector_changed_pixels,
 			MIN_SELECTOR_CHANGED_PIXELS,
 		])
 		return
 	if selector_bright_pixels < MIN_SELECTOR_BRIGHT_PIXELS:
-		_fail("rest return selector bright pixels were below threshold: %d < %d" % [
+		_fail("training return selector bright pixels were below threshold: %d < %d" % [
 			selector_bright_pixels,
 			MIN_SELECTOR_BRIGHT_PIXELS,
 		])
@@ -443,7 +595,7 @@ func _run() -> void:
 
 	var combat_target := _find_combat_target(flow.get_route_aim_targets())
 	if combat_target.is_empty():
-		_fail("rest return route exposed no combat target")
+		_fail("training return route exposed no combat target")
 		return
 	flow.call("_resolve_route_target", str(combat_target.get("id", "")))
 	print("[TowerNoncombatReturnSelectorQA] phase=%s retained=%s playfield_flow=%s" % [
@@ -466,28 +618,74 @@ func _run() -> void:
 		return
 	var combat_sentinel_pixels := _count_magenta_pixels(
 		combat_image,
-		_game_rect_to_capture(_main_node, SENTINEL_RECT, combat_image)
+		_game_rect_to_capture(_main_node, BOSS_SENTINEL_RECT, combat_image)
 	)
-	if instrumented.full_draw_calls <= 0:
+	var combat_stage_object_pixels := _count_lime_pixels(
+		combat_image,
+		_game_rect_to_capture(_main_node, STAGE_OBJECT_SENTINEL_RECT, combat_image)
+	)
+	var combat_skill_rail_pixels := _count_cyan_pixels(combat_image)
+	var combat_full_draw_calls := instrumented.full_draw_calls
+	var combat_skill_rail_calls := boss_skill_rail.draw_calls
+	if combat_full_draw_calls <= 0:
 		_fail("combat return did not restore the full battle playfield")
 		return
-	if combat_sentinel_pixels < MIN_COMBAT_SENTINEL_PIXELS:
-		_fail("combat return sentinel pixels were below threshold: %d < %d" % [
+	if min(combat_sentinel_pixels, combat_stage_object_pixels) < MIN_COMBAT_SENTINEL_PIXELS:
+		_fail("combat return boss/stage sentinel pixels were below threshold: %d,%d < %d" % [
 			combat_sentinel_pixels,
+			combat_stage_object_pixels,
 			MIN_COMBAT_SENTINEL_PIXELS,
 		])
 		return
+	if combat_skill_rail_calls <= 0 or combat_skill_rail_pixels <= 0:
+		_fail("combat return did not restore the Stage 1 boss-skill rail")
+		return
 
-	print("[TowerNoncombatReturnSelectorQA] captures=%s,%s,%s" % [
-		output_dir.path_join(REST_MODAL_OUTPUT),
+	# Separate reverse leg: with the Tower feature disabled, the ordinary campaign
+	# keeps the same full stage composition and boss-skill HUD contract.
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
+	instrumented.reset_counts()
+	boss_skill_rail.reset_counts()
+	var nontower_image := await _capture_current_frame(
+		output_dir.path_join(NONTOWER_OUTPUT)
+	)
+	if nontower_image == null:
+		return
+	var nontower_boss_pixels := _count_magenta_pixels(
+		nontower_image,
+		_game_rect_to_capture(_main_node, BOSS_SENTINEL_RECT, nontower_image)
+	)
+	var nontower_stage_object_pixels := _count_lime_pixels(
+		nontower_image,
+		_game_rect_to_capture(_main_node, STAGE_OBJECT_SENTINEL_RECT, nontower_image)
+	)
+	var nontower_skill_rail_pixels := _count_cyan_pixels(nontower_image)
+	if (
+		instrumented.full_draw_calls <= 0
+		or min(nontower_boss_pixels, nontower_stage_object_pixels) < MIN_COMBAT_SENTINEL_PIXELS
+		or boss_skill_rail.draw_calls <= 0
+		or nontower_skill_rail_pixels <= 0
+	):
+		_fail("non-Tower campaign did not preserve full playfield and boss-skill HUD")
+		return
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+
+	print("[TowerRouteCleanupQA] captures=%s,%s,%s,%s,%s" % [
+		output_dir.path_join(INITIAL_ROUTE_OUTPUT),
+		output_dir.path_join(TRAINING_MODAL_OUTPUT),
 		route_output,
 		output_dir.path_join(COMBAT_RETURN_OUTPUT),
+		output_dir.path_join(NONTOWER_OUTPUT),
 	])
-	print("[TowerNoncombatReturnSelectorQA] combat_full_draw_calls=%d combat_sentinel_pixels=%d" % [
-		instrumented.full_draw_calls,
+	print("[TowerRouteCleanupQA] combat_full_draw_calls=%d boss_pixels=%d stage_object_pixels=%d skill_rail_pixels=%d nontower_full_draw_calls=%d nontower_skill_rail_pixels=%d" % [
+		combat_full_draw_calls,
 		combat_sentinel_pixels,
+		combat_stage_object_pixels,
+		combat_skill_rail_pixels,
+		instrumented.full_draw_calls,
+		nontower_skill_rail_pixels,
 	])
-	print("tower_noncombat_return_selector_visual_qa: captures=3")
+	print("tower_noncombat_return_selector_visual_qa: captures=5")
 	print("tower_noncombat_return_selector_visual_qa: ok")
 	_cleanup()
 	call_deferred("_finish_success")
@@ -614,6 +812,27 @@ func _count_changed_pixels(first: Image, second: Image, crop: Rect2i) -> int:
 	return count
 
 
+func _count_changed_border_pixels(first: Image, second: Image, crop: Rect2i) -> int:
+	if first.get_size() != second.get_size():
+		return 0
+	var border_band := 24
+	var count := 0
+	for y in range(crop.position.y, crop.end.y):
+		for x in range(crop.position.x, crop.end.x):
+			if (
+				x - crop.position.x >= border_band
+				and crop.end.x - 1 - x >= border_band
+				and y - crop.position.y >= border_band
+				and crop.end.y - 1 - y >= border_band
+			):
+				continue
+			var a := first.get_pixel(x, y)
+			var b := second.get_pixel(x, y)
+			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) >= 0.12:
+				count += 1
+	return count
+
+
 func _count_changed_bright_pixels(
 	first: Image,
 	second: Image,
@@ -644,6 +863,26 @@ func _count_magenta_pixels(image: Image, crop: Rect2i) -> int:
 	return count
 
 
+func _count_lime_pixels(image: Image, crop: Rect2i) -> int:
+	var count := 0
+	for y in range(crop.position.y, crop.end.y):
+		for x in range(crop.position.x, crop.end.x):
+			var pixel := image.get_pixel(x, y)
+			if pixel.r <= 0.02 and pixel.g >= 0.98 and pixel.b <= 0.02:
+				count += 1
+	return count
+
+
+func _count_cyan_pixels(image: Image) -> int:
+	var count := 0
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var pixel := image.get_pixel(x, y)
+			if pixel.r <= 0.02 and pixel.g >= 0.98 and pixel.b >= 0.98:
+				count += 1
+	return count
+
+
 func _prepare_selection_state() -> bool:
 	var selection_state := get_root().get_node_or_null("GameSelectionState")
 	if selection_state == null or not selection_state.has_method("set_stage"):
@@ -654,7 +893,7 @@ func _prepare_selection_state() -> bool:
 			"runtime_id": "smasher",
 			"name": "스매셔",
 		})
-	selection_state.set_stage(4)
+	selection_state.set_stage(1)
 	if selection_state.has_method("set_league_mode"):
 		selection_state.set_league_mode("champion")
 	if selection_state.has_method("request_skip_battle_logo_once"):

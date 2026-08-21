@@ -45,6 +45,43 @@ func draw_actors(
 
 # 신비의 주사위 패들 오라: 플레이어 렌더 직후의 팬아웃에서 분리형 스크린
 # 호스트를 컨트롤러 구동으로 동기화한다(호스트 자체 _process 금지 계약).
+func draw_tower_route_player(
+	canvas: CanvasItem,
+	registry: Object,
+	draw_context: Dictionary,
+	actor_context: Dictionary,
+	perf_logger: Object = null
+) -> void:
+	var current_stage: int = int(draw_context.get("current_stage", 1))
+	var actor_renderer: Object = _get_stage_instance(
+		registry,
+		current_stage,
+		"actor_renderer",
+		"stage1_actor_renderer"
+	)
+	if actor_renderer == null:
+		return
+	# Route aim must actively hide detached boss, stage, player-overlay, and
+	# firearm hosts that the previous full actor pass may have attached.
+	_clear_transient_canvas_items(actor_renderer)
+	if actor_context.is_empty():
+		return
+	var player_value: Variant = actor_renderer.get("player_renderer")
+	if not (player_value is Object) or not is_instance_valid(player_value):
+		return
+	var player_renderer: Object = player_value as Object
+	var shake_offset := _get_vector2(
+		actor_context.get("shake_offset", Vector2.ZERO),
+		Vector2.ZERO
+	)
+	var draw_start: int = _perf_begin(perf_logger)
+	if _method_accepts_argument_count(player_renderer, "draw", 4):
+		player_renderer.draw(canvas, actor_context, shake_offset, perf_logger)
+	elif _method_accepts_argument_count(player_renderer, "draw", 3):
+		player_renderer.draw(canvas, actor_context, shake_offset)
+	_perf_end(perf_logger, "actors.tower_route_player", draw_start)
+
+
 func draw_mystic_dice_paddle_effect(registry: Object, draw_context: Dictionary, shake_offset: Vector2) -> void:
 	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	if runtime_perk_state == null or not runtime_perk_state.has_method("get_mystic_dice_paddle_effect_snapshot"):
