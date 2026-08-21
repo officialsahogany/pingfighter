@@ -586,10 +586,10 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage3_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage3_boss_skill_hud_show_boss_gauge": true,
 		"stage3_boss_skill_hud_skills": [
-			_build_skill("cotton_throw", "솜뭉치 투척", cotton_throw_windup > 0.0 or not cotton_throw_projectiles.is_empty(), cotton_throw_cooldown, COTTON_THROW_COOLDOWN_SEC, Color("fff0ed")),
-			_build_skill("cotton_bomb", "솜뭉치 폭탄", cotton_bomb_windup > 0.0 or not cotton_bombs.is_empty(), cotton_bomb_cooldown, COTTON_BOMB_COOLDOWN_SEC, Color("ffc7dd")),
-			_build_skill("deadly_hug", "죽음의 포옹", deadly_hug_rush_active or deadly_hug_timer > 0.0, deadly_hug_cooldown, DEADLY_HUG_COOLDOWN_SEC, Color("a86f54")),
-			_build_skill("heart_beam", "하트 빔", not heart_projectile.is_empty() or heart_knockback_timer > 0.0, heart_beam_cooldown, HEART_BEAM_COOLDOWN_SEC, Color("ff609c")),
+			_build_skill("cotton_throw", "면운산화", cotton_throw_windup > 0.0 or not cotton_throw_projectiles.is_empty(), cotton_throw_cooldown, COTTON_THROW_COOLDOWN_SEC, Color("fff0ed")),
+			_build_skill("cotton_bomb", "면화폭뢰", cotton_bomb_windup > 0.0 or not cotton_bombs.is_empty(), cotton_bomb_cooldown, COTTON_BOMB_COOLDOWN_SEC, Color("ffc7dd")),
+			_build_skill("deadly_hug", "사혼포옹", deadly_hug_rush_active or deadly_hug_timer > 0.0, deadly_hug_cooldown, DEADLY_HUG_COOLDOWN_SEC, Color("a86f54")),
+			_build_skill("heart_beam", "심광충파", not heart_projectile.is_empty() or heart_knockback_timer > 0.0, heart_beam_cooldown, HEART_BEAM_COOLDOWN_SEC, Color("ff609c")),
 		],
 	}
 

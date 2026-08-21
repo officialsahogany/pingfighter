@@ -377,9 +377,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage3_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage3_boss_skill_hud_show_boss_gauge": true,
 		"stage3_boss_skill_hud_skills": [
-			_build_skill("mirror_world", "거울 세계", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, Color("c8d9ff")),
-			_build_skill("size_shift", "사이즈 시프트", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, Color("79e7ff")),
-			_build_skill("rabbit_projectile", "토끼 투사체", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, Color("ffc2df")),
+			_build_skill("mirror_world", "경화수월", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, Color("c8d9ff")),
+			_build_skill("size_shift", "여의변화", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, Color("79e7ff")),
+			_build_skill("rabbit_projectile", "옥토비탄", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, Color("ffc2df")),
 		],
 	}
 

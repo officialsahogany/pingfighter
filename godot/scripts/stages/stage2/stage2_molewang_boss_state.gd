@@ -180,9 +180,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_boss_gauge_max": GAUGE_MAX,
 		"stage2_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage2_boss_skill_hud_skills": [
-			_build_skill("tunnel_raid", "땅굴 습격", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
-			_build_skill("spinning_claw", "회전발톱", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28)),
-			_build_skill("friend_moles", "친구두더지", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16)),
+			_build_skill("tunnel_raid", "지맥잠행", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
+			_build_skill("spinning_claw", "선조율풍", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28)),
+			_build_skill("friend_moles", "지굴원군", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16)),
 		],
 	}
 
@@ -548,9 +548,9 @@ func _phase_progress() -> float:
 
 func _get_speech() -> String:
 	if tunnel_active:
-		return "땅굴 습격!"
+		return "지맥잠행!"
 	if spinning_claw_timer > 0.0:
-		return "회전발톱!"
+		return "선조율풍!"
 	if friend_moles_active:
 		return "친구들! 도와줘!"
 	return ""

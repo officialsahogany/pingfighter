@@ -229,9 +229,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_boss_gauge_max": GAUGE_MAX,
 		"stage2_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage2_boss_skill_hud_skills": [
-			_build_skill("web_trap", "거미줄 장판", not web_trap_projectile.is_empty(), web_trap_cooldown, WEB_TRAP_COOLDOWN_SEC, Color(0.78, 0.73, 0.68)),
-			_build_skill("web_rescue", "거미줄 구출", web_rescue_active, web_rescue_cooldown, WEB_RESCUE_COOLDOWN_SEC, Color(0.88, 0.88, 0.96)),
-			_build_skill("spider_rage", "분노 거미줄", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16)),
+			_build_skill("web_trap", "천라주망", not web_trap_projectile.is_empty(), web_trap_cooldown, WEB_TRAP_COOLDOWN_SEC, Color(0.78, 0.73, 0.68)),
+			_build_skill("web_rescue", "견사회수", web_rescue_active, web_rescue_cooldown, WEB_RESCUE_COOLDOWN_SEC, Color(0.88, 0.88, 0.96)),
+			_build_skill("spider_rage", "혈주망진", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16)),
 		],
 	}
 
