@@ -10,5 +10,5 @@ if not exist "%GODOT_EXE%" (
     exit /b 1
 )
 echo [run_tower_play] TOWER_ASCENT_VERTICAL_SLICE=1
-start "" "%GODOT_EXE%" --path "%~dp0godot" --
+start "" "%GODOT_EXE%" --path "%~dp0godot"
 endlocal
