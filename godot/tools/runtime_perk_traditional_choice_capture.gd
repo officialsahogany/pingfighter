@@ -14,7 +14,7 @@ const PhysiqueTrainingCatalog := preload("res://scripts/characters/physique_trai
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 
-const OUT_DIR := "D:/tmp/bosspong_ui_panel_capture/runtime_perk_traditional"
+const OUT_DIR := "D:/tmp/bosspong_ui_panel_capture/mugong_icon_wiring_28e9bfdfb"
 
 
 class CaptureCanvas:
@@ -56,6 +56,8 @@ func _run() -> void:
 		return
 	var ok := true
 	ok = await _capture(Vector2i(1280, 720), _base_choices(), 1, "perk_choice_3_cards_1280x720.png") and ok
+	ok = await _capture(Vector2i(1280, 720), _new_generation_choices(), 1, "perk_choice_new_generation_3_cards_1280x720.png") and ok
+	ok = await _capture(Vector2i(760, 750), _new_generation_choices(), 1, "perk_choice_new_generation_3_cards_compact_760x750.png") and ok
 	ok = await _capture(Vector2i(1280, 720), _choices_with_dice(), 3, "perk_choice_4_cards_dice_1280x720.png") and ok
 	ok = await _capture(Vector2i(1280, 720), _choices_with_training(), 2, "perk_choice_3_cards_training_1280x720.png") and ok
 	ok = await _capture(Vector2i(1280, 720), _choices_with_dowsing_and_dice(), 4, "perk_choice_5_cards_dowsing_dice_1280x720.png") and ok
@@ -92,10 +94,11 @@ func _capture(size: Vector2i, choices: Array, selected_index: int, output_name: 
 
 	var catalog := RuntimePerkCatalog.new()
 	var icon_renderer := RuntimePerkIconRenderer.new()
-	# This capture loads only the six visible icons. Production prewarm still owns
-	# the full icon set before battle; the capture does not need to pay that cost.
-	for icon_id: String in ["common_refresh", "dash_acceleration", "item_luck", "item_gauge_mastery", "mystic_dice", "physique_chosik_cooldown"]:
-		icon_renderer._get_icon_source(icon_id)
+	# Match production's prewarm-before-draw contract while keeping each capture
+	# scoped to its visible cards.
+	for choice_value: Variant in choices:
+		if choice_value is Dictionary:
+			icon_renderer._get_icon_source(str((choice_value as Dictionary).get("id", "")))
 	var renderer := RuntimePerkOverlayRenderer.new()
 	renderer.prewarm_traditional_choice_assets()
 	var canvas := CaptureCanvas.new()
@@ -159,6 +162,27 @@ func _base_choices() -> Array:
 		},
 	]
 	return choices
+
+
+func _new_generation_choices() -> Array:
+	var catalog := RuntimePerkCatalog.new()
+	return [
+		_build_catalog_choice(catalog, "star_detector", 1),
+		_build_catalog_choice(catalog, "reinforced_boomerang_gauntlet", 2),
+		_build_catalog_choice(catalog, "rainbow_fur_glove", 3),
+	]
+
+
+func _build_catalog_choice(catalog: Object, perk_id: String, current_level: int) -> Dictionary:
+	var choice: Dictionary = catalog.get_perk_data(perk_id).duplicate(true)
+	var max_level := int(choice.get("max_level", 1))
+	var next_level := mini(current_level + 1, max_level)
+	var descriptions: Dictionary = choice.get("descriptions", {}) as Dictionary
+	choice["id"] = perk_id
+	choice["current_level"] = current_level
+	choice["next_level"] = next_level
+	choice["description"] = str(descriptions.get(next_level, ""))
+	return choice
 
 
 func _choices_with_dice() -> Array:
