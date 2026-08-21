@@ -178,6 +178,7 @@ class RouteCaptureCanvas:
 	var flow: Object = null
 	var battle_owner: Object = null
 	var renderer: Object = null
+	var forced_wind_atlas_frame := -1
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), Color("17120f"), true)
@@ -216,6 +217,13 @@ class RouteCaptureCanvas:
 				)
 		if renderer != null and flow != null:
 			renderer.draw(self, flow)
+			if forced_wind_atlas_frame >= 0:
+				var gauge_model: Dictionary = flow.get_route_aim_gauge_model()
+				renderer.debug_draw_route_wind_vane_atlas_frame(
+					self,
+					gauge_model.get("origin", Vector2(380.0, 600.0)),
+					forced_wind_atlas_frame
+				)
 
 
 class PillarCaptureCanvas:
@@ -443,6 +451,108 @@ func _run() -> void:
 		_fail("calm/windy Vulkan crops did not prove the wind indicator visibility delta")
 		owner.free()
 		return
+
+	# Render the approved atlas through the production 112x36 destination at
+	# the live 2020x1246 battle layout. Calm is a future-authored frame exposed
+	# only through this QA override; the production flow remains hidden above.
+	var asset_renderer: Object = canvas.renderer
+	var state_capture_specs := [
+		{
+			"label": "left",
+			"model": TowerAscentRouteWindPolicy.build_model(-1, 3),
+			"forced_frame": -1,
+		},
+		{
+			"label": "calm",
+			"model": TowerAscentRouteWindPolicy.calm_model(),
+			"forced_frame": TowerAscentFlowRenderer.ROUTE_WIND_VANE_FRAME_CALM,
+		},
+		{
+			"label": "right",
+			"model": TowerAscentRouteWindPolicy.build_model(1, 3),
+			"forced_frame": -1,
+		},
+	]
+	var state_crops: Array[Image] = []
+	var state_crop_hashes: Dictionary = {}
+	for capture_spec_variant in state_capture_specs:
+		var capture_spec: Dictionary = capture_spec_variant
+		_set_runtime_wind(route_runtime, capture_spec.get("model", {}), 0.0)
+		canvas.forced_wind_atlas_frame = int(capture_spec.get("forced_frame", -1))
+		canvas.queue_redraw()
+		for _frame in range(3):
+			await process_frame
+		var state_image := get_root().get_texture().get_image()
+		var label := str(capture_spec.get("label", "unknown"))
+		var state_output := output_dir.path_join(
+			"route_wind_asset_%s_2020x1246.png" % label
+		)
+		if state_image == null or state_image.is_empty() or state_image.save_png(state_output) != OK:
+			_fail("could not save route wind atlas state capture: %s" % label)
+			owner.free()
+			return
+		var state_crop := _capture_region(
+			state_image,
+			canvas,
+			_wind_panel_rect(wind_origin)
+		)
+		var state_crop_output := output_dir.path_join(
+			"route_wind_asset_%s_actual_hud_crop.png" % label
+		)
+		if state_crop == null or state_crop.is_empty() or state_crop.save_png(state_crop_output) != OK:
+			_fail("could not save actual-HUD route wind atlas crop: %s" % label)
+			owner.free()
+			return
+		state_crops.append(state_crop)
+		state_crop_hashes[hash(state_crop.get_data())] = true
+	canvas.forced_wind_atlas_frame = -1
+	if state_crop_hashes.size() != 3:
+		_fail("left/calm/right atlas states must produce three distinct Vulkan pixel hashes")
+		owner.free()
+		return
+	for first_index in range(state_crops.size()):
+		for second_index in range(first_index + 1, state_crops.size()):
+			if _count_changed_pixels(state_crops[first_index], state_crops[second_index]) < 80:
+				_fail("left/calm/right atlas states must remain visibly distinct at actual HUD size")
+				owner.free()
+				return
+
+	var fallback_renderer := TowerAscentFlowRenderer.new()
+	fallback_renderer.debug_set_route_wind_vane_atlas_texture(null)
+	canvas.renderer = fallback_renderer
+	_set_runtime_wind(
+		route_runtime,
+		TowerAscentRouteWindPolicy.build_model(1, 3),
+		0.0
+	)
+	canvas.queue_redraw()
+	for _frame in range(3):
+		await process_frame
+	var fallback_image := get_root().get_texture().get_image()
+	var fallback_output := output_dir.path_join(
+		"route_wind_procedural_fallback_2020x1246.png"
+	)
+	if fallback_image == null or fallback_image.is_empty() or fallback_image.save_png(fallback_output) != OK:
+		_fail("could not save procedural route wind fallback capture")
+		owner.free()
+		return
+	var fallback_crop := _capture_region(
+		fallback_image,
+		canvas,
+		_wind_panel_rect(wind_origin)
+	)
+	var fallback_crop_output := output_dir.path_join(
+		"route_wind_procedural_fallback_actual_hud_crop.png"
+	)
+	if fallback_crop == null or fallback_crop.is_empty() or fallback_crop.save_png(fallback_crop_output) != OK:
+		_fail("could not save actual-HUD procedural route wind fallback crop")
+		owner.free()
+		return
+	if _count_changed_pixels(state_crops[2], fallback_crop) < 80:
+		_fail("missing-asset procedural fallback must differ from the approved atlas pixels")
+		owner.free()
+		return
+	canvas.renderer = asset_renderer
 
 	var target_crop := _capture_region(
 		full_images[0],
@@ -674,7 +784,7 @@ func _run() -> void:
 			int(economy_after.get("gold", -1)),
 			int(economy_after.get("muhon", -1)),
 			initial_pickups.size(),
-			10,
+			18,
 		]
 	)
 	flow.call("_finish_vertical_slice")

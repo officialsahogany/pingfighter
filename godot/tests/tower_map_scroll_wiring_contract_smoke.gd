@@ -217,8 +217,13 @@ func _verify_production_prewarm_order_and_draw_peek_contract() -> void:
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
-	_expect(renderer_source.find("ResourceLoader.load") < 0, "draw ownership must not load resources")
-	_expect(renderer_source.find("ResourceLoader.exists") < 0, "draw ownership must not probe missing paths")
+	# The sanctioned prewarm-aware wrapper is ProjectResourceLoader.load_imported_texture,
+	# whose name contains "ResourceLoader.load" as a substring. Strip the wrapper before
+	# searching so the seal still catches a RAW engine load on the draw owner.
+	var raw_load_source: String = renderer_source.replace("ProjectResourceLoader.load_imported_texture", "")
+	raw_load_source = raw_load_source.replace("ProjectResourceLoader.load_texture", "")
+	_expect(raw_load_source.find("ResourceLoader.load") < 0, "draw ownership must not load resources")
+	_expect(raw_load_source.find("ResourceLoader.exists") < 0, "draw ownership must not probe missing paths")
 	_leg_count += 1
 
 

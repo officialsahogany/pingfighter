@@ -26,44 +26,38 @@
 
 ## 작업 격리와 기준
 
-- 사용자 지정 기준 HEAD: `b57329dd17d78c94dbaf306c2d5dbd95ad585e78`
+- 작업 시작 시 최신 본 트리 HEAD: `58c36edc88190d247ec3a4d49d85e382c26ba7ca`
+- 무풍 숨김과 픽업 정본: `7d47f516a`, 위 기준 HEAD의 조상임을 확인했다.
 - 웜 워크트리: `D:\main\bosspong_tower_audition_689b`
-- 브랜치: `codex/tower-route-wind-pickup-b573-20260821`
-- 기존 웜 브랜치 `codex/tower-route-wind-pickup-20260821`은 그대로 보존했다.
+- 브랜치: `codex/tower-wind-v4-runtime-7d47-20260821`
+- 이전 작업 브랜치 `codex/tower-route-wind-pickup-b573-20260821`은
+  `eb6af0f5a`에서 그대로 보존했다.
 - 본 트리 수정·스테이징·통합·푸시: 없음
 
-작업 종료 스냅샷에서 본 트리 HEAD는 동시 작업으로 `d1747a65d`까지 전진했다.
-추가된 두 커밋은 Stage 3 스킬카드, 보류 문서, CI/pre-push 목록만 변경하며 경로
-런타임 파일과는 겹치지 않는다. 이 격리 브랜치의 사용자 지정 기준은 계속
-`b57329dd1`이고, 새 본 트리 변경은 통합하지 않았다. 추후 통합 시 양쪽 씰 목록을
-락스텝으로 합쳐야 한다.
-
-기존 웜 작업의 구현 슬라이스를 새 기준 브랜치에 순서대로 재적용한 뒤 최신 기준에서
-전부 다시 검사했다. 사용자 지정 HEAD의 두 최신 커밋과 오늘 들어온 경로 화면 수정을
-되돌리지 않았다.
+작업 도중 본 트리는 동시 작업으로 `d3860ce15`까지 전진했다. 새 본 트리 커밋은 이
+격리 브랜치에 통합하지 않았고, 본 트리 파일도 건드리지 않았다. 작업 시작 시 최신
+HEAD에 이미 들어 있던 `7d47f516a` 위에서 시작했으므로 오늘의 경로 화면 수정과
+무풍 숨김 게이트를 되돌리지 않았다.
 
 | 커밋 | 슬라이스 |
 |---|---|
-| `d44ced280` | 무풍 풍향계 숨김, GRT-043 조기 게이트, 신규 스모크 등록 |
-| `bbf111e09` | 경로 재화/복주머니 롤·배치·충돌·획득·정리 구현 |
-| `c1968bf51` | 풍향계 ImageGen v2 비교 후보 추가 |
-| `50a62222e` | 2020x1246 Vulkan 픽업·경제 HUD·공·정리 증거 확장 |
-| `6b51de822` | 내장 ImageGen v3 권장 후보와 실제 112x36 검토본 추가 |
-| `d274fbefb` | 액티브 unlock store를 보존하면서 세로 슬라이스 픽스처 회귀 차단 |
+| `f8180ed39` | v4a/v4b 실제 `112x36` 승인 후보 provenance |
+| `837643727` | 승인 v4b 아틀라스, `.import`, 런타임 배선, 절차 폴백 |
+| `fccf3103d` | 자산/ctex, 무풍 게이트, 누락 폴백, Vulkan 픽셀 씰 |
 
 ## 무풍 풍향계 숨김
 
 - 임계값은 `INDICATOR_VISIBLE_STRENGTH_THRESHOLD = 0.01`로 한 곳에 선언했다
   (`tower_ascent_route_wind_policy.gd:10`, `44-49`).
 - 렌더러는 무풍일 때 게이지 모델과 바람 모델을 만들기 전에 반환한다.
-  build-then-discard가 아니다(`tower_ascent_flow_renderer.gd:2799-2817`).
+  build-then-discard가 아니다(`tower_ascent_flow_renderer.gd:2878-2885`).
 - 페이드는 넣지 않았다. 경로 바람은 진입당 한 번 정해져 서브가 끝날 때까지 고정되므로
   프레임 간 점멸 원인이 없다. 페이드는 무풍 의미 전달을 늦추고 숨은 상태의 드로 비용도
   남긴다.
 - 신규 부정 레그는 무풍에서 게이지 모델 0, 바람 모델 0, 캔버스 드로 호출 0을 단언한다
-  (`tower_route_wind_and_pickup_smoke.gd:163-172`).
+  (`tower_route_wind_and_pickup_smoke.gd:178-186`).
 
-## 풍향계 ImageGen 승인 후보
+## 풍향계 v4b 승인과 런타임 승격
 
 현행 런타임 계약을 먼저 측정했다.
 
@@ -76,24 +70,60 @@
 | 표시 상태 | `좌/우 x 약/보통/강 = 6개` |
 | 숨김 상태 | 무풍 1개 |
 
-측정과 생성 프롬프트는
-`docs/art_candidates/tower_route_wind_vane/README.md:15-23`, `59-70`에 기록했다.
+v3는 2026-08-21 사용자 판정으로 반려했다. 원본의 황동, 비취, 주사 팔레트는
+맞지만 실제 `112x36`에서는 나침반 장미가 노이즈가 되고 작은 구슬 3개의
+켜짐/꺼짐이 약했다. 나침반이 한쪽을 차지해 좌우 반전 몸체도 어색했다.
 
-- 권장 후보 원본:
-  `docs/art_candidates/tower_route_wind_vane/tower_route_wind_vane_imagegen_v3_source.png`
-  - 내장 ImageGen 편집 모드, `2070x760`, RGBA
-  - 알파 bbox `(25,37)-(2038,744)`, 알파 `0/255`, 네 모서리 투명
-  - SHA-256 `CA0CF6FA823411D22C4EC5DB874C091F462617E45293BED76B7E6A951D20B5D6`
-- 실제 슬롯 검토본:
-  `docs/art_candidates/tower_route_wind_vane/tower_route_wind_vane_imagegen_v3_preview_112x36.png`
-  - 오브젝트 `103x36`, 최종 알파 bbox `(7,3)-(105,30)`
-  - 오른쪽 화살표와 켜진 세기 셀 2개, 꺼진 셀 1개가 실제 크기에서도 분리된다.
-  - SHA-256 `70DC0B2A084DFF04E35A78BE08F49FEA9458EC04D669AAA46C0151DE70FFD68C`
+반려 사유를 한 번에 분리하기 위해 내장 ImageGen 편집 모드로 같은 중앙 대칭 몸체의
+3상태 후보 두 개를 만들었다. 둘 다 위에서부터 `왼쪽/보통`, `무풍`,
+`오른쪽/보통`이며 모든 상태에 개별 실제 `112x36` 컷이 있다.
 
-팔레트는 먹색 옻칠, 탁한 비취, 작은 주홍, 노화 황동이며 네온은 사용하지 않았다.
-상태는 **미승인 후보**다. `godot/assets/` 승격, 6개 상태 제작, 렌더러 연결,
-`.import`/`.ctex` 생성은 하지 않았다. 승인 뒤에도 6개 상태를 고정 앵커로 제작하고
-실제 `112x36`에서 다시 심사해야 한다.
+| 후보 | 세기 표시 | 무풍 | 실제 크기 판정 |
+|---|---|---|---|
+| v4a 굵은 눈금 | 방향 쪽 3칸을 약 1, 보통 2, 강 3칸 점등 | 6칸 소등, 중앙 황동 마름모 | **반려**. 6칸 테두리와 끝 장식이 v4b보다 복잡하다 |
+| v4b 채워지는 띠 | 중앙에서 방향 쪽 반구간을 1/3, 2/3, 끝까지 충전 | 빈 띠, 중앙 주사 마름모 | **승인 및 승격**. 화살과 충전 영역이 큰 한 덩어리로 읽힌다 |
+
+- 실제 크기 비교:
+  `docs/art_candidates/tower_route_wind_vane/tower_route_wind_vane_imagegen_v4_actual_comparison_232x108.png`
+  - 왼쪽 열 v4a, 오른쪽 열 v4b, 각 상태 자산은 정확히 `112x36`
+  - SHA-256 `BA4809D9700842DC135FCE0EA06D58FDE1E817795370706B7F5B597C259C21F6`
+- v4a 실제 크기 세로 묶음:
+  `docs/art_candidates/tower_route_wind_vane/tower_route_wind_vane_imagegen_v4a_ticks_actual_strip_112x108.png`
+  - SHA-256 `67ECA7C4BCBAD4C6BBD9FAEF580B5AD7DA927412D58A1F5AACD16B17F841967E`
+- v4b 실제 크기 세로 묶음:
+  `docs/art_candidates/tower_route_wind_vane/tower_route_wind_vane_imagegen_v4b_band_actual_strip_112x108.png`
+  - SHA-256 `4435BB4D6FAF0F5A9938A253DFD777F4E99E6BBBCDC6F07D4C31DA070E4BDA02`
+
+팔레트는 먹색 옻칠, 탁한 비취, 작은 주사, 노화 황동이며 네온은 사용하지 않았다.
+나침반 장미는 제거했고 구름 문양은 대칭 모서리의 작은 장식으로 줄였다. v4a는
+반려했고 v4b만 런타임으로 승격했다.
+
+승격 자산은
+`godot/assets/sprites/tower/route_wind_vane_imagegen_v4b_atlas.png`의
+`784x36`, `7x1`, 셀당 `112x36` 아틀라스다. 프레임 순서는 `무풍`,
+`좌 약/보통/강`, `우 약/보통/강`이다. PNG SHA-256은
+`05C7285E4BE8863E7B25C07F5722AF7A88AF503DA7ECC044B45AC2AA56E12B33`이다.
+
+### 세기와 방향 배선 판정
+
+- **세기는 완성 프레임 6장을 고른다.** 한 장의 띠를 런타임에서 잘라 채우면 승인된
+  끝단, 비취 광택, 황동 테두리의 픽셀이 세기마다 달라질 수 있다. 메모리 증가는
+  `784x36` RGBA 한 장으로 작고, 각 세기의 실제 크기 픽셀을 고정하는 편이 안전하다.
+- 렌더러는 `draw_texture_rect_region()`에 픽셀 단위 source rect를 전달한다.
+  셰이더나 정규화 UV로 띠를 자르지 않으므로 GRT-033의 framebuffer/정규화 UV
+  변환 경로가 없다.
+- **좌우는 반전하지 않고 별도 셀을 사용한다.** 중앙 대칭 실루엣은 유지하되 황동
+  하이라이트와 비취 끝단 조명이 뒤집히지 않게 승인 픽셀을 그대로 쓴다.
+- 무풍 셀은 향후 표시 가능성을 검증하기 위해 아틀라스에 남겼지만, 실제 제품 경로는
+  GRT-043 조기 반환으로 계속 숨긴다.
+
+`.import` 사이드카 SHA-256은
+`E7BE43D736E5CEBC98C536792264D0C8DB31B4B7012D8E85025CE0B752A19CC8`이고,
+`CompressedTexture2D`로 remap된 `.ctex`는 격리 캐시에 실제 생성됐다. `.ctex`는
+`27,956 bytes`, SHA-256
+`DCBE764767DADE5149C2CF4C80E88986F9EFA42EB3DD2460E4BB8BE9236A42FF`다.
+런타임은 import된 텍스처가 없거나 크기가 계약과 다르면 기존 절차 드로어로 즉시
+폴백한다. raw PNG를 직접 디코딩하는 제품 폴백은 두지 않았다.
 
 ## 경로 재화 픽업
 
@@ -162,10 +192,14 @@ store를 만들지 않아 액티브 후보가 비었고, 신규 픽업 초기화
 ## 씰과 검증
 
 신규 씰 `tower_route_wind_and_pickup_smoke.gd`는 고정
-`EXPECTED_LEG_COUNT = 7`이며 다음을 단언한다
-(`godot/tests/tower_route_wind_and_pickup_smoke.gd:26`, `118-132`).
+`EXPECTED_LEG_COUNT = 9`이며 다음을 단언한다
+(`godot/tests/tower_route_wind_and_pickup_smoke.gd:26`, `133-143`).
 
 - 임계값과 GRT-043 무풍 모델/드로우 0
+- PNG와 `.import` 존재, `.import`가 가리키는 `.ctex` 존재
+- 런타임 자산이 raw `ImageTexture`가 아닌 `CompressedTexture2D`이고 `784x36`임
+- 7개 프레임 매핑과 바람 상태의 texture-region 드로우
+- 자산 강제 누락 시 texture 드로우 0, 절차 드로우 1 이상
 - 금화 2~5, 무혼 2~5, 복주머니 1
 - 픽업/표적/직선 통로 최소 간격
 - 선분 충돌
@@ -174,25 +208,27 @@ store를 만들지 않아 액티브 후보가 비었고, 신규 픽업 초기화
 - 재서브 배치 유지와 화면 종료 정리
 
 CI와 pre-push 리터럴 목록은 각각 `197`개이며 차이는 `0`, 신규 씰은 각 목록에
-정확히 한 번씩 있다. 사용자 지정 기준 HEAD의 목록은 각각 `196`개였으므로 신규
-씰 한 개만 증가했다.
+정확히 한 번씩 있다.
 
 최신 기준 최종 터미널 증거:
 
 ```text
-tower_route_wind_and_pickup_smoke: ok PASS=7
-Smoke summary: PASS=6 FAIL=0 TOTAL=6
+tower_route_wind_and_pickup_smoke: ok PASS=9
+Smoke summary: PASS=1 FAIL=0 TOTAL=1
 All Godot smoke tests passed.
 
-gd_warning_scan: scanning 11 scripts
-gd_warning_scan: checked 11/11
+Smoke summary: PASS=7 FAIL=0 TOTAL=7
+All Godot smoke tests passed.
+
+gd_warning_scan: scanning 3 scripts
+gd_warning_scan: checked 3/3
 Godot warning scan passed with no GDScript warnings.
 
 [ApplicationQuitCoordinator] graceful headless shutdown complete
 Godot headless load check passed.
 
 Vulkan 1.4.325 - Forward Mobile - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5070
-tower_route_serve_wind_target_visual_qa: ok ... gold=11 muhon=21 pickups=8 captures=10
+tower_route_serve_wind_target_visual_qa: ok ... gold=11 muhon=21 pickups=8 captures=18
 Tower route wind pickup and target Vulkan visual QA passed.
 ```
 
@@ -205,20 +241,41 @@ Tower route wind pickup and target Vulkan visual QA passed.
 
 | 증거 | 파일 | SHA-256 |
 |---|---|---|
-| 무풍, 패널 숨김 | `route_wind_calm.png` | `E6C63781EB666FA12B3376AC52A192F794B96E002460F8086D706D74E9BD800E` |
-| 우강풍, 패널 표시, 전체 픽업 | `route_wind_max_right.png` | `A03A8F62255D66DF71D0E01E33401D1922CD9B7DEA070D8B459325EA1698F248` |
+| 좌풍 승인 자산 | `route_wind_asset_left_2020x1246.png` | `5DBA746A28FBD824D66D125C40F4E9421C1D5420AD853BCE7620EA3DFE6A25C4` |
+| 무풍 authored 셀, QA 전용 노출 | `route_wind_asset_calm_2020x1246.png` | `1177BDDCDC5F9F8CC59A0DCAA90CDE09105804A401917A66AB933C29DFFF1EA3` |
+| 우풍 승인 자산 | `route_wind_asset_right_2020x1246.png` | `1F8EF88A5C76CD58A8B86506F4D58E69C36F1EEF95BAD36A239395B650CA35BB` |
+| 자산 누락 절차 폴백 | `route_wind_procedural_fallback_2020x1246.png` | `A03A8F62255D66DF71D0E01E33401D1922CD9B7DEA070D8B459325EA1698F248` |
+| 제품 무풍, 패널 숨김 | `route_wind_calm.png` | `E6C63781EB666FA12B3376AC52A192F794B96E002460F8086D706D74E9BD800E` |
 | 획득 직후 HUD `10/20 -> 11/21` | `route_pickups_after_currency_2020x1246.png` | `C9FD495F17A20F510FD70C42C3186AAC472AF262103C4A64360CD4676A3C57CA` |
 | 실제 서브 공 비행 | `route_live_ball_in_flight_2020x1246.png` | `3E8D982ACF787BCC565EDC09D6FABD20552E698F1E2EC9719F9A515D23A81A82` |
 | 표적 확정 뒤 픽업 정리 | `route_cleanup_after_target_2020x1246.png` | `7B8A0FC573609C1F4F37827111DF0D4B4212B1F4820E066829A176365182B079` |
 
+실제 제품 논리 슬롯은 계속 `112x36`이다. 2020x1246 창의 제품 playfield 배율을
+그대로 적용하면 framebuffer footprint는 `186x59`이며 QA 확대는 넣지 않았다.
+같은 footprint를 잘라 자동 비교한 해시는 다음과 같다.
+
+| 실제 HUD footprint | 파일 | SHA-256 |
+|---|---|---|
+| 좌풍 | `route_wind_asset_left_actual_hud_crop.png` | `E4545262F36EFE70E0DDE2DC0E323433CB388E3760CF5DD4507BF60C38630A8D` |
+| 무풍 authored 셀 | `route_wind_asset_calm_actual_hud_crop.png` | `782E943EA0F40466D01788F2C0C1B066F89FBF6DB73B0BBCA2DC3815E59D8655` |
+| 우풍 | `route_wind_asset_right_actual_hud_crop.png` | `049BE445B4141114AD5005E71AA19C42CA56077E2CC9F381F4BB3ACAF4F13D54` |
+| 절차 폴백 | `route_wind_procedural_fallback_actual_hud_crop.png` | `F0C9042CA4AF1C0BBDC491E445C42EB23BD7EEA846785BADF3AE37FBD19F2FBC` |
+
+좌풍/무풍은 `1,729`, 좌풍/우풍은 `2,618`, 무풍/우풍은 `1,809` 픽셀이
+서로 달랐다. 우풍 승인 자산과 절차 폴백은 `9,038` 픽셀이 달랐다. 모두 최소
+`80` 픽셀 차이 씰을 넘었다. 제품 무풍 캡처는 패널이 완전히 숨은 별도 부정 레그다.
 캡처와 자동 픽셀 판정으로 풀 `760x750` 코트 테두리, 플레이어 패들, 실제 공,
-표적 아이콘이 유지됨을 확인했다. 이전 보스/스테이지 오브젝트와 스킬 레일은 0이다.
+표적 아이콘도 유지됨을 확인했다. 이전 보스/스테이지 오브젝트와 스킬 레일은 0이다.
 
 ## 최종 게이트
 
 - blocked: `0`
-- 풍향계 v3 후보 승인: **대기 중**
-- 풍향계 런타임 승격: 승인 전 미수행
+- 풍향계 v3 후보: **반려**
+- 풍향계 v4a 후보: **반려**
+- 풍향계 v4b 후보: **승인 및 런타임 승격 완료**
+- `.import`/`.ctex`: **존재와 import 로드 경로 확인 완료**
+- 자산 누락 절차 폴백: **GREEN**
+- GRT-043 무풍 숨김 무손상: **GREEN**
 - 사용자 본 트리 라이브 1판: **unverified 1**
 - 통합/푸시: 미수행
 

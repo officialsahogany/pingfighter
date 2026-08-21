@@ -23,7 +23,7 @@ const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
 
-const EXPECTED_LEG_COUNT := 7
+const EXPECTED_LEG_COUNT := 9
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -52,6 +52,7 @@ class WindCanvas:
 	extends RefCounted
 
 	var draw_calls := 0
+	var texture_region_calls := 0
 
 	func draw_rect(
 		_rect: Rect2,
@@ -89,6 +90,17 @@ class WindCanvas:
 	) -> void:
 		draw_calls += 1
 
+	func draw_texture_rect_region(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_src_rect: Rect2,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false,
+		_clip_uv: bool = true
+	) -> void:
+		draw_calls += 1
+		texture_region_calls += 1
+
 
 class PickupOwner:
 	extends RefCounted
@@ -117,7 +129,9 @@ class PickupRegistry:
 
 func _init() -> void:
 	_verify_wind_visibility_threshold()
+	_verify_route_wind_asset_import_and_frames()
 	_verify_calm_draw_gate_skips_models_and_canvas()
+	_verify_missing_wind_asset_uses_procedural_fallback()
 	_verify_pickup_roll_layout_and_rng()
 	_verify_swept_pickup_contact()
 	_verify_currency_collection_and_double_consume_guard()
@@ -175,7 +189,67 @@ func _verify_calm_draw_gate_skips_models_and_canvas() -> void:
 	renderer.debug_draw_route_wind_from_flow(canvas, flow)
 	_expect(flow.gauge_model_calls == 1, "visible wind must build one gauge model")
 	_expect(flow.wind_model_calls == 1, "visible wind must build one wind draw model")
-	_expect(canvas.draw_calls > 0, "visible wind must draw the wind indicator")
+	_expect(canvas.texture_region_calls == 1, "visible wind must draw one imported atlas frame")
+
+
+func _verify_route_wind_asset_import_and_frames() -> void:
+	_leg_count += 1
+	var renderer := TowerAscentFlowRenderer.new()
+	var contract: Dictionary = renderer.get_route_wind_vane_asset_contract()
+	var asset_path := str(contract.get("path", ""))
+	var import_path := asset_path + ".import"
+	_expect(FileAccess.file_exists(asset_path), "route wind atlas source PNG must exist")
+	_expect(FileAccess.file_exists(import_path), "route wind atlas .import sidecar must exist")
+	var import_config := ConfigFile.new()
+	var import_error := import_config.load(import_path)
+	_expect(import_error == OK, "route wind atlas .import sidecar must parse")
+	var ctex_path := str(import_config.get_value("remap", "path", ""))
+	_expect(
+		ctex_path.ends_with(".ctex") and FileAccess.file_exists(ctex_path),
+		"route wind atlas imported .ctex must materialize"
+	)
+	var debug_state: Dictionary = renderer.get_route_wind_vane_asset_debug_state()
+	_expect(bool(debug_state.get("loaded", false)), "route wind atlas must load through the renderer")
+	_expect(
+		str(debug_state.get("texture_class", "")) == "CompressedTexture2D",
+		"route wind atlas must resolve to the imported CompressedTexture2D, not raw PNG fallback"
+	)
+	_expect(
+		Vector2i(debug_state.get("texture_size", Vector2i.ZERO))
+		== Vector2i(contract.get("texture_size", Vector2i.ZERO)),
+		"route wind atlas texture size must match the declared 7x1 grid"
+	)
+	_expect(int(contract.get("cols", 0)) == 7, "route wind atlas must declare seven columns")
+	_expect(int(contract.get("rows", 0)) == 1, "route wind atlas must declare one row")
+	_expect(int(contract.get("frames", 0)) == 7, "route wind atlas must declare seven frames")
+	_expect(
+		renderer.resolve_route_wind_vane_frame_index(TowerAscentRouteWindPolicy.calm_model())
+		== TowerAscentFlowRenderer.ROUTE_WIND_VANE_FRAME_CALM,
+		"calm wind must resolve the authored calm atlas frame"
+	)
+	for direction in [-1, 1]:
+		for strength_level in range(1, 4):
+			var frame_index := renderer.resolve_route_wind_vane_frame_index(
+				TowerAscentRouteWindPolicy.build_model(direction, strength_level)
+			)
+			_expect(
+				frame_index >= 1 and frame_index < 7,
+				"every directional strength must resolve an authored atlas frame"
+			)
+
+
+func _verify_missing_wind_asset_uses_procedural_fallback() -> void:
+	_leg_count += 1
+	var renderer := TowerAscentFlowRenderer.new()
+	renderer.debug_set_route_wind_vane_atlas_texture(null)
+	var canvas := WindCanvas.new()
+	renderer.debug_draw_route_wind_indicator(
+		canvas,
+		Vector2(380.0, 650.0),
+		TowerAscentRouteWindPolicy.build_model(-1, 3)
+	)
+	_expect(canvas.texture_region_calls == 0, "missing wind art must not issue a texture draw")
+	_expect(canvas.draw_calls > 0, "missing wind art must draw the procedural fallback")
 
 
 func _verify_pickup_roll_layout_and_rng() -> void:

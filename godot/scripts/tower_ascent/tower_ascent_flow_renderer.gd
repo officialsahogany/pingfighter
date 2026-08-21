@@ -30,6 +30,9 @@ const TowerAscentMapPathGeometry := preload(
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
+const ProjectResourceLoader := preload(
+	"res://scripts/resources/project_resource_loader.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -43,6 +46,20 @@ const ROUTE_AIM_GAUGE_FAN_TEXTURE := preload(
 const ROUTE_AIM_GAUGE_ARROW_TEXTURE := preload(
 	"res://assets/sprites/tower/route_aim_gauge_arrow_imagegen_v1.png"
 )
+const ROUTE_WIND_VANE_ATLAS_PATH := (
+	"res://assets/sprites/tower/route_wind_vane_imagegen_v4b_atlas.png"
+)
+const ROUTE_WIND_VANE_ATLAS_COLS := 7
+const ROUTE_WIND_VANE_ATLAS_ROWS := 1
+const ROUTE_WIND_VANE_ATLAS_FRAMES := 7
+const ROUTE_WIND_VANE_FRAME_SIZE := Vector2i(112, 36)
+const ROUTE_WIND_VANE_FRAME_CALM := 0
+const ROUTE_WIND_VANE_FRAME_LEFT_WEAK := 1
+const ROUTE_WIND_VANE_FRAME_LEFT_MEDIUM := 2
+const ROUTE_WIND_VANE_FRAME_LEFT_STRONG := 3
+const ROUTE_WIND_VANE_FRAME_RIGHT_WEAK := 4
+const ROUTE_WIND_VANE_FRAME_RIGHT_MEDIUM := 5
+const ROUTE_WIND_VANE_FRAME_RIGHT_STRONG := 6
 const ROUTE_PICKUP_BAG_TEXTURE := preload(
 	"res://assets/sprites/perks/item_bag_expansion_perk_icon.png"
 )
@@ -111,6 +128,15 @@ var _path_cache_build_count := 0
 var _path_cached_dot_count := 0
 var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
+var _route_wind_vane_atlas_texture: Texture2D = null
+
+
+func _init() -> void:
+	_route_wind_vane_atlas_texture = ProjectResourceLoader.load_imported_texture(
+		ROUTE_WIND_VANE_ATLAS_PATH,
+		"Tower route wind-vane atlas is missing; using the procedural fallback",
+		"Tower route wind-vane atlas failed to load; using the procedural fallback"
+	)
 
 
 func get_route_aim_gauge_asset_paths() -> PackedStringArray:
@@ -118,6 +144,53 @@ func get_route_aim_gauge_asset_paths() -> PackedStringArray:
 		ROUTE_AIM_GAUGE_FAN_PATH,
 		ROUTE_AIM_GAUGE_ARROW_PATH,
 	])
+
+
+func get_route_wind_vane_asset_paths() -> PackedStringArray:
+	return PackedStringArray([ROUTE_WIND_VANE_ATLAS_PATH])
+
+
+func get_route_wind_vane_asset_contract() -> Dictionary:
+	return {
+		"path": ROUTE_WIND_VANE_ATLAS_PATH,
+		"cols": ROUTE_WIND_VANE_ATLAS_COLS,
+		"rows": ROUTE_WIND_VANE_ATLAS_ROWS,
+		"frames": ROUTE_WIND_VANE_ATLAS_FRAMES,
+		"frame_size": ROUTE_WIND_VANE_FRAME_SIZE,
+		"texture_size": Vector2i(
+			ROUTE_WIND_VANE_FRAME_SIZE.x * ROUTE_WIND_VANE_ATLAS_COLS,
+			ROUTE_WIND_VANE_FRAME_SIZE.y * ROUTE_WIND_VANE_ATLAS_ROWS
+		),
+		"frame_order": PackedStringArray([
+			"calm",
+			"left_weak",
+			"left_medium",
+			"left_strong",
+			"right_weak",
+			"right_medium",
+			"right_strong",
+		]),
+	}
+
+
+func get_route_wind_vane_asset_debug_state() -> Dictionary:
+	return {
+		"loaded": _route_wind_vane_atlas_texture != null,
+		"texture_size": (
+			Vector2i(_route_wind_vane_atlas_texture.get_size())
+			if _route_wind_vane_atlas_texture != null
+			else Vector2i.ZERO
+		),
+		"texture_class": (
+			_route_wind_vane_atlas_texture.get_class()
+			if _route_wind_vane_atlas_texture != null
+			else ""
+		),
+	}
+
+
+func debug_set_route_wind_vane_atlas_texture(texture: Variant) -> void:
+	_route_wind_vane_atlas_texture = texture as Texture2D if texture is Texture2D else null
 
 
 func draw(canvas: CanvasItem, flow: Object) -> void:
@@ -2840,6 +2913,36 @@ func _draw_route_wind_indicator_model(
 ) -> void:
 	if not TowerAscentRouteWindPolicy.is_indicator_visible(wind_model):
 		return
+	var panel := _route_wind_panel_rect(origin)
+	var frame_index := resolve_route_wind_vane_frame_index(wind_model)
+	if _draw_route_wind_vane_atlas_frame(canvas, panel, frame_index):
+		return
+	_draw_route_wind_indicator_procedural(canvas, panel, wind_model)
+
+
+func debug_draw_route_wind_vane_atlas_frame(
+	canvas: Object,
+	origin: Vector2,
+	frame_index: int
+) -> bool:
+	return _draw_route_wind_vane_atlas_frame(
+		canvas,
+		_route_wind_panel_rect(origin),
+		frame_index
+	)
+
+
+func resolve_route_wind_vane_frame_index(wind_model: Dictionary) -> int:
+	var direction := clampi(int(wind_model.get("direction", 0)), -1, 1)
+	var strength_level := clampi(int(wind_model.get("strength_level", 0)), 0, 3)
+	if direction < 0 and strength_level > 0:
+		return ROUTE_WIND_VANE_FRAME_LEFT_WEAK + strength_level - 1
+	if direction > 0 and strength_level > 0:
+		return ROUTE_WIND_VANE_FRAME_RIGHT_WEAK + strength_level - 1
+	return ROUTE_WIND_VANE_FRAME_CALM
+
+
+func _route_wind_panel_rect(origin: Vector2) -> Rect2:
 	var panel_size := TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_SIZE
 	var panel_x := (
 		origin.x
@@ -2853,10 +2956,52 @@ func _draw_route_wind_indicator_model(
 			- TowerAscentTuning.TEMP_ROUTE_WIND_PANEL_GAP
 			- panel_size.x
 		)
-	var panel := Rect2(
+	return Rect2(
 		Vector2(panel_x, origin.y - panel_size.y * 0.5),
 		panel_size
 	)
+
+
+func _draw_route_wind_vane_atlas_frame(
+	canvas: Object,
+	panel: Rect2,
+	frame_index: int
+) -> bool:
+	if (
+		_route_wind_vane_atlas_texture == null
+		or not canvas.has_method("draw_texture_rect_region")
+		or frame_index < 0
+		or frame_index >= ROUTE_WIND_VANE_ATLAS_FRAMES
+	):
+		return false
+	var expected_texture_size := Vector2(
+		float(ROUTE_WIND_VANE_FRAME_SIZE.x * ROUTE_WIND_VANE_ATLAS_COLS),
+		float(ROUTE_WIND_VANE_FRAME_SIZE.y * ROUTE_WIND_VANE_ATLAS_ROWS)
+	)
+	if _route_wind_vane_atlas_texture.get_size() != expected_texture_size:
+		return false
+	var source_rect := Rect2(
+		Vector2(
+			float(frame_index * ROUTE_WIND_VANE_FRAME_SIZE.x),
+			0.0
+		),
+		Vector2(ROUTE_WIND_VANE_FRAME_SIZE)
+	)
+	# draw_texture_rect_region consumes pixel source rects directly. No
+	# draw_polygon UVs are involved, so GRT-033 normalization cannot regress.
+	canvas.draw_texture_rect_region(
+		_route_wind_vane_atlas_texture,
+		panel,
+		source_rect
+	)
+	return true
+
+
+func _draw_route_wind_indicator_procedural(
+	canvas: Object,
+	panel: Rect2,
+	wind_model: Dictionary
+) -> void:
 	var center := panel.get_center()
 	canvas.draw_rect(panel, Color(0.04, 0.025, 0.02, 0.88), true)
 	canvas.draw_rect(panel, GOLD, false, 1.5)
