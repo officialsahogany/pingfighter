@@ -35,20 +35,20 @@ func _verify_three_phase_motion_and_area_preservation() -> void:
 	var state := BallContactDeformationState.new()
 	state.sync_event(FAST_EVENT, 1000.0)
 	var impact: Dictionary = state.get_snapshot(1000.0)
-	var held: Dictionary = state.get_snapshot(1016.0)
-	var launch: Dictionary = state.get_snapshot(1042.0)
-	var settle: Dictionary = state.get_snapshot(1095.0)
-	var expired: Dictionary = state.get_snapshot(1113.0)
+	var held: Dictionary = state.get_snapshot(1028.0)
+	var launch: Dictionary = state.get_snapshot(1062.0)
+	var settle: Dictionary = state.get_snapshot(1128.0)
+	var expired: Dictionary = state.get_snapshot(1146.0)
 
 	_expect(str(impact.get("phase", "")) == "compression", "contact frame should begin in compression")
-	_expect(float(impact.get("axis_scale", 1.0)) <= 0.77, "a maximum-speed hit should visibly compress along the collision axis")
-	_expect(float(held.get("axis_scale", 1.0)) < 0.84, "compression should survive at least one 60 Hz display frame")
+	_expect(float(impact.get("axis_scale", 1.0)) <= 0.67, "a maximum-speed hit should visibly compress along the collision axis")
+	_expect(float(held.get("axis_scale", 1.0)) < 0.77, "compression should survive across multiple display frames")
 	_expect(str(launch.get("phase", "")) == "launch_stretch", "the second phase should identify launch stretch")
-	_expect(float(launch.get("axis_scale", 1.0)) >= 1.15, "the launch peak should stretch along outgoing velocity")
-	_expect(float(launch.get("perpendicular_scale", 1.0)) < 0.94, "launch stretch should narrow across outgoing velocity")
+	_expect(float(launch.get("axis_scale", 1.0)) >= 1.23, "the launch peak should stretch along outgoing velocity")
+	_expect(float(launch.get("perpendicular_scale", 1.0)) < 0.90, "launch stretch should narrow across outgoing velocity")
 	_expect(str(settle.get("phase", "")) == "settle", "the final phase should be a small elastic settle")
 	_expect(absf(float(settle.get("axis_scale", 1.0)) - 1.0) < 0.035, "settle should stay subtle before returning to a circle")
-	_expect(expired.is_empty(), "the presentation-only deformation should expire after 112 ms")
+	_expect(expired.is_empty(), "the presentation-only deformation should expire after 145 ms")
 
 	for snapshot in [impact, held, launch, settle]:
 		var area_scale: float = (
@@ -59,21 +59,34 @@ func _verify_three_phase_motion_and_area_preservation() -> void:
 
 
 func _verify_speed_scaling_and_event_lifecycle() -> void:
-	var medium_state := BallContactDeformationState.new()
-	medium_state.sync_event({
+	var default_cap_state := BallContactDeformationState.new()
+	default_cap_state.sync_event({
 		"id": 72,
-		"velocity": Vector2(0.0, -23.5),
+		"velocity": Vector2(0.0, -26.0),
 		"kind": "player_paddle",
 	}, 2000.0)
-	var medium: Dictionary = medium_state.get_snapshot(2000.0)
+	var default_cap: Dictionary = default_cap_state.get_snapshot(2000.0)
 	_expect(
-		float(medium.get("axis_scale", 0.0)) > 0.84,
-		"mid-speed contact should compress less than a maximum-speed hit"
+		float(default_cap.get("axis_scale", 1.0)) <= 0.75,
+		"the ordinary 26-speed cap should already produce a clearly readable squash"
+	)
+
+	var medium_state := BallContactDeformationState.new()
+	medium_state.sync_event({
+		"id": 73,
+		"velocity": Vector2(0.0, -22.0),
+		"kind": "player_paddle",
+	}, 2500.0)
+	var medium: Dictionary = medium_state.get_snapshot(2500.0)
+	_expect(
+		float(medium.get("axis_scale", 0.0)) > float(default_cap.get("axis_scale", 1.0))
+		and float(medium.get("axis_scale", 1.0)) < 0.88,
+		"mid-speed contact should stay visible but compress less than the ordinary cap"
 	)
 
 	var low_state := BallContactDeformationState.new()
 	low_state.sync_event({
-		"id": 73,
+		"id": 74,
 		"velocity": Vector2(0.0, -BallContactDeformationState.SPEED_START),
 		"kind": "player_paddle",
 	}, 3000.0)
@@ -81,19 +94,19 @@ func _verify_speed_scaling_and_event_lifecycle() -> void:
 
 	var duplicate_state := BallContactDeformationState.new()
 	duplicate_state.sync_event(FAST_EVENT, 4000.0)
-	var launch_before_duplicate: Dictionary = duplicate_state.get_snapshot(4042.0)
-	duplicate_state.sync_event(FAST_EVENT, 4042.0)
-	var launch_after_duplicate: Dictionary = duplicate_state.get_snapshot(4042.0)
+	var launch_before_duplicate: Dictionary = duplicate_state.get_snapshot(4062.0)
+	duplicate_state.sync_event(FAST_EVENT, 4062.0)
+	var launch_after_duplicate: Dictionary = duplicate_state.get_snapshot(4062.0)
 	_expect(
 		launch_after_duplicate == launch_before_duplicate,
 		"a persistent hit event must not restart compression every draw frame"
 	)
 	duplicate_state.sync_event({
-		"id": 74,
+		"id": 75,
 		"velocity": Vector2(35.0, 0.0),
 		"kind": "wall",
-	}, 4050.0)
-	_expect(duplicate_state.get_snapshot(4050.0).is_empty(), "wall events should not reuse the paddle squash")
+	}, 4070.0)
+	_expect(duplicate_state.get_snapshot(4070.0).is_empty(), "wall events should not reuse the paddle squash")
 	duplicate_state.clear()
 	duplicate_state.sync_event(FAST_EVENT, 5000.0)
 	_expect(not duplicate_state.get_snapshot(5000.0).is_empty(), "round cleanup should allow a reused event id to start fresh")

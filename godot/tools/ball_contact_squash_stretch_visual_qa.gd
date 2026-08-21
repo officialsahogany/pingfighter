@@ -2,13 +2,13 @@ extends SceneTree
 
 const BallRenderer := preload("res://scripts/ball/ball_renderer.gd")
 
-const VIEW_SIZE := Vector2i(2020, 900)
-const GAME_SIZE := Vector2(760.0, 500.0)
-const BALL_Y := 260.0
+const VIEW_SIZE := Vector2i(2020, 1246)
+const GAME_SIZE := Vector2(760.0, 750.0)
+const BALL_Y := 350.0
 const CASE_XS := [110.0, 290.0, 470.0, 650.0]
-const CASE_LABELS := ["ROUND", "IMPACT 0ms", "LAUNCH 42ms", "SETTLE 95ms"]
+const CASE_LABELS := ["ROUND", "IMPACT 0ms", "LAUNCH 62ms", "SETTLE 128ms"]
 const EVENT_START_MSEC := 1000.0
-const PHASE_TIMES := [1000.0, 1000.0, 1042.0, 1095.0]
+const PHASE_TIMES := [1000.0, 1000.0, 1062.0, 1128.0]
 
 
 class CaptureCanvas:
@@ -18,8 +18,8 @@ class CaptureCanvas:
 	var hit_event := {
 		"id": 901,
 		"pos": Vector2(0.0, BALL_Y + 28.0),
-		"velocity": Vector2(0.0, -35.0),
-		"intensity": 1.0,
+		"velocity": Vector2(0.0, -26.0),
+		"intensity": 0.8,
 		"kind": "player_paddle",
 	}
 
@@ -60,7 +60,7 @@ class CaptureCanvas:
 			center,
 			{
 				"ball_visual_type": "energy",
-				"ball_vel": Vector2(0.0, -35.0),
+				"ball_vel": Vector2(0.0, -26.0),
 				"effect_lod_scale": 0.35,
 				"ball_ground_shadow_enabled": false,
 				"ball_readability_enabled": false,
@@ -75,7 +75,7 @@ class CaptureCanvas:
 		draw_rect(paddle_rect, Color(0.18, 0.46, 0.68, 0.82), true)
 		draw_rect(paddle_rect, Color(0.70, 0.92, 1.0, 0.46), false, 1.0)
 		var font: Font = ThemeDB.fallback_font
-		draw_string(font, Vector2(center.x - 57.0, 382.0), str(CASE_LABELS[case_index]), HORIZONTAL_ALIGNMENT_CENTER, 114.0, 13, Color(0.76, 0.86, 0.96))
+		draw_string(font, Vector2(center.x - 57.0, 472.0), str(CASE_LABELS[case_index]), HORIZONTAL_ALIGNMENT_CENTER, 114.0, 13, Color(0.76, 0.86, 0.96))
 
 
 var _failures: Array[String] = []
@@ -121,7 +121,7 @@ func _verify_capture(image: Image) -> void:
 		_failures.append("could not create output directory: %s" % output_dir)
 		return
 	var output_path: String = output_dir.path_join(
-		"ball_contact_squash_stretch_phases_2020x900.png"
+		"ball_contact_squash_stretch_phases_2020x1246.png"
 	)
 	var save_error: int = image.save_png(output_path)
 	if save_error != OK:
@@ -141,9 +141,9 @@ func _verify_capture(image: Image) -> void:
 	var impact_size: Vector2i = _measure_bright_core_size(image, 1)
 	var launch_size: Vector2i = _measure_bright_core_size(image, 2)
 	var settle_size: Vector2i = _measure_bright_core_size(image, 3)
-	if impact_size.x <= int(round(float(impact_size.y) * 1.08)):
+	if impact_size.x <= int(round(float(impact_size.y) * 1.35)):
 		_failures.append("impact core was not wider than tall: %s" % impact_size)
-	if launch_size.y <= int(round(float(launch_size.x) * 1.08)):
+	if launch_size.y <= int(round(float(launch_size.x) * 1.18)):
 		_failures.append("launch core was not taller than wide: %s" % launch_size)
 	if absf(float(settle_size.x - settle_size.y)) > 8.0:
 		_failures.append("settle core did not return close to round: %s" % settle_size)

@@ -31,7 +31,7 @@ try {
         $output = & $godot `
             --path $ProjectPath `
             --windowed `
-            --resolution 2020x900 `
+            --resolution 2020x1246 `
             --rendering-method mobile `
             --rendering-driver vulkan `
             --log-file $logPath `

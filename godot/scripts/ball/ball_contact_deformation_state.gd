@@ -3,14 +3,14 @@ extends RefCounted
 # 실제 충돌/속도는 건드리지 않는 표시 전용 squash-and-stretch 상태.
 # 한 번의 패들 접촉을 짧은 압축 -> 출사 신장 -> 약한 탄성 복원으로 투영한다.
 const SPEED_START := 12.0
-const SPEED_FULL := 35.0
-const COMPRESSION_HOLD_END_MSEC := 18.0
-const STRETCH_PEAK_MSEC := 42.0
-const REBOUND_MSEC := 78.0
-const LIFETIME_MSEC := 112.0
-const MAX_COMPRESSION := 0.24
-const MAX_STRETCH := 0.16
-const MAX_REBOUND_COMPRESSION := 0.035
+const SPEED_FULL := 32.0
+const COMPRESSION_HOLD_END_MSEC := 32.0
+const STRETCH_PEAK_MSEC := 62.0
+const REBOUND_MSEC := 105.0
+const LIFETIME_MSEC := 145.0
+const MAX_COMPRESSION := 0.34
+const MAX_STRETCH := 0.24
+const MAX_REBOUND_COMPRESSION := 0.045
 
 var _last_event_id := -1
 var _started_msec := -1.0
@@ -60,7 +60,7 @@ func get_snapshot(now_msec: float) -> Dictionary:
 		_deactivate()
 		return {}
 	var deformation: float = _get_axis_deformation(elapsed_msec, _strength)
-	var axis_scale: float = clampf(1.0 + deformation, 0.72, 1.18)
+	var axis_scale: float = clampf(1.0 + deformation, 0.66, 1.24)
 	# 구형 공의 체적을 근사 보존해 고무풍선처럼 커졌다 작아지는 인상을 막는다.
 	var perpendicular_scale: float = 1.0 / sqrt(axis_scale)
 	return {
