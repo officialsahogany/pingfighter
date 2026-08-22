@@ -222,10 +222,14 @@ func release_all(preserve_failure_diagnostics: bool = false) -> void:
 	_disconnect_frame_signal()
 	if _blit_viewport != null and is_instance_valid(_blit_viewport):
 		_blit_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		var parent := _blit_viewport.get_parent()
-		if parent != null:
-			parent.remove_child(_blit_viewport)
-		_blit_viewport.free()
+		# 씬 전환(F10 부스 리셋) 프레임에는 부모인 루트 뷰포트가 자식 처리
+		# 중이라 remove_child()가 거부되고, 그 상태의 free()는 부모 자식
+		# 목록에 매달린 포인터를 남겨 다음 씬 진입이 얼어붙는다.
+		# 트리에 붙어 있으면 항상 queue_free()로 지연 해제한다.
+		if _blit_viewport.get_parent() != null:
+			_blit_viewport.queue_free()
+		else:
+			_blit_viewport.free()
 	_blit_viewport = null
 	_blit_rect = null
 	_blit_material = null

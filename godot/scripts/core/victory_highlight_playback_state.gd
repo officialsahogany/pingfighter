@@ -404,10 +404,13 @@ func _complete(call_finish: bool) -> void:
 
 func _tear_down_host() -> void:
 	if _host != null and is_instance_valid(_host):
-		var parent: Node = _host.get_parent()
-		if parent != null:
-			parent.remove_child(_host)
-		_host.free()
+		# 씬 전환 프레임에는 부모 트리가 바빠 remove_child()가 거부될 수
+		# 있고, 그 상태의 free()는 부모 목록을 손상시킨다(캡처 상태와 동일
+		# 계약). 트리에 붙어 있으면 항상 queue_free()로 지연 해제한다.
+		if _host.get_parent() != null:
+			_host.queue_free()
+		else:
+			_host.free()
 	_host = null
 	_playfield_clip = null
 	_background_bridge = null
