@@ -22,6 +22,10 @@ const LOGICAL_MAX_FRAME_COUNT := RING_SLOT_COUNT + MAX_CLIP_FRAME_COUNT * MAX_RE
 const LOGICAL_MAX_BYTE_COUNT := LOGICAL_MAX_FRAME_COUNT * CAPTURE_BYTE_COUNT
 const MAX_IN_FLIGHT := 2
 const FRAME_DEADLINE_USEC := int(floor(1_000_000.0 / MAX_CAPTURE_HZ))
+const CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD := 3
+const FAILURE_REASON_ASYNC_CAPTURE_ERROR := "async_capture_error"
+const FAILURE_REASON_BYTE_SIZE_MISMATCH := "byte_size_mismatch"
+const FAILURE_REASON_CROP_SYNC_FAILURE := "crop_sync_failure"
 const DEBUG_CAPTURE_ARG := "--victory-highlight-frame-capture-debug"
 const DEBUG_CAPTURE_PNG_PATH := "user://victory_highlight_frame_capture_debug.png"
 const NORMALIZED_CROP_SHADER_CODE := """
@@ -71,6 +75,14 @@ var _ready := false
 var _failed := false
 var _forced_startup_failure := false
 var _forced_runtime_failure := false
+var _forced_crop_sync_failure_once := false
+var _capture_failure_count := 0
+var _consecutive_capture_failure_count := 0
+var _last_capture_failure_reason := ""
+var _last_capture_failure_detail := ""
+var _fallback_reason := ""
+var _last_failure_log := ""
+var _last_recovery_log := ""
 var _debug_capture_enabled := false
 var _debug_arm_logged := false
 var _debug_post_draw_logged := false
@@ -90,25 +102,25 @@ func prewarm_step(owner: Object) -> bool:
 	if _ready or _failed:
 		return true
 	if _forced_startup_failure:
-		_fail_startup()
+		_fail_startup("forced_startup_failure", "test injection")
 		return true
 	if not _prewarm_started:
 		if owner == null or not owner.has_method("get_viewport"):
-			_fail_startup()
+			_fail_startup("owner_unavailable", "owner has no viewport bridge")
 			return true
 		var viewport_value: Variant = owner.get_viewport()
 		if not (viewport_value is Viewport):
-			_fail_startup()
+			_fail_startup("viewport_unavailable", "owner returned no Viewport")
 			return true
 		_root_viewport = viewport_value as Viewport
 		_rd = RenderingServer.get_rendering_device()
 		if _rd == null:
-			_fail_startup()
+			_fail_startup("rendering_device_unavailable", "RenderingServer returned no device")
 			return true
 		_build_blit_viewport()
 		_connect_frame_signal()
 		if not _sync_blit_crop():
-			_fail_startup()
+			_fail_startup(FAILURE_REASON_CROP_SYNC_FAILURE, "prewarm crop synchronization failed")
 			return true
 		_blit_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		_prewarm_started = true
@@ -118,11 +130,19 @@ func prewarm_step(owner: Object) -> bool:
 	var source_texture := RenderingServer.viewport_get_texture(_blit_viewport.get_viewport_rid())
 	_source_rd_texture = RenderingServer.texture_get_rd_texture(source_texture, false)
 	if not _source_rd_texture.is_valid():
-		_fail_startup()
+		_fail_startup("source_texture_unavailable", "blit texture has no RenderingDevice RID")
 		return true
 	var source_format: RDTextureFormat = _rd.texture_get_format(_source_rd_texture)
 	if source_format.width != CAPTURE_SIZE.x or source_format.height != CAPTURE_SIZE.y:
-		_fail_startup()
+		_fail_startup(
+			"capture_size_mismatch",
+			"actual=%dx%d expected=%dx%d" % [
+				source_format.width,
+				source_format.height,
+				CAPTURE_SIZE.x,
+				CAPTURE_SIZE.y,
+			]
+		)
 		return true
 	_capture_data_format = source_format.format
 	_ready = true
@@ -190,9 +210,10 @@ func reset() -> void:
 	_failed = false
 	_forced_startup_failure = false
 	_forced_runtime_failure = false
+	_forced_crop_sync_failure_once = false
 
 
-func release_all() -> void:
+func release_all(preserve_failure_diagnostics: bool = false) -> void:
 	_capture_epoch += 1
 	_recording_enabled = false
 	_pending_capture.clear()
@@ -221,6 +242,8 @@ func release_all() -> void:
 	_debug_post_draw_logged = false
 	_debug_png_dumped = false
 	_clear_frame_storage()
+	if not preserve_failure_diagnostics:
+		_reset_failure_diagnostics()
 
 
 func force_startup_failure_for_tests(value: bool) -> void:
@@ -229,7 +252,41 @@ func force_startup_failure_for_tests(value: bool) -> void:
 
 func force_runtime_failure_for_tests() -> void:
 	_forced_runtime_failure = true
-	_fail_runtime()
+	while not _failed:
+		_register_capture_failure(
+			FAILURE_REASON_ASYNC_CAPTURE_ERROR,
+			"forced runtime fallback",
+			{}
+		)
+
+
+func force_async_capture_error_for_tests() -> void:
+	_in_flight += 1
+	_accept_async_error(
+		{"epoch": _capture_epoch, "goal_descriptor": {}},
+		"forced asynchronous readback error"
+	)
+
+
+func force_byte_size_mismatch_for_tests() -> void:
+	_in_flight += 1
+	_accept_async_result(
+		PackedByteArray(),
+		{"epoch": _capture_epoch, "logical_time_sec": 0.0, "goal_descriptor": {}}
+	)
+
+
+func force_crop_sync_failure_for_tests() -> void:
+	_forced_crop_sync_failure_once = true
+	_arm_capture(0.0, {})
+
+
+func force_capture_success_for_tests(bytes: PackedByteArray, logical_time_sec: float) -> void:
+	_in_flight += 1
+	_accept_async_result(
+		bytes,
+		{"epoch": _capture_epoch, "logical_time_sec": logical_time_sec, "goal_descriptor": {}}
+	)
 
 
 func install_frame_clip_for_tests(clip_id: int, frames: Array[PackedByteArray]) -> void:
@@ -272,6 +329,14 @@ func get_debug_snapshot() -> Dictionary:
 		"capture_dropped_count": _capture_dropped_count,
 		"capture_work_worst_usec": _capture_work_worst_usec,
 		"capture_deadline_miss_count": _capture_deadline_miss_count,
+		"capture_failure_count": _capture_failure_count,
+		"consecutive_capture_failure_count": _consecutive_capture_failure_count,
+		"failure_threshold": CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD,
+		"last_capture_failure_reason": _last_capture_failure_reason,
+		"last_capture_failure_detail": _last_capture_failure_detail,
+		"fallback_reason": _fallback_reason,
+		"last_failure_log": _last_failure_log,
+		"last_recovery_log": _last_recovery_log,
 		"owned_rid_count": 1 if _blit_viewport != null and is_instance_valid(_blit_viewport) else 0,
 		"capture_backend": "normalized_uv",
 		"crop_uv_rect": _crop_uv_rect,
@@ -330,8 +395,16 @@ func _disconnect_frame_signal() -> void:
 func _arm_capture(logical_time_sec: float, goal_descriptor: Dictionary) -> void:
 	if not _ready or _failed or _blit_viewport == null:
 		return
-	if not _sync_blit_crop():
-		_fail_runtime()
+	var crop_synced := _sync_blit_crop()
+	if _forced_crop_sync_failure_once:
+		_forced_crop_sync_failure_once = false
+		crop_synced = false
+	if not crop_synced:
+		_register_capture_failure(
+			FAILURE_REASON_CROP_SYNC_FAILURE,
+			"normalized game crop synchronization failed",
+			goal_descriptor
+		)
 		return
 	_pending_capture = {
 		"epoch": _capture_epoch,
@@ -367,14 +440,17 @@ func _submit_async_readback(request: Dictionary) -> void:
 		Callable(self, "_accept_capture_work_metric").call_deferred(
 			int(Time.get_ticks_usec() - work_start_usec)
 		)
-		Callable(self, "_accept_async_error").call_deferred(request)
+		Callable(self, "_accept_async_error").call_deferred(
+			request,
+			"RenderingDevice unavailable or forced failure"
+		)
 		return
 	var source: RID = request.get("source", RID())
 	if not source.is_valid():
 		Callable(self, "_accept_capture_work_metric").call_deferred(
 			int(Time.get_ticks_usec() - work_start_usec)
 		)
-		Callable(self, "_accept_async_error").call_deferred(request)
+		Callable(self, "_accept_async_error").call_deferred(request, "source texture RID invalid")
 		return
 	var callback := Callable(self, "_on_async_bytes_ready").bind(request)
 	var error := _rd.texture_get_data_async(source, 0, callback)
@@ -382,18 +458,25 @@ func _submit_async_readback(request: Dictionary) -> void:
 		int(Time.get_ticks_usec() - work_start_usec)
 	)
 	if error != OK:
-		Callable(self, "_accept_async_error").call_deferred(request)
+		Callable(self, "_accept_async_error").call_deferred(
+			request,
+			"texture_get_data_async returned %s" % error_string(error)
+		)
 
 
 func _on_async_bytes_ready(bytes: PackedByteArray, request: Dictionary) -> void:
 	Callable(self, "_accept_async_result").call_deferred(bytes, request)
 
 
-func _accept_async_error(request: Dictionary) -> void:
+func _accept_async_error(request: Dictionary, detail: String = "asynchronous readback callback failed") -> void:
 	_in_flight = maxi(0, _in_flight - 1)
 	if int(request.get("epoch", -1)) != _capture_epoch:
 		return
-	_fail_runtime()
+	_register_capture_failure(
+		FAILURE_REASON_ASYNC_CAPTURE_ERROR,
+		detail,
+		request.get("goal_descriptor", {})
+	)
 
 
 func _accept_async_result(bytes: PackedByteArray, request: Dictionary) -> void:
@@ -404,8 +487,13 @@ func _accept_async_result(bytes: PackedByteArray, request: Dictionary) -> void:
 		return
 	if bytes.size() != CAPTURE_BYTE_COUNT:
 		_accept_capture_work_metric(int(Time.get_ticks_usec() - work_start_usec))
-		_fail_runtime()
+		_register_capture_failure(
+			FAILURE_REASON_BYTE_SIZE_MISMATCH,
+			"actual=%d expected=%d" % [bytes.size(), CAPTURE_BYTE_COUNT],
+			request.get("goal_descriptor", {})
+		)
 		return
+	_record_capture_success()
 	_maybe_dump_debug_frame(bytes)
 	_store_ring_frame(bytes, float(request.get("logical_time_sec", 0.0)))
 	_capture_produced_count += 1
@@ -614,20 +702,92 @@ func _build_game_rect(view_size: Vector2) -> Rect2:
 	return Rect2((view_size - size) * 0.5, size)
 
 
-func _fail_startup() -> void:
-	if OS.is_debug_build():
-		print("victory_highlight_frame_capture_fallback: startup")
+func _register_capture_failure(reason: String, detail: String, goal_descriptor: Dictionary) -> void:
+	_capture_failure_count += 1
+	_consecutive_capture_failure_count += 1
+	_last_capture_failure_reason = reason
+	_last_capture_failure_detail = detail
+	if _consecutive_capture_failure_count >= CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD:
+		_fail_runtime(reason, detail)
+		return
+	_last_failure_log = _build_failure_log("runtime", "recover", reason, detail)
+	print(_last_failure_log)
+	_recover_goal_descriptor(goal_descriptor)
+	_arm_queued_goal_if_possible()
+
+
+func _record_capture_success() -> void:
+	if _consecutive_capture_failure_count <= 0:
+		return
+	_last_recovery_log = (
+		"victory_highlight_frame_capture_recovery: phase=runtime action=success previous_reason=%s previous_consecutive=%d"
+		% [_last_capture_failure_reason, _consecutive_capture_failure_count]
+	)
+	print(_last_recovery_log)
+	_consecutive_capture_failure_count = 0
+
+
+func _recover_goal_descriptor(goal_descriptor: Dictionary) -> void:
+	if goal_descriptor.is_empty():
+		return
+	_promote_frame_clip(goal_descriptor)
+	if bool(goal_descriptor.get("is_final", false)):
+		_recording_enabled = false
+
+
+func _build_failure_log(phase: String, action: String, reason: String, detail: String) -> String:
+	var prefix := (
+		"victory_highlight_frame_capture_fallback"
+		if action == "fallback"
+		else "victory_highlight_frame_capture_recovery"
+	)
+	return (
+		"%s: phase=%s action=%s reason=%s detail=%s consecutive=%d threshold=%d total=%d ring_count=%d frame_clip_count=%d"
+		% [
+			prefix,
+			phase,
+			action,
+			reason,
+			detail,
+			_consecutive_capture_failure_count,
+			CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD,
+			_capture_failure_count,
+			_ring_count,
+			_frame_clips_by_id.size(),
+		]
+	)
+
+
+func _fail_startup(reason: String, detail: String) -> void:
+	_capture_failure_count += 1
+	_consecutive_capture_failure_count = 1
+	_last_capture_failure_reason = reason
+	_last_capture_failure_detail = detail
+	_fallback_reason = reason
+	_last_failure_log = _build_failure_log("startup", "fallback", reason, detail)
+	print(_last_failure_log)
 	_failed = true
-	release_all()
+	release_all(true)
 	_failed = true
 
 
-func _fail_runtime() -> void:
-	if OS.is_debug_build():
-		print("victory_highlight_frame_capture_fallback: runtime")
+func _fail_runtime(reason: String, detail: String) -> void:
+	_fallback_reason = reason
+	_last_failure_log = _build_failure_log("runtime", "fallback", reason, detail)
+	print(_last_failure_log)
 	_failed = true
-	release_all()
+	release_all(true)
 	_failed = true
+
+
+func _reset_failure_diagnostics() -> void:
+	_capture_failure_count = 0
+	_consecutive_capture_failure_count = 0
+	_last_capture_failure_reason = ""
+	_last_capture_failure_detail = ""
+	_fallback_reason = ""
+	_last_failure_log = ""
+	_last_recovery_log = ""
 
 
 func _clear_frame_storage() -> void:
