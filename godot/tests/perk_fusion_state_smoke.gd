@@ -32,7 +32,7 @@ func _test_classification_and_candidates() -> void:
 	_expect_class("common_refresh", PerkFusionCatalog.CLASS_INSTANT)
 	_expect_class("dash_amplification", PerkFusionCatalog.CLASS_SYSTEM_CHOICE)
 
-	var kick: Dictionary = _fusion_catalog.classify_perk("kick_enhance", _catalog, 5)
+	var kick: Dictionary = _fusion_catalog.classify_perk("kick_enhance", _catalog, 3)
 	_expect(
 		str(kick.get("fusion_class", "")) == PerkFusionCatalog.CLASS_NUMERIC_PASSIVE,
 		"kick_enhance should remain a numeric fusion candidate"
@@ -46,7 +46,7 @@ func _test_classification_and_candidates() -> void:
 		"mythic_system perks must be side-effect exempt"
 	)
 	_expect(
-		bool(_fusion_catalog.classify_perk("item_luck", _catalog, 5).get("limit_break_eligible", false)),
+		bool(_fusion_catalog.classify_perk("item_luck", _catalog, 3).get("limit_break_eligible", false)),
 		"linear central-helper perk should be explicitly limit-break eligible"
 	)
 	for overflow_perk_id in [
@@ -67,10 +67,10 @@ func _test_classification_and_candidates() -> void:
 		"effective-level-exempt perk should not be limit-break eligible"
 	)
 
-	_expect(_fusion_catalog.is_candidate("kick_enhance", 5, _catalog), "maxed kick_enhance should be a candidate")
-	_expect(not _fusion_catalog.is_candidate("kick_enhance", 4, _catalog), "non-maxed base level must be rejected")
-	_expect(_fusion_catalog.is_candidate("sage_ring", 5, _catalog), "maxed Hyeonmun Charyeok should remain a candidate")
-	_expect(not _fusion_catalog.is_candidate("sage_ring", 4, _catalog), "effective bonus must not replace the base max-level gate")
+	_expect(_fusion_catalog.is_candidate("kick_enhance", 3, _catalog), "S3-maxed kick_enhance should be a candidate")
+	_expect(not _fusion_catalog.is_candidate("kick_enhance", 2, _catalog), "non-maxed S3 base level must be rejected")
+	_expect(_fusion_catalog.is_candidate("sage_ring", 3, _catalog), "S3-maxed Hyeonmun Charyeok should remain a candidate")
+	_expect(not _fusion_catalog.is_candidate("sage_ring", 2, _catalog), "effective bonus must not replace the S3 base max-level gate")
 	_expect(not _fusion_catalog.is_candidate("core_flip", 1, _catalog), "unlock perks must not be candidates")
 	_expect(not _fusion_catalog.is_candidate("dash_amplification", 3, _catalog), "multi-slot dash amplification must not be a candidate")
 
@@ -92,8 +92,8 @@ func _test_classification_and_candidates() -> void:
 func _test_record_creation_and_deep_copy() -> void:
 	var state := PerkFusionState.new()
 	var levels := {
-		"kick_enhance": 5,
-		"item_luck": 5,
+		"kick_enhance": 3,
+		"item_luck": 3,
 		"common_swiftness": 5,
 	}
 	var candidates: Array[String] = state.get_candidates(_catalog, levels)
@@ -138,7 +138,7 @@ func _test_record_creation_and_deep_copy() -> void:
 		"fused-record lookup should return a deep-copied owning record"
 	)
 	_expect(
-		not _fusion_catalog.is_candidate("kick_enhance", 5, _catalog, state),
+		not _fusion_catalog.is_candidate("kick_enhance", 3, _catalog, state),
 		"already-fused sources must not remain candidates"
 	)
 
@@ -173,8 +173,8 @@ func _test_record_creation_and_deep_copy() -> void:
 func _test_restore_self_heal_revision_and_reset() -> void:
 	var state := PerkFusionState.new()
 	var levels := {
-		"item_luck": 5,
-		"kick_enhance": 5,
+		"item_luck": 3,
+		"kick_enhance": 3,
 		"common_bulk_up": 5,
 		"common_swiftness": 4,
 	}
@@ -236,7 +236,7 @@ func _test_restore_self_heal_revision_and_reset() -> void:
 func _test_next_fusion_tokens_are_atomic_and_persistent() -> void:
 	var state := PerkFusionState.new()
 	var levels := {
-		"item_luck": 5,
+		"item_luck": 3,
 		"common_bulk_up": 5,
 		"common_swiftness": 5,
 		"common_training": 5,
@@ -281,7 +281,7 @@ func _test_canonical_api_and_schema_surface() -> void:
 	_expect(source.find("snapshot.get(\"revision\"") < 0, "restore should accept only canonical fusion_revision")
 	_expect(source.find("typeof(entry) == TYPE_INT") < 0, "raw numeric option penalties should not remain a multiplier compatibility shape")
 
-	var levels := {"item_luck": 5, "kick_enhance": 5}
+	var levels := {"item_luck": 3, "kick_enhance": 3}
 	var legacy_key_state := PerkFusionState.new()
 	var legacy_restore := legacy_key_state.restore_snapshot(
 		{

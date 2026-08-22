@@ -194,13 +194,13 @@ func _init() -> void:
 	_expect(not bool(jetpack.is_airborne(0.1)), "landing should clear airborne state")
 	_expect(audio.stop_count >= 1 and not audio.active, "landing/release should stop loop audio")
 
+	perk_state.level = 3
+	_expect(abs(float(jetpack.get_max_hold_frames(deps)) - 360.0) < 0.01, "S3 ceiling should preserve the legacy double max hold")
 	perk_state.level = 5
-	_expect(abs(float(jetpack.get_max_hold_frames(deps)) - 360.0) < 0.01, "Lv.5 jetpack_enhance should double max hold")
-	perk_state.level = 7
-	_expect(abs(float(jetpack.get_max_hold_frames(deps)) - 432.0) < 0.01, "Lv.7 jetpack_enhance should keep scaling above max level")
-	_expect(int(jetpack.get_jetpack_enhance_gauge_bonus_pct(deps)) == 50, "Lv.7 airborne gauge bonus should be 50%")
+	_expect(abs(float(jetpack.get_max_hold_frames(deps)) - 432.0) < 0.01, "S3 Lv.5 should equal legacy Lv.7")
+	_expect(int(jetpack.get_jetpack_enhance_gauge_bonus_pct(deps)) == 50, "S3 Lv.5 airborne gauge bonus should equal legacy Lv.7 at 50%")
 
-	perk_state.level = 5
+	perk_state.level = 3
 	jetpack.offset_y = -100.0
 	var air_result: Dictionary = jetpack.apply_air_strike_post_hit(
 		Vector2(0.0, -10.0),

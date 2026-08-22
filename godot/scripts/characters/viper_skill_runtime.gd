@@ -129,7 +129,7 @@ const CORE_FLIP_ZIGZAG_LEG_FRAMES := 28.08; const CORE_FLIP_ZIGZAG_CLING_FRAMES 
 const CORE_FLIP_HIT_RADIUS := 60.0; const CORE_FLIP_SPEED_MULT := 2.2; const CORE_FLIP_MIN_SPEED := 11.0; const CORE_FLIP_HIT_GOLD := 30
 const CORE_FLIP_START_SHAKE_AMOUNT := 0.14; const CORE_FLIP_START_SHAKE_INTENSITY := 4.5; const CORE_FLIP_HIT_SHAKE_AMOUNT := 0.15; const CORE_FLIP_HIT_SHAKE_INTENSITY := 6.0
 const CORE_FLIP_HIT_PULSE_INTENSITY := 0.92; const CORE_FLIP_HIT_PULSE_KIND := "viper_core_flip"; const CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES := 30.0; const CORE_FLIP_MISS_TEXT_FRAMES := 50.0; const CORE_FLIP_MISS_TEXT_FLOAT_Y := 34.0
-static var KICK_ENHANCE_KNOCKBACK_BALL_CHANCE_CAP: int = int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", 10000) * 100.0)); static var KICK_ENHANCE_KNOCKBACK_BALL_FIXED_PCT: int = RuntimePerkProgression.get_int_value("kick_enhance", "guard_fire_knockback_pct", 3)
+static var KICK_ENHANCE_KNOCKBACK_BALL_CHANCE_CAP: int = int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", 10000) * 100.0)); static var KICK_ENHANCE_KNOCKBACK_BALL_FIXED_PCT: int = RuntimePerkProgression.get_int_value("kick_enhance", "guard_fire_knockback_pct", RuntimePerkProgression.get_milestone_level("kick_enhance", "guard_fire_knockback_pct", "starts"))
 const PHANTOM_KICK_KNOCKBACK_DISTANCE := 18.0; const PHANTOM_KICK_KNOCKBACK_FRAMES := 36.0; const PHANTOM_KICK_KNOCKBACK_DECAY := 0.88
 const KICK_GUARD_KNOCKBACK_FIRE_BASE := 22.0; const KICK_GUARD_KNOCKBACK_FRAMES := 18.0; const KICK_GUARD_KNOCKBACK_DECAY := 0.85; const KICK_GUARD_DISTANCE_MULTIPLIER := 1.56
 const KICK_GUARD_BALL_SPEED_REDUCTION_PCT := 50
@@ -512,7 +512,7 @@ static func _build_four_poisons_legacy_lane(lane_id: String) -> Array:
 
 
 static func _build_four_poisons_legacy_clone_hp_lane() -> Array:
-	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 1)]
+	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 0)]
 	for level in range(1, RuntimePerkProgression.get_authored_max_level("four_poisons") + 1):
 		values.append(RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level))
 	return values

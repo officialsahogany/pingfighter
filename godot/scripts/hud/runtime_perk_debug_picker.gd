@@ -637,8 +637,7 @@ func _adjust_target_level(mouse_event: InputEventMouseButton, entries: Array, vi
 		else:
 			page_index = min(_get_page_count(entries.size()) - 1, page_index + 1)
 		return
-	var max_level: int = 5
-	max_level = max(1, int(entries[index].get("max_level", 1)))
+	var max_level: int = maxi(1, int(entries[index].get("max_level", 1)))
 	if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
 		target_level = min(max_level, target_level + 1)
 	else:
@@ -782,6 +781,13 @@ func _prewarm_text_metrics(entries: Array) -> void:
 	var font: Font = ThemeDB.fallback_font
 	if font == null:
 		return
+	var prewarm_max_level := 1
+	for entry_value in entries:
+		if entry_value is Dictionary:
+			prewarm_max_level = maxi(
+				prewarm_max_level,
+				int((entry_value as Dictionary).get("max_level", 1))
+			)
 	_touch_font_text(font, "F4 초식 · 무공 디버그", 18)
 	_touch_font_text(font, "탭 선택 · 호버 상세 · 좌클릭 적용 · 휠 단계 · 우클릭/Esc 닫기", 12)
 	for definition_value in TAB_DEFINITIONS:
@@ -789,9 +795,9 @@ func _prewarm_text_metrics(entries: Array) -> void:
 			_touch_font_text(font, "%s 99" % str((definition_value as Dictionary).get("label", "")), 12)
 	for label in ["초식", "비전초식", "무공", "절세무공", "즉시 효과", "수호령 강화", "즉시 적용", "습득 정보", "효과", "상세 설명이 없습니다."]:
 		_touch_font_text(font, str(label), 13)
-	for level in range(1, 6):
+	for level in range(1, prewarm_max_level + 1):
 		_touch_font_text(font, "목표 단계 %d" % level, 18)
-		_touch_font_text(font, LanguageSettings.format_mugong_level(level, 5), 12)
+		_touch_font_text(font, LanguageSettings.format_mugong_level(level, prewarm_max_level), 12)
 		_touch_font_text(font, "Lv.%d" % level, 12)
 	_touch_font_text(font, "GO", 12)
 	for entry in entries:

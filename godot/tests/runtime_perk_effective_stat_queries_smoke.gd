@@ -64,32 +64,32 @@ func _verify_helper_derived_stat_queries() -> void:
 		114.0,
 		"helper should own dash jump duration math"
 	)
-	_expect(helper.get_item_spawn_delay_msec(levels, 0, false, 1000) == 880, "helper should own item spawn delay math")
+	_expect(helper.get_item_spawn_delay_msec(levels, 0, false, 1000) == 850, "helper should own S3 item spawn delay math")
 	_expect(helper.get_active_item_cooldown_msec(levels, 0, false, 1000) == 870, "helper should own item cooldown math")
-	_expect_close(helper.get_active_item_use_gauge_bonus(levels, 0, false), 30.0, "helper should own active item gauge bonus")
+	_expect_close(helper.get_active_item_use_gauge_bonus(levels, 0, false), 44.0, "helper should own S3 active item gauge bonus")
 	_expect(helper.get_active_item_slot_capacity(levels, 0, false, 3) == 3, "retired bag Mugong must not change item slot capacity")
-	_expect_close(helper.get_active_item_duration_bonus(levels, 0, false), 0.60, "helper should own active item duration bonus")
-	_expect_close(helper.get_active_item_duration_multiplier(levels, 0, false), 1.60, "helper should own active item duration multiplier")
-	_expect_close(helper.get_active_item_duration_frames(levels, 0, false, 600.0), 960.0, "helper should own active item duration frames")
-	_expect_close(helper.get_active_item_recycle_chance(levels, 0, false), 0.21, "helper should own active item recycle chance")
-	_expect_close(helper.get_effective_polish_multiplier(levels, 0, false), 1.24, "helper should own effective polish multiplier")
-	_expect_close(helper.get_downtown_treasure_map_mythic_multiplier(levels, 0, false), 4.0, "helper should own treasure-map mythic multiplier")
-	_expect_close(helper.get_downtown_treasure_map_vision_box_chance_bonus(levels, 0, false), 0.06, "helper should own treasure-map Vision box bonus")
-	_expect_close(helper.get_downtown_treasure_map_vision_box_chance(levels, 0, false, 0.20), 0.26, "helper should add Treasure Map to the base Vision box chance")
+	_expect_close(helper.get_active_item_duration_bonus(levels, 0, false), 0.87, "helper should own S3 active item duration bonus")
+	_expect_close(helper.get_active_item_duration_multiplier(levels, 0, false), 1.87, "helper should own S3 active item duration multiplier")
+	_expect_close(helper.get_active_item_duration_frames(levels, 0, false, 600.0), 1122.0, "helper should own S3 active item duration frames")
+	_expect_close(helper.get_active_item_recycle_chance(levels, 0, false), 0.35, "helper should own S3 active item recycle chance")
+	_expect_close(helper.get_effective_polish_multiplier(levels, 0, false), 1.348, "helper should own the distinct S3 mythic polish lane")
+	_expect_close(helper.get_downtown_treasure_map_mythic_multiplier(levels, 0, false), 5.35, "helper should own S3 treasure-map mythic multiplier")
+	_expect_close(helper.get_downtown_treasure_map_vision_box_chance_bonus(levels, 0, false), 0.087, "helper should own S3 treasure-map Vision box bonus")
+	_expect_close(helper.get_downtown_treasure_map_vision_box_chance(levels, 0, false, 0.20), 0.287, "helper should add the S3 Treasure Map value to the base Vision box chance")
 	_expect_close(helper.get_player_speed_multiplier(levels, 0, false), 1.06, "helper should own player speed multiplier")
 	_expect_close(helper.get_player_paddle_size_multiplier(levels, 0, false), 1.12, "helper should own player paddle size multiplier")
 	_expect(helper.get_accessory_slot_bonus(levels, 0, false) == 2, "helper should own accessory slot bonus")
 	_expect_close(helper.get_player_skill_cooldown_multiplier(levels, 0, false), 0.92, "helper should own player skill cooldown multiplier")
 	_expect_close(helper.get_player_skill_cooldown_seconds(levels, 0, false, 10.0), 9.2, "helper should own player skill cooldown seconds")
-	_expect_close(helper.get_boost_charge_chance_pct(levels, 0, false), 14.0, "helper should own boost charge chance")
+	_expect_close(helper.get_boost_charge_chance_pct(levels, 0, false), 20.0, "helper should own S3 boost charge chance")
 	_expect(helper.get_dash_acceleration_level(levels, 0, false) == 1, "helper should own dash acceleration level")
-	_expect_close(helper.get_dash_acceleration_bonus(levels, 0, false), 0.70, "helper should own dash acceleration bonus")
-	_expect_close(helper.get_dash_acceleration_height_bonus(levels, 0, false, 50.0), 35.0, "helper should own dash acceleration height bonus")
-	_expect(helper.get_laurel_leaf_count(levels, 0, false, 3) == 5, "helper should own Laurel leaf total")
+	_expect_close(helper.get_dash_acceleration_bonus(levels, 0, false), 0.875, "helper should own S3 dash acceleration bonus")
+	_expect_close(helper.get_dash_acceleration_height_bonus(levels, 0, false, 50.0), 43.75, "helper should own S3 dash acceleration height bonus")
+	_expect(helper.get_laurel_leaf_count(levels, 0, false, 3) == 6, "helper should own S3 Laurel leaf total")
 	_expect_close(
 		helper.get_active_item_duration_frames({"item_caffeine": 3}, 1, true, 600.0),
-		1680.0,
-		"helper should keep Lv.6+ active-item duration scaling uncapped"
+		2040.0,
+		"helper should map S3 effective Lv.6 to legacy Lv.8"
 	)
 
 
@@ -141,18 +141,18 @@ func _verify_state_wrappers_delegate_to_helper() -> void:
 
 	_expect_close(state.get_dash_recharge_frames(100.0), 76.0, "state dash recharge wrapper should preserve public behavior")
 	_expect_close(state.get_dash_duration_frames(100.0), 114.0, "state dash duration wrapper should preserve public behavior")
-	_expect(state.get_item_spawn_delay_msec(1000) == 880, "state item spawn wrapper should preserve public behavior")
-	_expect_close(state.get_active_item_duration_frames(600.0), 960.0, "state item duration wrapper should preserve public behavior")
-	_expect_close(state.get_active_item_recycle_chance(), 0.21, "state recycle wrapper should preserve public behavior")
+	_expect(state.get_item_spawn_delay_msec(1000) == 850, "state item spawn wrapper should preserve S3 public behavior")
+	_expect_close(state.get_active_item_duration_frames(600.0), 1122.0, "state item duration wrapper should preserve S3 public behavior")
+	_expect_close(state.get_active_item_recycle_chance(), 0.35, "state recycle wrapper should preserve S3 public behavior")
 	_expect_close(state.get_player_paddle_size_multiplier(), 1.12, "state paddle-size wrapper should preserve public behavior")
 	_expect(state.get_accessory_slot_bonus() == 2, "state accessory wrapper should preserve public behavior")
 	_expect_close(state.get_player_skill_cooldown_seconds(10.0), 9.2, "state cooldown wrapper should preserve public behavior")
-	_expect_close(state.get_dash_acceleration_height_bonus(50.0), 35.0, "state dash acceleration wrapper should preserve public behavior")
-	_expect(state.get_laurel_leaf_count(registry) == 5, "state Laurel wrapper should preserve Sacred Laurel stacking")
+	_expect_close(state.get_dash_acceleration_height_bonus(50.0), 43.75, "state dash acceleration wrapper should preserve S3 public behavior")
+	_expect(state.get_laurel_leaf_count(registry) == 6, "state S3 Laurel wrapper should preserve Sacred Laurel stacking")
 	state.runtime_skill_levels = {"item_caffeine": 3}
 	state.set_item_perk_level_bonus(1)
 	state.set_viper_ignition_aura_active(true)
-	_expect_close(state.get_active_item_duration_frames(600.0), 1680.0, "state wrapper should keep effective Lv.6+ item duration scaling")
+	_expect_close(state.get_active_item_duration_frames(600.0), 2040.0, "state wrapper should map S3 effective Lv.6 to legacy Lv.8")
 
 
 func _verify_source_contract() -> void:

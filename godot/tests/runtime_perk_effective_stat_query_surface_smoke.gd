@@ -71,8 +71,8 @@ func _verify_surface_projects_runtime_state() -> void:
 
 	_expect_close(
 		surface.get_active_item_duration_frames(effective_levels, state, 600.0),
-		1680.0,
-		"query surface should project runtime state into Lv.6+ active-item duration math"
+		2040.0,
+		"query surface should map S3 effective Lv.6 to legacy Lv.8 duration math"
 	)
 	_expect_close(
 		surface.get_player_skill_cooldown_seconds(effective_levels, state, 10.0),
@@ -80,7 +80,7 @@ func _verify_surface_projects_runtime_state() -> void:
 		"query surface should project runtime state into cooldown reduction math"
 	)
 	_expect(
-		surface.get_laurel_leaf_count(effective_levels, state, FakeRegistry.new(), Callable(self, "_get_instance")) == 8,
+		surface.get_laurel_leaf_count(effective_levels, state, FakeRegistry.new(), Callable(self, "_get_instance")) == 10,
 		"query surface should stack effective Laurel level with Sacred Laurel registry bonus"
 	)
 
@@ -111,8 +111,8 @@ func _verify_runtime_state_facade_stat_queries() -> void:
 	)
 	_expect_close(
 		surface.get_active_item_duration_frames_from_runtime_state(state, 600.0),
-		1680.0,
-		"runtime-state facade should project active-item duration math"
+		2040.0,
+		"runtime-state facade should project S3 active-item duration math"
 	)
 	_expect_close(
 		surface.get_player_skill_cooldown_seconds_from_runtime_state(state, 10.0),
@@ -149,7 +149,7 @@ func _verify_runtime_state_facade_laurel_lookup() -> void:
 	state.item_perk_level_bonus = 1
 	state.viper_ignition_aura_active = true
 	_expect(
-		surface.get_laurel_leaf_count_from_runtime_state(state, FakeRegistry.new()) == 8,
+		surface.get_laurel_leaf_count_from_runtime_state(state, FakeRegistry.new()) == 10,
 		"runtime-state facade should stack effective Laurel level with Sacred Laurel registry bonus"
 	)
 	state._effective_levels = null
@@ -168,9 +168,9 @@ func _verify_state_wrappers_delegate_to_surface() -> void:
 	}
 	state.set_item_perk_level_bonus(1)
 	state.set_viper_ignition_aura_active(true)
-	_expect_close(state.get_active_item_duration_frames(600.0), 1680.0, "state duration wrapper should preserve surface-projected effective scaling")
+	_expect_close(state.get_active_item_duration_frames(600.0), 2040.0, "state duration wrapper should preserve S3 surface-projected effective scaling")
 	_expect_close(state.get_player_skill_cooldown_seconds(10.0), 6.8, "state cooldown wrapper should preserve surface-projected effective scaling")
-	_expect(state.get_laurel_leaf_count(FakeRegistry.new()) == 8, "state Laurel wrapper should preserve registry bonus through query surface")
+	_expect(state.get_laurel_leaf_count(FakeRegistry.new()) == 10, "state S3 Laurel wrapper should preserve registry bonus through query surface")
 	_expect(state.get_viper_ignition_aura_level_bonus() == 2, "state Viper Ignition Aura wrapper should use query surface")
 	_expect(state._is_runtime_level_bonus_eligible("item_caffeine", 3), "state runtime eligibility wrapper should use query surface")
 	_expect(state._is_ignition_aura_level_bonus_eligible("item_caffeine", 3), "state Ignition Aura eligibility wrapper should use query surface")

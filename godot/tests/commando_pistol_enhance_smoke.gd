@@ -51,10 +51,10 @@ func _verify_spread_table_and_beretta_isolation() -> void:
 	var perk_state := FakePerkState.new()
 	var expected_spread := {
 		0: CommandoFirearmRuntime.PISTOL_SPREAD_RADIANS,
-		1: deg_to_rad(12.0),
-		2: deg_to_rad(9.0),
-		3: deg_to_rad(6.0),
-		4: deg_to_rad(3.0),
+		1: deg_to_rad(11.0),
+		2: deg_to_rad(7.0),
+		3: deg_to_rad(1.0),
+		4: deg_to_rad(1.0),
 		5: deg_to_rad(1.0),
 		6: deg_to_rad(1.0),
 		7: deg_to_rad(1.0),
@@ -87,10 +87,10 @@ func _verify_speed_table_and_beretta_isolation() -> void:
 	}
 	var expected_mult := {
 		0: 1.0,
-		1: 1.1,
-		2: 1.2,
-		3: 1.3,
-		4: 1.4,
+		1: 1.13,
+		2: 1.29,
+		3: 1.5,
+		4: 1.5,
 		5: 1.5,
 		6: 1.5,
 		7: 1.5,
@@ -122,10 +122,10 @@ func _verify_knockback_table_and_hit_isolation() -> void:
 	var perk_state := FakePerkState.new()
 	var expected_mult := {
 		0: 1.0,
-		1: 1.3,
-		2: 1.6,
-		3: 1.9,
-		4: 2.2,
+		1: 1.38,
+		2: 1.87,
+		3: 2.5,
+		4: 2.5,
 		5: 2.5,
 		6: 2.5,
 		7: 2.5,
@@ -346,12 +346,12 @@ func _verify_ammo_table_overflow_and_reapply() -> void:
 	var expected_max := {
 		0: 5,
 		1: 5,
-		2: 5,
-		3: 6,
-		4: 6,
-		5: 7,
-		6: 8,
-		7: 9,
+		2: 6,
+		3: 7,
+		4: 8,
+		5: 9,
+		6: 10,
+		7: 11,
 	}
 	for level in expected_max.keys():
 		perk_state.level = int(level)
@@ -364,7 +364,7 @@ func _verify_ammo_table_overflow_and_reapply() -> void:
 
 	perk_state.level = 7
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
-	_expect(int(controller.get_weapon_data("pistol").get("ammo_current", -1)) == 9, "overflow level increase should top off base pistol ammo")
+	_expect(int(controller.get_weapon_data("pistol").get("ammo_current", -1)) == 11, "S3 overflow level increase should top off base pistol ammo")
 	perk_state.level = 0
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
 	var clamped_base: Dictionary = controller.get_weapon_data("pistol")
@@ -373,20 +373,20 @@ func _verify_ammo_table_overflow_and_reapply() -> void:
 
 	perk_state.level = 6
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
-	_expect(int(controller.get_weapon_data("pistol").get("ammo_max", -1)) == 8, "Lv.6 should apply before reset smoke")
+	_expect(int(controller.get_weapon_data("pistol").get("ammo_max", -1)) == 10, "S3 Lv.6 should apply before reset smoke")
 	controller.reset()
 	_expect(int(controller.get_weapon_data("pistol").get("ammo_max", -1)) == 5, "controller reset should restore the raw base pistol template before reapply")
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
-	_expect(int(controller.get_weapon_data("pistol").get("ammo_max", -1)) == 8, "per-frame sync should reapply pistol_enhance after controller reset")
+	_expect(int(controller.get_weapon_data("pistol").get("ammo_max", -1)) == 10, "per-frame sync should reapply S3 pistol_enhance after controller reset")
 
 
 func _verify_same_max_does_not_refill_spent_ammo() -> void:
 	var runtime := CommandoFirearmRuntime.new()
 	var controller := CommandoWeaponController.new()
 	var perk_state := FakePerkState.new()
-	perk_state.level = 5
+	perk_state.level = 3
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
-	_expect(int(controller.get_weapon_data("pistol").get("ammo_current", -1)) == 7, "Lv.5 max increase should top off once")
+	_expect(int(controller.get_weapon_data("pistol").get("ammo_current", -1)) == 7, "S3 ceiling increase should top off once")
 	_expect(controller.consume_current_weapon_ammo(), "base pistol should spend ammo after pistol_enhance top-off")
 	runtime.update_input({}, 0.0, {}, _deps(controller, perk_state))
 	_expect(int(controller.get_weapon_data("pistol").get("ammo_current", -1)) == 6, "same pistol_enhance max should not refill spent ammo every frame")

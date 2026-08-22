@@ -8,6 +8,7 @@ extends SceneTree
 # (chance > 100%, negative costs, zero auto-dash cooldown).
 
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 # 기대 바운드 맵 독립 선언(코덱스 P2 게이트): 정확히 15개 퍽의 17개
 # 레인. 부메랑 스턴/유도 pct는 확률이 아니라 배수 소비(1.0+pct/100,
@@ -62,36 +63,33 @@ func _init() -> void:
 
 
 func _verify_within_table_values_unchanged() -> void:
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 3), 15.0, "within-table Lv.3 value must stay authored")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 5), 25.0, "within-table Lv.5 value must stay authored")
-	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 3), 135.0, "within-table cost value must stay authored")
-	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "gauge_cost", 5), 25.0, "within-table Lv.5 cost must stay authored")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 2), 15.0, "S3 authored Lv.2 value must stay fixed")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 3), 25.0, "S3 authored Lv.3 ceiling must stay fixed")
+	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 3), 100.0, "S3 authored cost ceiling must stay fixed")
+	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "gauge_cost", 3), 25.0, "S3 authored Lv.3 cost must stay fixed")
 
 
 func _verify_level_zero_contract_preserved() -> void:
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 0), 5.0, "level 0 must keep returning the Lv.1 value (S1c consumer contract)")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", -3), 5.0, "negative level must keep returning the Lv.1 value")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 0), 6.0, "level 0 must return the migrated Lv.1 value")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", -3), 6.0, "negative level must return the migrated Lv.1 value")
 
 
 func _verify_overflow_extends_linear_tables() -> void:
-	# star_detector [5..25] -> +5/level past the end.
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 6), 30.0, "Lv.6 star bonus must extrapolate past the table end")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 7), 35.0, "Lv.7 star bonus must keep extrapolating")
-	# gold_digger [15..55] -> +10/level past the end.
-	_expect_close(PerkConversionValues.get_value("gold_digger", "gold_bonus_pct", 6), 65.0, "Lv.6 gold bonus must extrapolate past the table end")
+	# New Lv.4/5 map exactly to legacy Lv.6/7 with the preserved slope.
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 4), 30.0, "S3 Lv.4 star bonus must equal legacy Lv.6")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 5), 35.0, "S3 Lv.5 star bonus must equal legacy Lv.7")
+	_expect_close(PerkConversionValues.get_value("gold_digger", "gold_bonus_pct", 4), 65.0, "S3 Lv.4 gold bonus must equal legacy Lv.6")
 
 
 func _verify_overflow_extends_plateau_tables_by_average_slope() -> void:
-	# sensor token count [1,1,2,2,2]: last segment is flat, so overflow must
-	# use the table's AVERAGE slope (+0.25/level) or the lane freezes forever.
-	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 9), 3.0, "plateau-shaped token table must keep growing via average slope")
+	# The explicit legacy average slope remains +0.25/level after the new cap.
+	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 7), 3.0, "plateau-shaped token lane must preserve legacy Lv.9 at S3 Lv.7")
 
 
 func _verify_overflow_extends_decreasing_cost_tables() -> void:
-	# shrapnel_armor gauge_cost [50..25] -> -6.25/level past the end.
-	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "gauge_cost", 7), 12.5, "Lv.7 shrapnel cost must keep decreasing")
-	# soul_burst gauge_cost [170..100] -> -17.5/level past the end.
-	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 6), 82.5, "Lv.6 soul burst cost must keep decreasing")
+	# New Lv.4+ preserves the legacy decreasing-cost continuation.
+	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "gauge_cost", 5), 12.5, "S3 Lv.5 shrapnel cost must equal legacy Lv.7")
+	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 4), 82.5, "S3 Lv.4 soul burst cost must equal legacy Lv.6")
 
 
 func _verify_overflow_respects_domain_bounds() -> void:
@@ -103,7 +101,7 @@ func _verify_overflow_respects_domain_bounds() -> void:
 	# 감소 계열 4레인은 소비 코드 실효 한도와 정합(레거시 패리티 —
 	# 100으로 두면 neural은 실효 무증가·master는 쿨다운 0이 된다).
 	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_gauge_reduction", 17), 90.0, "neural gauge reduction must cap at the 90 base-gauge consumption limit")
-	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_ball_speed_bonus_pct", 7), 14.0, "Gangsin ball-speed bonus must keep scaling past max level")
+	_expect_close(PerkConversionValues.get_value("neural_helmet", "aipill_ball_speed_bonus_pct", 5), 14.0, "Gangsin S3 Lv.5 ball-speed must equal legacy Lv.7")
 	_expect_close(PerkConversionValues.get_value("master", "item_cooldown_pct", 60), 95.0, "master cooldown reduction must cap at the legacy 95 limit (never a zero cooldown)")
 	_expect_close(PerkConversionValues.get_value("commando_arm", "prep_reduction_pct", 20), 95.0, "commando prep reduction must cap at the legacy 95 limit")
 	_expect_close(PerkConversionValues.get_value("rainbow_fur_glove", "rainbow_glove_cooldown_reduction_pct", 30), 95.0, "rainbow cooldown reduction must cap at the consumer 0.95 clamp")
@@ -155,6 +153,8 @@ func _verify_every_expected_bound_is_reachable_and_sticks() -> void:
 			var size := values.size()
 			var last := float(values[size - 1])
 			var slope := (last - float(values[0])) / float(size - 1)
+			if RuntimePerkProgression.has_lane(perk_id, key):
+				slope = RuntimePerkProgression.get_overflow_step(perk_id, key)
 			if bounds.has("max"):
 				_expect(slope > 0.0, "%s.%s max-bounded lane must grow toward its bound" % [perk_id, key])
 				if slope > 0.0:

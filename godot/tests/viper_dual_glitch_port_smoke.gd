@@ -696,11 +696,11 @@ func _test_startup_cancel_and_four_poisons_super_armor() -> void:
 	runtime.register_player_ball_contact(low_poison["deps"], _base_config())
 	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "idle", "Dual Glitch startup should cancel on player-ball contact without Four Poisons super armor")
 
-	var armored := _make_runtime_bundle(3)
+	var armored := _make_runtime_bundle(2)
 	runtime = armored["runtime"]
 	_activate_dual_glitch(runtime, armored["input"], Vector2(302.5, 680.0), 500.0, _base_config(), armored["deps"])
 	runtime.register_player_ball_contact(armored["deps"], _base_config())
-	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "startup", "Four Poisons Lv3 super armor should preserve Dual Glitch startup")
+	_expect(str(runtime.get_snapshot().get("dual_glitch_state", "")) == "startup", "S3 Four Poisons Lv2 super armor should preserve Dual Glitch startup")
 
 
 func _test_four_poisons_duration_cooldown_and_replication() -> void:
@@ -709,22 +709,22 @@ func _test_four_poisons_duration_cooldown_and_replication() -> void:
 	var skill_config := FakeSkillConfig.new()
 	var skill_state := FakeSkillState.new()
 	var perk_state := FakePerkState.new()
-	perk_state.levels["four_poisons"] = 5
+	perk_state.levels["four_poisons"] = 3
 	var deps := _deps(input, skill_config, skill_state, perk_state, FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
 	var config := _base_config()
 	var player_pos := Vector2(302.5, 680.0)
 	var result: Dictionary = _activate_dual_glitch(runtime, input, player_pos, 500.0, config, deps)
 	_expect(bool(result.get("activated", false)), "Four Poisons should not block Dual Glitch activation")
 	var snap: Dictionary = runtime.get_snapshot()
-	_expect(abs(float(snap.get("dual_glitch_active_total_frames", 0.0)) - 1197.0) < 0.01, "Four Poisons Lv5 should extend Dual Glitch active time by 33%")
-	_expect(abs(float(skill_state.cooldown_seconds.get("dual_glitch", 0.0)) - 32.0) < 0.01, "Four Poisons Lv5 should reduce Dual Glitch cooldown by 20%")
-	_expect(int(((snap.get("dual_glitch_clones", []) as Array)[0] as Dictionary).get("hp", 0)) == 4, "Four Poisons Lv5 should raise clone HP to 4")
+	_expect(abs(float(snap.get("dual_glitch_active_total_frames", 0.0)) - 1197.0) < 0.01, "S3 Four Poisons ceiling should preserve +33% Dual Glitch duration")
+	_expect(abs(float(skill_state.cooldown_seconds.get("dual_glitch", 0.0)) - 32.0) < 0.01, "S3 Four Poisons ceiling should preserve -20% cooldown")
+	_expect(int(((snap.get("dual_glitch_clones", []) as Array)[0] as Dictionary).get("hp", 0)) == 4, "S3 Four Poisons ceiling should preserve clone HP 4")
 	_advance_dual(runtime, config, deps, player_pos, 49)
 	_advance_dual(runtime, config, deps, player_pos, 24)
 	runtime._launch_blade_projectile(player_pos, config, deps)
 	snap = runtime.get_snapshot()
 	var followups: Array = snap.get("blade_followup_projectiles", [])
-	_expect(followups.size() == 2, "Four Poisons Lv5 active Dual Glitch should replicate Blade Rush from both living clones")
+	_expect(followups.size() == 2, "S3 Four Poisons ceiling should replicate Blade Rush from both living clones")
 	for projectile_value in followups:
 		var projectile: Dictionary = projectile_value
 		_expect(bool(projectile.get("dual_glitch_replica", false)), "replicated blades should be tagged as Dual Glitch replicas")
@@ -736,7 +736,7 @@ func _test_four_poisons_emp_clone_replication() -> void:
 	var skill_config := FakeSkillConfig.new()
 	var skill_state := FakeSkillState.new()
 	var perk_state := FakePerkState.new()
-	perk_state.levels["four_poisons"] = 5
+	perk_state.levels["four_poisons"] = 3
 	var deps := _deps(input, skill_config, skill_state, perk_state, FakeOrbHud.new(), FakeFeedback.new(), FakeAudio.new())
 	var config := _base_config()
 	config["player_floor_y"] = 680.0
@@ -754,7 +754,7 @@ func _test_four_poisons_emp_clone_replication() -> void:
 		dive_pos = _get_vector2(dive_result, "player_pos", dive_pos)
 	var snap: Dictionary = runtime.get_snapshot()
 	_expect(int(snap.get("dive_phase", -1)) == 2, "EMP should land before checking clone shockwaves")
-	_expect((snap.get("dual_glitch_clone_dive_entries", []) as Array).size() == 2, "Four Poisons Lv5 should schedule two clone EMP shockwaves")
+	_expect((snap.get("dual_glitch_clone_dive_entries", []) as Array).size() == 2, "S3 Four Poisons ceiling should schedule two clone EMP shockwaves")
 
 	var scene := {
 		"ball_pos": Vector2(380.0, 720.0),
@@ -806,12 +806,12 @@ func _test_tooltip_runtime_bonus() -> void:
 	var renderer: Object = TooltipRenderer.new()
 	var skill_config: Object = ViperSkillConfig.new()
 	var perk_state := FakePerkState.new()
-	perk_state.levels["four_poisons"] = 5
+	perk_state.levels["four_poisons"] = 3
 	var skill_data: Dictionary = skill_config.get_skill_data("dual_glitch")
 	var hover_context := {"runtime_perk_state": perk_state}
 	var description: String = renderer._build_description_with_runtime_bonus(skill_data, hover_context)
 	_expect(description.find("분신 HP 4") >= 0, "Dual Glitch tooltip should show Four Poisons clone HP")
-	_expect(description.find("초식 복제") >= 0, "Dual Glitch tooltip should show the Lv5 clone replication bonus")
+	_expect(description.find("초식을 복제") >= 0, "Dual Glitch tooltip should show the S3 ceiling clone replication bonus")
 	var cooldown: float = renderer._get_effective_skill_cooldown_seconds(skill_data, hover_context)
 	_expect(abs(cooldown - 32.0) < 0.01, "Dual Glitch tooltip cooldown should include Four Poisons reduction")
 

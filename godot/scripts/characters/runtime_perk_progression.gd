@@ -1,9 +1,8 @@
 extends RefCounted
 
-## Canonical numeric progression for the 37 five-level Mugong that will move
-## to three authored stars. S2 intentionally preserves the existing Lv.1-5
-## values and Lv.6+ behavior; S3 will replace only the authored value arrays
-## and their cap-relative milestone levels.
+## Canonical numeric progression for the 37 three-star Mugong. Authored values
+## use the approved 0.25 / 0.58 / 1.00 late-weighted curve, while overflow keeps
+## the legacy one-level slope: new Lv.4-10 therefore equal legacy Lv.6-12.
 ##
 ## Hot-path contract (GRT-032): PROGRESSIONS is a script-load-time static
 ## index. Runtime reads are O(1), return scalars, and never duplicate nested
@@ -17,6 +16,10 @@ const POLARITY_STRUCTURAL := "structural"
 const OVERFLOW_LINEAR := "linear"
 const OVERFLOW_HOLD := "hold"
 const OVERFLOW_STAIRCASE := "staircase"
+
+const AUTHORED_MAX_LEVEL := 3
+const LEGACY_AUTHORED_MAX_LEVEL := 5
+const AUTHORED_RATIOS := [0.25, 0.58, 1.00]
 
 const TARGET_PERK_IDS := {
 	"dash_acceleration": true,
@@ -78,153 +81,153 @@ const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := 0.03
 # mythic-item roll amplification (12%/level) are distinct production effects.
 static var PROGRESSIONS: Dictionary = {
 	"dash_acceleration": {"primary_runtime_lane": "vertical_scale_bonus", "lanes": {
-		"vertical_scale_bonus": _lane([0.70, 1.40, 2.10, 2.80, 3.50], 0.70),
-		"horizontal_scale_bonus": _lane([0.10, 0.20, 0.30, 0.40, 0.50], 0.10),
+		"vertical_scale_bonus": _lane([0.875, 2.03, 3.50], 0.70),
+		"horizontal_scale_bonus": _lane([0.125, 0.29, 0.50], 0.10),
 	}},
 	"item_luck": {"primary_runtime_lane": "spawn_wait_reduction", "lanes": {
-		"spawn_wait_reduction": _lane([0.12, 0.24, 0.36, 0.48, 0.60], 0.12),
+		"spawn_wait_reduction": _lane([0.15, 0.348, 0.60], 0.12),
 	}},
 	"item_gauge_mastery": {"primary_runtime_lane": "gauge_gain", "lanes": {
-		"gauge_gain": _lane([15.0, 30.0, 45.0, 60.0, 75.0], 15.0),
+		"gauge_gain": _lane([19.0, 44.0, 75.0], 15.0),
 	}},
 	"item_caffeine": {"primary_runtime_lane": "duration_bonus", "lanes": {
-		"duration_bonus": _lane([0.30, 0.60, 0.90, 1.20, 1.50], ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL),
+		"duration_bonus": _lane([0.375, 0.87, 1.50], ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL),
 	}},
 	"item_polish": {"primary_runtime_lane": "mythic_roll_bonus", "lanes": {
-		"general_amplify": _lane([0.05, 0.10, 0.15, 0.20, 0.25], PERK_POLISH_AMPLIFY_PER_LEVEL),
-		"mythic_roll_bonus": _lane([0.12, 0.24, 0.36, 0.48, 0.60], ITEM_POLISH_ROLL_BONUS_PER_LEVEL),
+		"general_amplify": _lane([0.0625, 0.145, 0.25], PERK_POLISH_AMPLIFY_PER_LEVEL),
+		"mythic_roll_bonus": _lane([0.15, 0.348, 0.60], ITEM_POLISH_ROLL_BONUS_PER_LEVEL),
 	}},
 	"item_recycle": {"primary_runtime_lane": "retain_chance", "lanes": {
-		"retain_chance": _lane([0.07, 0.14, 0.21, 0.28, 0.35], ITEM_RECYCLE_CHANCE_PER_LEVEL, MAX_ITEM_RECYCLE_CHANCE),
+		"retain_chance": _lane([0.0875, 0.203, 0.35], ITEM_RECYCLE_CHANCE_PER_LEVEL, MAX_ITEM_RECYCLE_CHANCE),
 	}},
 	"downtown_treasure_map": {"primary_runtime_lane": "mythic_offer_bonus", "lanes": {
-		"mythic_offer_bonus": _lane([1.50, 3.00, 4.50, 6.00, 7.50], TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL),
-		"vision_box_chance_bonus": _lane([0.03, 0.06, 0.09, 0.12, 0.15], TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL),
+		"mythic_offer_bonus": _lane([1.875, 4.35, 7.50], TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL),
+		"vision_box_chance_bonus": _lane([0.0375, 0.087, 0.15], TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL),
 	}},
 	"training_mastery": {"primary_runtime_lane": "training_amplify", "lanes": {
-		"training_amplify": _lane([0.20, 0.40, 0.60, 0.80, 1.00], TRAINING_MASTERY_AMPLIFY_PER_LEVEL),
+		"training_amplify": _lane([0.25, 0.58, 1.00], TRAINING_MASTERY_AMPLIFY_PER_LEVEL),
 	}},
 	"perk_boost_charge": {"primary_runtime_lane": "trigger_chance_pct", "lanes": {
-		"trigger_chance_pct": _lane([7.0, 14.0, 21.0, 28.0, 35.0], 7.0, 100.0),
-		"free_dash_count": _hold_lane([1.0, 1.0, 1.0, 1.0, 1.0], POLARITY_STRUCTURAL),
-		"recharge_reduction_pct": _hold_lane([90.0, 90.0, 90.0, 90.0, 90.0]),
+		"trigger_chance_pct": _lane([9.0, 20.0, 35.0], 7.0, 100.0),
+		"free_dash_count": _hold_lane([1.0, 1.0, 1.0], POLARITY_STRUCTURAL),
+		"recharge_reduction_pct": _hold_lane([90.0, 90.0, 90.0]),
 	}},
 	"perk_laurel_shield": {"primary_runtime_lane": "leaf_count", "lanes": {
-		"leaf_count": _lane([1.0, 2.0, 3.0, 4.0, 5.0], 1.0, INF, -INF, POLARITY_STRUCTURAL),
+		"leaf_count": _lane([1.0, 3.0, 5.0], 1.0, INF, -INF, POLARITY_STRUCTURAL),
 	}},
 	"dash_spirit": {"primary_runtime_lane": "laser_chance", "lanes": {
-		"laser_chance": _lane([0.07, 0.14, 0.21, 0.28, 0.35], 0.07),
+		"laser_chance": _lane([0.0875, 0.203, 0.35], 0.07),
 	}},
 	"extension_gear": {"lanes": {
-		"duration_bonus": _lane([0.25, 0.50, 0.75, 1.00, 1.25], 0.25),
+		"duration_bonus": _lane([0.3125, 0.725, 1.25], 0.25),
 	}},
 	"combo_amplifier_chip": {"lanes": {
-		"drive_speed_bonus": _lane([0.90, 1.80, 2.70, 3.60, 4.50], 0.90),
-		"drive_curve_bonus": _hold_lane([0.05, 0.10, 0.15, 0.15, 0.15], POLARITY_HIGHER_IS_BETTER, {"cap_reached": 3}),
-		"smash_speed_bonus": _lane([0.45, 0.90, 1.35, 1.80, 2.25], 0.45),
-		"initial_boost_decay_reduction": _lane([0.10, 0.20, 0.30, 0.40, 0.50], 0.10, 0.50, -INF, POLARITY_HIGHER_IS_BETTER, {"cap_reached": 5}),
+		"drive_speed_bonus": _lane([1.125, 2.61, 4.50], 0.90),
+		"drive_curve_bonus": _hold_lane([0.0375, 0.087, 0.15], POLARITY_HIGHER_IS_BETTER, {"cap_reached": 3}),
+		"smash_speed_bonus": _lane([0.5625, 1.305, 2.25], 0.45),
+		"initial_boost_decay_reduction": _lane([0.125, 0.29, 0.50], 0.10, 0.50, -INF, POLARITY_HIGHER_IS_BETTER, {"cap_reached": 3}),
 	}},
 	"jetpack_enhance": {"lanes": {
-		"max_gauge_bonus": _lane([0.20, 0.40, 0.60, 0.80, 1.00], 0.20),
-		"airborne_gauge_gain_bonus": _lane([0.0, 0.0, 0.10, 0.20, 0.30], 0.10, INF, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 3}),
+		"max_gauge_bonus": _lane([0.25, 0.58, 1.00], 0.20),
+		"airborne_gauge_gain_bonus": _lane([0.0, 0.174, 0.30], 0.10, INF, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 2}),
 	}},
 	"kick_enhance": {"lanes": {
-		"authored_precision_pct": _lane([8.0, 16.0, 24.0, 32.0, 40.0], 8.0),
-		"authored_speed_pct": _lane([12.0, 24.0, 36.0, 48.0, 60.0], 12.0),
-		"runtime_aim_gain": _lane([0.09, 0.18, 0.27, 0.36, 0.45], 0.09, 0.90),
-		"runtime_aim_candidate_count": _hold_lane([4.0, 5.0, 6.0, 7.0, 8.0], POLARITY_STRUCTURAL, {}, 3.0),
-		"runtime_hit_speed_bonus": _lane([0.04, 0.08, 0.12, 0.16, 0.20], 0.04),
-		"prep_reduction": _lane([0.07, 0.14, 0.21, 0.28, 0.35], 0.07, 0.90),
-		"furnace_knockback_chance": _lane([0.0, 0.0, 0.10, 0.20, 0.30], 0.10, 1.00, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 3}),
-		"guard_fire_knockback_pct": _hold_lane([0.0, 0.0, 150.0, 150.0, 150.0], POLARITY_STRUCTURAL, {"starts": 3}),
+		"authored_precision_pct": _lane([10.0, 23.0, 40.0], 8.0),
+		"authored_speed_pct": _lane([15.0, 35.0, 60.0], 12.0),
+		"runtime_aim_gain": _lane([0.1125, 0.261, 0.45], 0.09, 0.90),
+		"runtime_aim_candidate_count": _hold_lane([4.0, 6.0, 8.0], POLARITY_STRUCTURAL, {}, 3.0),
+		"runtime_hit_speed_bonus": _lane([0.05, 0.116, 0.20], 0.04),
+		"prep_reduction": _lane([0.0875, 0.203, 0.35], 0.07, 0.90),
+		"furnace_knockback_chance": _lane([0.0, 0.174, 0.30], 0.10, 1.00, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 2}),
+		"guard_fire_knockback_pct": _hold_lane([0.0, 150.0, 150.0], POLARITY_STRUCTURAL, {"starts": 2}),
 	}},
 	"blade_amp": {"lanes": {
-		"range_width_bonus": _hold_lane([0.10, 0.20, 0.30, 0.40, 0.50]),
-		"projectile_speed_bonus": _lane([0.10, 0.20, 0.30, 0.40, 0.50], 0.10),
-		"hit_speed_bonus": _lane([0.15, 0.30, 0.45, 0.60, 0.75], 0.15),
-		"gauge_cost_reduction": _lane([10.0, 20.0, 30.0, 40.0, 50.0], 10.0, 100.0),
-		"homing_tier": _hold_lane([0.0, 0.0, 1.0, 1.0, 2.0], POLARITY_STRUCTURAL, {"homing": 3, "additional_homing": 5}),
-		"followup_chance_pct": _lane([0.0, 0.0, 10.0, 20.0, 30.0], 10.0, 100.0, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 3}),
+		"range_width_bonus": _hold_lane([0.125, 0.29, 0.50]),
+		"projectile_speed_bonus": _lane([0.125, 0.29, 0.50], 0.10),
+		"hit_speed_bonus": _lane([0.1875, 0.435, 0.75], 0.15),
+		"gauge_cost_reduction": _lane([13.0, 29.0, 50.0], 10.0, 100.0),
+		"homing_tier": _hold_lane([0.0, 1.0, 2.0], POLARITY_STRUCTURAL, {"homing": 2, "additional_homing": 3}),
+		"followup_chance_pct": _lane([0.0, 17.0, 30.0], 10.0, 100.0, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 2}),
 	}},
 	"four_poisons": {"lanes": {
-		"prep_reduction_pct": _lane([8.0, 16.0, 25.0, 33.0, 40.0], 4.0, 70.0),
-		"sleep_pct": _lane([5.0, 10.0, 15.0, 20.0, 25.0], 5.0, 50.0),
-		"confusion_pct": _lane([12.0, 24.0, 36.0, 48.0, 70.0], 10.0, 150.0),
-		"dual_duration_pct": _lane([7.0, 14.0, 20.0, 27.0, 33.0], 5.0, 45.0),
-		"cooldown_reduction_pct": _lane([0.0, 0.0, 10.0, 15.0, 20.0], 4.0, 40.0, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 3}),
-		"clone_hp": _staircase_lane([2.0, 2.0, 3.0, 3.0, 4.0], 1.0, 2, 4, 2, 6.0, {"raised": 3, "maximum": 5}, 2.0),
-		"superarmor": _hold_lane([0.0, 0.0, 1.0, 1.0, 1.0], POLARITY_STRUCTURAL, {"starts": 3}),
-		"clone_replication": _hold_lane([0.0, 0.0, 0.0, 0.0, 1.0], POLARITY_STRUCTURAL, {"starts": 5}),
+		"prep_reduction_pct": _lane([10.0, 23.0, 40.0], 4.0, 70.0),
+		"sleep_pct": _lane([6.0, 15.0, 25.0], 5.0, 50.0),
+		"confusion_pct": _lane([18.0, 41.0, 70.0], 10.0, 150.0),
+		"dual_duration_pct": _lane([8.0, 19.0, 33.0], 5.0, 45.0),
+		"cooldown_reduction_pct": _lane([0.0, 12.0, 20.0], 4.0, 40.0, -INF, POLARITY_HIGHER_IS_BETTER, {"starts": 2}),
+		"clone_hp": _staircase_lane([2.0, 3.0, 4.0], 1.0, 2, 2, 2, 6.0, {"raised": 2, "maximum": 3}, 2.0),
+		"superarmor": _hold_lane([0.0, 1.0, 1.0], POLARITY_STRUCTURAL, {"starts": 2}),
+		"clone_replication": _hold_lane([0.0, 0.0, 1.0], POLARITY_STRUCTURAL, {"starts": 3}),
 	}},
 	"pistol_enhance": {"lanes": {
-		"spread_degrees": _hold_lane([12.0, 9.0, 6.0, 3.0, 1.0], POLARITY_LOWER_IS_BETTER),
-		"speed_bonus_pct": _hold_lane([10.0, 20.0, 30.0, 40.0, 50.0]),
-		"knockback_bonus_pct": _hold_lane([30.0, 60.0, 90.0, 120.0, 150.0]),
-		"magazine_size": _lane([5.0, 5.0, 6.0, 6.0, 7.0], 1.0, INF, -INF, POLARITY_STRUCTURAL, {"first_upgrade": 3, "second_upgrade": 5}),
+		"spread_degrees": _hold_lane([11.0, 7.0, 1.0], POLARITY_LOWER_IS_BETTER),
+		"speed_bonus_pct": _hold_lane([13.0, 29.0, 50.0]),
+		"knockback_bonus_pct": _hold_lane([38.0, 87.0, 150.0]),
+		"magazine_size": _lane([5.0, 6.0, 7.0], 1.0, INF, -INF, POLARITY_STRUCTURAL, {"first_upgrade": 2, "second_upgrade": 3}),
 	}},
 
 	# Converted target Mugong. Their current Lv.6+ rule is the authored-table
 	# average step, made explicit here so shrinking the table in S3 cannot
 	# silently change overflow. level_zero="first" preserves the existing
 	# PerkConversionValues clamp-to-Lv.1 behavior for direct raw queries.
-	"star_detector": _converted({"star_bonus_pct": _converted_lane([5.0, 10.0, 15.0, 20.0, 25.0], 5.0)}),
+	"star_detector": _converted({"star_bonus_pct": _converted_lane([6.0, 15.0, 25.0], 5.0)}),
 	"adversity_armor": _converted({
-		"trigger_chance_pct": _converted_lane([20.0, 25.0, 30.0, 35.0, 40.0], 5.0, 100.0),
-		"invincible_duration_sec": _converted_lane([5.0, 8.0, 10.0, 13.0, 15.0], 2.5),
+		"trigger_chance_pct": _converted_lane([10.0, 23.0, 40.0], 5.0, 100.0),
+		"invincible_duration_sec": _converted_lane([3.75, 8.70, 15.0], 2.5),
 	}),
 	"reinforced_boomerang_gauntlet": _converted({
-		"boomerang_knockback_pct": _converted_lane([20.0, 28.0, 35.0, 43.0, 50.0], 7.5),
-		"boomerang_stun_pct": _converted_lane([20.0, 35.0, 50.0, 65.0, 80.0], 15.0),
-		"boomerang_launch_speed_pct": _converted_lane([15.0, 24.0, 33.0, 41.0, 50.0], 8.75),
-		"boomerang_homing_pct": _converted_lane([10.0, 20.0, 30.0, 40.0, 50.0], 10.0),
-		"boomerang_spawn_bonus_pct": _converted_lane([50.0, 88.0, 125.0, 163.0, 200.0], 37.5),
+		"boomerang_knockback_pct": _converted_lane([13.0, 29.0, 50.0], 7.5),
+		"boomerang_stun_pct": _converted_lane([20.0, 46.0, 80.0], 15.0),
+		"boomerang_launch_speed_pct": _converted_lane([13.0, 29.0, 50.0], 8.75),
+		"boomerang_homing_pct": _converted_lane([13.0, 29.0, 50.0], 10.0),
+		"boomerang_spawn_bonus_pct": _converted_lane([50.0, 116.0, 200.0], 37.5),
 	}),
 	"sensor": _converted({
-		"auto_dash_token_count": _converted_lane([1.0, 1.0, 2.0, 2.0, 2.0], 0.25, INF, -INF, POLARITY_STRUCTURAL, false),
-		"auto_dash_cooldown_sec": _converted_lane([30.0, 26.0, 23.0, 19.0, 15.0], -3.75, INF, 1.0, POLARITY_LOWER_IS_BETTER),
+		"auto_dash_token_count": _converted_lane([1.0, 1.0, 2.0], 0.25, INF, -INF, POLARITY_STRUCTURAL, false),
+		"auto_dash_cooldown_sec": _converted_lane([29.0, 23.0, 15.0], -3.75, INF, 1.0, POLARITY_LOWER_IS_BETTER),
 	}),
-	"dowsing_pendulum": _converted({"attraction_range": _converted_lane([120.0, 160.0, 200.0, 240.0, 280.0], 40.0)}),
-	"chargebag": _converted({"chargebag_pct": _converted_lane([15.0, 25.0, 35.0, 45.0, 55.0], 10.0)}),
-	"battery": _converted({"gauge_preserve_pct": _converted_lane([40.0, 55.0, 70.0, 85.0, 100.0], 15.0, 100.0)}),
+	"dowsing_pendulum": _converted({"attraction_range": _converted_lane([70.0, 162.0, 280.0], 40.0)}),
+	"chargebag": _converted({"chargebag_pct": _converted_lane([14.0, 32.0, 55.0], 10.0)}),
+	"battery": _converted({"gauge_preserve_pct": _converted_lane([25.0, 58.0, 100.0], 15.0, 100.0)}),
 	"master": _converted({
-		"wall_length_pct": _converted_lane([12.0, 20.0, 29.0, 37.0, 45.0], 8.25),
-		"item_cooldown_pct": _converted_lane([3.0, 5.0, 8.0, 10.0, 12.0], 2.25, 95.0),
-		"wall_spawn_bonus_pct": _converted_lane([100.0, 158.0, 215.0, 273.0, 330.0], 57.5),
+		"wall_length_pct": _converted_lane([11.0, 26.0, 45.0], 8.25),
+		"item_cooldown_pct": _converted_lane([3.0, 7.0, 12.0], 2.25, 95.0),
+		"wall_spawn_bonus_pct": _converted_lane([83.0, 191.0, 330.0], 57.5),
 	}),
-	"gold_digger": _converted({"gold_bonus_pct": _converted_lane([15.0, 25.0, 35.0, 45.0, 55.0], 10.0)}),
-	"lucky_coin": _converted({"double_spawn_pct": _converted_lane([3.0, 7.0, 10.0, 14.0, 17.0], 3.5, 100.0)}),
+	"gold_digger": _converted({"gold_bonus_pct": _converted_lane([14.0, 32.0, 55.0], 10.0)}),
+	"lucky_coin": _converted({"double_spawn_pct": _converted_lane([4.0, 10.0, 17.0], 3.5, 100.0)}),
 	"shrapnel_armor": _converted({
-		"trigger_chance_pct": _converted_lane([6.0, 9.0, 12.0, 14.0, 17.0], 2.75, 100.0),
-		"shard_count": _converted_lane([4.0, 5.0, 6.0, 7.0, 8.0], 1.0, INF, -INF, POLARITY_STRUCTURAL, false),
-		"knockback_level": _converted_lane([1.0, 2.0, 3.0, 3.0, 4.0], 0.75, INF, -INF, POLARITY_STRUCTURAL, false),
-		"gauge_cost": _converted_lane([50.0, 44.0, 38.0, 31.0, 25.0], -6.25, INF, 0.0, POLARITY_LOWER_IS_BETTER),
+		"trigger_chance_pct": _converted_lane([4.0, 10.0, 17.0], 2.75, 100.0),
+		"shard_count": _converted_lane([2.0, 5.0, 8.0], 1.0, INF, -INF, POLARITY_STRUCTURAL, false),
+		"knockback_level": _converted_lane([1.0, 2.0, 4.0], 0.75, INF, -INF, POLARITY_STRUCTURAL, false),
+		"gauge_cost": _converted_lane([48.0, 38.0, 25.0], -6.25, INF, 0.0, POLARITY_LOWER_IS_BETTER),
 	}),
-	"foul_whistle": _converted({"negate_chance_pct": _converted_lane([3.0, 5.0, 7.0, 9.0, 11.0], 2.0, 100.0)}),
+	"foul_whistle": _converted({"negate_chance_pct": _converted_lane([3.0, 6.0, 11.0], 2.0, 100.0)}),
 	"neural_helmet": _converted({
-		"aipill_gauge_reduction": _converted_lane([10.0, 15.0, 20.0, 25.0, 30.0], 5.0, 90.0),
-		"aipill_ball_speed_bonus_pct": _converted_lane([2.0, 4.0, 6.0, 8.0, 10.0], 2.0),
-		"aipill_spawn_bonus_pct": _converted_lane([100.0, 158.0, 215.0, 273.0, 330.0], 57.5),
+		"aipill_gauge_reduction": _converted_lane([8.0, 17.0, 30.0], 5.0, 90.0),
+		"aipill_ball_speed_bonus_pct": _converted_lane([3.0, 6.0, 10.0], 2.0),
+		"aipill_spawn_bonus_pct": _converted_lane([83.0, 191.0, 330.0], 57.5),
 	}),
 	"commando_arm": _converted({
-		"throw_speed_pct": _converted_lane([6.0, 11.0, 15.0, 20.0, 24.0], 4.5),
-		"explosion_range_pct": _converted_lane([3.0, 7.0, 11.0, 14.0, 18.0], 3.75),
-		"smoke_duration_pct": _converted_lane([12.0, 21.0, 30.0, 39.0, 48.0], 9.0),
-		"prep_reduction_pct": _converted_lane([12.0, 21.0, 30.0, 39.0, 48.0], 9.0, 95.0),
+		"throw_speed_pct": _converted_lane([6.0, 14.0, 24.0], 4.5),
+		"explosion_range_pct": _converted_lane([5.0, 10.0, 18.0], 3.75),
+		"smoke_duration_pct": _converted_lane([12.0, 28.0, 48.0], 9.0),
+		"prep_reduction_pct": _converted_lane([12.0, 28.0, 48.0], 9.0, 95.0),
 	}),
 	"rainbow_fur_glove": _converted({
-		"rainbow_glove_trigger_chance_pct": _converted_lane([3.0, 4.0, 5.0, 6.0, 7.0], 1.0, 100.0),
-		"rainbow_glove_cooldown_reduction_pct": _converted_lane([8.0, 11.0, 14.0, 17.0, 20.0], 3.0, 95.0),
+		"rainbow_glove_trigger_chance_pct": _converted_lane([2.0, 4.0, 7.0], 1.0, 100.0),
+		"rainbow_glove_cooldown_reduction_pct": _converted_lane([5.0, 12.0, 20.0], 3.0, 95.0),
 	}),
-	"knee_pads": _converted({"knee_charge_pct": _converted_lane([20.0, 33.0, 45.0, 58.0, 70.0], 12.5)}),
-	"soul_burst": _converted({"soul_burst_gauge_cost": _converted_lane([170.0, 153.0, 135.0, 118.0, 100.0], -17.5, INF, 0.0, POLARITY_LOWER_IS_BETTER)}),
+	"knee_pads": _converted({"knee_charge_pct": _converted_lane([18.0, 41.0, 70.0], 12.5)}),
+	"soul_burst": _converted({"soul_burst_gauge_cost": _converted_lane([166.0, 137.0, 100.0], -17.5, INF, 0.0, POLARITY_LOWER_IS_BETTER)}),
 	"venom_mist_gauntlet": _converted({
-		"mist_trigger_chance_pct": _converted_lane([20.0, 29.0, 38.0, 46.0, 55.0], 8.75, 100.0),
-		"mist_duration_sec": _converted_lane([1.5, 2.5, 3.5, 4.5, 5.5], 1.0),
+		"mist_trigger_chance_pct": _converted_lane([14.0, 32.0, 55.0], 8.75, 100.0),
+		"mist_duration_sec": _converted_lane([1.375, 3.19, 5.5], 1.0),
 	}),
 	"sage_ring": _converted({
-		"trigger_chance_pct": _converted_lane([5.0, 5.0, 5.0, 5.0, 5.0], 0.0),
-		"perk_level_bonus": _converted_lane([1.0, 1.0, 2.0, 2.0, 3.0], 0.5, INF, -INF, POLARITY_STRUCTURAL, false),
-		"duration_sec": _converted_lane([6.0, 7.0, 8.0, 9.0, 10.0], 1.0),
+		"trigger_chance_pct": _converted_lane([5.0, 5.0, 5.0], 0.0),
+		"perk_level_bonus": _converted_lane([1.0, 2.0, 3.0], 0.5, INF, -INF, POLARITY_STRUCTURAL, false),
+		"duration_sec": _converted_lane([2.5, 5.8, 10.0], 1.0),
 	}),
 }
 
@@ -292,6 +295,14 @@ static func get_value_from_index(index: Dictionary, perk_id: String, lane_id: St
 
 static func get_int_value(perk_id: String, lane_id: String, level: int) -> int:
 	return int(round(get_value(perk_id, lane_id, level)))
+
+
+static func get_overflow_step(perk_id: String, lane_id: String) -> float:
+	var progression: Dictionary = PROGRESSIONS.get(perk_id.strip_edges(), {})
+	var lanes: Dictionary = progression.get("lanes", {})
+	var lane: Dictionary = lanes.get(lane_id.strip_edges(), {})
+	var overflow: Dictionary = lane.get("overflow", {})
+	return float(overflow.get("step", 0.0))
 
 
 static func get_milestone_level(perk_id: String, lane_id: String, milestone_id: String) -> int:

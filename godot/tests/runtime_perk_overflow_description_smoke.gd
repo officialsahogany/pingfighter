@@ -1,6 +1,6 @@
 extends SceneTree
 
-# Seals the Lv.6+ (effective-level overflow) perk stat-line generator
+# Seals the effective-level overflow perk stat-line generator
 # (2026-07-10 bug: a transcendent_crown Lv.7 비천보 tooltip still displayed the
 # Lv.5 "대쉬 거리 35% 증가" line; every overflow-eligible perk shared the bug).
 #
@@ -9,7 +9,7 @@ extends SceneTree
 #     special-cased), the generated text must equal the catalog's authored
 #     descriptions[level] VERBATIM at every defined level — template constants
 #     cannot drift from catalog wording without failing here.
-#  2. Overflow correctness: Lv.6+ values continue the runtime lanes (linear
+#  2. Overflow correctness: values above each authored maximum continue the runtime lanes (linear
 #     constants, PerkConversionValues extrapolation + bounds, cap markers).
 #  3. Runtime-table equality: the module's four_poisons lane tables equal
 #     ViperSkillRuntime FOUR_POISONS_* consts, and the local extrapolation
@@ -108,22 +108,21 @@ func _test_linear_overflow_values() -> void:
 	_expect_text("dash_jump", 7, "활주 거리 49% 증가")
 	_expect_text("dash_lightweight", 6, "활주 재충전 72% 감소")
 	_expect_text("common_swiftness", 6, "이동속도 36% 증가")
-	_expect_text("perk_laurel_shield", 7, "벽사 잎 7개 보호")
+	_expect_text("perk_laurel_shield", 5, "벽사 잎 7개 보호")
 	# value_max lanes clamp like their runtime consumers.
 	_expect_text("item_recycle", 15, "아이템 유지 확률 90%")
 	_expect_text("perk_boost_charge", 15, "확률 +100%, 발동 시 다음 활주 무료 + 재충전 -90%")
 
 
 func _test_converted_overflow_single_sourced() -> void:
-	# adversity_armor Lv.6: 40+5=45% / 15+2.5=17.5초 (average-slope extrapolation).
-	_expect_text("adversity_armor", 6, "실점 후 발동 45%, 보호 17.5초")
-	# battery Lv.6 hits its 100% overflow bound.
-	_expect_text("battery", 6, "스테이지 전환 기력 보존 100%")
-	_expect_text("neural_helmet", 6, "신령환 가드 기력 비용 35 감소, 패들 반사 공속 추가 +12%, 스폰 +387.5%")
-	# sensor Lv.9 token count follows the int(round()) consumer (2.25 -> 2... 3.0 at Lv.9).
-	var sensor_tokens: float = PerkConversionValues.get_value("sensor", "auto_dash_token_count", 9)
-	_expect(int(round(sensor_tokens)) == 3, "fixture: sensor Lv.9 token lane should round to 3, got %f" % sensor_tokens)
-	_expect_text("sensor", 9, "자동 활주 3회, 쿨타임 %s초" % _fmt(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 9)))
+	# S3 Lv.4 maps to legacy Lv.6 for every converted overflow lane.
+	_expect_text("adversity_armor", 4, "실점 후 발동 45%, 보호 17.5초")
+	_expect_text("battery", 4, "스테이지 전환 기력 보존 100%")
+	_expect_text("neural_helmet", 4, "신령환 가드 기력 비용 35 감소, 패들 반사 공속 추가 +12%, 스폰 +387.5%")
+	# S3 Lv.7 maps to legacy Lv.9, where the sensor token lane reaches 3.0.
+	var sensor_tokens: float = PerkConversionValues.get_value("sensor", "auto_dash_token_count", 7)
+	_expect(int(round(sensor_tokens)) == 3, "fixture: sensor S3 Lv.7 token lane should round to 3, got %f" % sensor_tokens)
+	_expect_text("sensor", 7, "자동 활주 3회, 쿨타임 %s초" % _fmt(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 7)))
 	# Structural: every converted template lane matches get_value at an overflow level.
 	for skill_id_value in RuntimePerkOverflowDescriptions.CONVERTED_TEMPLATES.keys():
 		var skill_id: String = str(skill_id_value)
@@ -132,22 +131,19 @@ func _test_converted_overflow_single_sourced() -> void:
 
 
 func _test_special_overflow_values() -> void:
-	# 천기보도 Lv.7: 승리 보상 픽의 절세무공 카드 등장 배율이 상한 없이 선형 증가한다.
-	_expect_text("downtown_treasure_map", 7, "승리 보상 픽 절세무공 등장 확률 +1050%")
-	# combo chip Lv.7: uncapped lanes keep scaling, capped lanes hold with (캡).
+	# S3 Lv.5 is legacy Lv.7 for migrated Mugong.
+	_expect_text("downtown_treasure_map", 5, "승리 보상 픽 절세무공 등장 확률 +1050%")
 	_expect_text(
-		"combo_amplifier_chip", 7,
+		"combo_amplifier_chip", 5,
 		"콤보 효과 증폭: 벽력타 공속+630%, 커브+15%(캡), 천뢰격 공속+315%, 초기부스트 감쇄 -50%(캡)"
 	)
-	# pistol Lv.7: only the magazine keeps growing (documented Lv.6+ contract).
-	_expect_text("pistol_enhance", 7, "단총통 정확도 ±1°, 탄속 +50%, 넉백 +150%, 장전 9발")
-	_expect_text("jetpack_enhance", 6, "제트팩 최대 게이지 +120%, 체공 중 게이지 획득 +40%")
-	_expect_text("kick_enhance", 7, "킥 발사 정밀도 +56%, 공속 +84%, 준비 -49%, 용광로 넉백볼 50%")
-	# blade_amp Lv.6: range holds at the runtime clamp (+50%), speed keeps scaling.
-	_expect_text("blade_amp", 6, "참격 사거리/가로폭 +50%(캡), 참격 속도 +60%, 추가 유도검기")
-	# four_poisons Lv.6 extrapolates every lane by its runtime per-extra step.
+	_expect_text("pistol_enhance", 5, "단총통 정확도 ±1°, 탄속 +50%, 넉백 +150%, 장전 9발")
+	# S3 Lv.4 is legacy Lv.6.
+	_expect_text("jetpack_enhance", 4, "제트팩 최대 게이지 +120%, 체공 중 게이지 획득 +40%")
+	_expect_text("kick_enhance", 5, "킥 발사 정밀도 +56%, 공속 +84%, 준비 -49%, 용광로 넉백볼 50%")
+	_expect_text("blade_amp", 4, "참격 사거리/가로폭 +50%(캡), 참격 속도 +60%, 추가 유도검기")
 	_expect_text(
-		"four_poisons", 6,
+		"four_poisons", 4,
 		"천뢰진각/혼천흑창 준비 -44%, 천뢰진각 수면 +30%, 독영절맥 혼란 +80%, 쌍영분신 지속 +38%, 쌍영분신 HP 5, 4초식 쿨 -24%, 슈퍼아머, 분신 복제"
 	)
 

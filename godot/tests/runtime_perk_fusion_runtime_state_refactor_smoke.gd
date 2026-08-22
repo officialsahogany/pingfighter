@@ -102,7 +102,7 @@ func _verify_owner_boundary() -> void:
 func _verify_direct_state_and_runtime_facade() -> void:
 	var owner := RuntimePerkFusionRuntimeState.new()
 	var catalog := RuntimePerkCatalog.new()
-	var levels := {"item_luck": 5, "common_bulk_up": 5}
+	var levels := {"item_luck": 3, "common_bulk_up": 5}
 	var context: Dictionary = owner.build_result_context(["item_luck"], catalog, levels)
 	_expect(
 		(context.get("limit_break_eligible_sources", []) as Array).has("item_luck"),
@@ -147,7 +147,7 @@ func _verify_direct_state_and_runtime_facade() -> void:
 	var modal_input: Object = runtime._get_perk_fusion_modal_input()
 	_expect(modal_flow != null and runtime._perk_fusion_modal_flow == modal_flow, "fusion flow lookup should resolve the owner-held lazy instance")
 	_expect(modal_input != null and runtime._perk_fusion_modal_input == modal_input, "fusion input lookup should resolve the owner-held lazy instance")
-	runtime.runtime_skill_levels["item_luck"] = 5
+	runtime.runtime_skill_levels["item_luck"] = 3
 	var facade_context: Dictionary = runtime._build_perk_fusion_result_context(["item_luck"], catalog)
 	_expect(
 		(facade_context.get("limit_break_eligible_sources", []) as Array).has("item_luck"),
@@ -174,7 +174,7 @@ func _verify_offer_injection_transaction() -> void:
 	var runtime := RuntimePerkState.new()
 	var catalog := RuntimePerkCatalog.new()
 	runtime.runtime_skill_levels = {
-		"item_luck": 5,
+		"item_luck": 3,
 		"common_bulk_up": 5,
 	}
 	runtime.current_choice_context = {"source": "plaza_academy"}

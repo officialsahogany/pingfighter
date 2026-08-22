@@ -2,6 +2,7 @@ extends RefCounted
 
 const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 const RuntimePerkAngelBlessingProjection := preload("res://scripts/characters/runtime_perk_angel_blessing_projection.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 
@@ -440,7 +441,7 @@ func get_effective_polish_multiplier(effective_levels: Object, runtime_state: Ob
 
 func get_base_polish_multiplier(effective_levels: Object, runtime_state: Object) -> float:
 	var base_level := maxi(0, int(_get_runtime_skill_levels(runtime_state).get(RuntimePerkEffectiveLevels.ITEM_POLISH_ID, 0)))
-	var base_bonus := float(base_level) * RuntimePerkEffectiveLevels.ITEM_POLISH_ROLL_BONUS_PER_LEVEL
+	var base_bonus := RuntimePerkProgression.get_value("item_polish", "mythic_roll_bonus", base_level)
 	return 1.0 + maxf(0.0, _apply_fusion_skill_bonus(runtime_state, RuntimePerkEffectiveLevels.ITEM_POLISH_ID, base_bonus))
 
 

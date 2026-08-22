@@ -1,11 +1,11 @@
 extends RefCounted
 
-# Lv.6+ (effective-level overflow) perk stat-line generator.
+# Effective-level overflow perk stat-line generator.
 #
 # transcendent_crown / sage_ring / ignition aura raise a perk's effective level
-# past its authored `descriptions` cap (usually Lv.5). Runtime keeps scaling
+# past its authored `descriptions` cap (usually Lv.3 for scalable Mugong). Runtime keeps scaling
 # (CLAUDE.md effective-level overflow default), but tooltips fell back to the
-# highest authored text, so a Lv.7 비천보 still displayed the Lv.5 "대쉬 거리 35%
+# highest authored text, so an overflow rank must not display stale authored text.
 # 증가" line (2026-07-10 bug). This is the Godot port of legacy pingfighter.py
 # `get_runtime_skill_description()`.
 #
@@ -14,7 +14,7 @@ extends RefCounted
 #   catalog's authored `descriptions[level]` VERBATIM at every defined level.
 #   The pattern constants therefore cannot silently drift from catalog wording:
 #   a catalog text edit fails the smoke and forces a matching template update.
-# - Overflow (Lv.6+) values follow the RUNTIME lanes: linear lanes mirror
+# - Overflow values above each perk's authored maximum follow the RUNTIME lanes:
 #   runtime_perk_effective_levels.gd constants, converted perks are
 #   single-sourced through PerkConversionValues.get_value() (which already
 #   extrapolates + bounds overflow), and the viper four_poisons tables mirror
@@ -23,8 +23,8 @@ extends RefCounted
 #   summary string (localize_perk_data), so overflow generation stays on the
 #   authored-fallback path there (the collapsed single-panel behavior).
 # - Known runtime-vs-catalog wording gaps (kick_enhance 정밀도/공속 lanes) keep
-#   following the AUTHORED pattern so the Lv.6+ line stays consistent with the
-#   Lv.1~5 lines the player already read; reconciling those numbers is a
+#   following the AUTHORED pattern so the overflow line stays consistent with
+#   the authored lines the player already read; reconciling those numbers is a
 #   design decision, not a display fix.
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
@@ -59,7 +59,7 @@ const LINEAR_PATTERNS := {
 
 # Converted-perk lane templates. Values come straight from
 # PerkConversionValues.get_value(id, key, level), which is the SAME call the
-# runtime consumers make, so the Lv.6+ text is single-sourced with gameplay
+# runtime consumers make, so overflow text is single-sourced with gameplay
 # (including OVERFLOW_VALUE_BOUNDS clamps). int_keys mirror consumers that
 # read the lane with int(round(...)) (shard/token counts, knockback level).
 const RUNTIME_PERCENT_POINT_SKILL_IDS := {
@@ -144,27 +144,29 @@ static var FOUR_POISONS_COOLDOWN: Dictionary = _build_legacy_linear_lane("cooldo
 static var FOUR_POISONS_CLONE_HP: Dictionary = _build_legacy_clone_hp_lane()
 
 # pistol_enhance authored spread ladder (mirrors commando_firearm_runtime.gd
-# PISTOL_ENHANCE_SPREAD_DEGREES minus the level-0 slot; index clamps at Lv.5
-# like the runtime consumer, so Lv.6+ keeps ±1°).
+# PISTOL_ENHANCE_SPREAD_DEGREES minus the level-0 slot; the authored ladder
+# clamps at Lv.3, so Lv.4+ keeps ±1°).
 static var PISTOL_ENHANCE_SPREAD_DEGREES: Array = RuntimePerkProgression.get_authored_values_reference(
 	"pistol_enhance", "spread_degrees"
 )
 
 
 static func _build_legacy_linear_lane(lane_id: String) -> Dictionary:
+	var authored_max := RuntimePerkProgression.get_authored_max_level("four_poisons")
 	var values: Array = [0]
-	for level in range(1, 6):
+	for level in range(1, authored_max + 1):
 		values.append(RuntimePerkProgression.get_int_value("four_poisons", lane_id, level))
 	return {
 		"values": values,
-		"per_extra": RuntimePerkProgression.get_int_value("four_poisons", lane_id, 6) - int(values[5]),
+		"per_extra": RuntimePerkProgression.get_int_value("four_poisons", lane_id, authored_max + 1) - int(values[authored_max]),
 		"cap": RuntimePerkProgression.get_int_value("four_poisons", lane_id, 10000),
 	}
 
 
 static func _build_legacy_clone_hp_lane() -> Dictionary:
-	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 1)]
-	for level in range(1, 6):
+	var authored_max := RuntimePerkProgression.get_authored_max_level("four_poisons")
+	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 0)]
+	for level in range(1, authored_max + 1):
 		values.append(RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level))
 	return {
 		"values": values,
@@ -403,8 +405,8 @@ static func generate_stats_text(skill_id: String, level: int) -> String:
 
 static func _dash_acceleration_text(level: int) -> String:
 	return "활주시 몸집 세로 %d%%·가로 %d%% 증가" % [
-		int(round(RuntimePerkProgression.get_value("dash_acceleration", "vertical_scale_bonus", level) * 100.0)),
-		int(round(RuntimePerkProgression.get_value("dash_acceleration", "horizontal_scale_bonus", level) * 100.0)),
+		_round_display_int(RuntimePerkProgression.get_value("dash_acceleration", "vertical_scale_bonus", level) * 100.0),
+		_round_display_int(RuntimePerkProgression.get_value("dash_acceleration", "horizontal_scale_bonus", level) * 100.0),
 	]
 
 
@@ -412,7 +414,7 @@ static func _linear_pattern_text(skill_id: String, level: int) -> String:
 	var pattern: Dictionary = LINEAR_PATTERNS[skill_id]
 	var value: int
 	if pattern.has("lane"):
-		value = int(round(RuntimePerkProgression.get_value(skill_id, str(pattern["lane"]), level) * float(pattern.get("scale", 1.0))))
+		value = _round_display_int(RuntimePerkProgression.get_value(skill_id, str(pattern["lane"]), level) * float(pattern.get("scale", 1.0)))
 	else:
 		value = int(pattern["per_level"]) * level
 		if pattern.has("value_max"):
@@ -440,21 +442,19 @@ static func _converted_template_text(skill_id: String, level: int) -> String:
 # (1.50 = +150%/lv) → tower_reward_pick_offer_builder의 절세무공 카드 확률.
 static func _treasure_map_text(level: int) -> String:
 	return "승리 보상 픽 절세무공 등장 확률 +%d%%" % (
-		int(round(RuntimePerkProgression.get_value("downtown_treasure_map", "mythic_offer_bonus", level) * 100.0))
+		_round_display_int(RuntimePerkProgression.get_value("downtown_treasure_map", "mythic_offer_bonus", level) * 100.0)
 	)
 
 
-# drive_curve caps at Lv.3 and the initial-boost decay reduction at 50%
-# (runtime: get_combo_amplifier_chip_bonus min(L,3), smasher_power_smash_
-# motion_resolver max(0.5, 1 - L*0.10)); the authored text marks both with
-# "(캡)" from the level the cap engages.
+# drive_curve and the initial-boost decay reduction reach their authored caps
+# at Lv.3; the owner supplies both milestone levels.
 static func _combo_amplifier_chip_text(level: int) -> String:
-	var drive_speed: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_speed_bonus", level) * 100.0))
-	var curve: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_curve_bonus", level) * 100.0))
+	var drive_speed: int = _round_display_int(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_speed_bonus", level) * 100.0)
+	var curve: int = _round_display_int(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_curve_bonus", level) * 100.0)
 	var curve_cap_level := RuntimePerkProgression.get_milestone_level("combo_amplifier_chip", "drive_curve_bonus", "cap_reached")
 	var curve_cap: String = "(캡)" if level > curve_cap_level else ""
-	var smash_speed: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "smash_speed_bonus", level) * 100.0))
-	var decay: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "initial_boost_decay_reduction", level) * 100.0))
+	var smash_speed: int = _round_display_int(RuntimePerkProgression.get_value("combo_amplifier_chip", "smash_speed_bonus", level) * 100.0)
+	var decay: int = _round_display_int(RuntimePerkProgression.get_value("combo_amplifier_chip", "initial_boost_decay_reduction", level) * 100.0)
 	var decay_cap_level := RuntimePerkProgression.get_milestone_level("combo_amplifier_chip", "initial_boost_decay_reduction", "cap_reached")
 	var decay_cap: String = "(캡)" if level >= decay_cap_level else ""
 	return "콤보 효과 증폭: 벽력타 공속+%d%%, 커브+%d%%%s, 천뢰격 공속+%d%%, 초기부스트 감쇄 -%d%%%s" % [
@@ -462,10 +462,8 @@ static func _combo_amplifier_chip_text(level: int) -> String:
 	]
 
 
-# Lv.6+ contract is documented in the catalog detail: accuracy/speed/knockback
-# hold at the Lv.5 values while the magazine keeps growing +1 per level
-# (runtime: commando_firearm_runtime.gd clampi(L,·,5) lanes + ammo bonus
-# L-3 for L>=5).
+# Lv.4+ contract is documented in the catalog detail: accuracy/speed/knockback
+# hold at the Lv.3 values while the magazine keeps growing +1 per level.
 static func _pistol_enhance_text(level: int) -> String:
 	var spread_deg := RuntimePerkProgression.get_int_value("pistol_enhance", "spread_degrees", level)
 	var speed := RuntimePerkProgression.get_int_value("pistol_enhance", "speed_bonus_pct", level)
@@ -479,16 +477,16 @@ static func _pistol_enhance_text(level: int) -> String:
 # Runtime: viper_jetpack_state.gd — max gauge +20%/lv uncapped, airborne
 # gauge gain (L-2)*10% from Lv.3 uncapped.
 static func _jetpack_enhance_text(level: int) -> String:
-	var max_gauge := int(round(RuntimePerkProgression.get_value("jetpack_enhance", "max_gauge_bonus", level) * 100.0))
+	var max_gauge := _round_display_int(RuntimePerkProgression.get_value("jetpack_enhance", "max_gauge_bonus", level) * 100.0)
 	var text: String = "제트팩 최대 게이지 +%d%%" % max_gauge
 	var airborne_start := RuntimePerkProgression.get_milestone_level("jetpack_enhance", "airborne_gauge_gain_bonus", "starts")
 	if level >= airborne_start:
-		var airborne := int(round(RuntimePerkProgression.get_value("jetpack_enhance", "airborne_gauge_gain_bonus", level) * 100.0))
+		var airborne := _round_display_int(RuntimePerkProgression.get_value("jetpack_enhance", "airborne_gauge_gain_bonus", level) * 100.0)
 		text += ", 체공 중 게이지 획득 +%d%%" % airborne
 	return text
 
 
-# Continues the AUTHORED per-level pattern (정밀도 8%/lv, 공속 12%/lv) even
+# Continues the AUTHORED overflow slope (정밀도 8%/lv, 공속 12%/lv) even
 # though the runtime lanes currently use different constants (0.09 / 0.04 in
 # viper_skill_geometry/scaling) — see module header. 준비 cap 90 and the
 # furnace knockback-ball (L-2)*10% cap 100 mirror the runtime.
@@ -496,23 +494,23 @@ static func _kick_enhance_text(level: int) -> String:
 	var text: String = "킥 발사 정밀도 +%d%%, 공속 +%d%%, 준비 -%d%%" % [
 		RuntimePerkProgression.get_int_value("kick_enhance", "authored_precision_pct", level),
 		RuntimePerkProgression.get_int_value("kick_enhance", "authored_speed_pct", level),
-		int(round(RuntimePerkProgression.get_value("kick_enhance", "prep_reduction", level) * 100.0)),
+		_round_display_int(RuntimePerkProgression.get_value("kick_enhance", "prep_reduction", level) * 100.0),
 	]
 	var furnace_start := RuntimePerkProgression.get_milestone_level("kick_enhance", "furnace_knockback_chance", "starts")
 	if level >= furnace_start:
-		text += ", 용광로 넉백볼 %d%%" % int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", level) * 100.0))
+		text += ", 용광로 넉백볼 %d%%" % _round_display_int(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", level) * 100.0)
 	return text
 
 
-# Runtime: range/width clamps at Lv.5 (+50%), speed keeps scaling +10%/lv
+# Runtime: range/width clamps at Lv.3 (+50%), speed keeps scaling +10%/lv
 # (viper_skill_geometry.gd). The homing labels follow the authored gating.
 static func _blade_amp_text(level: int) -> String:
 	var authored_count := RuntimePerkProgression.get_authored_level_count("blade_amp", "range_width_bonus")
 	var range_cap: String = "(캡)" if level > authored_count else ""
 	var text: String = "참격 사거리/가로폭 +%d%%%s, 참격 속도 +%d%%" % [
-		int(round(RuntimePerkProgression.get_value("blade_amp", "range_width_bonus", level) * 100.0)),
+		_round_display_int(RuntimePerkProgression.get_value("blade_amp", "range_width_bonus", level) * 100.0),
 		range_cap,
-		int(round(RuntimePerkProgression.get_value("blade_amp", "projectile_speed_bonus", level) * 100.0)),
+		_round_display_int(RuntimePerkProgression.get_value("blade_amp", "projectile_speed_bonus", level) * 100.0),
 	]
 	var homing_tier := RuntimePerkProgression.get_int_value("blade_amp", "homing_tier", level)
 	if homing_tier >= 2:
@@ -552,14 +550,15 @@ static func _four_poisons_scaled_pct(level: int, lane: Dictionary) -> int:
 	return mini(int(lane["cap"]), int(values[last_index]) + (level - last_index) * int(lane["per_extra"]))
 
 
-# Same math as ViperSkillScaling.get_dual_glitch_clone_hp.
+# Same owner lookup as ViperSkillScaling.get_dual_glitch_clone_hp.
 static func _four_poisons_clone_hp(level: int) -> int:
-	var safe_level: int = maxi(0, level)
-	var values: Array = FOUR_POISONS_CLONE_HP["values"]
-	var clone_hp: int = int(values[mini(values.size() - 1, safe_level)])
-	if safe_level > 5:
-		clone_hp += mini(2, maxi(0, int(floor(float(safe_level - 4) / 2.0))))
-	return mini(int(FOUR_POISONS_CLONE_HP["cap"]), clone_hp)
+	return RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level)
+
+
+# Stabilize authored decimal percentages before round-half-away-from-zero so a
+# binary representation such as 0.145 * 100 cannot display as 14 instead of 15.
+static func _round_display_int(value: float) -> int:
+	return int(round(value + 0.000001 if value >= 0.0 else value - 0.000001))
 
 
 # Integral values print without decimals; fractional overflow values (average

@@ -105,16 +105,15 @@ func _verify_regular_tables() -> void:
 
 
 func _verify_star_endpoints() -> void:
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 1), 5.0, "star_detector Lv1 endpoint")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 5), 25.0, "star_detector Lv5 endpoint")
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 0), 5.0, "get_value should clamp low levels")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 1), 6.0, "star_detector S3 Lv1 endpoint")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 3), 25.0, "star_detector S3 Lv3 ceiling")
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 0), 6.0, "get_value should clamp low levels to the migrated Lv1")
 	# 씰 갱신(2026-07-20): 고레벨은 클램프가 아니라 평균 기울기 외삽이 계약
-	# (CLAUDE.md 유효레벨 오버플로우 표준 — 상세 씰은
-	# perk_conversion_overflow_scaling_smoke가 소유). 25 + 5*(99-5) = 495.
-	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 99), 495.0, "get_value should extrapolate high levels by the table's average slope")
+	# (S3에서는 보존한 구 1레벨 기울기 사용). 25 + 5*(99-3) = 505.
+	_expect_close(PerkConversionValues.get_value("star_detector", "star_bonus_pct", 99), 505.0, "get_value should extrapolate high levels by the preserved overflow slope")
 
-	var expected_gangsin_gauge_reductions: Array[float] = [10.0, 15.0, 20.0, 25.0, 30.0]
-	var expected_gangsin_ball_speed_bonuses: Array[float] = [2.0, 4.0, 6.0, 8.0, 10.0]
+	var expected_gangsin_gauge_reductions: Array[float] = [8.0, 17.0, 30.0, 35.0, 40.0]
+	var expected_gangsin_ball_speed_bonuses: Array[float] = [3.0, 6.0, 10.0, 12.0, 14.0]
 	for index in range(5):
 		var gangsin_level := index + 1
 		_expect_close(
@@ -128,34 +127,34 @@ func _verify_star_endpoints() -> void:
 			"Gangsin ball-speed bonus Lv%d" % gangsin_level
 		)
 
-	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 1), 20.0, "adversity_armor trigger Lv1")
-	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 5), 40.0, "adversity_armor trigger Lv5")
-	_expect_close(PerkConversionValues.get_value("adversity_armor", "invincible_duration_sec", 1), 5.0, "adversity_armor duration Lv1")
-	_expect_close(PerkConversionValues.get_value("adversity_armor", "invincible_duration_sec", 5), 15.0, "adversity_armor duration Lv5")
+	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 1), 10.0, "adversity_armor trigger S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("adversity_armor", "trigger_chance_pct", 3), 40.0, "adversity_armor trigger S3 ceiling")
+	_expect_close(PerkConversionValues.get_value("adversity_armor", "invincible_duration_sec", 1), 3.75, "adversity_armor duration S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("adversity_armor", "invincible_duration_sec", 3), 15.0, "adversity_armor duration S3 ceiling")
 
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_knockback_pct", 1), 20.0, "boomerang knockback Lv1")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_knockback_pct", 5), 50.0, "boomerang knockback Lv5")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_knockback_pct", 1), 13.0, "boomerang knockback S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_knockback_pct", 3), 50.0, "boomerang knockback S3 ceiling")
 	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_stun_pct", 1), 20.0, "boomerang stun Lv1")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_stun_pct", 5), 80.0, "boomerang stun Lv5")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_launch_speed_pct", 1), 15.0, "boomerang launch Lv1")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_launch_speed_pct", 5), 50.0, "boomerang launch Lv5")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_homing_pct", 1), 10.0, "boomerang homing Lv1")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_homing_pct", 5), 50.0, "boomerang homing Lv5")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_stun_pct", 3), 80.0, "boomerang stun S3 ceiling")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_launch_speed_pct", 1), 13.0, "boomerang launch S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_launch_speed_pct", 3), 50.0, "boomerang launch S3 ceiling")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_homing_pct", 1), 13.0, "boomerang homing S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_homing_pct", 3), 50.0, "boomerang homing S3 ceiling")
 	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_spawn_bonus_pct", 1), 50.0, "boomerang spawn Lv1")
-	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_spawn_bonus_pct", 5), 200.0, "boomerang spawn Lv5")
+	_expect_close(PerkConversionValues.get_value("reinforced_boomerang_gauntlet", "boomerang_spawn_bonus_pct", 3), 200.0, "boomerang spawn S3 ceiling")
 
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 1), 1.0, "sensor token Lv1")
-	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 5), 2.0, "sensor token Lv5")
-	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 1), 30.0, "sensor cooldown Lv1")
-	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 5), 15.0, "sensor cooldown Lv5")
+	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 3), 2.0, "sensor token S3 ceiling")
+	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 1), 29.0, "sensor cooldown S3 Lv1")
+	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 3), 15.0, "sensor cooldown S3 ceiling")
 
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 1), 40.0, "dowsing_goggles chance Lv1")
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 3), 100.0, "dowsing_goggles chance Lv3")
 
 	for level in range(1, 6):
 		_expect_close(PerkConversionValues.get_value("sage_ring", "trigger_chance_pct", level), 5.0, "hyeonmun trigger chance Lv%d" % level)
-	var expected_hyeonmun_bonuses: Array[float] = [1.0, 1.0, 2.0, 2.0, 3.0]
-	var expected_hyeonmun_durations: Array[float] = [6.0, 7.0, 8.0, 9.0, 10.0]
+	var expected_hyeonmun_bonuses: Array[float] = [1.0, 2.0, 3.0, 3.5, 4.0]
+	var expected_hyeonmun_durations: Array[float] = [2.5, 5.8, 10.0, 11.0, 12.0]
 	for index in range(5):
 		var level := index + 1
 		_expect_close(PerkConversionValues.get_value("sage_ring", "perk_level_bonus", level), expected_hyeonmun_bonuses[index], "hyeonmun level bonus Lv%d" % level)

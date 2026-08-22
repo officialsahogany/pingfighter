@@ -4703,8 +4703,9 @@ while the intro reveal owns timing.
 ### Mugong numeric-progression boundary
 
 `runtime_perk_progression.gd` is the canonical numeric owner for the 37
-authored five-level Mugong: each perk maps to named lanes with authored values,
-overflow policy, milestone levels, and polarity. Runtime, converted-perk,
+authored three-star Mugong: each perk maps to named Lv.1-3 lanes on the approved
+0.25 / 0.58 / 1.00 curve, legacy-slope overflow, milestone levels, and
+polarity. Runtime, converted-perk,
 tooltip, and overflow-description consumers must query this owner instead of
 rebuilding level arithmetic. The index is built once at script load; hot-path
 reads are O(1), return scalar values or stable authored-array references, and

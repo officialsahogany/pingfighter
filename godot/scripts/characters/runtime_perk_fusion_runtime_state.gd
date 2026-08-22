@@ -3,6 +3,7 @@ extends RefCounted
 const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const DOWSING_GOGGLES_PERK_ID := "dowsing_goggles"
 const DOWSING_GOGGLES_BYPRODUCT_CHANCE_KEY := "fusion_byproduct_chance_pct"
@@ -427,11 +428,12 @@ func build_result_context(source_ids: Array, catalog: Object, runtime_skill_leve
 		if perk_id.is_empty():
 			continue
 		var base_level := int(runtime_skill_levels.get(perk_id, 0))
-		var max_level := 5
+		var max_level := RuntimePerkProgression.get_authored_max_level(perk_id)
 		if catalog != null and catalog.has_method("get_perk_data"):
 			var data: Dictionary = catalog.get_perk_data(perk_id)
-			max_level = int(data.get("max_level", 5)) if not data.is_empty() else 5
-		if base_level > 0 and base_level >= max_level:
+			if not data.is_empty():
+				max_level = int(data.get("max_level", max_level))
+		if max_level > 0 and base_level > 0 and base_level >= max_level:
 			eligible.append(perk_id)
 	return {"limit_break_eligible_sources": eligible}
 

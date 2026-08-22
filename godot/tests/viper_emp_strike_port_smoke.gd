@@ -2,6 +2,7 @@ extends SceneTree
 
 const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
+const ViperSkillAudio := preload("res://scripts/audio/viper_skill_audio.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const BattlePerfProcessNodeReporter := preload("res://scripts/core/battle_perf_process_node_reporter.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -153,27 +154,37 @@ func _test_four_poisons_catalog_text_sync() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var data: Dictionary = catalog.get_perk_data("four_poisons")
 	var descriptions: Dictionary = data.get("descriptions", {})
+	var lv2: String = str(descriptions.get(2, ""))
 	var lv3: String = str(descriptions.get(3, ""))
-	var lv5: String = str(descriptions.get(5, ""))
 	var detail: String = str(data.get("detail", ""))
-	_expect(lv3.find("천뢰진각 수면 +15%") >= 0, "four_poisons Lv.3 card should mention Heavenly Thunder sleep scaling")
-	_expect(lv3.find("4초식 쿨 -10%") >= 0, "four_poisons Lv.3 card should mention four-form cooldown reduction")
-	_expect(lv3.find("슈퍼아머") >= 0, "four_poisons Lv.3 card should mention startup super armor")
-	_expect(lv5.find("천뢰진각 수면 +25%") >= 0, "four_poisons Lv.5 card should mention max-invested Heavenly Thunder sleep scaling")
-	_expect(lv5.find("쌍영분신 HP 4") >= 0, "four_poisons Lv.5 card should mention twin-shadow clone HP")
-	_expect(lv5.find("분신 복제") >= 0, "four_poisons Lv.5 card should mention clone skill replication")
+	_expect(lv2.find("천뢰진각 수면 +15%") >= 0, "four_poisons S3 Lv.2 card should mention Heavenly Thunder sleep scaling")
+	_expect(lv2.find("4초식 쿨 -12%") >= 0, "four_poisons S3 Lv.2 card should mention four-form cooldown reduction")
+	_expect(lv2.find("슈퍼아머") >= 0, "four_poisons S3 Lv.2 card should mention startup super armor")
+	_expect(lv3.find("천뢰진각 수면 +25%") >= 0, "four_poisons S3 ceiling should preserve max-invested Heavenly Thunder sleep scaling")
+	_expect(lv3.find("쌍영분신 HP 4") >= 0, "four_poisons S3 ceiling should mention twin-shadow clone HP")
+	_expect(lv3.find("분신 복제") >= 0, "four_poisons S3 ceiling should mention clone skill replication")
 	_expect(detail.find("추가 기력/쿨/골드") >= 0, "four_poisons detail should explain clone replication reward limits")
 
 
 func _test_emp_audio_asset_parity() -> void:
-	_expect(GameAudio.VIPER_DIVE_PREP_SOUND_PATH == "res://assets/sounds/beforedivestrike.wav", "EMP prep should use the Python reference beforedivestrike.wav")
-	_expect(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH == "res://assets/sounds/divestrike.wav", "EMP landing should use the Python reference divestrike.wav")
-	_expect(FileAccess.file_exists(GameAudio.VIPER_DIVE_PREP_SOUND_PATH), "EMP prep wav should exist in the Godot asset tree")
-	_expect(FileAccess.file_exists(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH), "EMP landing wav should exist in the Godot asset tree")
-	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.VIPER_DIVE_PREP_SOUND_PATH) != null, "EMP prep wav should load as a Godot audio stream")
-	_expect(ProjectResourceLoader.load_audio_stream(GameAudio.VIPER_DIVE_STRIKE_SOUND_PATH) != null, "EMP landing wav should load as a Godot audio stream")
-	_expect(abs(GameAudio.VIPER_DIVE_PREP_GAIN_DB + 4.4370) <= 0.001, "EMP prep should match Python's 0.6 relative volume")
-	_expect(abs(GameAudio.VIPER_DIVE_STRIKE_GAIN_DB + 4.4370) <= 0.001, "EMP landing should match Python's 0.6 relative volume")
+	var prep_path := _viper_audio_path("dive_prep")
+	var strike_path := _viper_audio_path("dive_strike")
+	_expect(prep_path == "res://assets/sounds/beforedivestrike.wav", "EMP prep should use the Python reference beforedivestrike.wav")
+	_expect(strike_path == "res://assets/sounds/divestrike.wav", "EMP landing should use the Python reference divestrike.wav")
+	_expect(FileAccess.file_exists(prep_path), "EMP prep wav should exist in the Godot asset tree")
+	_expect(FileAccess.file_exists(strike_path), "EMP landing wav should exist in the Godot asset tree")
+	_expect(ProjectResourceLoader.load_audio_stream(prep_path) != null, "EMP prep wav should load as a Godot audio stream")
+	_expect(ProjectResourceLoader.load_audio_stream(strike_path) != null, "EMP landing wav should load as a Godot audio stream")
+	_expect(abs(_viper_audio_gain("dive_prep") + 4.4370) <= 0.001, "EMP prep should match Python's 0.6 relative volume")
+	_expect(abs(_viper_audio_gain("dive_strike") + 4.4370) <= 0.001, "EMP landing should match Python's 0.6 relative volume")
+
+
+func _viper_audio_path(cue_id: String) -> String:
+	return str(ViperSkillAudio.CUE_SPECS[cue_id].get("path", ""))
+
+
+func _viper_audio_gain(cue_id: String) -> float:
+	return float(ViperSkillAudio.CUE_SPECS[cue_id].get("gain_db", 0.0))
 
 
 func _test_emp_audio_does_not_fall_back_to_kicks() -> void:
@@ -282,7 +293,7 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	var orb := FakeOrbHud.new()
 	var feedback := FakeFeedback.new()
 	var perk_state := FakePerkState.new()
-	perk_state.four_poisons_level = 5
+	perk_state.four_poisons_level = 3
 	var status_state := FakeStatusEffectState.new()
 	var jetpack := ViperJetpackState.new()
 	jetpack.set_offset_y(-120.0, {"audio": audio})
@@ -299,10 +310,10 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	_expect(str(result.get("skill_name", "")) == "dive_strike", "EMP activation should report dive_strike")
 	_expect(abs(float(result.get("special_gauge", 0.0)) - 250.0) < 0.01, "EMP should spend 250 gauge")
 	_expect(str(skill_state.triggered) == "dive_strike", "EMP should trigger its own cooldown")
-	_expect(abs(skill_state.cooldown_seconds - 56.0) < 0.01, "Lv.5 four_poisons should reduce EMP cooldown by 20%")
+	_expect(abs(skill_state.cooldown_seconds - 56.0) < 0.01, "S3 four_poisons ceiling should preserve -20% EMP cooldown")
 	_expect(audio.prep == 1 and orb.spins == 1, "EMP startup should play prep audio and spin the orb")
 	var startup_snap: Dictionary = runtime.get_snapshot()
-	_expect(abs(float(startup_snap.get("dive_prep_frames", 0.0)) - 14.4) < 0.01, "Lv.5 four_poisons should shorten EMP prep visuals to the effective startup")
+	_expect(abs(float(startup_snap.get("dive_prep_frames", 0.0)) - 14.4) < 0.01, "S3 four_poisons ceiling should preserve EMP prep timing")
 
 	player_pos = _get_vector2(result, "player_pos", player_pos)
 	for _i in range(30):
@@ -339,7 +350,7 @@ func _test_emp_activation_impact_slip_and_four_poisons_scaling() -> void:
 	_expect(impact.has("ball_vel"), "EMP shockwave should hit a ball inside the vertical pulse band")
 	_expect(_get_vector2(impact, "ball_vel", Vector2.ZERO).y < 0.0, "EMP shockwave should reflect the ball upward")
 	_expect(perk_state.gold == 20 and int(impact.get("runtime_perk_gold", 0)) == 20, "EMP shockwave hit should grant 20 skill gold")
-	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) > 90.0, "Lv.5 four_poisons should extend EMP slip duration")
+	_expect(float(runtime.get_snapshot().get("dive_slip_timer", 0.0)) > 90.0, "S3 four_poisons ceiling should preserve EMP slip duration")
 	var hit_feedback_snap: Dictionary = runtime.get_snapshot()
 	_expect(float(hit_feedback_snap.get("dive_hit_text_timer", 0.0)) > 0.0, "EMP shockwave hit should start hit text feedback")
 	_expect(_get_vector2(hit_feedback_snap, "dive_hit_text_pos", Vector2.ZERO).distance_to(scene["ball_pos"]) < 0.01, "EMP hit text should anchor to the impacted ball")
@@ -377,7 +388,7 @@ func _test_emp_shockwave_reach_applies_slip_without_ball_hit() -> void:
 	var orb := FakeOrbHud.new()
 	var feedback := FakeFeedback.new()
 	var perk_state := FakePerkState.new()
-	perk_state.four_poisons_level = 5
+	perk_state.four_poisons_level = 3
 	var status_state := FakeStatusEffectState.new()
 	var jetpack := ViperJetpackState.new()
 	jetpack.set_offset_y(-120.0, {"audio": audio})
@@ -413,10 +424,10 @@ func _test_emp_startup_cancel_and_super_armor() -> void:
 	runtime.register_player_ball_contact(low_poison["deps"], _base_config())
 	_expect(not bool(runtime.get_snapshot().get("dive_active", true)), "EMP startup should cancel on player-ball contact without four_poisons super armor")
 
-	var armored := _activated_runtime_with_poison_level(3)
+	var armored := _activated_runtime_with_poison_level(2)
 	runtime = armored["runtime"]
 	runtime.register_player_ball_contact(armored["deps"], _base_config())
-	_expect(bool(runtime.get_snapshot().get("dive_active", false)), "Lv.3 four_poisons super armor should preserve EMP startup")
+	_expect(bool(runtime.get_snapshot().get("dive_active", false)), "S3 Lv.2 four_poisons super armor should preserve EMP startup")
 
 
 func _activated_runtime_with_poison_level(level: int) -> Dictionary:

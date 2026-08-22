@@ -7,7 +7,7 @@ extends SceneTree
 #
 # 반증검증(수동, in-place Edit 토글 — git reset/checkout/stash 금지):
 #  resolver의 (1.0 + combo_amp_speed) / (1.0 + combo_amp_curve)를 제거하면
-#  Lv5==Lv0이 되어 _verify_chip_raises_drive_speed / _spin 이 FAIL해야 한다.
+	#  S3 ceiling==Lv0이 되어 _verify_chip_raises_drive_speed / _spin 이 FAIL해야 한다.
 
 const SmasherDriveInitialBounceResolver := preload("res://scripts/characters/smasher_drive_initial_bounce_resolver.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
@@ -64,12 +64,12 @@ func _verify_bonus_helper_values() -> void:
 		"Lv0 chip bonus should be all zero"
 	)
 	var lv1: Dictionary = _amp(1)
-	_expect(is_equal_approx(float(lv1["drive_speed"]), 0.90), "Lv1 drive_speed should be +90%")
-	_expect(is_equal_approx(float(lv1["drive_curve"]), 0.05), "Lv1 drive_curve should be +5%")
-	_expect(is_equal_approx(float(lv1["smash_speed"]), 0.45), "Lv1 smash_speed should be +45%")
-	var lv5: Dictionary = _amp(5)
-	_expect(is_equal_approx(float(lv5["drive_speed"]), 4.50), "Lv5 drive_speed should be +450%")
-	_expect(is_equal_approx(float(lv5["smash_speed"]), 2.25), "Lv5 smash_speed should be +225%")
+	_expect(is_equal_approx(float(lv1["drive_speed"]), 1.125), "S3 Lv1 drive_speed should be +112.5%")
+	_expect(is_equal_approx(float(lv1["drive_curve"]), 0.0375), "S3 Lv1 drive_curve should be +3.75%")
+	_expect(is_equal_approx(float(lv1["smash_speed"]), 0.5625), "S3 Lv1 smash_speed should be +56.25%")
+	var lv3: Dictionary = _amp(3)
+	_expect(is_equal_approx(float(lv3["drive_speed"]), 4.50), "S3 Lv3 drive_speed should preserve the +450% ceiling")
+	_expect(is_equal_approx(float(lv3["smash_speed"]), 2.25), "S3 Lv3 smash_speed should preserve the +225% ceiling")
 
 
 func _verify_curve_lane_caps_at_lv3() -> void:

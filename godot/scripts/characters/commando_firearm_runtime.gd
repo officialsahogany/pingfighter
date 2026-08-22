@@ -187,8 +187,8 @@ static func _build_pistol_enhance_spread_degrees() -> Array:
 
 
 static var PISTOL_ENHANCE_SPREAD_DEGREES: Array = _build_pistol_enhance_spread_degrees()
-static var PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_value(PISTOL_ENHANCE_PERK_ID, "speed_bonus_pct", 1) / 100.0
-static var PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_value(PISTOL_ENHANCE_PERK_ID, "knockback_bonus_pct", 1) / 100.0
+static var PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_overflow_step(PISTOL_ENHANCE_PERK_ID, "speed_bonus_pct") / 100.0
+static var PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_overflow_step(PISTOL_ENHANCE_PERK_ID, "knockback_bonus_pct") / 100.0
 static var PISTOL_ENHANCE_TUNING: Dictionary = {
 	"perk_id": PISTOL_ENHANCE_PERK_ID,
 	"base_ammo_max": PISTOL_AMMO_MAX,

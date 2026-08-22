@@ -77,18 +77,17 @@ func _verify_catalog_choices() -> void:
 	var pistol_enhance: Dictionary = pistol_enhance_value if pistol_enhance_value is Dictionary else {}
 	var descriptions_value: Variant = pistol_enhance.get("descriptions", {})
 	var descriptions: Dictionary = descriptions_value if descriptions_value is Dictionary else {}
-	_expect(int(pistol_enhance.get("max_level", 0)) == 5, "pistol_enhance should be a five-level invested perk")
+	_expect(int(pistol_enhance.get("max_level", 0)) == 3, "pistol_enhance should be a three-star invested perk")
 	_expect(not bool(pistol_enhance.get("is_weapon_unlock", false)), "pistol_enhance should not be a weapon unlock")
 	_expect(not pistol_enhance.has("weapon_name"), "pistol_enhance should not carry a weapon_name field")
 	_expect(not pistol_enhance.has("unlocks_skill"), "pistol_enhance should not unlock a Commando skill orb")
 	_expect(str(pistol_enhance.get("character_restriction", "")) == "soldier", "pistol_enhance should stay Soldier-only")
 	_expect(str(descriptions.get(3, "")) != str(descriptions.get(1, "")), "pistol_enhance Lv.3 copy should differ from Lv.1")
-	_expect(str(descriptions.get(5, "")) != str(descriptions.get(1, "")), "pistol_enhance Lv.5 copy should differ from Lv.1")
-	_expect(str(descriptions.get(3, "")).contains("장전") and str(descriptions.get(5, "")).contains("장전"), "pistol_enhance descriptions should mention the load-size lane")
-	_expect(str(descriptions.get(1, "")).contains("탄속") and str(descriptions.get(5, "")).contains("+50%"), "pistol_enhance descriptions should mention the bullet-speed lane")
-	_expect(str(descriptions.get(1, "")).contains("넉백 +30%") and str(descriptions.get(5, "")).contains("넉백 +150%"), "pistol_enhance descriptions should mention the stronger knockback lane")
-	_expect(str(pistol_enhance.get("detail", "")).contains("탄속은 +50%, 넉백은 +150%"), "pistol_enhance detail should document the Lv.6+ bullet-speed and knockback caps")
-	for level in range(1, 6):
+	_expect(str(descriptions.get(3, "")).contains("장전"), "pistol_enhance descriptions should mention the load-size lane")
+	_expect(str(descriptions.get(1, "")).contains("탄속") and str(descriptions.get(3, "")).contains("+50%"), "pistol_enhance descriptions should mention the bullet-speed ceiling")
+	_expect(str(descriptions.get(1, "")).contains("넉백 +38%") and str(descriptions.get(3, "")).contains("넉백 +150%"), "pistol_enhance descriptions should mention the S3 knockback curve")
+	_expect(str(pistol_enhance.get("detail", "")).contains("탄속은 +50%, 넉백은 +150%"), "pistol_enhance detail should document the post-ceiling bullet-speed and knockback caps")
+	for level in range(1, 4):
 		_expect(
 			_fits_choice_card_description_budget(str(descriptions.get(level, "")), 48, 2),
 			"pistol_enhance Lv.%d description should fit the runtime choice-card 2-line budget" % level

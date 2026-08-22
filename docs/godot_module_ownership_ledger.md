@@ -5752,7 +5752,7 @@ This section is intentionally long; use search to find the nearest owner.
   Smasher skill feedback renderer.
 - `scripts/characters/smasher_dash_spirit_state.gd` and
   `scripts/characters/smasher_dash_spirit_renderer.gd`
-  Own the Godot Smasher Dash Spirit perk port: `dash_spirit` Lv.1-5
+  Own the Godot Smasher Dash Spirit perk port: `dash_spirit` Lv.1-3
   chance consumption from runtime perks, Python-parity dash-origin laser
   spawning, 360-frame laser lifetime, 10-frame spawn invulnerability,
   electric jitter state, ball-block reflection / one-shot laser removal,
@@ -6342,8 +6342,9 @@ This section is intentionally long; use search to find the nearest owner.
   side effects through callbacks and keeps the public
   pending-query and `on_ball_spawn_intro_finished()` surfaces.
   `runtime_perk_progression.gd` owns the O(1) numeric progression index for
-  exactly the 37 authored five-level Mugong: named Lv.1-5 lane arrays, overflow
-  modes and slopes, lane bounds, milestone levels, polarity, and Polish
+  exactly the 37 authored three-star Mugong: named Lv.1-3 lane arrays on the
+  0.25 / 0.58 / 1.00 curve, legacy-slope overflow, lane bounds, milestone
+  levels, polarity, and Polish
   amplification metadata. It explicitly preserves the split kick authored vs
   live-runtime lanes and item-polish general vs mythic-roll lanes. Runtime and
   display consumers read scalar values or stable authored-array references;

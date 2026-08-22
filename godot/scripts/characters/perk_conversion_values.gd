@@ -328,7 +328,7 @@ static func has_polish_amplifiable_option(perk_id: String) -> bool:
 	return false
 
 
-# Effective-level overflow (Lv.6+) domain limits. Authored table entries are
+# Effective-level overflow (Lv.4+ for the migrated 37) domain limits. Authored table entries are
 # returned verbatim; only the extrapolated overflow segment is clamped here.
 # Chance / resist lanes cap at 100; reduction-percent lanes cap at their
 # CONSUMER's effective limit (neural 90 = base-gauge subtraction, master /
@@ -341,7 +341,7 @@ static func has_polish_amplifiable_option(perk_id: String) -> bool:
 # belong here — per CLAUDE.md the overflow default is "keep scaling", and any
 # intentional hard cap must be declared in catalog wording too.
 # sage_ring is effective_level_exempt, so its proc spec always follows the
-# invested Lv.1-5 table and never extrapolates from another level-buff source.
+# invested Lv.1-3 table and never extrapolates from another level-buff source.
 const NON_TARGET_OVERFLOW_VALUE_BOUNDS := {
 	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
 	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},

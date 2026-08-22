@@ -160,7 +160,7 @@ func _init() -> void:
 
 
 func _test_activation_hit_freeze_confusion_and_mist() -> void:
-	var bundle: Dictionary = _make_bundle(5)
+	var bundle: Dictionary = _make_bundle(3)
 	var runtime: Object = bundle["runtime"]
 	var input = bundle["input"]
 	var skill_state = bundle["skill_state"]
@@ -178,7 +178,7 @@ func _test_activation_hit_freeze_confusion_and_mist() -> void:
 	_expect(str(result.get("skill_name", "")) == "nerve_strike", "activation should report nerve_strike")
 	_expect_close(float(result.get("special_gauge", 0.0)), 410.0, "Venom Edge should spend 90 gauge")
 	_expect(skill_state.triggered.back() == "nerve_strike", "Venom Edge should trigger its own cooldown")
-	_expect_close(float(skill_state.cooldown_seconds.get("nerve_strike", 0.0)), 32.0, "Four Poisons Lv5 should reduce Venom Edge cooldown by 20%")
+	_expect_close(float(skill_state.cooldown_seconds.get("nerve_strike", 0.0)), 32.0, "S3 Four Poisons ceiling should preserve -20% Venom Edge cooldown")
 	_expect(audio.moving == 1, "Venom Edge dash start should play the moving cue")
 
 	player_pos = _get_vector2(result, "player_pos", player_pos)
@@ -214,7 +214,7 @@ func _test_activation_hit_freeze_confusion_and_mist() -> void:
 		runtime.update_effects(1.0, Time.get_ticks_msec(), _context_with_gauge(config, gauge), bundle["deps"])
 	var status_entry: Dictionary = status.applications.back()
 	_expect(str(status_entry.get("status_id", "")) == "confusion", "slash end should apply boss confusion")
-	_expect_close(float(status_entry.get("duration_frames", 0.0)), 255.0, "Four Poisons Lv5 should scale confusion to 255 frames")
+	_expect_close(float(status_entry.get("duration_frames", 0.0)), 255.0, "S3 Four Poisons ceiling should preserve 255 confusion frames")
 	_expect(not bool(runtime.get_actor_draw_context().get("viper_venom_edge_strike_active", true)), "behind-boss strike sheet should auto-clear during the slash cutscene")
 	# Python parity: the cutscene freeze is HELD through the return flight and only
 	# released when Viper lands. It must NOT clear when the return phase begins.
@@ -429,7 +429,7 @@ func _test_dual_glitch_clone_venom_slashes() -> void:
 	]
 	runtime._start_nerve_strike(Vector2(302.5, 610.0), 500.0, config, bundle["deps"], Time.get_ticks_msec())
 	var snap: Dictionary = runtime.get_snapshot()
-	_expect((snap.get("nerve_strike_clone_slashes", []) as Array).size() == 2, "Four Poisons Lv5 Dual Glitch should spawn two delayed Venom clone slashes")
+	_expect((snap.get("nerve_strike_clone_slashes", []) as Array).size() == 2, "S3 Four Poisons ceiling Dual Glitch should spawn two delayed Venom clone slashes")
 	for _i in range(30):
 		runtime.update_effects(1.0, Time.get_ticks_msec(), _context_with_gauge(config, 410.0), bundle["deps"])
 	_expect(status.applications.size() > 0, "clone Venom slashes should apply/refresh confusion without awarding gold")
@@ -438,7 +438,7 @@ func _test_dual_glitch_clone_venom_slashes() -> void:
 
 func _test_tooltip_four_poisons_bonus() -> void:
 	var perk_state := FakePerkState.new()
-	perk_state.levels["four_poisons"] = 5
+	perk_state.levels["four_poisons"] = 3
 	var text: String = TooltipRenderer.new()._build_description_with_runtime_bonus(
 		{"name": "nerve_strike", "description": "base"},
 		{"runtime_perk_state": perk_state}
