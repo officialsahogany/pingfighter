@@ -49,6 +49,10 @@ const ROCK_DROP_BASE_SEC := 0.56
 const ROCK_DROP_DELAY_SEC := 0.11
 const ROCK_LAND_FLASH_SEC := 0.30
 const ROCK_COLLISION_COOLDOWN_SEC := 0.18
+# A landed rock that the ball never reaches used to persist for the whole round.
+# Give every rock its own natural lifetime so the field clears itself.
+const ROCK_LIFETIME_MIN_SEC := 20.0
+const ROCK_LIFETIME_MAX_SEC := 40.0
 const ROCK_MIN_RADIUS := 31.0
 const ROCK_MAX_RADIUS := 43.0
 const FIELD_SIDE_MARGIN := 74.0
@@ -423,6 +427,21 @@ func _update_effects(delta: float, config: Dictionary, deps: Dictionary) -> void
 			quake_timer,
 			QUAKE_DURATION_SEC
 		)
+		# A landed rock the ball never reaches used to sit on the field for the
+		# whole round. Crumble it once its own lifetime expires. Decay debris
+		# scatters and falls, and cannot damage the boss, unlike a player break.
+		if not bool(rock.get("falling", false)):
+			rock["life_remaining"] = maxf(
+				0.0,
+				float(rock.get("life_remaining", ROCK_LIFETIME_MAX_SEC)) - delta
+			)
+			if float(rock.get("life_remaining", 0.0)) <= 0.0:
+				var decay_pos := _get_vector2(rock.get("pos", Vector2.ZERO), Vector2.ZERO) \
+					+ _get_vector2(rock.get("quake_offset", Vector2.ZERO), Vector2.ZERO)
+				_emit_rock_decay_burst(rock, decay_pos)
+				rocks.remove_at(rock_index)
+				_append_impact(decay_pos, float(rock.get("radius", ROCK_MIN_RADIUS)) * 0.85)
+				continue
 		rocks[rock_index] = rock
 	if rocks.is_empty() and quake_timer <= 0.0:
 		phase = "idle"
@@ -563,6 +582,7 @@ func _build_rocks(config: Dictionary) -> Array:
 			"falling": true,
 			"fall_progress": 0.0,
 			"collision_cooldown": 0.0,
+			"life_remaining": _rng.randf_range(ROCK_LIFETIME_MIN_SEC, ROCK_LIFETIME_MAX_SEC),
 			"flash": 0.0,
 			"shadow_scale": 0.20,
 			"quake_offset": Vector2.ZERO,
@@ -576,6 +596,33 @@ func _build_rocks(config: Dictionary) -> Array:
 		rock["base_visual_radius"] = radius
 		result.append(rock)
 	return result
+
+
+func _emit_rock_decay_burst(rock: Dictionary, rock_pos: Vector2) -> void:
+	# Same debris factory as a ball break, but scattered and falling, and it
+	# must not damage the boss because no player action caused it.
+	_rock_feedback_coordinator.emit_fragment_burst(
+		rock,
+		rock_pos,
+		_rock_fragment_state,
+		_rng,
+		Stage2PillarAssets.ROCK_DEBRIS_SOURCE_REGION_DATA.size(),
+		Stage2RockFeedbackCoordinator.DEFAULT_MAX_ROCK_FRAGMENTS,
+		Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_LIFE_SEC,
+		{
+			"fragment_min_count": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_MIN_COUNT,
+			"fragment_max_count": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_MAX_COUNT,
+			"fragment_gravity": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_GRAVITY,
+			"fragment_bounce": 0.0,
+			"fragment_can_hit_boss": false,
+			"fragment_directional_chance": 0.0,
+			"fragment_speed_min": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_SPEED_MIN_PER_FRAME * 30.0,
+			"fragment_speed_max": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_SPEED_MAX_PER_FRAME * 30.0,
+			"fragment_size_min": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_SIZE_MIN,
+			"fragment_size_max": Stage2WaterCannonPayloadFactory.DEFAULT_ROCK_FRAGMENT_SIZE_MAX,
+			"fragment_spawn_spread": float(rock.get("radius", ROCK_MIN_RADIUS)) / 2.0,
+		}
+	)
 
 
 func _append_impact(pos: Vector2, radius: float) -> void:

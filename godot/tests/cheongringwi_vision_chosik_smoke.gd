@@ -264,7 +264,13 @@ func _verify_catalog_localization_and_assets() -> void:
 	_expect_eq(str(skill_data.get("korean", "")), "청린귀 비전 · 지맥진동", "confirmed Korean Chosik name")
 	_expect(str(skill_data.get("description", "")).contains("3~5개"), "Korean tooltip should publish the randomized three-to-five rock count")
 	_expect_close(float(skill_data.get("cost", 0.0)), 250.0, "activation vigor cost")
-	_expect_close(float(skill_data.get("cooldown", 0.0)), 40.0, "base cooldown")
+	# GRT-054 sibling: derive from the catalog constant so a cooldown retune does
+	# not turn this leg RED for a deliberate balance change.
+	_expect_close(
+		float(skill_data.get("cooldown", 0.0)),
+		CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN,
+		"base cooldown"
+	)
 	_expect_eq(str(skill_data.get("effect_type", "")), "cheongringwi_vision_dragon_torrent", "tooltip effect preview route")
 	_expect(bool(unlock_data.get("vision_chosik", false)), "manual should be classified as Vision Chosik")
 	_expect_eq(str(unlock_data.get("boss_id", "")), "cheongringwi", "manual should retain Stage 2 boss identity")
@@ -293,11 +299,11 @@ func _verify_all_character_equip_contract() -> void:
 	]:
 		_expect(config.unlock_and_equip_skill(SKILL_ID), "every character config should equip the shared Stage 2 Vision Chosik")
 		_expect(config.is_skill_equipped(SKILL_ID), "equipped Stage 2 Vision Chosik should pass the activation gate")
-		_expect_close(config.get_cooldown_seconds(SKILL_ID), 40.0, "every character should expose the common cooldown")
+		_expect_close(config.get_cooldown_seconds(SKILL_ID), CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN, "every character should expose the common cooldown")
 		config.set_runtime_cooldown_multiplier(0.60)
-		_expect_close(config.get_cooldown_seconds(SKILL_ID), 24.0, "Breath-Regulating Inner Art Lv.5 should reduce Cheongringwi Vision cooldown by 40 percent")
+		_expect_close(config.get_cooldown_seconds(SKILL_ID), CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN * 0.6, "Breath-Regulating Inner Art Lv.5 should reduce Cheongringwi Vision cooldown by 40 percent")
 		var snapshot: Dictionary = config.get_snapshot()
-		_expect_close(float((snapshot.get("cooldown_seconds", {}) as Dictionary).get(SKILL_ID, 0.0)), 24.0, "Cheongringwi Vision HUD metadata should publish the reduced live cooldown")
+		_expect_close(float((snapshot.get("cooldown_seconds", {}) as Dictionary).get(SKILL_ID, 0.0)), CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN * 0.6, "Cheongringwi Vision HUD metadata should publish the reduced live cooldown")
 
 
 func _verify_randomized_rock_count_contract() -> void:

@@ -16,7 +16,7 @@ const CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID := "unlock_cheongringwi_visio
 # the same skill and unlock IDs after the Chosik concept changed to earth/rock.
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_COLOR := Color(0.78, 0.68, 0.26, 1.0)
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_COST := 250.0
-const CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN := 40.0
+const CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN := 50.0
 const YEONMYO_VISION_BONGHONGWE_ID := "yeonmyo_vision_bonghongwe"
 const YEONMYO_VISION_BONGHONGWE_UNLOCK_ID := "unlock_yeonmyo_vision_bonghongwe"
 const YEONMYO_VISION_BONGHONGWE_COLOR := Color(0.64, 0.32, 0.78, 1.0)

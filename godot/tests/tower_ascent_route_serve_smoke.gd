@@ -558,6 +558,24 @@ class FakeWindCanvas:
 		polygon_calls += 1
 
 
+
+# GRT-054 sibling: every travel budget below must derive from the live serve
+# speed. A frozen literal silently stops covering the trajectory the moment the
+# speed is retuned, and the leg then fails for a tuning change rather than a bug.
+const REFERENCE_SERVE_SPEED_PER_SECOND := 522.0
+
+
+static func _travel_seconds(reference_seconds: float) -> float:
+	return reference_seconds * (
+		REFERENCE_SERVE_SPEED_PER_SECOND
+		/ maxf(1.0, TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND)
+	)
+
+
+static func _travel_frames(reference_frames: int) -> int:
+	return int(ceil(_travel_seconds(float(reference_frames))))
+
+
 func _init() -> void:
 	_verify_route_target_uses_map_icon_without_name_text()
 	_verify_route_wind_probability_and_strength_table()
@@ -868,7 +886,7 @@ func _verify_live_shell_meta_owner_frame_path() -> void:
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "the launch frame must keep a physical route ball in flight")
 	input_reader.snapshot["direction"] = 0.0
 	input_reader.snapshot["mouse_left_just_pressed"] = false
-	flow.update_selective(1.2)
+	flow.update_selective(_travel_seconds(1.2))
 	_expect(
 		flow.get_phase_name() == "MAP_TRANSITION",
 		"live shell meta ball state must reach the swept target instead of re-serve looping"
@@ -982,7 +1000,7 @@ func _verify_physics_gate_frame_path_moves_serves_and_hits() -> void:
 		_expect(pause.enter_calls == 1, "the extracted physics gate must retain the modal pause fanout")
 	input_reader.snapshot["direction"] = 0.0
 	input_reader.snapshot["mouse_left_just_pressed"] = false
-	flow.update_selective(1.2)
+	flow.update_selective(_travel_seconds(1.2))
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "the timed physical trajectory must resolve the swept target hit")
 	flow.call("_finish_vertical_slice")
 	owner.free()
@@ -1146,7 +1164,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	input_reader.snapshot["mouse_left_just_pressed"] = false
 	var reset_count_after_serve := ball_driver.reset_calls
 	var top_bounced := false
-	for _frame in range(100):
+	for _frame in range(_travel_frames(100)):
 		var before_velocity := owner.ball_vel
 		var result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
 		if before_velocity.y < 0.0 and owner.ball_vel.y > 0.0:
@@ -1158,7 +1176,7 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	_expect(ball_driver.reset_calls == reset_count_after_serve and owner.ball_active, "top reflection must preserve the active route attempt")
 
 	var paddle_bounced := false
-	for _frame in range(100):
+	for _frame in range(_travel_frames(100)):
 		var before_velocity := owner.ball_vel
 		var result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
 		if owner.ball_pos.y > 600.0 and before_velocity.y > 0.0 and owner.ball_vel.y < 0.0:
