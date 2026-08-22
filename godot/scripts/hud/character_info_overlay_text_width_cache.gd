@@ -5,7 +5,7 @@ const CharacterInfoOverlayOwnerState := preload("res://scripts/hud/character_inf
 
 
 static func prewarm_static_text(font: Font, owner: Object, equipment_slot_keys: Array[String], equipment_slot_labels: Array[String], measure_text_callable: Callable) -> void:
-	for text in ["퍽", "Lv.1", "Lv.2", "Lv.3", "Lv.4", "Lv.5", "0 / 1", "0 / 2", "0 / 3", "0 / 5", "-", "E"]:
+	for text in ["무공", "1성", "2성", "3성", "극성", "극성 +1", "Lv.1", "Lv.2", "Lv.3", "0 / 1", "0 / 2", "0 / 3", "0 / 5", "-", "E"]:
 		for size in [8, 9, 10, 11, 12, 13, 14, 15]:
 			measure_text_callable.call(font, str(text), int(size))
 	for i in range(equipment_slot_keys.size()):

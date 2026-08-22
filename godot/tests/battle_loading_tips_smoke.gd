@@ -14,6 +14,8 @@ extends SceneTree
 
 const BattleLoadingTips := preload("res://scripts/core/battle_loading_tips.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 var _failures: Array[String] = []
 
@@ -24,8 +26,11 @@ func _init() -> void:
 	_verify_localization_actually_differs()
 	_verify_labels_present()
 	_verify_format_tip()
+	_verify_mugong_max_level_copy()
 	_verify_tier_partition()
 	_verify_tier_league_mapping()
+	_verify_guardian_tip_semantics()
+	_verify_grip_specific_controls()
 	_verify_character_tips()
 	_verify_character_rotation()
 	_verify_slot_rotation()
@@ -89,6 +94,16 @@ func _verify_format_tip() -> void:
 	_expect(ko.begins_with("도움말: "), "Korean formatted tip should start with the '도움말: ' label, got '%s'" % ko)
 
 
+func _verify_mugong_max_level_copy() -> void:
+	var catalog_data: Dictionary = RuntimePerkCatalog.new().get_all_perk_data()
+	var max_level := RuntimePerkProgression.get_catalog_mugong_max_level(catalog_data)
+	_expect(max_level == 3, "loading-tip Mugong catalog max should currently be 3")
+	for language in LanguageSettings.SUPPORTED_LANGUAGES:
+		var tip := BattleLoadingTips.tip_text_for_language(21, str(language), catalog_data)
+		_expect(tip.contains(str(max_level)), "language '%s' max-rank tip should follow catalog level %d" % [language, max_level])
+		_expect(not tip.contains(BattleLoadingTips.MUGONG_MAX_LEVEL_TOKEN), "language '%s' max-rank tip should not leak its token" % language)
+
+
 func _verify_tier_partition() -> void:
 	var count: int = BattleLoadingTips.get_tip_count()
 	var basic: Array = BattleLoadingTips.BASIC_TIP_INDICES
@@ -135,6 +150,52 @@ func _verify_tier_league_mapping() -> void:
 	)
 
 
+func _verify_guardian_tip_semantics() -> void:
+	var basic_index: int = BattleLoadingTips.GUARDIAN_BASIC_TIP_INDEX
+	var duration_index: int = BattleLoadingTips.GUARDIAN_DURATION_TIP_INDEX
+	var advanced_index: int = BattleLoadingTips.GUARDIAN_ADVANCED_TIP_INDEX
+	_expect(BattleLoadingTips.BASIC_TIP_INDICES.has(basic_index), "guardian summon controls should be in the basic tier")
+	_expect(BattleLoadingTips.ADVANCED_TIP_INDICES.has(duration_index), "guardian duration flow should be in the advanced tier")
+	_expect(BattleLoadingTips.ADVANCED_TIP_INDICES.has(advanced_index), "guardian duration rules should be in the advanced tier")
+	for language in LanguageSettings.SUPPORTED_LANGUAGES:
+		var basic_text := BattleLoadingTips.tip_text_for_language(basic_index, str(language))
+		var advanced_text := BattleLoadingTips.tip_text_for_language(advanced_index, str(language))
+		_expect(basic_text.contains("Ctrl"), "language '%s' guardian control tip should name Ctrl" % language)
+		_expect(basic_text.contains("R3"), "language '%s' guardian control tip should name R3" % language)
+		_expect(basic_text.contains("6"), "language '%s' guardian control tip should name the 6-second stow gate" % language)
+		_expect(advanced_text.contains("10"), "language '%s' guardian duration tip should name the >10-second resummon gate" % language)
+		_expect(advanced_text.contains("Ctrl"), "language '%s' guardian resummon tip should name Ctrl" % language)
+		_expect(advanced_text.contains("R3"), "language '%s' guardian resummon tip should name R3" % language)
+	var ko_basic := BattleLoadingTips.tip_text_for_language(basic_index, "ko")
+	var ko_duration := BattleLoadingTips.tip_text_for_language(duration_index, "ko")
+	var ko_advanced := BattleLoadingTips.tip_text_for_language(advanced_index, "ko")
+	_expect(ko_basic.contains("자동으로 합류"), "Korean guardian tip should explain the automatic first summon")
+	_expect(ko_advanced.contains("자동 수납"), "Korean guardian duration tip should explain zero-duration auto-stow")
+	_expect(ko_duration.contains("소환 중") and ko_duration.contains("수납 중"), "Korean guardian duration tip should explain drain and recovery states")
+	_expect(ko_duration.contains("스테이지 전환"), "Korean guardian duration tip should explain stage refill")
+	_expect(BattleLoadingTips.tip_text_for_language(21, "ko").contains("유효 경지"), "Korean Mugong tip should explain effective levels above the direct catalog cap")
+
+
+func _verify_grip_specific_controls() -> void:
+	var wasd_move := BattleLoadingTips.tip_text_for_language(0, "ko", {}, "wasd_mouse")
+	var arrows_move := BattleLoadingTips.tip_text_for_language(0, "ko", {}, "space_arrows")
+	var gamepad_move := BattleLoadingTips.tip_text_for_language(0, "ko", {}, "gamepad")
+	_expect(wasd_move.contains("A / D"), "WASD loading tip should use A / D")
+	_expect(arrows_move.contains("← / →"), "space+arrows loading tip should use arrow keys")
+	_expect(gamepad_move.contains("D-Pad"), "gamepad loading tip should name the left stick / D-Pad")
+	_expect(BattleLoadingTips.tip_text_for_language(2, "ko", {}, "gamepad").contains("B"), "gamepad glide tip should name B")
+	_expect(BattleLoadingTips.tip_text_for_language(4, "ko", {}, "space_arrows").contains("T"), "space+arrows Chosik tip should name the T tooltip key")
+	_expect(BattleLoadingTips.tip_text_for_language(4, "ko", {}, "gamepad").contains("View"), "gamepad Chosik tip should name View")
+	var gamepad_item := BattleLoadingTips.tip_text_for_language(6, "ko", {}, "gamepad")
+	_expect(gamepad_item.contains("LB/RB") and gamepad_item.contains("Y"), "gamepad active-item tip should name LB/RB and Y")
+	_expect(BattleLoadingTips.tip_text_for_language(9, "ko", {}, "gamepad").contains("일시정지 메뉴"), "gamepad character-info tip should route through the pause menu")
+	var item_slot := BattleLoadingTips.get_tier_slot_for_tip_index(BattleLoadingTips.TIER_BASIC, 6)
+	_expect(
+		BattleLoadingTips.format_rotation_tip(BattleLoadingTips.TIER_BASIC, "smasher", item_slot, "gamepad").contains("LB/RB"),
+		"rotation formatting should preserve the selected grip style"
+	)
+
+
 func _verify_character_tips() -> void:
 	var keys: Array = BattleLoadingTips.CHARACTER_TIP_KEYS
 	_expect(keys.size() == 5, "there should be a control tip key for each of the 5 playable characters")
@@ -163,6 +224,14 @@ func _verify_character_tips() -> void:
 			== BattleLoadingTips.character_tip_text_for_language("commando", "ko"),
 		"'soldier' should normalize to the commando control tip"
 	)
+	_expect(BattleLoadingTips.character_tip_text_for_language("soldier", "ko").contains("호란"), "Horan's Korean control tip should use her current personal name")
+	_expect(BattleLoadingTips.character_tip_text_for_language("soldier", "en").contains("Horan"), "Horan's English control tip should use her current personal name")
+	_expect(BattleLoadingTips.character_tip_text_for_language("smasher", "ko").contains("한미량"), "Smasher's Korean control tip should use Han Miryang's personal name")
+	_expect(BattleLoadingTips.character_tip_text_for_language("viper", "ko").contains("세린"), "Viper's Korean control tip should use Serin's personal name")
+	_expect(BattleLoadingTips.character_tip_text_for_language("optimus", "ko").contains("이오"), "Optimus's Korean control tip should use Io's personal name")
+	_expect(BattleLoadingTips.character_tip_text_for_language("blacksmith", "ko").contains("코하쿠"), "Blacksmith's Korean control tip should use Kohaku's personal name")
+	_expect(not BattleLoadingTips.character_tip_text_for_language("smasher", "ko").contains("좌클릭"), "character tips should not hard-code mouse-only attack labels")
+	_expect(not BattleLoadingTips.character_tip_text_for_language("viper", "ko").contains("직후 S"), "character tips should not hard-code WASD-only follow-up labels")
 	_expect(
 		BattleLoadingTips.character_tip_text_for_language("baltor", "ko")
 			== BattleLoadingTips.character_tip_text_for_language("blacksmith", "ko"),

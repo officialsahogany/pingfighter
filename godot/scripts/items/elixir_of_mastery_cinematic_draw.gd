@@ -792,7 +792,13 @@ func _draw_celebration_banner(canvas: CanvasItem, cx: float, cy: float, view_siz
 	canvas.draw_rect(Rect2(box_x, banner_y, box_w, box_h), Color(0.16, 0.035, 0.015, 0.94))
 	canvas.draw_rect(Rect2(box_x, banner_y, box_w, box_h), Color(1.0, 0.84, 0.31), false, 3.0)
 	# 타이틀
-	_draw_centered_text(canvas, LanguageSettings.translate_text("Lv.5 달성!"), Vector2(cx, banner_y + 28.0), 36, Color(1.0, 0.9, 0.47))
+	_draw_centered_text(
+		canvas,
+		LanguageSettings.format_mugong_peak_reached(int(ctx.get("target_level", 0))),
+		Vector2(cx, banner_y + 28.0),
+		36,
+		Color(1.0, 0.9, 0.47)
+	)
 	_draw_centered_text(canvas, LanguageSettings.translate_text("대성영단"), Vector2(cx, banner_y + 54.0), 16, SUBTITLE_COLOR)
 
 

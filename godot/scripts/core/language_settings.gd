@@ -87,7 +87,7 @@ const KOREAN_MARTIAL_TERM_OVERRIDES := {
 	"리커버리 스킬": "경신보",
 	"스킬 강화!": "무공 수련!",
 	"새 스킬 획득!": "새 초식 습득!",
-	"Lv.5 달성!": "극성 도달!",
+	"무공 극성 도달!": "극성 도달!",
 	"장착 스킬": "장착 초식",
 	"스킬 슬롯": "초식 슬롯",
 	"대표 스킬": "대표 초식",
@@ -511,6 +511,13 @@ static func format_mugong_level_transition(current_level: int, next_level: int, 
 		format_mugong_level(current_level, max_level),
 		format_mugong_level(next_level, max_level),
 	]
+
+
+static func format_mugong_peak_reached(max_level: int) -> String:
+	return translate_text("무공 극성 도달!").replace(
+		"{mugong_max_level}",
+		str(maxi(1, max_level))
+	)
 
 
 # 수호령 액티브·패시브 스킬은 한국어에서 최대 레벨도 극성이 아닌 N성으로

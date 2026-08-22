@@ -1144,7 +1144,7 @@ func _append_dual_glitch_runtime_bonus(description: String, hover_context: Dicti
 		line = "%s / %s" % [line, " · ".join(extras)]
 	var lines: Array[String] = [line]
 	if RuntimePerkProgression.get_int_value("four_poisons", "clone_replication", four_poisons_level) > 0:
-		lines.append(_format_four_poisons_dual_lv5_line())
+		lines.append(_format_four_poisons_dual_peak_line())
 	return "%s\n%s" % [description, "\n".join(lines)]
 
 
@@ -1324,19 +1324,22 @@ func _format_four_poisons_dual_line(duration_pct: int, clone_hp: int) -> String:
 	return "사독귀일: 지속 +%d%%, 분신 HP %d" % [duration_pct, clone_hp]
 
 
-func _format_four_poisons_dual_lv5_line() -> String:
+func _format_four_poisons_dual_peak_line() -> String:
+	var milestone_level := RuntimePerkProgression.get_milestone_level("four_poisons", "clone_replication", "starts")
+	var authored_max_level := RuntimePerkProgression.get_authored_max_level("four_poisons")
+	var rank_text := LanguageSettings.format_mugong_level(milestone_level, authored_max_level)
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_ENGLISH:
-		return "Four Poisons Unity Lv5: clones copy skills while active"
+		return "Four Poisons Unity %s: clones copy skills while active" % rank_text
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_SPANISH:
-		return "Unidad de los Cuatro Venenos Lv5: los clones copian habilidades durante la activa"
+		return "Unidad de los Cuatro Venenos %s: los clones copian habilidades durante la activa" % rank_text
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL:
-		return "Unidade dos Quatro Venenos Lv5: clones copiam habilidades durante a ativa"
+		return "Unidade dos Quatro Venenos %s: clones copiam habilidades durante a ativa" % rank_text
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_RUSSIAN:
-		return "Единство Четырёх Ядов Lv5: клоны копируют навыки во время актива"
+		return "Единство Четырёх Ядов %s: клоны копируют навыки во время актива" % rank_text
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_CHINESE:
-		return "四毒归一Lv5：主动期间分身复制技能"
+		return "四毒归一%s：主动期间分身复制技能" % rank_text
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_JAPANESE:
-		return "四毒帰一Lv5：アクティブ中、分身がスキルをコピー"
+		return "四毒帰一%s：アクティブ中、分身がスキルをコピー" % rank_text
 	return "사독귀일 극성: 발동 중 분신이 초식을 복제"
 
 

@@ -347,6 +347,29 @@ static func get_authored_max_level(perk_id: String) -> int:
 	return get_authored_level_count(perk_id, str(lane_ids[0]))
 
 
+# Display-copy authority for the migrated Mugong family. The catalog remains
+# the owner of purchasable max_level; this helper only proves that all 37 target
+# entries agree and returns that shared value without copying the dictionary.
+# Passing an in-memory catalog also gives display seals a mutation-safe negative
+# leg instead of changing script constants on disk.
+static func get_catalog_mugong_max_level(catalog_data: Dictionary) -> int:
+	if catalog_data.is_empty() or TARGET_PERK_IDS.size() != 37:
+		return 0
+	var shared_max_level := 0
+	for perk_id_value: Variant in TARGET_PERK_IDS.keys():
+		var perk_value: Variant = catalog_data.get(str(perk_id_value), null)
+		if not (perk_value is Dictionary):
+			return 0
+		var perk_max_level := int((perk_value as Dictionary).get("max_level", 0))
+		if perk_max_level <= 0:
+			return 0
+		if shared_max_level == 0:
+			shared_max_level = perk_max_level
+		elif shared_max_level != perk_max_level:
+			return 0
+	return shared_max_level
+
+
 static func get_dash_acceleration_level_for_bonus(bonus: float) -> int:
 	return int(_DASH_ACCELERATION_LEVEL_BY_BONUS.get(_float_index_key(bonus), 0))
 

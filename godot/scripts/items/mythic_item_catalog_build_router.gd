@@ -3,6 +3,8 @@ extends RefCounted
 const MythicItemCatalogBaseMetadata := preload("res://scripts/items/mythic_item_catalog_base_metadata.gd")
 const MythicItemCatalogIconMetadata := preload("res://scripts/items/mythic_item_catalog_icon_metadata.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 var base_metadata_helper: Object = MythicItemCatalogBaseMetadata.new()
 var icon_metadata_helper: Object = MythicItemCatalogIconMetadata.new()
@@ -122,7 +124,7 @@ func _build_sensor(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "위험감지벨트",
 		"korean_name": "위험감지벨트",
-		"description": "위험 상황에서 자동으로 대쉬합니다. 자동대쉬는 게이지와 대쉬토큰을 소모하지 않습니다.",
+		"description": "위험 상황에서 자동으로 활주합니다. 자동 활주는 기력과 활주 횟수를 소모하지 않습니다.",
 		"color": Color(150.0 / 255.0, 150.0 / 255.0, 1.0),
 	}, catalog, "sensor", "passive", "belt", catalog.get_field_chance("sensor"))
 
@@ -131,7 +133,7 @@ func _build_spikeboots(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "스파이크부츠",
 		"korean_name": "스파이크부츠",
-		"description": "대쉬 후딜 시간과 대쉬 토큰 재충전 시간을 롤옵션만큼 줄입니다.",
+		"description": "활주 후딜 시간과 활주 재충전 시간을 롤옵션만큼 줄입니다.",
 		"color": Color(1.0, 100.0 / 255.0, 1.0),
 	}, catalog, "spikeboots", "passive", "shoes", catalog.get_field_chance("spikeboots"))
 
@@ -140,7 +142,7 @@ func _build_dowsing_pendulum(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "다우징팬들럼",
 		"korean_name": "다우징팬들럼",
-		"description": "롤옵션 범위 안의 필드 아이템과 스타포인트를 플레이어 패들 쪽으로 끌어당깁니다.",
+		"description": "롤옵션 범위 안의 필드 아이템과 무혼을 플레이어 쪽으로 끌어당깁니다.",
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 	}, catalog, "dowsing_pendulum", "passive", "belt2", catalog.get_field_chance("dowsing_pendulum"))
 
@@ -149,7 +151,7 @@ func _build_dowsing_goggles(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "다우징 고글",
 		"korean_name": "다우징 고글",
-		"description": "퍽 선택 화면에서 일정 확률로 일반 퍽 선택지가 1장 추가됩니다.",
+		"description": "무공 선택 화면에서 일정 확률로 일반 무공 선택지가 1장 추가됩니다.",
 		"color": Color(60.0 / 255.0, 200.0 / 255.0, 180.0 / 255.0),
 	}, catalog, "dowsing_goggles", "passive", "head", catalog.get_field_chance("dowsing_goggles"))
 
@@ -167,7 +169,7 @@ func _build_chargebag(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "충전가방",
 		"korean_name": "충전가방",
-		"description": "장착 중 공이 벽에 닿을 때마다 기본 게이지 충전량의 일부를 추가로 얻습니다.",
+		"description": "장착 중 공이 벽에 닿을 때마다 기본 기력 충전량의 일부를 추가로 얻습니다.",
 		"color": Color(100.0 / 255.0, 1.0, 100.0 / 255.0),
 	}, catalog, "chargebag", "passive", "belt2", catalog.get_field_chance("chargebag"))
 
@@ -176,7 +178,7 @@ func _build_battery(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "배터리팩",
 		"korean_name": "배터리팩",
-		"description": "장착 중 다음 스테이지로 넘어갈 때 게이지를 롤옵션 비율만큼 보존합니다.",
+		"description": "장착 중 다음 스테이지로 넘어갈 때 기력을 롤옵션 비율만큼 보존합니다.",
 		"color": Color(1.0, 1.0, 0.0),
 	}, catalog, "battery", "passive", "belt2", catalog.get_field_chance("battery"))
 
@@ -194,7 +196,7 @@ func _build_master(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "수리공망치",
 		"korean_name": "수리공망치",
-		"description": "장착 중 벽돌 액티브의 길이를 늘리고, 액티브 아이템 쿨타임을 줄이며, 벽돌 아이템의 필드 스폰 가중치를 높입니다.",
+		"description": "장착 중 토벽과 널뛰기의 폭을 늘리고, 액티브 아이템 쿨타임을 줄이며, 토벽패의 필드 등장 가중치를 높입니다.",
 		"color": Color(1.0, 215.0 / 255.0, 0.0),
 	}, catalog, "master", "passive", "arm", catalog.get_field_chance("master"))
 
@@ -203,7 +205,7 @@ func _build_gold_digger(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "골드디거",
 		"korean_name": "골드디거",
-		"description": "장착 중 골드 획득량과 일부 게이지 획득량을 롤옵션만큼 늘립니다.",
+		"description": "장착 중 골드 획득량과 일부 기력 획득량을 롤옵션만큼 늘립니다.",
 		"color": Color(1.0, 200.0 / 255.0, 50.0 / 255.0),
 	}, catalog, "gold_digger", "passive", "arm", catalog.get_field_chance("gold_digger"))
 
@@ -240,7 +242,7 @@ func _build_shrapnel_armor(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "파편갑옷",
 		"korean_name": "파편갑옷",
-		"description": "플레이어 패들이 공을 칠 때 일정 확률로 게이지를 소모해 위쪽으로 가시 파편을 발사하고, 보스에게 맞으면 짧은 스턴과 넉백을 줍니다.",
+		"description": "플레이어가 공을 받아칠 때 일정 확률로 기력을 소모해 위쪽으로 가시 파편을 발사하고, 보스에게 맞으면 짧은 스턴과 넉백을 줍니다.",
 		"color": Color(1.0, 150.0 / 255.0, 80.0 / 255.0),
 	}, catalog, "shrapnel_armor", "passive", "top", catalog.get_field_chance("shrapnel_armor"))
 
@@ -249,7 +251,7 @@ func _build_sage_ring(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "현자의 반지",
 		"korean_name": "현자의 반지",
-		"description": "장착 중 모든 투자된 퍽의 유효 레벨을 1 올립니다. 대신 이동속도와 몸집크기가 롤옵션만큼 감소합니다.",
+		"description": "장착 중 모든 투자된 무공의 유효 경지를 1 올립니다. 대신 이동속도와 몸집크기가 롤옵션만큼 감소합니다.",
 		"color": Color(180.0 / 255.0, 140.0 / 255.0, 1.0),
 	}, catalog, "sage_ring", "passive", "accessory", catalog.get_field_chance("sage_ring"), true)
 
@@ -267,7 +269,7 @@ func _build_timer_belt(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "타이머벨트",
 		"korean_name": "타이머벨트",
-		"description": "장착 중 모든 캐릭터 스킬의 쿨타임을 롤옵션만큼 줄입니다.",
+		"description": "장착 중 모든 초식의 쿨타임을 롤옵션만큼 줄입니다.",
 		"color": Color(90.0 / 255.0, 220.0 / 255.0, 230.0 / 255.0),
 	}, catalog, "timer_belt", "passive", "belt", catalog.get_field_chance("timer_belt"))
 
@@ -276,7 +278,7 @@ func _build_fuel_pouch(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "연료파우치",
 		"korean_name": "연료파우치",
-		"description": "장착 중 플레이어의 최대 게이지를 롤옵션 수치만큼 늘립니다.",
+		"description": "장착 중 플레이어의 최대 기력을 롤옵션 수치만큼 늘립니다.",
 		"color": Color(180.0 / 255.0, 100.0 / 255.0, 40.0 / 255.0),
 	}, catalog, "fuel_pouch", "passive", "accessory", catalog.get_field_chance("fuel_pouch"))
 
@@ -285,7 +287,7 @@ func _build_bluetooth_ring(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "블루투스링",
 		"korean_name": "블루투스링",
-		"description": "장착 중 플레이어가 패들로 공을 칠 때 얻는 게이지를 롤옵션만큼 늘립니다.",
+		"description": "장착 중 플레이어가 공을 받아칠 때 얻는 기력을 롤옵션만큼 늘립니다.",
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 1.0),
 	}, catalog, "bluetooth_ring", "passive", "accessory", catalog.get_field_chance("bluetooth_ring"))
 
@@ -294,7 +296,7 @@ func _build_star_detector(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "별탐지기",
 		"korean_name": "별탐지기",
-		"description": "장착 중 스타포인트 드랍이 생길 때 롤옵션 확률로 보너스 스타포인트 드랍을 1개 더 생성합니다.",
+		"description": "장착 중 무혼이 나타날 때 롤옵션 확률로 보너스 무혼을 1개 더 생성합니다.",
 		"color": Color(80.0 / 255.0, 200.0 / 255.0, 220.0 / 255.0),
 	}, catalog, "star_detector", "passive", "accessory", catalog.get_field_chance("star_detector"))
 
@@ -312,7 +314,7 @@ func _build_smartphone(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_static_item_base({
 		"display_name": "스마트폰",
 		"korean_name": "스마트폰",
-		"description": "게이지가 낮으면 회복 아이템을 자동으로 사용하고, 위급할 때 스톱워치 또는 홀리베리어를 자동 발동합니다.",
+		"description": "기력이 낮으면 회복 아이템을 자동으로 사용하고, 위급할 때 스톱워치 또는 금강결계를 자동 발동합니다.",
 		"color": Color(100.0 / 255.0, 150.0 / 255.0, 200.0 / 255.0),
 	}, catalog, "smartphone", "passive", "arm", catalog.get_field_chance("smartphone"), false)
 
@@ -321,7 +323,7 @@ func _build_neural_helmet(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "뉴럴헬멧",
 		"korean_name": "뉴럴헬멧",
-		"description": "AI알약의 게이지 소모를 줄이고 AI알약 스폰율을 높입니다. AI알약 발동 중 방향키 입력으로 즉시 해제할 수 있습니다.",
+		"description": "신령환의 기력 소모를 줄이고 신령환 스폰율을 높입니다. 신령환 발동 중 방향키 입력으로 즉시 해제할 수 있습니다.",
 		"color": Color(140.0 / 255.0, 180.0 / 255.0, 1.0),
 	}, catalog, "neural_helmet", "passive", "head", catalog.get_field_chance("neural_helmet"))
 
@@ -349,7 +351,7 @@ func _build_commando_arm(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "코만도암",
 		"korean_name": "코만도암",
-		"description": "투척류 아이템을 전투용 팔 장비로 보조합니다. 수류탄, 조명탄, 화염병은 더 빠르게 날아가고 폭발 범위가 넓어지며, 다이너마이트, 바나나, 비누, 부메랑의 준비시간이 줄어듭니다. 연막탄 지속시간도 증가합니다.",
+		"description": "투척류 아이템을 전투용 팔 장비로 보조합니다. 폭화탄, 환광탄, 열화병은 더 빠르게 날아가고 폭발 범위가 넓어지며, 폭렬화통, 바나나, 비누, 부메랑의 준비시간이 줄어듭니다. 연막탄 지속시간도 증가합니다.",
 		"color": Color(60.0 / 255.0, 60.0 / 255.0, 70.0 / 255.0),
 	}, catalog, "commando_arm", "passive", "arm", catalog.get_field_chance("commando_arm"))
 
@@ -358,7 +360,7 @@ func _build_rainbow_fur_glove(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "무지개털장갑",
 		"korean_name": "무지개털장갑",
-		"description": "공을 패들로 칠 때 일정 확률로 발동하여 장착한 캐릭터 스킬의 진행 중 쿨타임을 즉시 감소시킵니다.",
+		"description": "공을 받아칠 때 일정 확률로 발동하여 장착한 초식의 진행 중 쿨타임을 즉시 감소시킵니다.",
 		"color": Color(1.0, 170.0 / 255.0, 220.0 / 255.0),
 	}, catalog, "rainbow_fur_glove", "passive", "arm", catalog.get_field_chance("rainbow_fur_glove"))
 
@@ -367,16 +369,16 @@ func _build_knee_pads(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "킥차져",
 		"korean_name": "킥차져",
-		"description": "장착 중 하프대쉬로 공을 맞추면 기본 게이지 획득량을 기준으로 롤옵션 비율만큼 충전합니다.",
+		"description": "장착 중 짧은 활주로 공을 맞추면 기본 기력 획득량을 기준으로 롤옵션 비율만큼 충전합니다.",
 		"color": Color(80.0 / 255.0, 80.0 / 255.0, 100.0 / 255.0),
 	}, catalog, "knee_pads", "passive", "knee", catalog.get_field_chance("knee_pads"))
 
 
 func _build_dashgear(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
-		"display_name": "대쉬기어",
-		"korean_name": "대쉬기어",
-		"description": "대쉬 거리를 늘리고, 일정 확률로 다음 대쉬 토큰 소모를 무효화합니다.",
+		"display_name": "활주기어",
+		"korean_name": "활주기어",
+		"description": "활주 거리를 늘리고, 일정 확률로 다음 활주 횟수 소모를 무효화합니다.",
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
 	}, catalog, "dashgear", "passive", "knee", catalog.get_field_chance("dashgear"))
 
@@ -385,7 +387,7 @@ func _build_soul_burst(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "소울버스트",
 		"korean_name": "소울버스트",
-		"description": "대쉬 토큰이 없을 때 스페셜 게이지를 소모해 하프대쉬 대신 풀대쉬를 발동합니다.",
+		"description": "활주 횟수가 없을 때 기력을 소모해 짧은 활주 대신 완전 활주를 발동합니다.",
 		"color": Color(150.0 / 255.0, 80.0 / 255.0, 1.0),
 	}, catalog, "soul_burst", "passive", "knee", catalog.get_field_chance("soul_burst"))
 
@@ -394,16 +396,16 @@ func _build_bulkup(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_rolled_item_base({
 		"display_name": "벌크업슈트",
 		"korean_name": "벌크업슈트",
-		"description": "장착 중 플레이어 패들의 몸집크기를 롤옵션만큼 늘립니다.",
+		"description": "장착 중 플레이어의 몸집크기를 롤옵션만큼 늘립니다.",
 		"color": Color(1.0, 100.0 / 255.0, 100.0 / 255.0),
 	}, catalog, "bulkup", "passive", "top", catalog.get_field_chance("bulkup"))
 
 
 func _build_dashholder(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_static_item_base({
-		"display_name": "대쉬홀더",
-		"korean_name": "대쉬홀더",
-		"description": "장착 중 대쉬 토큰 최대 개수를 1개 늘립니다.",
+		"display_name": "활주부",
+		"korean_name": "활주부",
+		"description": "장착 중 최대 활주 횟수를 1회 늘립니다.",
 		"color": Color(1.0, 150.0 / 255.0, 100.0 / 255.0),
 	}, catalog, "dashholder", "passive", "accessory", catalog.get_field_chance("dashholder"))
 
@@ -439,7 +441,7 @@ func _build_megingjord(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "메긴교르드",
 		"korean_name": "메긴교르드",
-		"description": "퍽 선택 시 추가 선택 기회를 얻습니다. 한 선택 묶음에서 최대 2회까지 연속 발동합니다.",
+		"description": "무공 선택 시 추가 선택 기회를 얻습니다. 한 선택 묶음에서 최대 2회까지 연속 발동합니다.",
 		"color": Color(1.0, 215.0 / 255.0, 75.0 / 255.0),
 	}, "megingjord", "belt")
 
@@ -448,7 +450,7 @@ func _build_ragnarok_hammer(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "라그나로크 해머",
 		"korean_name": "라그나로크 해머",
-		"description": "플레이어가 공을 받아칠 때 게이지를 소모해 스턴공을 만들고, 보스가 받아치면 넉백과 스턴을 겁니다.",
+		"description": "플레이어가 공을 받아칠 때 기력을 소모해 스턴공을 만들고, 보스가 받아치면 넉백과 스턴을 겁니다.",
 		"color": Color(120.0 / 255.0, 190.0 / 255.0, 1.0),
 	}, "ragnarok_hammer", "arm")
 
@@ -466,7 +468,7 @@ func _build_poseidon_trident(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "포세이돈의 삼지창",
 		"korean_name": "포세이돈의 삼지창",
-		"description": "대시 회복 순간 좌우에 거대한 물회오리를 생성하여 보스가 내려친 공을 위쪽으로 강하게 튕겨냅니다.",
+		"description": "활주 회복 순간 좌우에 거대한 물회오리를 생성하여 보스가 내려친 공을 위쪽으로 강하게 튕겨냅니다.",
 		"color": Color(70.0 / 255.0, 185.0 / 255.0, 1.0),
 	}, "poseidon_trident", "arm")
 
@@ -484,7 +486,7 @@ func _build_transcendent_crown(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "초월자의 관",
 		"korean_name": "초월자의 관",
-		"description": "이미 투자한 모든 퍽의 효과 레벨을 롤 옵션만큼 증가시킵니다.",
+		"description": "이미 투자한 모든 무공의 유효 경지를 롤 옵션만큼 증가시킵니다.",
 		"color": Color(1.0, 215.0 / 255.0, 100.0 / 255.0),
 	}, "transcendent_crown", "head")
 
@@ -493,7 +495,7 @@ func _build_heavenly_cape(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "천상의 망토",
 		"korean_name": "천상의 망토",
-		"description": "스킬 구슬 슬롯을 1칸 늘리고 모든 플레이어 스킬 쿨타임을 줄입니다.",
+		"description": "초식 구슬 슬롯을 1칸 늘리고 모든 초식 쿨타임을 줄입니다.",
 		"color": Color(190.0 / 255.0, 225.0 / 255.0, 1.0),
 	}, "heavenly_cape", "back", true)
 
@@ -502,7 +504,7 @@ func _build_horn_strawberry_mask(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "뿔딸기 변신가면",
 		"korean_name": "뿔딸기 변신가면",
-		"description": "A→D→A→D→A→D 커맨드로 1스테이지 1회 뿔딸기로 변신합니다.",
+		"description": "기력 500을 소모해 2초 안에 A→D→A→D→A→D 커맨드를 입력하면 스테이지당 1회 뿔딸기로 변신합니다.",
 		"color": Color(1.0, 72.0 / 255.0, 90.0 / 255.0),
 	}, "horn_strawberry_mask", "head", true)
 
@@ -511,7 +513,7 @@ func _build_odins_eye(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "오딘의 눈",
 		"korean_name": "오딘의 눈",
-		"description": "실점 시 롤 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 되살아난 뒤에는 이동과 활주에 페널티를 받으며, 다시 실점하면 패배합니다.",
+		"description": "실점 시 롤 확률로 그 실점을 무효화하고 악귀로 되살아납니다. 악귀 상태에서는 이동속도가 50% 감소하고 활주는 1회로 제한되며 재충전 시간이 2배가 되지만, 활주 거리는 50% 늘어납니다. 다시 실점하면 패배합니다.",
 		"color": Color(110.0 / 255.0, 100.0 / 255.0, 220.0 / 255.0),
 	}, "odins_eye", "belt", true)
 
@@ -520,7 +522,7 @@ func _build_celestial_armor(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "천구의 부동 갑주",
 		"korean_name": "천구의 부동 갑주",
-		"description": "스턴이 들어올 때 롤 확률로 무시하고, 발동 시 게이지를 소모합니다.",
+		"description": "스턴·넉백이 들어올 때 롤 확률로 무시하고, 발동 시 기력을 소모합니다.",
 		"color": Color(180.0 / 255.0, 200.0 / 255.0, 1.0),
 	}, "celestial_armor", "top")
 
@@ -529,17 +531,27 @@ func _build_baal_boots(catalog: Object) -> Dictionary:
 	return _with_mythic_icon_item(catalog, {
 		"display_name": "바알의 부츠",
 		"korean_name": "바알의 부츠",
-		"description": "날씨 이벤트가 시작되면 바알의 힘으로 현재 날씨를 흡수하고 게이지를 회복합니다. 흡수한 날씨에 따라 이번 라운드 동안 추가 효과가 발동합니다.",
+		"description": "날씨 이벤트가 시작되면 바알의 힘으로 현재 날씨를 흡수하고 기력을 회복합니다. 흡수한 날씨에 따라 이번 라운드 동안 추가 효과가 발동합니다.",
 		"color": Color(1.0, 90.0 / 255.0, 55.0 / 255.0),
 	}, "baal_boots", "shoes")
 
 
 func _build_elixir_of_mastery(catalog: Object) -> Dictionary:
 	return base_metadata_helper.with_static_item_base({
-		"display_name": "엘릭서 오브 마스터리",
-		"korean_name": "엘릭서 오브 마스터리",
-		"description": "사용 시 보유 중인 퍽 중 랜덤으로 1개를 선택해 Lv.5로 만듭니다. 신화급 액티브 아이템으로, 사용 후 소모됩니다.",
-		"color": Color(0.47, 0.2, 0.78),
+		"display_name": "대성영단",
+		"korean_name": "대성영단",
+		"description": format_elixir_of_mastery_description(),
+		"color": Color(0.93, 0.61, 0.12),
 		"consumable": true,
 		"mythic_active": true,
 	}, catalog, "elixir_of_mastery", "mythic", "", 0.0, false)
+
+
+static func format_elixir_of_mastery_description(catalog_data_override: Dictionary = {}) -> String:
+	var catalog_data: Dictionary = catalog_data_override
+	if catalog_data.is_empty():
+		catalog_data = RuntimePerkCatalog.new().get_all_perk_data()
+	var max_level := RuntimePerkProgression.get_catalog_mugong_max_level(catalog_data)
+	return "대성영단을 복용하면 보유 중인 무공 하나를 무작위로 골라 즉시 %s성에 도달시킵니다. 신화급 액티브 아이템으로, 사용 후 소모됩니다." % (
+		str(max_level) if max_level > 0 else "?"
+	)

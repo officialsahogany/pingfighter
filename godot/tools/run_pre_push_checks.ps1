@@ -65,6 +65,7 @@ $focusedSmoke = @(
     "res://tests/mythic_reveal_render_capture_smoke.gd",
     "res://tests/perk_conversion_overflow_scaling_smoke.gd",
     "res://tests/runtime_perk_overflow_description_smoke.gd",
+    "res://tests/runtime_perk_display_surface_smoke.gd",
     "res://tests/runtime_perk_progression_equivalence_smoke.gd",
     "res://tests/perk_polish_amplify_smoke.gd",
     "res://tests/project_resource_loader_import_preference_smoke.gd",
