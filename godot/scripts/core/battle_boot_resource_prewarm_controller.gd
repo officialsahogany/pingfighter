@@ -1598,6 +1598,8 @@ func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
 	match _get_normalized_stage1_boss_variant(stage1_boss_variant):
 		"gaksi":
 			return "stage1_gaksital_boss_skill_hud_renderer"
+		"podo":
+			return "stage1_pododaejang_boss_skill_hud_renderer"
 		"dalji":
 			return "stage1_dalji_boss_skill_hud_renderer"
 	return ""

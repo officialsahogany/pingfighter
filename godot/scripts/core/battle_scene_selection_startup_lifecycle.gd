@@ -11,11 +11,10 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 const DEFAULT_LEAGUE_MODE := "junior"
-# Player-facing Stage 1 roulette pool. Dalji-only by explicit decision
-# (2026-07-04): Gaksital / Pododaejang stay debug-picker-only (explicit
-# selection) until they are release-ready. Re-add "gaksi" / "podo" here to
-# re-open the original random roulette.
-const STAGE1_RANDOM_BOSS_VARIANTS: Array[String] = ["dalji"]
+# Player-facing Stage 1 roulette pool. Each entry has a complete production
+# combat, HUD, audio, display-name, and reset path. Explicit debug/Tower
+# selections still bypass this roulette without consuming its RNG.
+const STAGE1_RANDOM_BOSS_VARIANTS: Array[String] = ["dalji", "gaksi", "podo"]
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var stage1_boss_rng: RandomNumberGenerator = RandomNumberGenerator.new()

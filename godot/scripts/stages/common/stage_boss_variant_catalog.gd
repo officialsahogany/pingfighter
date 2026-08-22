@@ -1,11 +1,30 @@
 extends RefCounted
 
 const DEFAULT_VARIANT_BY_STAGE := {
+	1: "dalji",
 	2: "cheongringwi",
 	3: "yeonmyo",
 }
 
 const VARIANTS := {
+	"dalji": {
+		"stage": 1,
+		"display_name": "달지",
+		"codex_key": "boss.dalji",
+		"ported": true,
+	},
+	"gaksi": {
+		"stage": 1,
+		"display_name": "각시탈",
+		"codex_key": "boss.gaksital",
+		"ported": true,
+	},
+	"podo": {
+		"stage": 1,
+		"display_name": "포도대장",
+		"codex_key": "boss.pododaejang",
+		"ported": true,
+	},
 	"cheongringwi": {
 		"stage": 2,
 		"display_name": "청린귀",
@@ -46,16 +65,31 @@ const VARIANTS := {
 }
 
 
+# Stage 1 predates the catalog and its owner field can still carry long-form
+# ids, so fold known aliases onto the canonical id before any lookup.
+const VARIANT_ALIASES := {
+	"gaksital": "gaksi",
+	"talkwangdae": "gaksi",
+	"talchum": "gaksi",
+	"pododaejang": "podo",
+	"podo_daejang": "podo",
+}
+
 static func get_default_variant(stage_id: int) -> String:
 	return str(DEFAULT_VARIANT_BY_STAGE.get(stage_id, ""))
 
 
 static func normalize_variant(stage_id: int, value: Variant) -> String:
-	var requested := str(value).strip_edges().to_lower()
+	var requested := _canonical_id(value)
 	var entry: Dictionary = VARIANTS.get(requested, {})
 	if not entry.is_empty() and int(entry.get("stage", -1)) == stage_id and bool(entry.get("ported", false)):
 		return requested
 	return get_default_variant(stage_id)
+
+
+static func _canonical_id(value: Variant) -> String:
+	var requested := str(value).strip_edges().to_lower()
+	return str(VARIANT_ALIASES.get(requested, requested))
 
 
 static func get_entry(stage_id: int, value: Variant) -> Dictionary:
@@ -67,6 +101,6 @@ static func get_entry(stage_id: int, value: Variant) -> Dictionary:
 
 
 static func is_ported_variant(stage_id: int, value: Variant) -> bool:
-	var requested := str(value).strip_edges().to_lower()
+	var requested := _canonical_id(value)
 	var entry: Dictionary = VARIANTS.get(requested, {})
 	return not entry.is_empty() and int(entry.get("stage", -1)) == stage_id and bool(entry.get("ported", false))

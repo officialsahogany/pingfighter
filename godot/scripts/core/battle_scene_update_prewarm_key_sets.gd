@@ -142,6 +142,12 @@ const STAGE1_RUNTIME_PREWARM_KEYS := [
 	"stage1_dalji_whip_skill_state",
 	"stage1_dalji_spinning_top_skill_state",
 	"stage1_dalji_boss_skill_cooldown_state",
+	"stage1_gaksital_fan_throw_skill_state",
+	"stage1_gaksital_fan_wind_skill_state",
+	"stage1_gaksital_boss_skill_cooldown_state",
+	"stage1_pododaejang_patrol_guards_skill_state",
+	"stage1_pododaejang_arrest_rope_skill_state",
+	"stage1_pododaejang_boss_skill_cooldown_state",
 	"stage1_balloon_event",
 ]
 const STAGE2_RUNTIME_PREWARM_KEYS := [

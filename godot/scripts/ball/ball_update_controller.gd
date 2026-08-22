@@ -112,6 +112,7 @@ func update(delta: float, context: Dictionary, deps: Dictionary, callbacks: Dict
 	frame_motion_controller.apply_stage1_dalji_whip(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_stage1_dalji_spinning_top(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_stage1_gaksital_fan_throw(scene, fps_scale, frame_context, frame_deps)
+	frame_motion_controller.apply_stage1_pododaejang_patrol_guards(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_magnum_grip(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_active_item_magnet_field(scene, fps_scale, frame_context, frame_deps)
 	frame_motion_controller.apply_poseidon_trident(scene, fps_scale, frame_context, frame_deps)

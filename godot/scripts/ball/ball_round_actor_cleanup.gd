@@ -98,6 +98,18 @@ func reset_actor_round_state(deps: Dictionary) -> void:
 	if gaksital_cooldown_state != null and gaksital_cooldown_state.has_method("reset_round"):
 		gaksital_cooldown_state.reset_round()
 
+	var pododaejang_patrol_guards_state = deps.get("stage1_pododaejang_patrol_guards_skill_state", null)
+	if pododaejang_patrol_guards_state != null and pododaejang_patrol_guards_state.has_method("reset_round"):
+		pododaejang_patrol_guards_state.reset_round()
+
+	var pododaejang_arrest_rope_state = deps.get("stage1_pododaejang_arrest_rope_skill_state", null)
+	if pododaejang_arrest_rope_state != null and pododaejang_arrest_rope_state.has_method("reset_round"):
+		pododaejang_arrest_rope_state.reset_round()
+
+	var pododaejang_cooldown_state = deps.get("stage1_pododaejang_boss_skill_cooldown_state", null)
+	if pododaejang_cooldown_state != null and pododaejang_cooldown_state.has_method("reset_round"):
+		pododaejang_cooldown_state.reset_round()
+
 	var stage2_boss_skill_state = deps.get("stage2_boss_skill_state", null)
 	if stage2_boss_skill_state != null and stage2_boss_skill_state.has_method("reset_round"):
 		stage2_boss_skill_state.reset_round()

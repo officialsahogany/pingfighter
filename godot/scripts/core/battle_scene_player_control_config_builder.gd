@@ -107,8 +107,14 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 	_apply_speed_multiplier(config, weather)
 	_apply_speed_multiplier(config, _get_instance(registry, "status_effect_state"))
 	_apply_speed_multiplier(config, _get_instance(registry, "active_item_runtime"))
-	_apply_speed_multiplier(config, _get_instance(registry, "lingpet_egg_runtime"))
+	var lingpet_runtime: Object = _get_instance(registry, "lingpet_egg_runtime")
+	_apply_speed_multiplier(config, lingpet_runtime)
 	_apply_speed_multiplier(config, mythic_item_runtime)
+	if (
+		int(config.get("current_stage", 1)) == 1
+		and _is_pododaejang_variant(_get_owner_value(owner, "stage1_boss_variant", "dalji"))
+	):
+		_apply_speed_multiplier(config, _get_instance(registry, "stage1_pododaejang_arrest_rope_skill_state"))
 	_apply_turn_decel_multiplier(config, mythic_item_runtime)
 	if mythic_item_runtime != null:
 		config["player_skill_input_locked"] = _is_player_skill_locked(mythic_item_runtime)
@@ -122,6 +128,10 @@ func build_config(owner: Object, registry: Object, character_type: String, conte
 			and bool(mythic_item_runtime.is_odins_eye_control_locked())
 		):
 			config["horizontal_input_locked"] = true
+	# 백린 탑승은 모든 일반 배율을 계산한 뒤 이동 속도를 최종 8로 고정한다.
+	# 동시에 기존 캐릭터 스킬 입력을 잠그고 전용 슬롯으로 HUD를 교체한다.
+	if lingpet_runtime != null and lingpet_runtime.has_method("apply_player_movement_config"):
+		lingpet_runtime.apply_player_movement_config(config)
 	return config
 
 
@@ -145,6 +155,11 @@ func _apply_turn_decel_multiplier(config: Dictionary, source: Object) -> void:
 	if abs(turn_decel_multiplier - 1.0) <= 0.001:
 		return
 	config["paddle_turn_decel"] = float(config["paddle_turn_decel"]) * turn_decel_multiplier
+
+
+func _is_pododaejang_variant(value: Variant) -> bool:
+	var variant: String = str(value).strip_edges().to_lower()
+	return variant in ["podo", "pododaejang", "podo_daejang"]
 
 
 func _get_boss_visual_center_y_offset(current_stage: int) -> float:

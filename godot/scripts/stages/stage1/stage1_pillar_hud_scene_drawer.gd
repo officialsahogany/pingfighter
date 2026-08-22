@@ -374,6 +374,8 @@ func _draw_stage1_boss_skill_hud(
 	var stage1_boss_variant: String = _normalize_stage1_boss_variant(context.get("stage1_boss_variant", "dalji"))
 	if stage1_boss_variant == "gaksi":
 		_draw_stage1_gaksital_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
+	elif stage1_boss_variant == "podo":
+		_draw_stage1_pododaejang_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
 	elif stage1_boss_variant == "dalji":
 		_draw_stage1_dalji_boss_skill_hud(canvas, context, registry, view_size, game_offset, game_size, time_seconds)
 
@@ -447,6 +449,45 @@ func _draw_stage1_gaksital_boss_skill_hud(
 	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
 		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
 	LingpetRailCard.append_entry(hud_context, registry, "stage1_gaksital_boss_skill_hud_skills", "stage1_gaksital_boss_skill_hud_active")
+	renderer.draw(canvas, hud_context)
+
+
+func _draw_stage1_pododaejang_boss_skill_hud(
+	canvas: CanvasItem,
+	context: Dictionary,
+	registry: Object,
+	view_size: Vector2,
+	game_offset: Vector2,
+	game_size: Vector2,
+	time_seconds: float
+) -> void:
+	var renderer: Object = _get_cached_module(registry, "stage1_pododaejang_boss_skill_hud_renderer")
+	if renderer == null or not renderer.has_method("draw"):
+		return
+	var cooldown_state: Object = _get_cached_module(registry, "stage1_pododaejang_boss_skill_cooldown_state")
+	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		return
+	var hud_context: Dictionary = context.duplicate()
+	hud_context.merge(cooldown_state.get_hud_context(), true)
+	hud_context["view_size"] = view_size
+	hud_context["game_offset"] = game_offset
+	hud_context["game_size"] = game_size
+	hud_context["time_seconds"] = time_seconds
+	var firearm_panel_state: Dictionary = _build_commando_firearm_panel_state_for_boss_hud(
+		context,
+		registry,
+		game_offset,
+		game_size
+	)
+	var firearm_panel_rect: Rect2 = _get_rect(firearm_panel_state.get("rect", Rect2()))
+	if firearm_panel_rect.size.x > 0.0 and firearm_panel_rect.size.y > 0.0:
+		hud_context["commando_firearm_panel_rect"] = firearm_panel_rect
+	LingpetRailCard.append_entry(
+		hud_context,
+		registry,
+		"stage1_pododaejang_boss_skill_hud_skills",
+		"stage1_pododaejang_boss_skill_hud_active"
+	)
 	renderer.draw(canvas, hud_context)
 
 
@@ -856,6 +897,8 @@ func _get_stage1_boss_skill_cooldown_key(stage1_boss_variant: String) -> String:
 	match _normalize_stage1_boss_variant(stage1_boss_variant):
 		"gaksi":
 			return "stage1_gaksital_boss_skill_cooldown_state"
+		"podo":
+			return "stage1_pododaejang_boss_skill_cooldown_state"
 		"dalji":
 			return "stage1_dalji_boss_skill_cooldown_state"
 	return ""
@@ -865,6 +908,8 @@ func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
 	match _normalize_stage1_boss_variant(stage1_boss_variant):
 		"gaksi":
 			return "stage1_gaksital_boss_skill_hud_renderer"
+		"podo":
+			return "stage1_pododaejang_boss_skill_hud_renderer"
 		"dalji":
 			return "stage1_dalji_boss_skill_hud_renderer"
 	return ""

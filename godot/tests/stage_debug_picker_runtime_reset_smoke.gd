@@ -176,6 +176,7 @@ class FakeRegistry:
 	var stage1_balloon := FakeResetModule.new()
 	var stage1_skill_hud := FakeResetModule.new()
 	var stage1_gaksital_skill_hud := FakeResetModule.new()
+	var stage1_pododaejang_skill_hud := FakeResetModule.new()
 	var stage2_bg := FakeResetModule.new()
 	var stage7_bg := FakeResetModule.new()
 	var stage7_actor := FakeResetModule.new()
@@ -210,6 +211,8 @@ class FakeRegistry:
 				return stage1_skill_hud
 			"stage1_gaksital_boss_skill_hud_renderer":
 				return stage1_gaksital_skill_hud
+			"stage1_pododaejang_boss_skill_hud_renderer":
+				return stage1_pododaejang_skill_hud
 			"stage2_pillar_background":
 				return stage2_bg
 			"stage7_akamu_pillar_background":
@@ -323,9 +326,10 @@ func _init() -> void:
 	_expect(podo_registry.stage1_bg.prewarm_count == 1, "Pododaejang debug route should still prewarm shared Stage 1 background")
 	_expect(podo_registry.stage1_balloon.prewarm_count == 1, "Pododaejang debug route should prewarm shared Stage 1 balloon assets")
 	_expect(podo_registry.stage1_pillar_scene.prewarm_stage1_boss_variant == "podo", "Pododaejang debug route should prewarm the selected boss variant")
-	_expect(podo_registry.stage1_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Dalji boss skill HUD assets")
-	_expect(podo_registry.stage1_gaksital_skill_hud.prewarm_count == 0, "Pododaejang Slice 1 should not prewarm Gaksital boss skill HUD assets")
-	_expect(not podo_registry.requested_keys.has("stage1_pododaejang_boss_skill_hud_renderer"), "Pododaejang Slice 1 should not request missing Pododaejang HUD modules yet")
+	_expect(podo_registry.stage1_skill_hud.prewarm_count == 0, "Pododaejang should not prewarm Dalji boss skill HUD assets")
+	_expect(podo_registry.stage1_gaksital_skill_hud.prewarm_count == 0, "Pododaejang should not prewarm Gaksital boss skill HUD assets")
+	_expect(podo_registry.stage1_pododaejang_skill_hud.prewarm_count == 1, "Pododaejang debug route should prewarm its boss skill HUD assets")
+	_expect(podo_registry.requested_keys.has("stage1_pododaejang_boss_skill_hud_renderer"), "Pododaejang debug route should request its HUD module")
 	var stage7_owner := FakeOwner.new()
 	stage7_owner.selected_character_type = "viper"
 	var stage7_registry := FakeRegistry.new()

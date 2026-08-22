@@ -410,6 +410,7 @@ class FakeRegistry:
 	var stage1_pillar_scene := FakePillarSceneModule.new()
 	var stage1_balloon_event := FakeStagedPrewarmModule.new()
 	var stage1_skill_hud := FakeStagedPrewarmModule.new()
+	var stage1_podo_skill_hud := FakeStagedPrewarmModule.new()
 	var stage1_actor_renderer := FakePrewarmModule.new()
 	var commando_firearm_selector := FakeStagedPrewarmModule.new()
 	var skill_cutin_overlay_host := FakeRuntimeNodePrewarmModule.new()
@@ -490,6 +491,7 @@ class FakeRegistry:
 			"stage1_pillar_scene",
 			"stage1_balloon_event",
 			"stage1_skill_hud",
+			"stage1_podo_skill_hud",
 			"stage1_actor_renderer",
 			"commando_firearm_selector",
 			"skill_cutin_overlay_host",
@@ -574,6 +576,8 @@ class FakeRegistry:
 				return stage1_balloon_event
 			"stage1_dalji_boss_skill_hud_renderer":
 				return stage1_skill_hud
+			"stage1_pododaejang_boss_skill_hud_renderer":
+				return stage1_podo_skill_hud
 			"stage1_actor_renderer":
 				return stage1_actor_renderer
 			"commando_firearm_selector_renderer":
@@ -742,7 +746,7 @@ func _run() -> void:
 
 	_verify_full_stage_clear_result_prewarm_remains_staged()
 	_verify_stage1_staged_visual_prewarm()
-	_verify_stage1_pododaejang_skips_missing_skill_hud_prewarm()
+	_verify_stage1_pododaejang_skill_hud_prewarm()
 	_verify_stage1_soldier_commando_prewarm()
 	_verify_stage2_staged_playfield_prewarm()
 	_verify_stage3_staged_playfield_prewarm()
@@ -1001,7 +1005,7 @@ func _verify_stage1_staged_visual_prewarm() -> void:
 	_expect(controller.prewarm_stage_runtime_resources_step(owner, Callable(self, "_get_module")), "stage 1 prewarm should finish after the PSO prewarmer chunk")
 
 
-func _verify_stage1_pododaejang_skips_missing_skill_hud_prewarm() -> void:
+func _verify_stage1_pododaejang_skill_hud_prewarm() -> void:
 	_registry = FakeRegistry.new()
 	var controller := BattleBootResourcePrewarmController.new()
 	var owner := FakeOwner.new()
@@ -1010,8 +1014,10 @@ func _verify_stage1_pododaejang_skips_missing_skill_hud_prewarm() -> void:
 	controller.prewarm_stage_runtime_resources(owner, Callable(self, "_get_module"))
 	_expect(_registry.stage1_pillar_scene.last_stage1_boss_variant == "podo", "Pododaejang Stage 1 prewarm should pass the normalized boss variant to the pillar scene")
 	_expect(_registry.stage1_balloon_event.step_calls == 3, "Pododaejang Stage 1 prewarm should keep shared balloon event assets")
-	_expect(_registry.stage1_skill_hud.step_calls == 0, "Pododaejang Slice 1 should not prewarm Dalji boss skill HUD chunks")
-	_expect(_registry.stage1_skill_hud.monolithic_calls == 0, "Pododaejang Slice 1 should not fall back to Dalji boss skill HUD prewarm")
+	_expect(_registry.stage1_skill_hud.step_calls == 0, "Pododaejang should not prewarm Dalji boss skill HUD chunks")
+	_expect(_registry.stage1_skill_hud.monolithic_calls == 0, "Pododaejang should not fall back to Dalji boss skill HUD prewarm")
+	_expect(_registry.stage1_podo_skill_hud.step_calls == 3, "Pododaejang should stage its own boss skill HUD assets")
+	_expect(_registry.stage1_podo_skill_hud.monolithic_calls == 0, "Pododaejang staged HUD prewarm should avoid the monolithic path")
 	_expect(_registry.stage1_actor_renderer.prewarm_count == 1, "Pododaejang Stage 1 prewarm should still warm the actor renderer")
 
 

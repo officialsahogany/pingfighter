@@ -23,15 +23,16 @@ Read this as a ledger, not a rulebook:
 This section is intentionally long; use search to find the nearest owner.
 
 - `scripts/plaza/`
-  Owns the first Godot plaza shell for the DiskHearts - Ringpia port:
+  Owns the first Godot plaza shell for 환격전:
   stage-theme fallback, accepted plaza floor/building asset loading and
   prewarm, fixed 2400x1500 outer map-world state projected through the plaza
   root render rect, unchanged 760x750 interior/trade projection, S4.5 parallax
   layers, S1 sidewalk/VR-strata ground strip reuse, player X-walk/X-camera
   state, per-instance CPU emissive flicker, S5 building menu shells, S6a
   `plaza_save_store.gd` persistent gold/AP ledger, S6b-1 bank deposit/withdraw/
-  stage-interest transactions, S6b-2 `plaza_shop_transactions.gd` active-item
-  shop buy/sell transactions, S6b-3 `plaza_blacksmith_transactions.gd`
+  stage-interest transactions, S6b-2 `plaza_shop_transactions.gd` mixed
+  passive/active shop buy/sell/reorder transactions, S6b-3
+  `plaza_blacksmith_transactions.gd`
   active-slot enhancement attempts, S6b-4 `plaza_gacha_transactions.gd`
   active-item capsule pulls, S6b-5 `plaza_lingpet_store_transactions.gd`
   resonance-egg purchases that call `lingpet_egg_runtime` without directly
@@ -92,8 +93,9 @@ This section is intentionally long; use search to find the nearest owner.
   sync with `render_size = plaza_scene.size`, and synchronous cleanup through
   the actual interior, plaza-exit, scene-handler free, and tree-exit routes.
   The completed R1 bridge still uses the outer scene's `GAME_SIZE = 760x750`
-  side-scroll fit. At 2020x1246 the 360-unit bank is about 598px high, so its
-  512px texture's ~1.17x upscale remains an explicit Vulkan sharpness gate.
+  side-scroll fit rather than the future full-map safe-rect fit. At 2020x1246
+  the 360-unit bank is about 598px high, so its 512px texture's ~1.17x upscale
+  remains an explicit Vulkan sharpness gate for this bridge.
 - `scripts/plaza/plaza_asset_loader.gd`
   Owns the active Hwangyeok building manifest set, fixed 2400x1500 map-world
   size, seed-deterministic building specs, shared glow/minimap color source, and
@@ -101,9 +103,8 @@ This section is intentionally long; use search to find the nearest owner.
   delegates from `plaza_scene.gd` through the map-world host and building
   renderer before reporting complete. The current position applicator remains
   one-axis and uses the fixed 2400 width in its cache key and spacing input;
-  viewport-derived sizes must never enter that cache.
-  The candidate-only R2-A owners below do not replace this production contract
-  until an atomic activation.
+  viewport-derived sizes must never enter that cache. Candidate-only R2 owners
+  below do not replace this production contract until an atomic activation.
 - `scripts/plaza/plaza_map_projection.gd` and
   `plaza_map_layout_generator.gd`
   Own the production-disconnected R2-A/P1 candidate: pure fixed-world/safe-rect
@@ -119,8 +120,8 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/plaza/plaza_map_navigation.gd` and
   `plaza_map_minimap_projection_2d.gd`
   Own candidate-only R2-B full-actor walkability/swept movement, portal routing,
-  mutation-detecting bound-geometry digest, and exact two-axis minimap projection
-  from the shared layout. Their hardened focused gate is GREEN; the existing
+  mutation-detecting bound-geometry digest, and exact two-axis minimap projection from the
+  shared layout. Their hardened focused gate is GREEN; the existing
   `plaza_minimap_projection.gd` remains the production owner. Production
   activation additionally requires steady-p95 measurement and moving the current
   per-move whole-geometry SHA plus `Geometry2D` clipping off the hot path into a
@@ -135,16 +136,51 @@ This section is intentionally long; use search to find the nearest owner.
   clears Probe/Body materials, disables parent-material inheritance, and restores
   parent/child modulation, show-behind, and visibility after an in-place RED
   mutation; the independent audit reports CRITICAL 0 / HIGH 0. Code-drawn
-  road/plot surfaces and workspace-only semantic decor are not final art, and no
-  candidate owner may be called from production until the later atomic
-  activation. The host's single actor item is player-only proof: R2-C must add
-  the active Guardian Spirit as a direct sibling under the same sort root and
-  replace the live fixed-`GROUND_Y`/linear-follow path with blocker-aware 2D
-  navigation. Under [GRT-013](godot_runtime_traps.md#grt-013)'s 2D form,
-  ground/patrol scripted reposition projects the full-body destination onto the
-  compiled walkable union and may change Y for a cross-lane recall; teleport
-  endpoints and every tracked sample stay walkable/outside blockers. Flight
-  companions alone retain free Y.
+  road/plot surfaces and workspace-only semantic
+  decor are not final art, and no candidate owner may be called from production
+  until the later atomic activation. The host's single actor item is player-only
+  proof: R2-C must add the active Guardian Spirit as a direct sibling under the
+  same sort root and replace the live fixed-`GROUND_Y`/linear-follow path with
+  blocker-aware 2D navigation. Under
+  [GRT-013](godot_runtime_traps.md#grt-013)'s 2D form, ground/patrol scripted
+  reposition projects the full-body destination onto the compiled walkable union
+  and may change Y for a cross-lane recall; teleport endpoints and every tracked
+  sample stay walkable/outside blockers. Flight companions alone retain free Y.
+- **R3 production ownership supersedes the candidate-status wording above.**
+  Commit `b85847e4e` atomically connected the R3 exterior; the R1 host and R2
+  hosts remain compatibility/regression owners and are not quiet production
+  fallbacks.
+- `scripts/plaza/plaza_map_road_skeleton_r3.gd` and
+  `plaza_r3_environment_layout_compiler.gd`
+  Own the production road-first layout authority and approved environment draw
+  plan: central walkable hub, canonical road bases/junction bindings, integrated
+  plot/access geometry, pads, ground, tiered roads, turn courts, and semantic
+  decor. They preserve the selected-building/RNG meaning while owning R3 world
+  coordinates.
+- `scripts/plaza/plaza_r3_navigation_binding.gd`,
+  `plaza_map_navigation_compiled.gd`, and `plaza_map_guardian_locomotion.gd`
+  Own production binding validation, immutable allocation-bounded full-body
+  movement, portal occupancy, and ground/patrol Guardian swept locomotion and
+  recall projection. Compiled navigation is directly constructed from one
+  validated state; a static factory that returns a newly created RefCounted is
+  forbidden by the R3-E zero-ref exit seal.
+- `scripts/plaza/plaza_r3_exterior_retained_host.gd`,
+  `plaza_r3_minimap_projection.gd`, `plaza_r3_minimap_canvas.gd`, and
+  `plaza_r3_exterior_runtime_candidate.gd`
+  Own the production retained environment/building/actor tree, direct-sibling
+  Y-sort, player/Guardian contact shadows, two-axis camera, minimap, portal hit,
+  and measured owner cadence. The `candidate` filename is retained for
+  compatibility and no longer describes connection status.
+- `scripts/plaza/plaza_r3_lifecycle_prewarm_candidate.gd` and
+  `plaza_r3_production_entry_host.gd`
+  Own the production stage/seed compiled-cache lifecycle, resource/GPU prewarm,
+  interior hide/return, teardown, opaque progress UI, finite stalled-prewarm
+  failure, and one-shot R1-to-R3 reveal boundary. Their compatibility filenames
+  do not authorize a fallback to R1.
+- `scripts/plaza/plaza_scene.gd`
+  Retains plaza reward, interior/economy, exit, and input orchestration while
+  delegating the exterior map to the R3 production owners. It must not recreate
+  road, navigation, minimap, retained-render, or prewarm policy inline.
 - `scripts/plaza/plaza_background_projection.gd` and
   `plaza_background_renderer.gd`
   Own plaza parallax/tile/flicker/VR-strata projection plus the complete sky,
@@ -396,12 +432,16 @@ This section is intentionally long; use search to find the nearest owner.
   Owns guarded runtime-facing reads from `lingpet_current_profile.gd` for the
   egg runtime: hatch-hit requirement, companion catch footprint, hit-gauge gain,
   gauge / player-speed bonuses, current passive skill, passive skill list /
-  id lookup, motion style, and active / passive skill pool surfaces. It does
+  id lookup, motion style, and active / passive skill pool surfaces. It also
+  owns derived player-hit gauge gain, player-speed multiplier, and
+  character-info stat-source rows, including additive multi-passive accumulation
+  and per-step gauge flooring. It does
   not own catalog lookup, selected-pet projection, or visual texture cache invalidation; those stay in
   `lingpet_current_profile.gd`. `lingpet_egg_runtime.gd` should ask this
-  surface for repeated companion stat / passive / pool payloads instead of
-  scattering current-profile method guards or rebuilding profile stat bundles
-  inline.
+  surface for repeated companion stat / passive / pool payloads and derived
+  player-stat projection instead of scattering current-profile method guards,
+  rebuilding profile stat bundles, or assembling stat rows inline. Regression
+  guard: `tests/lingpet_profile_runtime_surface_smoke.gd`.
 - `scripts/lingpet/lingpet_ring_core_rules.gd`
   Owns the shared Ringpet ring-core cap scale: maximum affinity level,
   maximum run ring-core tier, and tier-to-affinity-cap conversion. Runtime
@@ -411,9 +451,34 @@ This section is intentionally long; use search to find the nearest owner.
   Owns run-local Ringpet affinity progression state: source gain tables, per-pet
   level / point totals, battle caps, this-run chips / feed bonus / ring-core
   tier, second-unlock roll state, hatch stat-roll fields, and run-state export /
-  import. The current second unlock gate is first active + passive effective
+  import. It also owns raw per-pet satiety/exhaustion values, drain/recovery
+  mutation, wake/telegraph state, and the value-to-speed curve; cross-owner
+  league/passive runtime policy lives in `lingpet_satiety_runtime_state.gd`.
+  The current second unlock gate is first active + passive effective
   level sum >= 5, followed by the deterministic 30% roll-per-level path; fixed
   Lv.22 / Lv.25 unlock-card wording should not be reintroduced.
+- `scripts/lingpet/lingpet_satiety_runtime_state.gd`
+  Owns the current league-exemption latch, active/bench affinity-state call
+  sequence, passive drain-reduction aggregation and 60% cap, exhaustion
+  enablement, KO/speed/ratio projection, and combined change signal. It borrows
+  owner/collection/profile projections only for each call; EggRuntime keeps the
+  public APIs and labelled hot-tick ordering.
+- `scripts/lingpet/lingpet_duration_state.gd`
+  Owns the run-shared Guardian Spirit uptime pool for the §9-3 Slice 1
+  transition: pool roll range, per-second drain, rest-recovery ratio,
+  resummon-lock threshold, epsilon-snapped value rails, and the
+  `duration_pool` save keys. It intentionally retains satiety-shaped facade
+  methods (pet-id / bench-slot arguments no longer select separate batteries)
+  while legacy per-pet satiety save keys stay migration inputs only;
+  `lingpet_affinity_state.gd` keeps the public API.
+- `scripts/lingpet/lingpet_enhancement_buff_store.gd`
+  Owns the per-pet Guardian enhancement hatch-roll `reward_counts` schema and
+  its static helpers: reward types (active / passive / second unlocks, skill
+  bonuses, capped mobility / defense / gauge stacks), empty / normalize /
+  snapshot / sanitize helpers, and reward signatures. Run-global
+  duration-increase enhancements are reserved for the shared duration owner
+  and must never persist in this per-pet store; `lingpet_affinity_state.gd`
+  and `lingpet_current_profile.gd` preload it.
 - `scripts/lingpet/lingpet_affinity_store.gd`
   Owns Ringpet affinity save compatibility for the v5 meta-only contract. It
   normalizes the persisted affinity section to schema metadata, intentionally
@@ -558,6 +623,24 @@ This section is intentionally long; use search to find the nearest owner.
   or main-commit action. `lingpet_egg_runtime.gd` executes the returned action
   and should not re-interpret item-egg source state or call collection
   replacement inline for normal overflow replacement.
+- `scripts/lingpet/lingpet_overflow_guardian_snapshot_builder.gd`
+  Owns current-versus-replacement Guardian comparison snapshots: catalog stats,
+  current effective-profile levels, rolled replacement levels, active/passive
+  skill entries, exact empty-slot fidelity, pending-roll flags, and deep-copy
+  caches. `lingpet_egg_runtime.gd` keeps the public base-snapshot facade and
+  invalidates replacement projection after rolling a preview loadout; it must
+  not regain direct `LingpetCatalog` access or comparison cache/profile fields.
+  Regression guard:
+  `tests/lingpet_overflow_guardian_snapshot_builder_owner_smoke.gd`.
+- `scripts/lingpet/lingpet_rail_card_surface_builder.gd`
+  Owns the narrow Guardian rail-card surface: same-frame and static-card caches,
+  two-slot metadata, live skill-state and focused skill-runtime snapshot merges,
+  empty-slot defaults, interaction-permit projection, and build counters. The
+  static key includes permit model/availability/active state so mount toggles
+  rebuild correctly. `lingpet_egg_runtime.gd` retains only public forwarding,
+  full-snapshot reuse of the permit projection, and cache invalidation.
+  Regression guard: `tests/lingpet_rail_card_surface_builder_owner_smoke.gd`,
+  mount-saddle, shared rail-card, permit-branch, and snapshot-sync smokes.
 - `scripts/lingpet/lingpet_perf_probe.gd`
   Owns Ringpet runtime BattlePerf logger lookup and sample forwarding:
   registry `battle_perf_logger` lookup, draw-context logger lookup, guarded
@@ -612,19 +695,26 @@ This section is intentionally long; use search to find the nearest owner.
   gating, public/private slot-id compatibility, host module-sharing collapse of
   slot 1, runtime active-skill id list assembly, and second-slot active-skill /
   windup metadata surfaces.
-  `lingpet_egg_runtime.gd` should call this resolver directly for slot count,
-  slot skill ids, active-id lists, active skill dictionaries, and per-slot
-  windup seconds instead of reintroducing private pass-through wrappers. Inline
-  slot-count conflict logic and unused second-slot pass-through wrappers should
-  stay out of the runtime.
+  `lingpet_companion_skill_controller.gd` calls the skill-runtime surface for
+  hot-loop slot count, active-id lists, active skill dictionaries, and per-slot
+  windup seconds; the egg runtime may still query those surfaces for snapshots,
+  owner sync, launch payloads, motion, and drawing. Private pass-through
+  wrappers, inline slot-count conflict logic, and unused second-slot wrappers
+  should stay out of the runtime.
 - `scripts/lingpet/lingpet_companion_skill_controller.gd`
   Owns Ringpet companion active-skill arm / launch decisions: supported
-  runtime id guard, host update, wind-up completion, ready-to-arm checks,
+  runtime id guard, full active-slot iteration, lazy ball-context reads, effect
+  idle-skip gating/counters, per-slot context assembly, host update, wind-up
+  completion, ready-to-arm checks,
   cross-slot arm-gate mediation through `lingpet_companion_skill_arm_gate.gd`,
   skill prewarm before cast wind-up, launch completion, cooldown / flash commit,
-  and launch feedback. `lingpet_egg_runtime.gd` should keep only the narrow
-  update hook plus companion-position / launch-origin application, and should
-  not keep a separate arm-gate instance.
+  launch feedback, strike-request forwarding, and final active-skill position
+  ownership. `lingpet_egg_runtime.gd` keeps only the narrow update hook, current
+  dependency surface, public performance-counter facades, companion-position /
+  launch-origin application callbacks, and final position writeback. It should
+  not keep separate arm-gate, effect-gate, or context-builder instances. Stable
+  controller dependencies are configured once; the hot hook must not regress to
+  per-tick dependency/result dictionaries or lambda construction.
 - `scripts/lingpet/lingpet_companion_skill_arm_gate.gd`
   Owns Ringpet companion active-skill arm mediation between active slots:
   exclusive-resource intersection checks, peer windup holds, active launch-block
@@ -707,16 +797,19 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Ringpet companion active-skill effect update gating: cooldown / inactive
   ball idle-skip decisions, visible-effect and windup guards, and the focused
   runtime-update / idle-skip counters used by performance smokes.
-  `lingpet_egg_runtime.gd` keeps the narrow `_update_companion_skill_effects`
-  hook and public counter wrappers, but should not reintroduce the skip policy
-  or counter fields inline.
+  `lingpet_companion_skill_controller.gd` composes this gate inside its full
+  active-slot tick. `lingpet_egg_runtime.gd` keeps the narrow
+  `_update_companion_skill_effects` hook and public counter wrappers through the
+  controller, but should not reintroduce the gate instance, skip policy, or
+  counter fields inline.
 - `scripts/lingpet/lingpet_companion_skill_update_context_builder.gd`
   Owns Ringpet companion active-skill update-context assembly for the shared
   controller: battle state / owner / registry / ball motion, switch-transition
   and companion visibility flags, companion geometry, active-skill effective
   level fallback, and Wild Roar-style flattened numeric context fields.
-  `lingpet_egg_runtime.gd` keeps the hot update loop and passes current values
-  into this builder instead of re-listing controller dictionary keys inline.
+  `lingpet_companion_skill_controller.gd` owns the hot slot loop and passes
+  current values into this builder instead of re-listing controller dictionary
+  keys inline. The egg runtime supplies only tick-level state and dependencies.
 - `scripts/lingpet/lingpet_companion_skill_launch_payload_builder.gd`
   Owns Ringpet companion active-skill launch payload assembly: companion
   identity / geometry fields, registry forwarding, effective active-skill id /
@@ -725,14 +818,32 @@ This section is intentionally long; use search to find the nearest owner.
   into this builder instead of re-listing every skill-specific payload key.
 - `scripts/lingpet/lingpet_companion_motion_state.gd`
   Owns Ringpet companion shared motion state: player-height patrol lane,
-  stop-and-go randomized movement, save / restore patrol snapshot keys, and
-  defense-rate intercept movement / reset, plus sortie-flight loiter resume
-  after temporary Ring Dash position override release, patrol-dir based
-  first-frame facing resolution, and dx-based facing resolution for visible
-  companion travel. `lingpet_egg_runtime.gd` keeps hatch / body-hit
-  orchestration and delegates companion movement decisions here; single-use
-  companion defense reset, ring-dash resume, patrol-dir facing, or dx-facing
-  wrappers should not be reintroduced.
+  stop-and-go randomized movement, shared position/direction/seed state,
+  save / restore patrol snapshot keys, free/sortie flight, plus sortie-flight
+  loiter resume after temporary Ring Dash position override release,
+  patrol-dir based first-frame facing resolution, and dx-based facing
+  resolution for visible companion travel. It retains the established defense
+  properties/methods as compatibility facades. `lingpet_egg_runtime.gd` keeps
+  hatch / body-hit orchestration and delegates companion movement decisions
+  here; single-use companion defense reset, ring-dash resume, patrol-dir facing,
+  or dx-facing wrappers should not be reintroduced.
+- `scripts/lingpet/lingpet_companion_motion_coordinator.gd`
+  Owns the cross-feature companion position-priority tick: mount, active-skill
+  position owner, Ring Dash, Starlight Tracking, then ordinary motion. It also
+  owns the canonical live companion position/facing projection, mount-time
+  defense/click-reaction retirement, Ring Dash release/resume feedback, and
+  final patrol-state synchronization. Stable dependency objects and a weak
+  facade reference are configured once; the owner must not retain facade-bound
+  Callables, and the physics tick must not rebuild a dependency/result
+  dictionary or callback. `lingpet_egg_runtime.gd::_update_companion_motion()`
+  remains a narrow compatibility delegation and exposes owner-backed position
+  and facing properties for existing save/test/public integration surfaces.
+- `scripts/lingpet/lingpet_companion_defense_state.gd`
+  Owns predictive-ground-guard mutable state, player-blockable/local-zone
+  eligibility, shared-seed roll cadence, re-anchored landing prediction, eased
+  chase/arrival motion, actual step-speed output, and guard-aura ramp. It
+  receives the motion host only for the active tick and does not retain it or
+  allocate per-tick result containers.
 - `scripts/lingpet/lingpet_companion_sprite_animator.gd`
   Owns Ringpet companion sprite animation math: walk / idle frame selection,
   cast wind-up frame mapping, strike playback state, strike entry-frame mapping,
@@ -782,22 +893,38 @@ This section is intentionally long; use search to find the nearest owner.
   horizontal reach bounds. `lingpet_egg_runtime.gd` calls this resolver directly
   when suppressing companion body hits that the player can take; single-use
   player-block predicate wrappers should not be reintroduced.
+- `scripts/lingpet/lingpet_companion_player_runtime_resolver.gd`
+  Owns cached-only cross-character runtime arbitration consumed by companion
+  motion and body hits: Smasher Overdrive active/armed right-click ownership,
+  Viper command-armability, active Smasher dash snapshot projection, and Viper
+  player-guard availability. It never calls `get_instance()` from the physics
+  tick. The egg-runtime compatibility wrappers and motion coordinator delegate
+  here instead of retaining facade-bound Callables. Regression guard:
+  `tests/lingpet_companion_player_runtime_resolver_smoke.gd`,
+  `tests/lingpet_companion_motion_coordinator_refactor_smoke.gd`, Wall Leap
+  mount arbitration, Ring Dash, body-hit, and egg-runtime smokes.
 - `scripts/lingpet/lingpet_afterglow_leak_state.gd`
   Owns the shared Ringpet passive `lingpet_afterglow_leak` / 잔광 유출:
   companion-hit residue spawning, residue lifetime / seep-away cleanup,
-  player-paddle proximity absorption, fast gauge tick grants, the modular
-  resonance-fluid VFX (bottle-burst at the hit point -> running-down cascade
-  rivulets -> spreading luminous floor pool -> absorb wisps -> seep), its CPU
-  droplet particle sim, gauge feedback calls, and debug / UI snapshot fields.
-  The visual envelope is decorative only and never gates the absorb gameplay.
+  player-paddle proximity absorption, fast gauge tick grants, floor-splat and
+  CPU droplet-particle simulation, gauge feedback calls, and debug / UI snapshot
+  fields. The visual envelope is decorative only and never gates the absorb
+  gameplay; stateless composition receives explicit scalars plus borrowed
+  residue/particle arrays through `lingpet_afterglow_leak_renderer.gd`.
   `lingpet_egg_runtime.gd` should only call spawn / advance / draw / reset and
   should not inline residue math. Residue, floor-splat, and particle payload
   dictionaries are delegated to `lingpet_afterglow_leak_payload_factory.gd`.
+- `scripts/lingpet/lingpet_afterglow_leak_renderer.gd`
+  Owns Afterglow Leak texture prewarm, emission/absorb flashes, luminous pool,
+  splat/tongue/caustic layers, all four particle presentations, and pure pool
+  projection. It owns no residue/absorption/gauge lifecycle, floor deposits,
+  payload generation/advancement, RNG, feedback, snapshot state, wall clock, or
+  retained live collection.
 - `scripts/lingpet/lingpet_afterglow_leak_payload_factory.gd`
   Owns pure Afterglow Leak payload construction for residue state dictionaries,
   landed floor splats, and droplet / absorb-wisp particle entries. The state
-  module keeps absorption math, per-frame simulation, texture prewarm, gauge
-  feedback, and drawing.
+  module keeps absorption math, per-frame simulation, and gauge feedback; the
+  focused renderer owns texture prewarm and drawing.
 - `scripts/effects/afterglow_fluid_texture_cache.gd`
   Static lazy luminance-texture cache for the 잔광 유출 fluid VFX (glow / body /
   caustic / rim / droplet / vertical-rivulet streak), white-baked with alpha
@@ -1021,21 +1148,45 @@ This section is intentionally long; use search to find the nearest owner.
   `ringpet_*` consumers. `lingpet_egg_runtime.gd` supplies current state /
   catalog stats / helper modules, but UI, HUD, and save-facing payload shapes
   should stay centralized here.
+- `scripts/lingpet/lingpet_mount_state.gd`
+  Owns the Onimaru mount lifecycle: debounced bare-right-click toggle,
+  S/down chord exclusion, proximity acceptance, forced dismount, hop/drop and
+  gait/breath clocks, rider lift, and the mounted companion X override. The
+  egg runtime retains companion update ordering, active-skill position
+  precedence, body-defense suppression, draw-context export, and round/reset
+  calls into this owner.
+- `scripts/lingpet/lingpet_acquisition_lifecycle_coordinator.gd`
+  Owns the shell-break-to-acquisition sequence across focused state owners:
+  pending regular/overflow branch, break advancement, hatch flash and burst
+  hold, deferred commit, per-pet cut-in prewarm/readiness, reveal/dismiss
+  timing, acquisition/click audio, and post-close overflow resolution. It keeps
+  only a `WeakRef` back to `lingpet_egg_runtime.gd` for the remaining hatch
+  commit, snapshot invalidation, and immediate owner-sync side effects. The egg
+  runtime retains public compatibility methods and current-pet context; it
+  should not regain raw pending-kind/burst timers or inline lifecycle ordering.
+  Regression guard:
+  `tests/lingpet_acquisition_lifecycle_coordinator_owner_smoke.gd`, egg-runtime,
+  main-overflow, item-egg, prewarm/resolver, ungated-idle, and performance
+  smokes.
 - `scripts/lingpet/lingpet_egg_runtime.gd`
   Owns the first Ringpet runtime slice: catalog-backed Junior League +
   Mika eligibility, hidden egg identity selection, owner-state sync for the
   character information panel via `lingpet_runtime_snapshot_builder.gd`,
   selected-loadout application via `lingpet_loadout_state.gd`,
   selected passive-skill player-hit gauge gain,
-  owned-collection sync plus save-snapshot export / restore, hatch flash timing,
+  owned-collection sync plus save-snapshot export / restore, hatch-entry facade,
   player-height independent companion draw,
   post-hatch Maribo body ball-contact soft bounce with internal cooldown,
   Ringpet common body-contact gauge gain, generic companion skill cooldown /
   wind-up / launch handoff into `lingpet_skill_runtime_host.gd`, and the shared
   boss-skill rail Ringpet card surface. It exposes the acquisition cut-in API
-  for modal / input / overlay controllers, but the reveal and dismiss timing
-  state lives in `lingpet_acquire_cutin_state.gd`; companion click-reaction
+  for modal / input / overlay controllers, while cross-owner reveal/dismiss and
+  shell-break ordering live in `lingpet_acquisition_lifecycle_coordinator.gd`
+  and raw timing state lives in `lingpet_acquire_cutin_state.gd`; companion click-reaction
   tap-zone / draw / timing state lives in `lingpet_companion_click_reaction_state.gd`.
+  Satiety storage remains in `lingpet_affinity_state.gd`, while league/passive
+  progression and exhaustion policy live in `lingpet_satiety_runtime_state.gd`;
+  the runtime retains the public facade and combat/snapshot call sites.
   The old v4 persisted-affinity store headstart path is removed from this
   runtime; v5 affinity is run-state only. `set_affinity_store_for_tests()`
   remains as a public no-op compatibility hook so tests can prove injected
@@ -1044,13 +1195,32 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_skill_runtime_host.gd`
   Owns Ringpet active-skill module dispatch: skill-kind lookup, skill-specific
   prewarm / batch prewarm, update / draw / visible-effect checks, launch
-  blocking, launch calls, cast-windup visual gating, launch feedback, and skill
-  snapshot merge. Future Ringpet active skills should add a focused skill
+  blocking, launch calls, public launch-feedback and companion-surface facades,
+  cross-slot position-owner payload priority, and skill snapshot merge.
+  Immediate cue selection delegates to `lingpet_skill_launch_feedback_router.gd`;
+  launch-origin/position/body/strike/cast-pose policy delegates to
+  `lingpet_skill_companion_surface_router.gd`. Future Ringpet active skills
+  should add a focused skill
   module plus a dispatcher / host branch here instead of adding concrete
   projectile or field behavior to `lingpet_egg_runtime.gd`; callers should
   pass surface-built active skill id lists to `prewarm_many()` instead of
   reintroducing a private `_prewarm_current_skill_runtime` wrapper or an inline
   prewarm loop.
+- `scripts/lingpet/lingpet_skill_launch_feedback_router.gd`
+  Owns immediate Ringpet active-skill launch cue routing: skill-kind-to-cue
+  mapping, dedicated-cue fallback order, Dragon Breath/Wing boolean volume
+  arguments, deliberately silent host branches, and cached-before-instance
+  `game_audio` lookup. It does not own skill launch success, lifecycle,
+  delayed fire/hit/outro cues, concrete skill state, drawing, or snapshots;
+  `lingpet_skill_runtime_host.gd` retains the public trigger facade.
+- `scripts/lingpet/lingpet_skill_companion_surface_router.gd`
+  Owns allocation-free companion-facing active-skill policy: launch-origin
+  offsets, position-override eligibility/forwarding for existing modules,
+  body-hit/body-draw suppression, Headbutt strike-request consumption,
+  cast-pose progress, and supported-runtime windup visibility. It does not own
+  module construction/lifetime, slot iteration, cross-slot owner payloads,
+  concrete skill state, drawing, or launch success; the runtime host retains
+  those public integration boundaries.
 - `scripts/lingpet/lingpet_skill_runtime_surface.gd`
   Owns Ringpet skill-runtime host public surface guards for the egg runtime:
   companion-state-gated boss-AI context, companion-state-gated ball-collision
@@ -1073,8 +1243,9 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_ghost_summon_skill.gd`
   Owns Rabi's `rabi_ghost_summon` / Ghost Summon active runtime: two
   Banshee-style ghost paddles, ball-eat capture, hidden-ball hold, teleport
-  release, catch / release counters, start / outro cue routing, procedural
-  ghost fallback drawing, and `ghost_summon_*` snapshot keys.
+  targeting/release, catch / release counters, update-side particle/gameplay
+  RNG, start / outro cue routing, render fanout, and `ghost_summon_*` snapshot
+  keys.
   `lingpet_skill_runtime_host.gd` dispatches this by the `ghost_summon`
   runtime kind while keeping the shared Ringpet lifecycle in
   `lingpet_egg_runtime.gd`. Ghost state, dying-ghost, normal particle, and
@@ -1084,27 +1255,45 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Rabi / Nekuring Ghost Summon payload construction for spawned
   ghost state, dying ghost fade-outs, launch / death particles, and teleport
   particles. `lingpet_ghost_summon_skill.gd` should keep capture timing,
-  teleport targeting, ball ownership, audio cues, and drawing.
+  teleport targeting, ball ownership, audio cues, and render delegation.
+- `scripts/lingpet/lingpet_ghost_summon_renderer.gd`
+  Owns stateless Ghost Summon normal/teleport particles, launch flash, all ghost
+  presentation states, procedural glyph/shadow recipes, and deterministic dying-
+  spark projection. It borrows live typed arrays and owns no gameplay state, RNG
+  stream, wall clock, audio, ball ownership, collision, or retained payload.
 - `scripts/lingpet/lingpet_soul_clone_skill.gd`
-  Owns Rabi's `rabi_soul_clone` / 영혼분신 active runtime: one 15-second
-  translucent Rabi clone, lower-player-side free-flight movement, mini-paddle
-  ball reflection without extra gauge gain, lightweight spirit particles, and
-  `soul_clone_*` snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this
-  by the `soul_clone` runtime kind while Rabi's visual identity remains
-  catalog-backed through existing `rabi_companion_walk` art. Spirit particle
-  payload dictionaries are delegated to `lingpet_soul_clone_payload_factory.gd`.
+  Owns Rabi's `rabi_soul_clone` / 영혼분신 active runtime: level-scaled clone
+  count/duration, lower-player-side free-flight target RNG and movement, mini-
+  paddle ball reflection without extra gauge gain, spirit-particle spawning and
+  simulation, lifecycle, and `soul_clone_*` snapshot keys. It delegates render
+  resources/composition to `lingpet_soul_clone_renderer.gd` with one sampled
+  visual-clock value and borrowed clone/particle arrays.
+- `scripts/lingpet/lingpet_soul_clone_renderer.gd`
+  Owns Rabi Soul Clone's imported companion-texture cache and stateless spirit-
+  particle, aura, afterimage, animator-region, horizontal-flip, and fallback
+  drawing. It owns no RNG, movement, collision/reflection, particle simulation,
+  lifecycle, audio, wall-clock read, snapshot state, or retained live arrays.
 - `scripts/lingpet/lingpet_soul_clone_payload_factory.gd`
   Owns pure Rabi Soul Clone particle payload construction for ambient wisps,
   vanish bursts, and ball-hit bursts. `lingpet_soul_clone_skill.gd` should keep
-  clone movement, ball reflection, lifecycle, texture loading, and drawing.
+  clone movement, ball reflection, particle simulation, and lifecycle; texture
+  loading and drawing belong to `lingpet_soul_clone_renderer.gd`.
 - `scripts/lingpet/lingpet_hydro_sphere_skill.gd`
   Owns Maribo Hydro Sphere's skill-specific runtime: projectile travel,
   opponent-wall impact, horizontal elliptical puddle, slow status refresh,
-  splash / ambient droplet particles, procedural puddle texture drawing, and
-  Hydro Sphere snapshot keys. `lingpet_skill_runtime_host.gd` calls this module
-  instead of letting `lingpet_egg_runtime.gd` grow Maribo-specific projectile /
-  puddle code inline. Droplet particle payloads and slow-status data payloads
-  are delegated to `lingpet_hydro_sphere_payload_factory.gd`.
+  splash / ambient droplet particle lifecycle, and Hydro Sphere snapshot keys.
+  `lingpet_skill_runtime_host.gd` calls this module instead of letting
+  `lingpet_egg_runtime.gd` grow Maribo-specific projectile / puddle code inline.
+  Droplet particle payloads and slow-status data payloads are delegated to
+  `lingpet_hydro_sphere_payload_factory.gd`; stateless presentation receives
+  explicit scalars plus borrowed trail/particle arrays through
+  `lingpet_hydro_sphere_renderer.gd`.
+- `scripts/lingpet/lingpet_hydro_sphere_renderer.gd`
+  Owns Hydro Sphere's procedural water-texture prewarm, puddle/caustic/foam,
+  droplet, wall-splash, projectile/trail CanvasItem recipes, and pure validated
+  puddle projection. It owns no projectile/puddle/particle lifecycle, wall or
+  boss collision policy, slow status, payload generation, snapshot state, wall
+  clock, RNG, or retained live collection.
 - `scripts/lingpet/lingpet_hydro_sphere_payload_factory.gd`
   Owns pure Maribo Hydro Sphere payload construction for splash droplets,
   ambient puddle droplets, base particle dictionaries, and the boss slow
@@ -1113,20 +1302,27 @@ This section is intentionally long; use search to find the nearest owner.
   Owns pure Draft Bat / Orbi Moon Orbit payload construction for burst
   particles, ambient orbit-field particles, base particle dictionaries, and
   the boss slow status data payload. `lingpet_moon_orbit_skill.gd` should
-  keep projectile travel, field timing, overlap checks, and drawing.
+  keep projectile travel, field timing, overlap checks, status publication,
+  and particle simulation; drawing belongs to `lingpet_moon_orbit_renderer.gd`.
 - `scripts/lingpet/lingpet_bubble_trap_skill.gd`
   Owns Maribo Bubble Trap's skill-specific runtime: level-scaled forward bubble
   projectile travel (speed by level), independent 50% extra-shot rolls (up to
   1/2/3 extra bubbles by level), boss-paddle collision capture with a
   level-scaled 2.0-4.0-second bubble movement lock, a lead-only ball-immune
   rainbow giant bubble (Lv.3+ 20%, 2.0x / 2.5x size),
-  shared boss-stun refresh, ball-contact / expiry popping, lightweight
-  procedural bubble burst VFX, reused hydro-water feedback, and Bubble Trap
-  snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
+  shared boss-stun refresh, ball-contact / expiry popping, burst-particle
+  simulation, reused hydro-water feedback, explicit visual clock, and Bubble
+  Trap snapshot keys. `lingpet_skill_runtime_host.gd` dispatches this module by the
   `bubble_trap` runtime kind so `lingpet_egg_runtime.gd` stays limited to the
   common companion wind-up / launch lifecycle. Projectile dictionaries, burst
   particle payloads, and stun-status data are delegated to
   `lingpet_bubble_trap_payload_factory.gd`.
+- `scripts/lingpet/lingpet_bubble_trap_renderer.gd`
+  Owns stateless Maribo Bubble Trap capture-bubble, projectile/trail, rainbow
+  shimmer, burst, deterministic inner-bubble, and particle CanvasItem recipes.
+  It borrows the live projectile and particle arrays and consumes the skill's
+  explicit visual clock; it must not own gameplay collision/status/audio,
+  payload spawning, an RNG stream, wall-clock reads, or retained render state.
 - `scripts/lingpet/lingpet_bubble_trap_payload_factory.gd`
   Owns pure Maribo Bubble Trap payload construction for launched bubble
   projectiles, burst particles, base particle dictionaries, and shared boss
@@ -1142,41 +1338,54 @@ This section is intentionally long; use search to find the nearest owner.
   flying-dragon state dictionary, warm wind-particle streaks, ball-swirl trail
   entries, and dragon trail entries. `lingpet_dragon_wing_skill.gd` should
   keep the vortex steering, bounded ball-speed policy, collision, audio,
-  texture prewarm, and draw pass.
+  payload lifecycle, and render delegation.
 - `scripts/lingpet/lingpet_doll_curse_payload_factory.gd`
   Owns pure Koyora Doll Curse payload construction for initial marionette doll
   dictionaries, the boss-confusion status data payload, and wooden-doll
   destroy particles. `lingpet_doll_curse_skill.gd` should keep phase timing,
   beam sweep / homing logic, boss-contact checks, ball bounce behavior,
-  source-scoped status clear, audio, and drawing.
+  source-scoped status clear, audio, and render delegation.
 - `scripts/lingpet/lingpet_puppet_grab_skill.gd`
   Owns Koyora Puppet Control's runtime: snapshot lock-on, MISS / retry
   sequencing, boss-position ownership, pull / kiss / return timing, companion
-  cast-pose override, audio edges, string drawing, and `puppet_grab_*`
-  snapshot keys. Kiss heart and sparkle payload dictionaries are delegated to
-  `lingpet_puppet_grab_payload_factory.gd`.
+  cast-pose override, ball-cut geometry, deterministic cut-fray payloads,
+  audio edges, render fanout, and `puppet_grab_*` snapshot keys. Kiss heart and
+  sparkle payload dictionaries are delegated to the payload factory; all
+  CanvasItem recipes are delegated to the renderer.
+- `scripts/lingpet/lingpet_puppet_grab_renderer.gd`
+  Owns stateless Koyora Puppet Control rendering: live/retracting/cut strings,
+  elastic fray, hand, CHU/CUT/MISS copy, sparkles, hearts, and deterministic
+  animation-clock/shot-count tension lines. It borrows existing collections
+  and owns no gameplay state, RNG, wall clock, audio, collision, or boss policy.
 - `scripts/lingpet/lingpet_puppet_grab_payload_factory.gd`
   Owns pure Koyora Puppet Control heart and sparkle payload construction.
   `lingpet_puppet_grab_skill.gd` should keep boss ownership, phase transitions,
-  retry gates, audio, and drawing.
+  retry gates, audio, and render delegation.
 - `scripts/lingpet/lingpet_thunder_orb_payload_factory.gd`
   Owns pure Lumion Thunder Orb payload construction for floating orb energy
   motes, large / small explosion particles, clamped base particle dictionaries,
   and the shared electric-stun status data. `lingpet_thunder_orb_skill.gd`
   should keep projectile travel / deceleration, explosion timing, boss-center
-  hit geometry, electric-loop lifecycle, source-scoped status clear, and draw
-  composition.
+  hit geometry, electric-loop lifecycle, source-scoped status clear, and render
+  delegation.
 - `scripts/lingpet/lingpet_dragon_breath_payload_factory.gd`
   Owns pure Red Dragon Dragon Breath payload construction for breath embers,
   lingering fire-zone dictionaries, zone flame dictionaries, boss slow status
   data, and molotov-renderer conversion payloads. `lingpet_dragon_breath_skill.gd`
   should keep companion-origin tracking, heat-cone ball reflection, fire-zone
-  lifetime / boss push logic, molotov host lifecycle, audio, and draw
-  composition.
+  lifetime / boss push logic, molotov host lifecycle, audio, and render
+  delegation.
 - `scripts/lingpet/lingpet_moon_orbit_skill.gd`
   Owns Draft Bat / Orbi Moon Orbit runtime: projectile travel to the opponent
   wall, orbit-field placement and duration, boss-overlap slow refresh, burst /
-  ambient particle lifecycle, and `moon_orbit_*` snapshot keys.
+  ambient particle lifecycle, and `moon_orbit_*` snapshot keys. It delegates
+  stateless composition with explicit gameplay scalars and borrowed trail/
+  particle arrays to `lingpet_moon_orbit_renderer.gd`.
+- `scripts/lingpet/lingpet_moon_orbit_renderer.gd`
+  Owns stateless Moon Orbit field fill/outlines/crescents, both particle kinds,
+  wall-impact burst, projectile core/glow/trail, and validated ellipse points.
+  It owns no wall/field/status/collision/particle lifecycle, payload generation,
+  wall-clock read, snapshot state, or retained live collections.
 - `scripts/lingpet/lingpet_bomb_surprise_skill.gd`
   Owns Volty Bomb Surprise runtime: companion flight to the ball, fuse timing,
   ball / top / bottom detonation routing, boss / player stun and knockback,
@@ -1184,24 +1393,49 @@ This section is intentionally long; use search to find the nearest owner.
   `bomb_surprise_*` snapshot keys.
 - `scripts/lingpet/lingpet_dragon_wing_skill.gd`
   Owns Farukiras / Red Dragon Dragon Wing runtime: wind-field duration,
-  ball-vortex steering and speed bounds, flying-dragon collision, dragon sprite
-  / trail texture use, warm wind particles, hit flash, and `dragon_wing_*`
-  snapshot keys.
+  ball-vortex steering and speed bounds, gameplay wind/particle RNG, live
+  particle/trail advancement, flying-dragon motion/collision boost, hit audio,
+  render fanout, and `dragon_wing_*` snapshot keys.
+- `scripts/lingpet/lingpet_dragon_wing_renderer.gd`
+  Owns stateless warm wind streaks, runtime-clocked vortex, borrowed ball/dragon
+  trails, flying-dragon sheet/fallback, directional hit flash, additive material,
+  and render-resource prewarm. It retains no gameplay state, wall clock, RNG
+  stream, audio, collision, or payload collection.
 - `scripts/lingpet/lingpet_doll_curse_skill.gd`
-  Owns Koyora Doll Curse runtime: marionette phase timing, doll sheet / fallback
-  drawing, beam sweep and homing rolls, boss-confusion apply / clear, ball
-  bounce, destroy particles, companion cast-pose override, and `doll_curse_*`
-  snapshot keys.
+  Owns Koyora Doll Curse runtime: marionette phase/movement timing, beam sweep
+  and homing gameplay rolls, hit-cone and per-doll boss-contact geometry,
+  boss-confusion apply / clear, ball bounce, destroy-particle lifecycle,
+  companion cast-pose override, audio, doll-sheet prewarm, render fanout, and
+  `doll_curse_*` snapshot keys. CanvasItem recipes and compatibility render
+  projections delegate to the focused renderer.
+- `scripts/lingpet/lingpet_doll_curse_renderer.gd`
+  Owns stateless Koyora Doll Curse marionette rigging, beam layers/accents,
+  sheet-frame and procedural-fallback dolls, destroy debris, hit flash, and
+  beam-debug projection. It borrows the live typed arrays and owns no gameplay
+  state, RNG, wall clock, texture loading, audio, collision, status, or retained
+  payload.
 - `scripts/lingpet/lingpet_thunder_orb_skill.gd`
   Owns Lumion Thunder Orb runtime: decelerating orb travel, main blast radius /
   stun duration, Lv.3+ mini-spark chain, electric-loop lifecycle cleanup,
-  source-scoped boss electric stun, blue-white orb / explosion drawing, and
-  `thunder_orb_*` snapshot keys.
+  source-scoped boss electric stun, update-side particle simulation RNG, render
+  fanout, and `thunder_orb_*` snapshot keys.
+- `scripts/lingpet/lingpet_thunder_orb_renderer.gd`
+  Owns stateless Lumion Thunder Orb trail/energy-mote, orb/crackle, explosion,
+  explosion-particle, and mini-spark drawing plus deterministic redraw-only
+  crackle projection. It borrows live payload arrays and owns no gameplay state,
+  wall clock, RNG stream, audio, collision, status, or retained collection.
 - `scripts/lingpet/lingpet_dragon_breath_skill.gd`
   Owns Red Dragon Dragon Breath runtime: companion-origin breath cone tracking,
   heat-cone ball reflection, lingering fire-zone spawn / lifetime, boss slow /
-  push refresh, molotov-renderer payload conversion, breath audio, and
-  `dragon_breath_*` snapshot keys.
+  push refresh, gameplay reflection RNG, molotov-renderer payload conversion /
+  host lifecycle, breath audio, materials/prewarm, and `dragon_breath_*`
+  snapshot keys. It delegates CanvasItem recipes to the focused renderer and
+  passes runtime `_elapsed` to both render paths.
+- `scripts/lingpet/lingpet_dragon_breath_renderer.gd`
+  Owns stateless Red Dragon Dragon Breath jet, additive muzzle, ember/tongue
+  particles, deterministic rare motes, and hit-flash composition. It borrows
+  the live typed particle array and owns no gameplay state, RNG, wall clock,
+  audio, collision, status, or retained payload.
 - `scripts/lingpet/lingpet_dragon_breath_texture_cache.gd`
   Owns procedural Dragon Breath texture cache and staged prewarm for flame
   tongues and embers. Runtime draw code should reuse this cache instead of
@@ -1212,15 +1446,31 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_bone_barrier_skill.gd`
   Owns Nekuring Bone Barrier runtime: level-scaled barrier width, bonus-barrier
   rolls, install / build timing, round-persistent barriers, ball-collision
-  context, shatter cleanup, audio feedback, and `bone_barrier_*` snapshot keys.
+  context, shatter/particle simulation, audio feedback, and `bone_barrier_*`
+  snapshot keys. Stateless drawing is delegated to
+  `lingpet_bone_barrier_renderer.gd` with three borrowed live arrays.
+- `scripts/lingpet/lingpet_bone_barrier_renderer.gd`
+  Owns stateless Nekuring Bone Barrier assembly bones, completed ivory/joint/
+  spike/poison-wisp surface, shatter shockwave/fragments, particles, bone-
+  segment recipe, and palette. It consumes explicit build/death durations plus
+  borrowed barrier/dying/particle arrays; it must not own placement/bonus RNG,
+  build/break simulation, collision/reflect/audio/round policy, or retained
+  payload collections.
 - `scripts/lingpet/lingpet_skeleton_archer_payload_factory.gd`
   Owns pure Nekuring Skeleton Archer payload construction for archer summon
   dictionaries, arrows, summon / hit particles, and dying archer fragments.
 - `scripts/lingpet/lingpet_skeleton_archer_skill.gd`
   Owns Nekuring Skeleton Archer runtime: summon caps, patrol / aim / fire timing,
   golden and bonus-summon rolls, arrow hit geometry, boss knockback / stun
-  status, archer destruction, procedural skeleton drawing, and
-  `skeleton_archer_*` snapshot keys.
+  status, archer destruction, collection lifecycle, render delegation, and
+  `skeleton_archer_*` snapshot keys. It lends the four typed runtime
+  collections and explicit timing scalars without copying.
+- `scripts/lingpet/lingpet_skeleton_archer_renderer.gd`
+  Owns stateless Nekuring Skeleton Archer rendering in particles / dying / live
+  / arrows order: normal and golden spirit bodies, emerge layers, bow and aim
+  poses, soul motes, death fragments, trails, and arrow composition. It owns no
+  gameplay state, RNG, wall clock, audio, status, collision, or retained
+  collection.
 - `scripts/lingpet/lingpet_milk_shot_payload_factory.gd`
   Owns pure Milkring Milk Shot payload construction for projectile dictionaries,
   boss-stun status data, hit particles, and muzzle splashes.
@@ -1236,11 +1486,27 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_headbutt_skill.gd`
   Owns Lunabi Headbutt runtime: arm gate, homing dash, moving-target miss rolls,
   combo repeats, mega charge / stun / knockback upgrades, ground-slam variant,
-  companion position override, impact / miss VFX, and `headbutt_*` snapshot keys.
+  companion position override, audio/shake/status side effects, render fanout,
+  and `headbutt_*` snapshot keys. Stateless procedural recipes are delegated to
+  `lingpet_headbutt_renderer.gd` with explicit clocks/scalars and a borrowed
+  trail array.
+- `scripts/lingpet/lingpet_headbutt_renderer.gd`
+  Owns stateless Lunabi/Onimaru Headbutt rendering: Mega charge, normal/fire
+  dash, ordered ground cracks/slam/generic hit/Mega/sparks, miss impact/text,
+  and self-stun stars. It consumes runtime-owned clocks and distinct shaken
+  draw versus unshaken deterministic-seed positions; it owns no mutable
+  gameplay state, RNG, wall clock, audio, status, or collision policy.
 - `scripts/lingpet/lingpet_solar_bolt_skill.gd`
   Owns Lumion Solar Bolt runtime: defensive ball-reflect arm gate, first strike,
-  refire chance / delayed refires, ball speed lock / rebound direction, solar
-  bolt / explosion / spark drawing, and `solar_bolt_*` snapshot keys.
+  refire chance / delayed refires, ball speed lock / rebound direction, strike-
+  time lightning-path and spark payload generation, effect/particle lifecycle,
+  explicit visual clock, audio/feedback, and `solar_bolt_*` snapshot keys.
+- `scripts/lingpet/lingpet_solar_bolt_renderer.gd`
+  Owns stateless Lumion Solar Bolt screen-flash, layered bolt/branch/fork,
+  explosion flash/core/ring/arc, and spark CanvasItem recipes. It borrows live
+  effect/particle arrays and consumes runtime elapsed plus effect seed for the
+  original 85% flicker; it must not own arm/refire/collision/audio policy,
+  strike-time path RNG, wall-clock reads, or retained render state.
 - `scripts/lingpet/lingpet_gravity_accel_skill.gd`
   Owns Orosha Gravity Accel runtime: level-scaled duration and gravity strength,
   upward ball pull with speed caps, ambient field particles, distortion-line
@@ -1251,16 +1517,39 @@ This section is intentionally long; use search to find the nearest owner.
   VFX, and `dwarf_magic_*` snapshot keys.
 - `scripts/lingpet/lingpet_sand_prison_skill.gd`
   Owns Rahoset Sand Prison runtime: cage creation / miss / imprison / dissolve
-  phases, retry rolls, boss clamp owner fields, sand particle streams,
-  companion cast-pose override, audio hooks, and `sand_prison_*` snapshot keys.
+  phases, retry and cage-width rolls, boss clamp owner fields, ambient/body
+  particle simulation, companion cast-pose override, audio hooks, explicit
+  visual clock, and `sand_prison_*` snapshot keys. Stateless CanvasItem recipes
+  are delegated to `lingpet_sand_prison_renderer.gd` with live borrowed arrays.
+- `scripts/lingpet/lingpet_sand_prison_renderer.gd`
+  Owns stateless Rahoset Sand Prison cage walls/floor/corners, deterministic
+  wall-grain/glow/decor bars, ambient/body-particle, and MISS-text CanvasItem
+  recipes. It consumes runtime phase clocks, cage geometry, wash direction,
+  and borrowed live particle arrays; it must not own phase/retry/clamp/audio
+  policy, particle simulation RNG, wall-clock reads, or retained render state.
 - `scripts/lingpet/lingpet_star_coil_skill.gd`
   Owns Orosha Star Coil runtime: wall roll / climb / lunge / bind / cross /
-  descend phases, boss slow / dash-block / cooldown-freeze effects, boss position
-  ownership, coil drawing, and `star_coil_*` snapshot keys.
+  descend phases, boss slow / dash-block / cooldown-freeze effects, boss and
+  companion position ownership, movement/bind audio, deterministic spark
+  payload generation/advancement, and `star_coil_*` snapshot keys. Stateless
+  drawing is delegated to `lingpet_star_coil_renderer.gd` with borrowed arrays.
+- `scripts/lingpet/lingpet_star_coil_renderer.gd`
+  Owns stateless Orosha Star Coil motion-trail, spark glow/regular-star/core,
+  and safe alternating-radius polygon CanvasItem recipes. It consumes explicit
+  trail visibility plus borrowed live trail/spark arrays; it must not own phase,
+  movement, boss status, audio, RNG, or retained payload collections.
 - `scripts/lingpet/lingpet_wild_roar_skill.gd`
   Owns Monkeyring Wild Roar runtime: proximity arm gate, roar radius and ball
-  boost scaling, ball reflection jitter, screen flash / roar-zone / spark VFX,
-  companion cast-pose override, and `wild_roar_*` snapshot keys.
+  boost scaling, trigger/reflection RNG, reflected-ball launch, one-hit speed
+  restoration, spark/impact payload spawning and simulation, feedback, owner
+  cleanup, companion cast-pose override, and `wild_roar_*` snapshot keys. It
+  delegates stateless composition with explicit scalars and a borrowed particle
+  array to `lingpet_wild_roar_renderer.gd`.
+- `scripts/lingpet/lingpet_wild_roar_renderer.gd`
+  Owns stateless Wild Roar full-canvas flash, growing disc, delayed gold/cyan
+  rings, rotating spokes, particle circles, reflected-ball glow/streak, and pure
+  ring projection. It owns no RNG, arm/reflection/boost/owner state, payload
+  simulation, feedback, snapshot state, wall clock, or retained particle array.
 - `scripts/lingpet/lingpet_ring_dash_state.gd`
   Owns Ring Dash / Linkport passive state: emergency guard target prediction,
   once-per-descent roll gating, cooldown, companion position override, short
@@ -1631,9 +1920,16 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/items/treasure_hunt_runtime.gd`
   Owns the Godot runtime slice for the instant `instant_treasure_hunt`
   perk: reward rolling, `downtown_treasure_map` effective-level chance
-  bonuses, result feedback, and a short overlay effect. It grants from
-  the currently ported mythic lane through `mythic_item_runtime` and uses
-  the ported passive item catalog for the 60% passive reward lane.
+  bonuses, owned-one-time filtering, phase timing, mining-hit/result audio,
+  localized result feedback, and mythic/perk/passive/starpoint grant routing.
+  It grants from the currently ported mythic lane through `mythic_item_runtime`
+  and uses the ported passive item catalog for the 60% passive reward lane.
+  Its draw facade samples time/progress once and lends the live result payload.
+- `scripts/items/treasure_hunt_renderer.gd`
+  Owns Treasure Hunt presentation resources and deterministic CanvasItem
+  recipes: mining-sheet prewarm, item/perk icon caches, cave wash, mining actor
+  or fallback, progress bar, reward/empty result, glow, symbol, and text. It
+  receives explicit timing/result inputs and owns no reward mutation or RNG.
 - `scripts/items/active_item_catalog.gd`
   Owns the currently ported active-item metadata: `gauge_charge` / Energy
     Drink, `vitamin_pill` / Vitamin Drink, `strange_vial` / 기묘한 약병, `aipill` / AI Pill, `grenade`, `flare`, `tear_gas` / 최루탄, `dynamite`, `molotov`, `long_boost` / Giant Potion,
@@ -1680,14 +1976,21 @@ This section is intentionally long; use search to find the nearest owner.
   bonus portal insertion, legacy owner-vs-registry argument normalization,
   and Lucky Coin bonus audio dispatch.
 - `scripts/items/active_item_slot_controller.gd`
-  Owns active-item slot state and use flow: starter active-slot
-  construction, number-key edge input for visible slots, mobile HUD-slot
-  touch activation, shared and per-item cooldown checks, consumable slot
-  removal, `item_recycle` / Alchemy consume-preservation rolls and notice
-  timers, `last_use_msec` fanout, selected-slot HUD sync, and field-pickup
-  storage with active-effect store gating. Recycled consumables keep their
-  slot, skip pending throw backup creation, still apply active-item use
-  gauge bonuses, and route Alchemy feedback through `game_audio.play_alchemy`.
+  Owns active-item slot use orchestration: starter active-slot construction,
+  number-key edge input for visible slots, mobile HUD-slot touch activation,
+  consumable slot removal, `item_recycle` / Alchemy consume-preservation
+  rolls and notice timers, selected-slot HUD sync, and field-pickup storage
+  with active-effect store gating. It retains the legacy cooldown fields and
+  methods as forwarding facades. Recycled consumables keep their slot, skip
+  pending throw backup creation, still apply active-item use gauge bonuses,
+  and route Alchemy feedback through `game_audio.play_alchemy`.
+- `scripts/items/active_item_slot_cooldown_state.gd`
+  Owns active-slot cooldown timing state and policy: the shared use anchor,
+  modal-pause anchor shifting, inherited timestamps for newly stored items,
+  shared/per-item readiness checks, manual-use timestamp fanout, and
+  stage-transition cooldown clearing with deep-copied slot preservation.
+  Cooldown-ignoring automatic uses remain neutral because the slot controller
+  calls its start/fanout methods only for manual global-cooldown uses.
 - `scripts/items/active_item_smartphone_auto_use.gd`
   Owns Smartphone's active-item auto-use orchestration: low-gauge recovery
   priority (`life_elixir` before `gauge_charge`), bottom-loss defense
@@ -1959,9 +2262,9 @@ This section is intentionally long; use search to find the nearest owner.
   and pickup audio routing are delegated to
   `active_item_pickup_actions.gd`. Holy Barrier duration, glow phase,
   and lifecycle cleanup plus per-frame state application are delegated to
-  `active_item_holy_barrier_runtime.gd`. Holy Barrier idle / hit particles
+  `active_item_holy_barrier_runtime.gd`. Geumgang Barrier idle / hit particles
   and particle fade are delegated to `active_item_holy_barrier_particles.gd`.
-  Holy Barrier activation application and activation feedback / audio
+  Geumgang Barrier activation application and activation feedback / audio
   routing are delegated to `active_item_holy_barrier_actions.gd`.
   Magnet Field duration, phase, lifecycle cleanup, and particle-clear
   requests and per-frame state application are delegated to
@@ -2181,6 +2484,15 @@ This section is intentionally long; use search to find the nearest owner.
   Magnet Field duration / phase state and ball-pull gameplay remain in the
   runtime and pull helpers.
 - `scripts/items/active_item_hologram_disk_runtime.gd`
+  **SUPERSEDED / DELETED (2026-07-29).** The Hologram Disk active item was
+  removed and this module no longer exists. The decoy deception mechanic now
+  lives in the Smasher form 허공환영 (`void_phantom`) — see
+  "2026-07-29 — 허공환영 (Void Phantom) Smasher form" below for the current
+  owners. The description that follows is kept only as provenance for the
+  contracts that survived the move (decoy kinematics in center-coordinate
+  convention, the prediction-model substitution, the cache-only deception
+  peek); the item-side lifecycle, duration ticking, and timer gauge described
+  here are gone.
   Owns Hologram Disk runtime lifecycle and deception logic: activation /
   clear state snapshots, effects-path duration ticking with atomic
   expiry cleanup, ball-path decoy spawning on the descent-to-ascent edge
@@ -2328,11 +2640,21 @@ This section is intentionally long; use search to find the nearest owner.
   Owns active consumable effect rendering: pickup acquisition popup,
   pickup particles, Regeneration Potion rings / particles, Giant Potion
   field pulses, Stopwatch flash / clock overlay, Magnet Field rings /
-  pull lines / particles, Holy Barrier field wall / symbols / particles,
-  Dash Boost / Vitamin Pill / Strange Vial field VFX, HUD-visual pickup icon
+  pull lines / particles, Geumgang Barrier and Chukjibu draw delegation,
+  Vitamin Pill / Strange Vial field VFX, HUD-visual pickup icon
   lookup, pickup text sizing caches, and field-effect draw ordering. The
   runtime passes through the effect controller's exposed state arrays and
   timer context; timer bars are delegated below.
+- `scripts/items/active_item_geumgang_barrier_renderer.gd`
+  Owns Geumgang Barrier field presentation and asset prewarm: the layered
+  gold / oxblood ritual band, braided knots, repeated Vajra Lotus seals,
+  ambient petals, and Vajra-spoke impact response. Gameplay collision,
+  duration, and cleanup remain in the existing Holy Barrier runtime owners.
+- `scripts/items/active_item_chukjibu_renderer.gd`
+  Owns Chukjibu field presentation and asset prewarm: the generated folded-road
+  seal, symmetric gold/cyan ground folds, and cyan-white afterimage streaks.
+  Gameplay duration and dash modifiers remain in the existing `dash_boost`
+  runtime owners for save and routing compatibility.
 - `scripts/items/active_item_brick_wall_effect_renderer.gd`
   Owns Brick Wall field visuals: installed wall variant sheet loading,
   crack path / chip drawing, install gauge, hammer cue, dust and fragment
@@ -2391,6 +2713,11 @@ This section is intentionally long; use search to find the nearest owner.
   reset-game dispatch, start-serve ball reset, and round-flow serve
   preparation after scoreboard overlay completion.
   Registered as `match_scoreboard_flow_controller`.
+- `scripts/core/defeat_settlement_screen.gd`
+  Owns the defeat summary snapshot and draw/input lifecycle, including the
+  current Stage 1 boss display name resolved from `stage1_boss_variant`.
+  Stage 1 identity never falls back to the separate `stage_boss_variant`
+  compatibility key. Registered as `defeat_settlement_screen`.
 - `scripts/core/stage_clear_result_screen.gd`
   Owns the public battle-flow facade for the stage-clear result screen shown
   after a player match win: show / reset / update / input / draw / status /
@@ -2473,7 +2800,9 @@ This section is intentionally long; use search to find the nearest owner.
   spawn-state clear callback dispatch, result-scene free callback dispatch,
   plaza asset readiness blocking, plaza scene-config timing, plaza scene spawn
   timing, fallback-to-continue behavior, and redraw requests after successful
-  plaza spawn. Screen-backed context and callback wiring are delegated to
+  plaza spawn. It returns explicit `false` while composed resource/GPU readiness
+  is incomplete so the live plaza callback remains retryable. Screen-backed
+  context and callback wiring are delegated to
   `stage_clear_result_plaza_enter_screen_data.gd`.
 - `scripts/core/stage_clear_result_plaza_enter_screen_data.gd`
   Owns stateless screen-backed plaza-entry context assembly: active / stage /
@@ -2663,9 +2992,9 @@ This section is intentionally long; use search to find the nearest owner.
   the plaza node, packed scene, or prewarm state directly.
 - `scripts/core/stage_clear_result_plaza_scene_prewarm_state.gd`
   Owns stateful result-screen plaza asset readiness: background prewarm enable
-  toggles, current-stage prewarm cache status, threaded plaza prewarm stepping,
-  blocking plaza prewarm before entry, and timeout warnings for blocking
-  readiness.
+  toggles, current-stage resource-cache status, threaded plaza prewarm stepping,
+  composed GPU readiness through `battle_pso_prewarmer.gd`, blocking plaza
+  prewarm before entry, and timeout/rejection status for incomplete readiness.
 - `scripts/core/stage_clear_result_reward_grant_handler.gd`
   Owns the public result-screen reward grant facade: box reward-roll
   delegation, result-scene resolved reward reads, pending reward grant entry
@@ -3124,19 +3453,22 @@ This section is intentionally long; use search to find the nearest owner.
   reset-current-state maps, or inline exit-tree teardown.
 - `scripts/ui/stage_clear_result_callback_handler.gd`
   Owns stage-clear result callback invocation policy: next-stage confirm calls,
-  exit-to-menu calls, and the exit fallback to confirm when no explicit exit
-  callback exists.
+  exit-to-menu calls, the exit fallback to confirm when no explicit exit
+  callback exists, and explicit `false` plaza-entry results as a retryable
+  non-success.
 - `scripts/ui/stage_clear_result_callback_scene_handler.gd`
   Owns stage-clear result callback scene glue: stopping the Dalji click voice
   before navigation callbacks, reading and clearing the scene's confirm /
   plaza / exit callback fields, preserving exit-to-confirm fallback semantics,
-  and delegating final callback invocation to the callback handler. The scene
+  retaining the plaza callable when invocation returns retryable `false`, and
+  delegating final callback invocation to the callback handler. The scene
   still owns callback storage and redraw state, but callback pass-through
   wrappers should not be reintroduced there.
 - `scripts/ui/stage_clear_result_navigation_action_handler.gd`
   Owns stage-clear result navigation action policy: advance input while boxes
   are hidden vs scroll-visible, blocked advance consumption, escape behavior,
-  next / exit scroll-button action mapping, action apply payloads for handled
+  next / plaza / exit scroll-button action mapping, including live
+  `BUTTON_PLAZA -> ACTION_ENTER_PLAZA`, action apply payloads for handled
   vs actionless results, and scroll-button click apply payloads that preserve
   button rects while reporting the resulting action / handled state.
 - `scripts/ui/stage_clear_result_navigation_scene_handler.gd`
@@ -3482,15 +3814,24 @@ This section is intentionally long; use search to find the nearest owner.
   breeze/gust player/boss/ball push, fire gauge drain and hit-speed boost,
   fire-event unlimited ball-speed handoff, doubled fire paddle-hit exchange
   boost, weather debug force/cycle helpers,
-  ice movement-control penalties plus dash slide, rain movement slow, hail
+  ice movement-control penalties, rain movement slow, hail
   collision knockback / dash destruction, four-side sand terrain collision /
   erosion, and harvest/force-end hooks used by weather-absorbing items such
-  as Baal's Boots. It also exposes weather particles and sand visual
-  segments to the renderer; keep gameplay mutation here rather than in draw
+  as Baal's Boots. Player/boss ice transition motion delegates to
+  `weather_ice_motion_state.gd`. It also exposes weather particles and sand
+  visual segments to the renderer; keep weather activation, registry lookup,
+  dash cancellation, warp wrapping, and particle emission here rather than in draw
   code. Fire-hit explosion, hail-impact, ice-slide, sand-erosion, and
   sand-dissolve particle payload construction is delegated to
   `weather_event_payload_factory.gd`; shared fallback-render LOD budgets are
   delegated to `weather_event_render_budget.gd`.
+- `scripts/stages/common/weather_ice_motion_state.gd`
+  Owns allocation-free mutable player/boss ice motion: player dash-transition
+  gating, 25-pixel initial slide, 0.96 decay, active-warp continuation versus
+  wall stop, boss dash release/slide, and the normal 0.35 blend plus 0.975
+  friction. It mutates the facade's existing result dictionary and returns only
+  a slide-start signal. It does not own weather activation, registry lookup,
+  dash cancellation, warp wrapping, particle payloads, RNG, audio, or drawing.
 - `scripts/stages/common/weather_event_render_budget.gd`
   Owns the shared weather render-budget policy used by the state fallback draw
   and texture renderer: LOD / severe-LOD thresholds, generic weather particle
@@ -3504,8 +3845,8 @@ This section is intentionally long; use search to find the nearest owner.
   layered texture pieces for rain streaks, wind ribbons, fire embers, ice
   glints, hail shards, scanline messages, and sand-wall texture fills.
   Future sprite-sheet or shader upgrades should replace this renderer's
-  texture pieces without moving the gameplay rules out of
-  `weather_event_state.gd`; shared render-budget thresholds come from
+  texture pieces without moving the gameplay rules out of the weather state
+  owners; shared render-budget thresholds come from
   `weather_event_render_budget.gd`.
 - `scripts/stages/common/starpoint_bonus_drop_policy.gd`
   Owns shared Star Detector bonus-drop policy for stage starpoint reward
@@ -3581,8 +3922,8 @@ This section is intentionally long; use search to find the nearest owner.
   first-view versus repeat-view skip lock, skip fade, and seven-locale
   CPS-budgeted story copy. The overlay owns the 26.25-second B2-to-C1 hard cut,
   deterministic presentation-only RNG, additive FX child, camera source-rect
-  motion, and label-excluding impact shake. Each character-select confirmation
-  replays the prologue; completion history controls only the skip lock, while retry/debug
+  motion, and label-excluding impact shake. Each character-select confirmation replays the
+  prologue; completion history controls only the skip lock, while retry/debug
   direct entry stays skipped. Lore semantics and open decisions live in
   `docs/araul_foundation_prologue_canon.md`.
   Battle intro flow retains BGM and landing orchestration, while the boot
@@ -3740,36 +4081,48 @@ This section is intentionally long; use search to find the nearest owner.
   (`ROCK_ATLAS_COLUMNS` / `ROCK_ATLAS_ROWS`), and the pure
   `slice_alpha_atlas_regions(path, columns, rows, padding)` helper that
   trims each cell of a packed atlas to its alpha bounds with a small
-  padding margin. No runtime state. `stage2_pillar_background.gd`
-  preloads this module and forwards every texture-path / source-region /
-  slicing call here so the background owner script can stay focused on
-  state machines and rendering.
+  padding margin. No runtime state. `stage2_pillar_asset_state.gd` consumes
+  this immutable catalog for loading and cache population.
+- `scripts/stages/stage2/stage2_pillar_asset_state.gd`
+  Retained mutable owner for the six Stage 2 pillar textures, synchronous
+  first-draw fallback loading, one-texture-at-a-time threaded prewarm progress
+  and completion latch, measured tree / leaf / rock / debris region caches,
+  and the game-frame source-hole cache. Completed prewarm is idempotent, and
+  an early hole query cannot cache an empty result before the frame texture
+  exists. The background retains ambient-layout preparation, renderer fanout,
+  asset-status publication, and compatibility properties without duplicate
+  texture or prewarm-progress storage.
 - `scripts/stages/stage2/stage2_pillar_background.gd`
   Owns the Stage 2 outer-pillar background slice: the original Python
-  imagegen jungle/cyber texture loading, ambient falling-leaf sheet, and
-  firefly layer, with the procedural jungle-panel fallback kept only for
-  missing assets. Texture paths, source-region constants, and the alpha
-  atlas slicer live in `stage2_pillar_assets.gd`; the background module
-  preloads it and stores the loaded `Texture2D` and per-cell region
-  arrays in its own member vars (`base_texture`, `tree_source_regions`,
-  ...) so existing field readers keep working unchanged. Imagegen base
+  imagegen jungle/cyber presentation, ambient falling-leaf sheet, and firefly
+  layer, with the procedural jungle-panel fallback kept only for missing
+  assets. The immutable asset catalog lives in `stage2_pillar_assets.gd`, and
+  retained texture / region / prewarm state lives in
+  `stage2_pillar_asset_state.gd`; the background exposes compatibility
+  properties while delegating actual storage and loading. Imagegen base
   cover, split left / right tree sprites, unified edge lines, and stretch-
   composed moss / leaf game-frame drawing are delegated to
   `stage2_pillar_imagegen_renderer.gd`; imagegen pillar renderer asset
   payloads are delegated to `stage2_pillar_imagegen_assets_builder.gd`;
   imagegen asset-ready snapshots are delegated to
-  `stage2_imagegen_asset_status_builder.gd`. It also owns the
-  first Stage 2 wall-hit reaction state:
-  border flash and short-lived leaf particles triggered through the shared
-  `trigger_tree_shake()` hook. The current MVP also owns Stage 2 temporary
-  crisis-rock list reset / drawing and basic rock-vs-ball reflection. It also
-  owns the first 악어장군 water-cannon MVP: delayed post-quake target
-  selection, charge/fire VFX, hydro / stone-break / rock-hit audio cues,
-  splash fragments, hittable rock-fragment knockback, red hit flash
-  feedback, compact playfield boss-skill warning banners, quake ball-motion
-  shake / boss-launch backstop behavior, player-hit quake cancellation,
-  quake-loop audio start / stop sync through `game_audio.gd`, rock-spawn
-  audio, falling quake-rock presentation / landed-only collision timing,
+  `stage2_imagegen_asset_status_builder.gd`. It retains the shared
+  `trigger_tree_shake()` facade and wall-feedback draw fanout while
+  `stage2_wall_reaction_coordinator.gd` owns the flash / bush-leaf reaction.
+  Rock generation, base lifetime, and quake-drop / landing side effects are
+  delegated to `stage2_rock_lifecycle_coordinator.gd`; contact traversal is
+  delegated to `stage2_rock_interaction_coordinator.gd`. Reverse frame
+  traversal, expiry / Chaos removal, destruction feedback / reward / result
+  ordering, visual timers / offsets, and fragment advancement are delegated to
+  `stage2_rock_frame_coordinator.gd`. The background keeps the frame position,
+  public facades, collision / reward entry points, and drawing.
+  Ordinary quake activation, rock-cap / zero-request gating, post-quake water-
+  cannon scheduling, timing feedback / audio sync, ball motion / restore,
+  boss-launch backstop behavior, and round cleanup are delegated to
+  `stage2_quake_coordinator.gd`. Water-cannon target selection, charge / fire
+  progression, trails, and fragment-hit fanout are delegated to
+  `stage2_water_cannon_coordinator.gd`; impact side effects live in its focused
+  impact coordinator. The background retains compact playfield boss-skill
+  warning rendering, falling quake-rock presentation / landed-only collision,
   crisis-score rage reservation, round-start boss stomp presentation,
   rage actor tint / offset draw context, defensive rock-wall drops, target
   rock removal, golden-rock starpoint drops / Star Detector bonus spawn
@@ -3779,14 +4132,21 @@ This section is intentionally long; use search to find the nearest owner.
   construction is delegated to `stage2_actor_draw_context_builder.gd`.
   Base boss-AI context payload construction is delegated to
   `stage2_boss_ai_context_builder.gd`. Boss-rage snapshots are delegated
-  to `stage2_boss_rage_snapshot_builder.gd`; boss-rage crisis gating,
-  tint / offset visual timing, final-stomp threshold checks, and finish
-  checks are delegated to `stage2_boss_rage_state.gd`. BattlePerf overlay /
+  to `stage2_boss_rage_snapshot_builder.gd`; boss-rage crisis reservation,
+  pending / active lifecycle, timer, stomp latch/count, AI mode, and tint /
+  offset visual state are delegated to the retained
+  `stage2_boss_rage_state.gd` owner; cached pre-rally audio, start / stomp
+  feedback, final-stomp ordering, and quake-loop audio fallback are delegated
+  to `stage2_boss_rage_coordinator.gd`. BattlePerf overlay /
   obstacle counter label writes are delegated to
   `stage2_perf_counter_recorder.gd`.
   Rock / rock-fragment /
   starpoint particle and drop drawing is delegated to
-  `stage2_pillar_obstacle_visual_renderer.gd`; water-cannon target rings,
+  `stage2_pillar_obstacle_visual_renderer.gd`; starpoint drop / particle
+  collection storage, atomic reset, append, counts, and deep drop snapshots
+  are delegated to retained `stage2_starpoint_runtime_state.gd`; shared-RNG
+  spawn, motion, collection, feedback, particle updates, and stage-exit host
+  cleanup are delegated to `stage2_starpoint_coordinator.gd`; water-cannon target rings,
   trail, charge / beam, splash, and player-hit flash drawing are delegated
   to `stage2_water_cannon_visual_renderer.gd`; player-hit flash timer
   state is delegated to `stage2_fragment_hit_flash_state.gd`;
@@ -3797,13 +4157,18 @@ This section is intentionally long; use search to find the nearest owner.
   calculation is delegated to `stage2_quake_screen_shake_state.gd`;
   quake ball-motion impulse / player-pull / speed-cap / boss-launch guard
   math is delegated to `stage2_quake_ball_motion_state.gd`;
+  quake cast timing, legacy cooldown, ball-velocity backup / restore,
+  screen / ball motion RNGs, loop-audio active latch, and boss-launch guard
+  state are delegated to `stage2_quake_runtime_state.gd`;
   quake loop and boss-rage cry audio routing is delegated to
   `stage2_audio_router.gd`;
   skill-warning timer / text state is delegated to
   `stage2_skill_warning_state.gd`;
   border-flash and boss-rage screen tint drawing is delegated to
-  `stage2_screen_overlay_visual_renderer.gd`; border-flash timer / impact
-  snapshot state is delegated to `stage2_border_flash_state.gd`;
+  `stage2_screen_overlay_visual_renderer.gd`; side-wall reaction resolution,
+  border-flash lifetime, and bush-band ambient burst orchestration are
+  delegated to `stage2_wall_reaction_coordinator.gd`, which retains
+  `stage2_border_flash_state.gd`;
   falling-leaf / firefly / leaf-particle and rustle vegetation drawing is
   delegated to `stage2_ambient_visual_renderer.gd`.
   Ambient leaf / firefly / leaf-particle payload generation is delegated
@@ -3811,20 +4176,31 @@ This section is intentionally long; use search to find the nearest owner.
   initial population, and falling-leaf spawn cadence helpers are delegated
   to `stage2_ambient_layout_helper.gd`; ambient visual count snapshots are
   delegated to `stage2_ambient_visual_snapshot_builder.gd`;
-  falling-leaf, firefly, and leaf-particle per-frame motion is delegated to
-  `stage2_ambient_visual_state.gd`;
-  rustle bush / vine layout
-  payload generation is delegated to `stage2_rustle_payload_factory.gd`;
-  rustle trigger / decay mutation and side-wall band predicates are delegated
-  to `stage2_rustle_state.gd`; rustle active-count snapshots are delegated
-  to `stage2_rustle_snapshot_builder.gd`.
+  ambient RNG, time / excitement, layout cache, falling-leaf / firefly /
+  leaf-particle collections, spawn cadence, caps, and per-frame motion are
+  delegated to the retained `stage2_ambient_visual_state.gd` owner;
+  rustle bush / vine layout payload generation is delegated to
+  `stage2_rustle_payload_factory.gd`; live rustle collections, layout cache,
+  boss / player paddle history, trigger / decay mutation, and active checks
+  are delegated to retained `stage2_rustle_state.gd`; Stage 2 gating, current-
+  position / dash interpretation, boss bush / vine versus player bush routing,
+  and trigger-before-decay order are delegated to
+  `stage2_rustle_coordinator.gd`. The state's pure side-wall band predicate is
+  consumed by the wall-reaction coordinator; rustle active-count snapshots are
+  delegated to `stage2_rustle_snapshot_builder.gd`.
   Rock visual payload generation is delegated to
   `stage2_rock_visual_factory.gd`; rock renderer asset payloads are
-  delegated to `stage2_rock_visual_assets_builder.gd`; short-lived rock
-  visual runtime timers / water-target flash mutation are delegated to
-  `stage2_rock_runtime_state.gd`; rock dictionary
+  delegated to `stage2_rock_visual_assets_builder.gd`; rock collection
+  storage / reset, next-id claims, common list mutation / snapshots, and
+  short-lived visual timers / water-target flash mutation are delegated to
+  retained `stage2_rock_runtime_state.gd`; rock dictionary
   lookup / landed / center / target queries are delegated to
-  `stage2_rock_query.gd`;
+  `stage2_rock_query.gd`; ball / blade / explosion / pistol contact
+  orchestration is delegated to `stage2_rock_interaction_coordinator.gd`;
+  quake / crisis generation, retained insertion / id ordering, spawn
+  feedback, finite-life expiry, and quake-drop / landing mutation are
+  delegated to `stage2_rock_lifecycle_coordinator.gd`, which consumes the
+  following spawn / payload / drop helpers;
   quake-rock random spawn batches are delegated to
   `stage2_quake_rock_spawn_factory.gd`; spawn payload assembly is delegated to
   `stage2_quake_rock_payload_factory.gd`; boss-rage crisis-wall rock payload
@@ -3836,17 +4212,19 @@ This section is intentionally long; use search to find the nearest owner.
   rock-fragment payload generation is delegated to
   `stage2_rock_fragment_payload_factory.gd`; normal rock-fragment factory
   config payloads are delegated to
-  `stage2_rock_fragment_payload_config_builder.gd`; rock-fragment per-frame
-  motion is delegated to `stage2_rock_fragment_motion_state.gd`.
-  Starpoint drop / particle payload generation is delegated to
-  `scripts/stages/common/starpoint_payload_factory.gd`; starpoint drop per-frame motion is
-  delegated to `scripts/stages/common/starpoint_drop_motion_state.gd`;
-  starpoint drop player-overlap query is delegated to
-  `scripts/stages/common/starpoint_drop_overlap_query.gd`;
-  starpoint particle
-  per-frame physics / compacting is delegated to
-  `scripts/stages/common/starpoint_particle_state.gd`.
-  Water-cannon fragment / splash payload generation is delegated to
+  `stage2_rock_fragment_payload_config_builder.gd`; rock-fragment collection
+  storage, reset, newest-window caps, and per-frame motion / compaction are
+  delegated to retained `stage2_rock_fragment_motion_state.gd`.
+  The Stage 2 starpoint coordinator consumes common payload, bonus, motion,
+  overlap, Dowsing, Starlight Tracking, reward, compaction, and particle-state
+  helpers without rebuilding their policies in the background facade.
+  Water-cannon post-quake delay plus charge / fire / cancel lifecycle state is
+  delegated to `stage2_water_cannon_runtime_state.gd`; completed-impact
+  ordering is delegated to `stage2_water_cannon_impact_coordinator.gd`;
+  target selection / tracking, cast-event routing, trail timing, water-visual
+  advancement, and fragment-hit fanout are delegated to
+  `stage2_water_cannon_coordinator.gd`;
+  fragment / splash payload generation is delegated to
   `stage2_water_cannon_payload_factory.gd`; water-cannon factory config
   payloads are delegated to
   `stage2_water_cannon_payload_config_builder.gd`; water-cannon renderer
@@ -3855,8 +4233,9 @@ This section is intentionally long; use search to find the nearest owner.
   geometry and context-to-start-point assembly is delegated to
   `stage2_water_cannon_geometry.gd`; water-trail
   payload generation is delegated to `stage2_water_trail_payload_factory.gd`;
-  water-trail / splash visual state decay and compaction is delegated to
-  `stage2_water_visual_state.gd`. Stage 2
+  water-trail / splash collection storage, reset, newest-window caps,
+  per-frame motion / compaction, and deep splash snapshots are delegated to
+  retained `stage2_water_visual_state.gd`. Stage 2
   performance sample accumulation and opt-in logging is delegated to
   `stage2_perf_logger.gd`; performance log contextual snapshots are
   delegated to `stage2_perf_log_snapshot_builder.gd`; render-budget array
@@ -3865,8 +4244,12 @@ This section is intentionally long; use search to find the nearest owner.
   and boss movement-lock boolean composition is delegated to
   `stage2_visibility_state.gd`.
   Stage 2 ball / player overlap geometry and context-to-player-rect helpers are delegated to
-  `stage2_collision_geometry.gd`; Chaos Spear rock-pull motion is delegated
-  to `stage2_chaos_rock_absorb_state.gd`; playfield bounds lookup is
+  `stage2_collision_geometry.gd`; Chaos Spear refresh center / timer, pending
+  destroyed-rock result queue / single-drain semantics, and pure pull math are
+  delegated to retained `stage2_chaos_rock_absorb_state.gd`. Session timing,
+  landed-rock activation, splash compaction, motion stepping, and absorbed
+  payload publication are delegated to
+  `stage2_chaos_rock_absorb_coordinator.gd`; playfield bounds lookup is
   delegated to `stage2_playfield_bounds.gd`.
   The original center-field bush / vine visual rustle now lives in
   `stage2_playfield_renderer`.
@@ -3899,14 +4282,13 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_pillar_imagegen_assets_builder.gd`
   Owns the read-only Stage 2 imagegen pillar renderer asset payload: base
   texture, tree texture / source regions, game-frame texture, and the
-  measured game-frame source hole. The background module still owns
-  texture loading, source-region storage, game-frame hole caching, and
-  renderer handoff.
+  measured game-frame source hole. The retained asset state owns loading and
+  caches; the background module owns renderer handoff.
 - `scripts/stages/stage2/stage2_imagegen_asset_status_builder.gd`
   Owns the read-only Stage 2 imagegen asset status payload: base, tree,
   game-frame, leaf, rock, and rock-debris readiness booleans. The
-  background module still owns texture loading, source-region storage, and
-  lazy `_ensure_textures()` timing.
+  retained asset state owns texture loading, source-region storage, and the
+  synchronous draw fallback; the background publishes the status facade.
 - `scripts/stages/stage2/stage2_perf_logger.gd`
   Owns Stage 2 opt-in performance logging: environment / flag enable
   checks, sample timing, accumulation, interval throttling, and log-line
@@ -3942,94 +4324,144 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_rock_visual_assets_builder.gd`
   Owns the read-only Stage 2 rock renderer asset payload: rock / debris
   textures, atlas source regions, and the default rock-fragment lifetime.
-  The background module still owns texture loading, region slicing, lazy
-  preload timing, live rock arrays, and renderer fanout.
+  The retained asset state owns texture / region caches and staged prewarm;
+  the background module owns live rock arrays and renderer fanout.
 - `scripts/stages/stage2/stage2_quake_rock_payload_factory.gd`
   Owns Stage 2 quake-rock spawn payload assembly: falling start position,
   target position, stagger frames, gravity / bounce fields, radius, seed /
-  phase metadata, and merging visual data. The background module still owns
-  list insertion, leaf bursts, and spawn audio.
+  phase metadata, and merging visual data. The rock lifecycle coordinator
+  consumes the payload and owns insertion, leaf bursts, and spawn audio.
 - `scripts/stages/stage2/stage2_quake_rock_spawn_factory.gd`
   Owns Stage 2 random quake-rock spawn batches: target candidate selection,
   spacing retry against existing / newly-spawned rocks, size / fall-height /
   seed / golden rolls, visual payload handoff, sequential rock-id assignment,
-  and next-id return. The background module still owns live array insertion,
-  leaf bursts, water-cannon scheduling, and spawn audio.
+  and next-id return. The rock lifecycle coordinator owns live array insertion,
+  leaf bursts, next-id publication, and spawn audio.
 - `scripts/stages/stage2/stage2_crisis_rock_wall_payload_factory.gd`
   Owns Stage 2 boss-rage crisis-wall rock payload assembly: lane target
   selection, falling start position, scaled collision radius, drop stagger /
-  timer fields, seed / phase metadata, and rock visual data merging. The
-  background module still owns wall activation, live array reset / insertion,
-  rock-id allocation, water-cannon deferral, leaf bursts, warnings, and spawn
-  audio.
+  timer fields, seed / phase metadata, and rock visual data merging. The rock
+  lifecycle coordinator owns live insertion, rock-id allocation, water-cannon
+  cancellation / deferral, leaf bursts, and spawn audio; the rage owner and
+  rage coordinator retain wall activation and warnings.
 - `scripts/stages/stage2/stage2_quake_rock_drop_state.gd`
   Owns Stage 2 quake-rock drop and bounce mutation helpers for both the
-  original frame-stepped falling rocks and timed drop payloads. The
-  background module still owns target lookup, list iteration, leaf bursts,
-  quake lifecycle, and renderer fanout.
+  original frame-stepped falling rocks and timed drop payloads. The rock
+  lifecycle coordinator owns target lookup and landing leaf feedback; the rock-
+  frame coordinator owns list iteration and calls this policy, the background
+  retains renderer fanout, and the retained quake runtime state owns cast
+  timing.
 - `scripts/stages/stage2/stage2_quake_rock_offset_state.gd`
   Owns Stage 2 quake-rock visual offset state: inactive offset decay, active
   quake intensity tapering, size / falling scale, and deterministic
-  sinusoidal offset composition. The background module still owns quake
-  timers, rock list iteration, rock centers, and renderer fanout.
+  sinusoidal offset composition. The retained quake runtime state owns timers;
+  the rock-frame coordinator owns list iteration and offset calls, while the
+  background retains rock-center renderer fanout.
 - `scripts/stages/stage2/stage2_water_cannon_visual_renderer.gd`
   Owns the stateless Stage 2 water-cannon draw pass: target-rock
   highlight rings, beam charge / firing visuals, water trail circles,
   stone / water splash presentation, and the red fragment-hit screen
-  flash. It receives the background-owned phase / timer / target
+  flash. It receives the runtime-state-owned phase / timer / target
   dictionary and the existing rock-debris visual renderer for imagegen
   stone fragments; it does not select targets, advance timers, spawn
   fragments, collide with the player, cancel skills, or trigger audio.
 - `scripts/stages/stage2/stage2_water_cannon_visual_state_builder.gd`
   Owns the read-only Stage 2 water-cannon renderer state payload: phase,
   start / target / current beam points, progress, timer, charge duration,
-  and trail lifetime. The background module still owns lifecycle updates,
-  target selection, trail arrays, constants, and renderer handoff.
+  and trail lifetime. The retained runtime state owns lifecycle values; the
+  water-cannon coordinator owns target selection and trail requests, while the
+  background keeps retained-state projection and renderer handoff.
+- `scripts/stages/stage2/stage2_water_cannon_runtime_state.gd`
+  Retained mutable owner for the Stage 2 background water-cannon cast:
+  legacy post-quake delay, idle / charging / firing phase, timer, target id,
+  live muzzle / target / beam points, normalized progress, duplicate-activation
+  guard, charge-to-fire transition, trail-sample / completion events, cancel,
+  and reset. This is deliberately separate from
+  `stage2_boss_skill_state.gd`'s boss-scheduler cooldown. The water-cannon
+  coordinator keeps random rock selection, target tracking / flash mutation,
+  charge / fire event routing, and trail spawning. The background keeps
+  renderer handoff and compatibility properties without a second mutable state
+  copy. Completed-impact side effects are delegated to the impact coordinator.
+- `scripts/stages/stage2/stage2_water_cannon_coordinator.gd`
+  Borrows the shared Stage 2 RNG and owns target selection, live boss-muzzle /
+  rock-center tracking, target flash, idle-delay activation, fire warning ->
+  hydro audio -> early-return ordering, trail append timing, visual collection
+  advancement, missing-target / boss-hit cancellation, and ordered fragment
+  resolver-to-player-hit-applier fanout. Construction and configuration do not
+  consume RNG. The pillar background retains frame-loop positions, rendering,
+  public compatibility facades, and completion-only starpoint callback binding;
+  the focused impact coordinator retains completed-impact side effects. This
+  owner is registered in `gameplay_stage_module_catalog.gd`.
+- `scripts/stages/stage2/stage2_water_cannon_impact_coordinator.gd`
+  Owns Stage 2 completed water-cannon impact orchestration in production order:
+  target-id validation and missing-target cancel, target-rock removal, capped
+  water payload append, normal rock-fragment and leaf feedback requests,
+  golden-reward callback timing, impact shake, size-aware break audio,
+  fragment-warning publication, and final retained beam cancellation. The
+  water-cannon coordinator retains activation / active-beam event routing,
+  trail spawn, and player-fragment fanout. The pillar background retains
+  rendering and the completion-time starpoint payload callback.
 - `scripts/stages/stage2/stage2_water_cannon_geometry.gd`
   Owns the stateless Stage 2 water-cannon geometry helper for deriving the
   boss muzzle / start point from boss position and hitbox size, including
-  the context-to-start-point adapter. The background module still owns
-  target selection, phase lifecycle, and renderer handoff.
+  the context-to-start-point adapter. The water-cannon coordinator owns target
+  selection and live geometry requests; the background keeps renderer handoff,
+  while the retained runtime state owns phase and beam-point lifecycle.
 - `scripts/stages/stage2/stage2_fragment_hit_flash_state.gd`
   Owns Stage 2 water-fragment player-hit flash state: duration, active
-  timer, reset, trigger, and decay. `stage2_pillar_background.gd` still
-  owns water-fragment collision, player knockback / immunity effects, and
-  passing timer values to `stage2_water_cannon_visual_renderer.gd`.
+  timer, reset, trigger, and decay. The water-fragment player-hit applier owns
+  hit-time trigger requests; `stage2_pillar_background.gd` retains reset and
+  passes timer values to `stage2_water_cannon_visual_renderer.gd`.
 - `scripts/stages/stage2/stage2_water_fragment_hit_resolver.gd`
   Owns Stage 2 water-fragment player-hit candidate resolution: hit-enabled
   filtering, per-splash cooldown decay, collision radius selection, first
   overlapping player rect lookup, and hit result fanout. Hit payload
   dictionaries are delegated to
-  `stage2_water_fragment_hit_payload_factory.gd`. The background module still
-  owns player-rect context assembly, immunity, flash, particles, audio,
-  knockback, and splash handled-state side effects.
+  `stage2_water_fragment_hit_payload_factory.gd`. The water-cannon coordinator
+  owns player-rect context assembly and resolver fanout; resolved-hit
+  consumption, immunity, feedback, audio, and knockback are delegated to the
+  player-hit applier.
+- `scripts/stages/stage2/stage2_water_fragment_player_hit_applier.gd`
+  Owns Stage 2 resolved water-fragment response: valid-index gating, mandatory
+  fragment consumption / cooldown before immunity, Cleanse short-circuit,
+  Celestial Armor lookup / source payload, flash / shake / particle / rock-hit
+  audio order, zero-horizontal-velocity direction fallback, and the shipped
+  knockback speed / duration / decay / replacement request. It is registered
+  in `gameplay_stage_module_catalog.gd`; the water-cannon coordinator retains
+  only player-rect assembly and resolver-to-applier fanout.
 - `scripts/stages/stage2/stage2_water_fragment_hit_payload_factory.gd`
   Owns pure Stage 2 water-fragment hit payload construction for resolver
-  outputs consumed by `stage2_pillar_background.gd`.
+  outputs consumed by `stage2_water_cannon_coordinator.gd`.
 - `scripts/stages/stage2/stage2_water_trail_payload_factory.gd`
   Owns Stage 2 water-cannon trail payload construction: randomized offset,
   life fields, radius scaling by beam progress, and trail color. The
-  background module still owns water-trail spawn timing, max-count pruning,
-  and renderer fanout.
+  retained water visual state owns live trail append / cap; the water-cannon
+  coordinator owns spawn timing and payload requests, while the background
+  keeps renderer fanout.
 - `scripts/stages/stage2/stage2_water_visual_state.gd`
-  Owns Stage 2 water-cannon trail / splash visual state mutation: trail
-  lifetime compaction, splash lifetime, gravity, damping, position, spin,
-  and in-place survivor compaction. The background module still owns
-  water-cannon phase timing, spawn timing, player-hit collision / side
-  effects, list caps, and renderer fanout.
+  Retains the mutable Stage 2 water-cannon trail / splash collections and owns
+  reset, newest-window append caps, trail lifetime compaction, splash lifetime,
+  gravity, damping, position, spin, in-place survivor compaction, and deep
+  splash snapshots. The separate retained cannon runtime state owns phase
+  timing; the water-cannon coordinator owns trail spawn timing, player-rect
+  assembly, trail payload requests, and per-frame advancement. The background
+  keeps absorption and renderer fanout. Resolved player-hit responses live in
+  the player-hit applier; completed-impact splash requests and rewards are
+  owned by the impact coordinator.
 - `scripts/stages/stage2/stage2_water_cannon_payload_factory.gd`
   Owns Stage 2 water-cannon impact payload construction: stone fragment
   dictionaries, water splash dictionaries, sprite-index selection, and
   initial velocity / radius / gravity / life fields.
-  `stage2_pillar_background.gd` still owns target resolution, rock
-  removal, list pruning, player collision / knockback, warnings, audio, and
-  reward routing.
+  The retained water visual state owns splash-list append / cap;
+  `stage2_water_cannon_impact_coordinator.gd` owns impact-time requests,
+  target removal, warning / audio / reward ordering, while the water-cannon
+  coordinator keeps later player collision / knockback routing.
 - `scripts/stages/stage2/stage2_water_cannon_payload_config_builder.gd`
   Owns the read-only Stage 2 water-cannon factory config payload: stone
   fragment / water splash counts, lifetimes, and gravity values. The
-  background module still owns the constants, target resolution, impact
-  lifecycle, list pruning, per-frame splash update, collision / knockback,
-  warnings, audio, and reward routing.
+  retained water visual state owns list caps and per-frame splash update; the
+  impact coordinator owns the constants and completed-impact lifecycle; the
+  water-cannon coordinator keeps later collision / knockback routing.
 - `scripts/stages/stage2/stage2_warning_visual_renderer.gd`
   Owns the stateless Stage 2 warning draw pass: quake-wave line ribbons
   and the compact boss-skill warning banner. It receives timer / duration /
@@ -4039,31 +4471,61 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage2/stage2_quake_wave_visual_state_builder.gd`
   Owns the read-only Stage 2 quake-wave renderer state payload: timer,
   duration, ball-affecting vs visual-only state, and normal / visual-only
-  wave count and segment constants. The background module still owns quake
-  lifecycle, ball physics, audio, screen shake, and renderer handoff.
+  wave count and segment constants. The retained quake runtime state owns
+  lifecycle values; the quake coordinator owns ball-scene mutation, audio
+  handoff, and screen-shake feedback, while the background keeps renderer
+  handoff.
 - `scripts/stages/stage2/stage2_quake_screen_shake_state.gd`
   Owns Stage 2 quake screen-shake offset calculation from quake timer,
-  duration, and the injected motion RNG. The background module still owns
-  quake lifecycle, the RNG instance / seed, feedback dispatch, audio, and
-  ball physics.
+  duration, and the injected motion RNG. The retained quake runtime state owns
+  lifecycle timing plus the RNG instance / seed; the quake coordinator owns
+  feedback dispatch, audio handoff, and ball-scene mutation.
 - `scripts/stages/stage2/stage2_quake_ball_motion_state.gd`
   Owns Stage 2 quake ball-motion stateless helpers: impulse-scale tapering,
   player-center pull, original speed-cap enforcement, and boss-launch guard
-  safety-band / minimum downward-speed math. The background module still
-  owns quake lifecycle, ball velocity backup / restore, boss-launch guard
-  timer storage, RNG shake injection, and scene mutation timing.
+  safety-band / minimum downward-speed math. The retained quake runtime state
+  owns cast lifecycle, first-write ball-velocity backup / restore, boss-launch
+  guard timer storage, and bounded ball-shake RNG sampling; the quake
+  coordinator owns impulse scaling and scene mutation timing.
+- `scripts/stages/stage2/stage2_quake_runtime_state.gd`
+  Retained mutable owner for the Stage 2 background quake cast: timer,
+  duration, legacy repeat cooldown, ball-affecting vs visual-only flag,
+  first-write velocity backup with extreme-speed clamp, minimum-speed restore,
+  boss-launch guard timer, seeded screen / ball motion RNGs, bounded ball-shake
+  sampling, loop-audio active latch, active-vs-cooldown frame ordering,
+  activation, round cleanup, and reset. This remains separate from
+  `stage2_boss_skill_state.gd`'s boss-scheduler cooldown. The quake coordinator
+  owns ordinary activation / capacity gating, rock and delayed-cannon handoff,
+  impulse scaling / scene writes, screen-shake feedback, backstop / cleanup,
+  and audio handoff. The background keeps renderer handoff and compatibility
+  properties. Quake-loop audio side effects and the cached fallback live in the
+  rage coordinator.
+- `scripts/stages/stage2/stage2_quake_coordinator.gd`
+  Owns ordinary Stage 2 quake cross-domain orchestration: activation-time audio
+  retention, shared eight-rock capacity and zero-request guard, rock-lifecycle
+  handoff, delayed water-cannon scheduling, warning then loop-audio publication,
+  active timing / cooldown eligibility, fixed shake before audio sync, ball
+  velocity capture / perturb / restore, boss-launch guard, home-band top-goal
+  backstop, and round cleanup before loop stop. It consumes the retained quake,
+  rock, and water-cannon states; delegates rock construction to the rock
+  lifecycle coordinator and audio to the rage coordinator; and is registered
+  in `gameplay_stage_module_catalog.gd`. The pillar background retains frame-
+  loop position, renderer projection, compatibility properties, and thin public
+  facades.
 - `scripts/stages/stage2/stage2_audio_router.gd`
   Owns Stage 2 gameplay-audio routing helpers for quake loop start / stop /
   sync, boss-rage cry playback, rock spawn / break / hit cues, water-cannon
   hydro cues, and starpoint collection cues, including the cached rage-audio
-  fallback used during pre-rally animations. `stage2_pillar_background.gd`
-  still owns quake lifecycle state, the cached audio handle, and when cues
-  are emitted.
+  fallback used during pre-rally animations. The retained quake runtime state
+  owns logical lifecycle values and the live loop latch;
+  `stage2_boss_rage_coordinator.gd` keeps the cached audio handle, loop-routing
+  methods, and rage cue timing. The quake coordinator owns ordinary quake cue
+  call positions, while other focused owners route their own one-shots.
 - `scripts/stages/stage2/stage2_skill_warning_state.gd`
   Owns Stage 2 skill-warning state: trigger text / kind, minimum duration
   clamp, timer decay, active checks, reset, and renderer snapshot payload.
-  `stage2_pillar_background.gd` still owns when warnings are triggered and
-  passes the snapshot to `stage2_warning_visual_renderer.gd`.
+  Focused coordinators own water / rage / ordinary-quake warning triggers; the
+  pillar background retains snapshot renderer handoff.
 - `scripts/stages/stage2/stage2_screen_overlay_visual_renderer.gd`
   Owns the stateless Stage 2 screen-overlay draw pass for border-hit
   flashes and boss-rage tint rectangles. It receives timer / side /
@@ -4072,106 +4534,221 @@ This section is intentionally long; use search to find the nearest owner.
   or mutate gameplay state.
 - `scripts/stages/stage2/stage2_border_flash_state.gd`
   Owns Stage 2 border-flash state: duration, active timer, side, impact-Y
-  snapshot, reset, and decay. `stage2_pillar_background.gd` still owns the
-  `trigger_tree_shake()` hook, bush / leaf reactions, and overlay renderer
-  fanout.
+  snapshot, reset, and decay. `stage2_wall_reaction_coordinator.gd` retains
+  and advances this state; the background exposes a compatibility property
+  and keeps overlay renderer fanout.
+- `scripts/stages/stage2/stage2_wall_reaction_coordinator.gd`
+  Retained coordinator for Stage 2 side-wall presentation reactions: legacy
+  empty-side fallback, side validation, impact-Y / left-right origin geometry,
+  bush-band classification through `stage2_rustle_state.gd`, bounded impact
+  speed scale, two-leaf ambient burst, 10-26 leaf-particle burst policy,
+  retained border-flash lifecycle, and direct mutation of the retained ambient
+  state through its existing capped append APIs. Middle-wall hits create only
+  the flash; upper / lower bush-band hits additionally raise excitement and
+  emit leaves. `stage2_pillar_background.gd` retains the public
+  `trigger_tree_shake()` facade and draw fanout without reaction math or burst
+  loops.
 - `scripts/stages/stage2/stage2_ambient_visual_renderer.gd`
   Owns the stateless Stage 2 ambient draw pass for falling-leaf sprites /
   fallbacks, firefly glow dots, wall-hit leaf particles, and bush / vine
-  rustle visuals. It receives runtime arrays and texture references from
-  `stage2_pillar_background.gd`; it does not spawn leaves, build the
+  rustle visuals. It receives retained-state arrays and texture references
+  through `stage2_pillar_background.gd`; it does not spawn leaves, build the
   rustle layout, update rustle reactions, decay particles, update
   fireflies, or mutate gameplay state.
 - `scripts/stages/stage2/stage2_ambient_payload_factory.gd`
   Owns Stage 2 ambient payload construction for viewport-side falling
   leaves, fireflies, and leaf particles emitted by wall / rock reactions.
-  `stage2_pillar_background.gd` still owns ambient layout invalidation,
-  falling-leaf / firefly update orchestration, particle pruning, rustle
-  state, and renderer fanout.
+  The retained ambient state owns layout invalidation, live collections,
+  spawn cadence, and particle pruning; the wall-reaction coordinator owns wall
+  burst requests, while the background keeps rock reactions and renderer
+  fanout. Rustle mutation lives in its retained state and focused coordinator.
 - `scripts/stages/stage2/stage2_ambient_visual_state.gd`
-  Owns Stage 2 ambient per-frame visual mutation for falling leaves and
-  fireflies plus short-lived wall-hit leaf particles: y / sway / rotation
-  advancement, off-layout leaf compaction, firefly drift / side wrapping,
-  particle gravity / damping / life decay, and particle compaction. The
-  background module still owns layout size fields, spawn cadence, rustle
-  state, and
-  renderer fanout.
+  Retained mutable owner for Stage 2 ambient presentation: deterministic RNG,
+  elapsed time, wall-impact excitement / decay, viewport / game layout cache,
+  falling-leaf / firefly / wall-hit leaf-particle collections, layout reuse /
+  initial population, ambient leaf cadence / cap, particle newest-window cap,
+  y / sway / rotation advancement, off-layout compaction, firefly drift / side
+  wrapping, particle gravity / damping / life decay, and reset. Static motion
+  helpers remain for focused tests and compatibility. The wall-reaction
+  coordinator owns side-wall burst timing and requests; the background keeps
+  rock reactions, textures, renderer fanout, and compatibility properties
+  without duplicate storage. Rustle context mutation lives in its coordinator.
 - `scripts/stages/stage2/stage2_ambient_layout_helper.gd`
   Owns Stage 2 ambient layout helper decisions: current-layout matching,
   initial falling-leaf / firefly population, falling-leaf spawn chance, and
-  max-count guarded leaf append. The background module still owns the live
-  ambient arrays, layout size fields, update orchestration, particle
-  pruning, rustle state, and renderer fanout.
+  max-count guarded leaf append. The retained ambient state owns the live
+  arrays, layout fields, update orchestration, and particle pruning; the
+  background keeps rustle renderer fanout while the rustle coordinator owns its
+  context updates.
 - `scripts/stages/stage2/stage2_ambient_visual_snapshot_builder.gd`
   Owns the read-only Stage 2 ambient visual snapshot counts for falling
-  leaves, fireflies, and available leaf sprites. The background module
-  still owns texture / layout readiness, ambient arrays, particle updates,
-  and renderer fanout.
+  leaves, fireflies, and available leaf sprites. The retained ambient state
+  owns layout readiness, arrays, and particle updates; the background keeps
+  texture readiness, snapshot publication, and renderer fanout.
 - `scripts/stages/stage2/stage2_rustle_payload_factory.gd`
   Owns Stage 2 rustle layout payload construction: fixed bush anchors,
   height-dependent player-side bush positions, vine anchors, and initial
-  amount / angle / phase fields. `stage2_pillar_background.gd` still owns
-  layout invalidation, paddle-proximity trigger orchestration, snapshots,
-  and renderer fanout.
+  amount / angle / phase fields. The retained rustle state owns layout cache /
+  invalidation and live payload collections; the rustle coordinator requests
+  layout assurance and interprets paddle context. `stage2_pillar_background.gd`
+  publishes snapshots and fans out rendering.
 - `scripts/stages/stage2/stage2_rustle_state.gd`
-  Owns Stage 2 rustle state mutation helpers: side-wall bush-band impact
-  predicates, bush / vine paddle-proximity trigger mutation, decay, and
-  active-visibility checks. `stage2_pillar_background.gd` still owns
-  layout invalidation, paddle-position history, trigger orchestration,
-  snapshots, and renderer fanout.
+  Retains Stage 2 bush / vine collections, layout size, independent boss /
+  player previous-center samples and validity latches. It owns reset, layout
+  reuse / rebuild, first-sample-safe motion sampling, bush / vine proximity
+  trigger mutation, decay, and active-visibility checks; the side-wall
+  bush-band predicate and collection mutation helpers remain static for
+  focused tests and compatibility. `stage2_rustle_coordinator.gd` owns current-
+  position / dash interpretation and ordered mutation calls;
+  `stage2_pillar_background.gd` exposes compatibility properties and keeps
+  snapshot publication and renderer fanout. Both state and coordinator are
+  registered in `gameplay_stage_module_catalog.gd`.
+- `scripts/stages/stage2/stage2_rustle_coordinator.gd`
+  Owns outer-pillar bush / vine context orchestration: Stage 2-only gating,
+  layout assurance, boss and player paddle-center projection, first-sample-safe
+  history consumption, movement threshold, boss velocity / player dash
+  classification, boss bush then vine routing, player bush-only routing, and
+  final same-frame decay. It consumes the retained rustle state and payload
+  factory without duplicating collections. The pillar background keeps update
+  position, snapshots, rendering, and thin compatibility methods; the separate
+  wall-reaction coordinator retains side-wall bush-band effects. This owner is
+  registered in `gameplay_stage_module_catalog.gd`.
 - `scripts/stages/stage2/stage2_rustle_snapshot_builder.gd`
   Owns Stage 2 rustle snapshot construction: active bush count, active
-  player / boss bush counts, and active vine count. The background module
-  still owns trigger orchestration, snapshots, and renderer fanout.
+  player / boss bush counts, and active vine count. The retained rustle state
+  owns live collections and trigger / decay mutation; the background module
+  still publishes snapshots and fans out rendering.
 - `scripts/stages/stage2/stage2_rock_visual_factory.gd`
   Owns the Stage 2 rock visual payload factory: style selection, style
   color arrays, seeded fixed polygon points, visual radius, rock seed, and
-  initial rotation. `stage2_pillar_background.gd` still owns actual rock
-  spawning, collision, HP, life, golden-drop behavior, fragments, and
-  audio.
+  initial rotation. `stage2_rock_lifecycle_coordinator.gd` owns spawn and base
+  life orchestration; the interaction / feedback owners handle collision and
+  HP, while the pillar background retains golden-drop callback creation,
+  fragments, and rendering.
 - `scripts/stages/stage2/stage2_rock_query.gd`
   Owns Stage 2 rock dictionary query helpers: id lookup, landed checks,
   runtime-update predicates, random id selection for water-cannon targeting,
   target position, render / collision center, center mutation, and
   spawn-spacing distance tests.
-  `stage2_pillar_background.gd` still owns rock array mutation, spawning,
-  HP / collision, quake drop updates, and golden-drop behavior.
+  The retained rock state owns collection mutation; the interaction coordinator
+  owns public-contact traversal and geometry; the lifecycle coordinator owns
+  spawn, base-life, and quake-drop queries. `stage2_pillar_background.gd`
+  retains response callback routing and public golden-drop behavior; the rock-
+  frame coordinator owns frame iteration and absorbed-rock golden callbacks.
 - `scripts/stages/stage2/stage2_rock_runtime_state.gd`
-  Owns Stage 2 short-lived rock visual runtime mutation: hit flash decay,
-  water-cannon target flash decay / mark / clear, and phase advancement.
-  `stage2_pillar_background.gd` still owns rock list iteration, spawning,
-  HP / collision, quake drop updates, golden-drop behavior, and renderer
-  fanout.
+  Retains the mutable Stage 2 rock collection and next-id counter and owns
+  reset, append / replace / remove, atomic id claims, deep snapshots,
+  indexed hit-flash / water-target-flash decay / mark / clear, and phase
+  advancement. `stage2_pillar_background.gd` exposes compatibility properties
+  while the rock-frame coordinator owns collection iteration, Chaos absorption,
+  visual-timer calls, and removal. The background keeps collision / reward entry
+  points and renderer fanout. Spawn / lifetime / quake-drop
+  orchestration lives in the lifecycle coordinator; hit mutation and shared
+  feedback routing live in the rock-feedback coordinator.
+- `scripts/stages/stage2/stage2_rock_lifecycle_coordinator.gd`
+  Owns Stage 2 quake / crisis rock generation around the existing factories:
+  shared-RNG order, retained insertion / id advancement, ordered spawn leaf
+  bursts, water-cannon cancellation / skill deferral, and spawn audio. It also
+  owns finite-life expiry and quake-drop / landing mutation plus leaf feedback.
+  The rock-frame coordinator consumes its expiry / drop methods; the pillar
+  background retains rendering and public compatibility facades. This owner is
+  registered in `gameplay_stage_module_catalog.gd`.
+- `scripts/stages/stage2/stage2_rock_frame_coordinator.gd`
+  Owns reverse per-frame traversal of the retained Stage 2 rock collection:
+  base expiry, expired-session Chaos flag clearing, active Chaos pull / remove,
+  ordinary visual timers, quake drop / offset, survivor replacement, and final
+  fragment advancement. Absorbed destruction preserves fragment / leaf /
+  golden-starpoint / break-audio feedback before publishing the absorbed result
+  and removing the rock. It delegates lifecycle, Chaos math / payload, feedback,
+  and starpoint construction to their existing owners and is registered in
+  `gameplay_stage_module_catalog.gd`. The pillar background keeps frame position,
+  renderer fanout, and thin compatibility methods without a second loop.
+- `scripts/stages/stage2/stage2_starpoint_runtime_state.gd`
+  Retains the mutable Stage 2 starpoint drop and particle collections and owns
+  atomic clear / prior-state reporting, append operations, drop counts, and
+  deep drop snapshots. `stage2_pillar_background.gd` exposes compatibility
+  properties while starpoint orchestration lives in the focused coordinator.
+  This owner is registered in
+  `gameplay_stage_module_catalog.gd`.
+- `scripts/stages/stage2/stage2_starpoint_coordinator.gd`
+  Borrows the shared Stage 2 RNG and owns primary drop -> particles -> Star
+  Detector bonus payload order, playfield-clamped bonus positions, drop motion,
+  Dowsing attraction, Starlight Tracking delivery, circle overlap, modal-safe
+  in-place compaction, reward -> particles -> audio -> redraw feedback order,
+  particle motion, and stage-exit state-clear -> detached-host-hide order. It
+  consumes the common starpoint helpers and retained runtime state without
+  duplicating arrays or consuming RNG during configuration. The pillar
+  background retains rendering, update position, and public compatibility
+  facades. This owner is registered in `gameplay_stage_module_catalog.gd`.
 - `scripts/stages/stage2/stage2_pistol_rock_bounce_state.gd`
   Owns pure Stage 2 pistol-vs-rock ricochet policy: the two-bounce limit,
   contacted-side resolution for rect and swept-segment hits, reflected
   projectile position / velocity damping, speed refresh, and hit-side
-  stamping. `stage2_pillar_background.gd` still owns rock iteration,
-  landed-rock filtering, collision probing, ricochet flash / audio side
-  effects, and the public Stage 2 bounce result payload.
+  stamping. `stage2_rock_interaction_coordinator.gd` owns rock iteration,
+  landed filtering, collision probing, bounce-limit routing, and the public
+  result payload; the pillar facade exposes the compatibility method and the
+  rock-feedback coordinator owns ricochet flash / audio.
+- `scripts/stages/stage2/stage2_rock_interaction_coordinator.gd`
+  Owns Stage 2 ball / blade / explosion / pistol contact orchestration: stage
+  and landed-rock gates, swept-segment and overlap checks, ball reflection plus
+  scene-write-before-feedback order, reverse removal-safe area traversal,
+  forced one-hit break preparation, explosion visual-radius fallback, and
+  pistol ricochet / consume payloads. It calls unbound response callbacks and
+  owns no HP decrement, reward, RNG, particles, shake, or audio. The pillar
+  background retains the public methods; feedback remains in
+  `stage2_rock_feedback_coordinator.gd`. This owner is registered in
+  `gameplay_stage_module_catalog.gd`.
+- `scripts/stages/stage2/stage2_rock_feedback_coordinator.gd`
+  Owns Stage 2 normal rock-hit and ricochet feedback orchestration: HP
+  decrement, full-hit / minimum-ricochet flash, hit shake, survivor replace
+  versus destroyed removal, hit / break cue selection, golden-reward callback
+  timing, and bounded leaf / fragment burst recipes. It also owns the shared
+  Chaos-absorb destruction-feedback order. The rock-interaction coordinator
+  owns contact traversal and calls this response through the pillar's public
+  facade; the pillar keeps starpoint callback creation, retained-state access,
+  and renderer fanout. The water-cannon impact coordinator consumes its shared
+  fragment / leaf / golden-reward helpers.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_factory.gd`
   Owns Stage 2 normal rock-fragment payload construction after quake /
   crisis rocks break: fragment count, radial velocity, source sprite index,
   fallback color, size, rotation, spin, gravity, life, and bounce fields.
-  `stage2_pillar_background.gd` still owns rock HP / collision, break
-  routing, golden-rock rewards, list pruning, and draw fanout.
+  `stage2_rock_feedback_coordinator.gd` owns normal payload requests and break
+  routing; the retained fragment state owns payload-list append / cap, while
+  the interaction coordinator owns contact detection and the pillar background
+  keeps public response routing and draw fanout.
 - `scripts/stages/stage2/stage2_rock_fragment_payload_config_builder.gd`
   Owns the read-only Stage 2 normal rock-fragment factory config payload,
-  currently the fragment lifetime override. The background module still
-  owns the lifetime constant, rock break routing, and fragment list pruning.
+  currently the fragment lifetime override. The rock-feedback coordinator
+  consumes the config and owns normal break routing; the retained fragment
+  state owns list pruning.
 - `scripts/stages/stage2/stage2_rock_fragment_motion_state.gd`
-  Owns Stage 2 rock-fragment per-frame mutation: lifetime decay, gravity,
-  floor bounce / horizontal damping, position, rotation, and survivor
-  compaction. The background module still owns fragment spawning, list caps,
-  renderer fanout, and rock break / reward side effects.
+  Retains the mutable Stage 2 rock-fragment collection and owns reset,
+  newest-window payload append / cap, lifetime decay, gravity, floor bounce /
+  horizontal damping, position, rotation, and survivor compaction. The
+  rock-frame coordinator owns per-frame advancement. The background module
+  still owns renderer fanout and collision / reward entry points behind a
+  compatibility property; shared payload requests and break feedback live in
+  the rock-feedback coordinator.
 - `scripts/stages/stage2/stage2_chaos_rock_absorb_state.gd`
-  Owns Stage 2 Chaos Spear rock-pull motion math: destroy-threshold checks,
-  angular velocity, radial pull speed, next-center calculation, rotation /
-  phase mutation, and destroyed/moved result payloads. The background module
-  still owns landed-rock selection, center writes through `stage2_rock_query`,
-  fragment / leaf / starpoint side effects, break audio, and absorbed-entry
-  emission. Absorbed splash / rock entry payload construction is delegated to
-  `stage2_chaos_absorb_payload_factory.gd`.
+  Retains the Stage 2 Chaos Spear rock-absorb session center, refresh timer,
+  and pending destroyed-rock result queue. It owns reset / timer advance,
+  refresh-time deep-copy single drain, destroyed-result queueing, and rock-pull
+  motion math: destroy-threshold checks, angular velocity, radial pull speed,
+  next-center calculation, rotation / phase mutation, and destroyed/moved
+  result payloads. The background module exposes compatibility properties;
+  orchestration is owned by the Chaos absorb coordinator.
+- `scripts/stages/stage2/stage2_chaos_rock_absorb_coordinator.gd`
+  Owns Stage 2 Chaos Spear session advancement, refresh-time landed-rock
+  activation and parity-stable spin direction, center normalization through
+  `stage2_rock_query.gd`, water-target-flash clearing, immediate splash
+  compaction / absorption, whole-frame plus remainder pull stepping, and
+  absorbed splash / rock payload publication. It reports rock destruction
+  before queueing it so the rock-frame coordinator can preserve fragment / leaf
+  / golden-reward callback / break-audio feedback before publishing the
+  absorbed result. Payload construction remains delegated to
+  `stage2_chaos_absorb_payload_factory.gd`; retained values and pure pull math
+  remain in `stage2_chaos_rock_absorb_state.gd`. This owner is registered in
+  `gameplay_stage_module_catalog.gd`.
 - `scripts/stages/stage2/stage2_chaos_absorb_payload_factory.gd`
   Owns pure Stage 2 Chaos Spear absorbed-entry payload construction for water
   splash absorption and destroyed-rock absorption pulses.
@@ -4180,14 +4757,20 @@ This section is intentionally long; use search to find the nearest owner.
   5-10 seconds, repeat spawns after 15-30 seconds, left/right outer-tree
   monkey climb / sit / throw / leave state, 1.5-3.0 second throw wait,
   player 40% vs boss 60% banana targeting, 1-second arced banana flight,
-  2-second landed peel window, burst particles, banana throw / slip audio,
+  2-second landed peel window, burst-particle simulation, banana throw / slip audio,
   player slip / dash-wall-slip movement, and boss-control-loss slip context
-  consumed by `boss_ai_state.gd`. Monkeys draw in the Stage 2 pillar pass;
-  flying and landed bananas draw in the transformed playfield pass. The
-  climb path follows the same imagegen-tree alpha-median trunk sampling
-  used by the Python reference, mapped through the live Stage 2 tree rect.
+  consumed by `boss_ai_state.gd`. It maps renderer-owned alpha-median source
+  points through the live Stage 2 tree rect and lends its monkey/banana arrays
+  to the pillar/playfield renderer facades without copying.
   Monkey / banana initial payloads and banana burst-particle payloads are
   delegated to `stage2_monkey_banana_payload_factory.gd`.
+- `scripts/stages/stage2/stage2_monkey_banana_renderer.gd`
+  Owns staged climb/throw/banana/tree-resource prewarm, cached texture-image
+  decompression and left/right alpha-median trunk scans, deterministic sheet-
+  frame and transform-safe UV-flip projection, letterbox-aware banana culling,
+  procedural fallbacks, landed shadow/body layering, and burst presentation.
+  It owns no event timing, target/collision/slip behavior, audio, simulation,
+  payload creation, RNG, or retained monkey/banana arrays.
 - `scripts/stages/stage2/stage2_boss_skill_state.gd`
   Owns the first Stage 2 악어장군 boss-pattern scheduler: initial/repeat
   jungle-quake cooldown gating, boss-paddle-hit gauge gain / 500-point
@@ -4205,23 +4788,35 @@ This section is intentionally long; use search to find the nearest owner.
   audio triggers, and actor-draw trail context.
 - `scripts/stages/stage2/stage2_boss_ai_context_builder.gd`
   Owns the read-only base Stage 2 boss-AI context payload for movement-lock
-  and water-cannon phase fields. The background module still owns the
-  movement-lock predicate and water-cannon phase lifecycle; the boss skill
-  state may add skill-specific AI fields on top of this base context.
+  and water-cannon phase fields. The background still owns the movement-lock
+  predicate while the retained water-cannon runtime state owns phase
+  lifecycle; the boss skill state may add skill-specific AI fields on top of
+  this base context.
 - `scripts/stages/stage2/stage2_boss_rage_snapshot_builder.gd`
   Owns the read-only Stage 2 boss-rage snapshot payload: pending / active
   flags, timer, stomp count, final-stomp flag, actor Y offset, and tint.
-  The background module still owns rage lifecycle updates, stomp emission,
-  crisis reservation, and renderer handoff.
+  It projects values borrowed from the retained rage-state owner; the
+  background publishes the snapshot without duplicating its mutable storage.
 - `scripts/stages/stage2/stage2_boss_rage_state.gd`
-  Owns stateless Stage 2 boss-rage predicates and visual timing math:
-  crisis trigger gating, crisis reservation payloads, AI-mode
-  normalization, crisis rock-count policy, inactive tint / offset decay,
-  active rage tint / offset calculation, buildup stomp-step windows /
-  offsets, final-stomp threshold checks, and finish checks.
-  `stage2_pillar_background.gd` keeps the mutable pending / active flags,
-  timers, stomp / quake / rock-wall side effects, audio / feedback
-  emission, and snapshot publication.
+  Retained mutable owner for the Stage 2 boss-rage lifecycle: one-shot crisis
+  reservation, pending-to-active transition, AI mode, timer, stomp count,
+  final-stomp latch, actor offset / tint progression, completion, and reset.
+  It also retains the pure crisis, rock-count, visual-envelope, stomp-window,
+  and finish helpers for focused tests and compatibility.
+  `stage2_boss_rage_coordinator.gd` consumes its events; the pillar background
+  keeps frame-loop position, renderer, snapshot publication, and legacy field
+  accessors without storing a second copy.
+- `scripts/stages/stage2/stage2_boss_rage_coordinator.gd`
+  Owns Stage 2 rage orchestration around the retained state: one-shot crisis
+  reservation facade, pending start, serve-wait audio fallback retention,
+  start warning before shake, per-step cry before shake, mythic / champion wall
+  count projection, and final quake activation -> crisis wall -> warning ->
+  quake audio -> cry -> shake ordering. It also owns quake-loop play / stop /
+  sync through the cached fallback. Crisis rock construction remains delegated
+  to `stage2_rock_lifecycle_coordinator.gd`; the pillar background retains
+  frame-loop position, rendering, public compatibility facades, and snapshots.
+  This owner and the retained rage state are registered in
+  `gameplay_stage_module_catalog.gd`.
 - `scripts/stages/stage2/stage2_boss_expression_state.gd`
   Owns the short-lived Stage 2 boss score-expression state: accepted
   expression IDs, neutral fallback, timer decay, reset, and actor /
@@ -4294,7 +4889,19 @@ This section is intentionally long; use search to find the nearest owner.
   `ui/stage3_menhera_world.py`: emotional checkerboard field, dashed center
   court ring, electric pulse, petrified Kuromi mascot, floating heart
   particles, heart/star border, Python-coordinate Kuromi face / normal-tail
-  geometry, and the score-2 Kuromi awakening cracks / stone-fragment burst.
+  geometry, and the score-3 Kuromi awakening cracks / stone-fragment burst. It
+  remains the CanvasItem draw-order, render-quality, performance-label, and
+  compatibility facade while delegating mutable presentation state and cache
+  construction to the focused Stage 3 helpers below.
+- `scripts/stages/stage3/stage3_playfield_presentation_state.gd`
+  Owns the Stage 3 playfield animation clock, emotional phase sync, bounded
+  floating-heart simulation, and stadium electric-spark burst scheduling.
+- `scripts/stages/stage3/stage3_ellipse_geometry_cache.gd`
+  Owns bounded unit, transformed, and closed-outline ellipse point caches used
+  by the playfield renderer without per-frame array duplication.
+- `scripts/stages/stage3/stage3_playfield_texture_cache.gd`
+  Owns Stage 3 checker/border texture construction and caches, image raster
+  primitives, emotional phase color projection, and cache limits.
 - `scripts/stages/stage3/stage3_menhera_boss_actor_renderer.gd`
   Owns the Godot Menhera Girl boss sprite port from
   `entities/menhera_boss_sprite.py`: six 4x2 source sheets, alpha-bbox
@@ -4302,22 +4909,173 @@ This section is intentionally long; use search to find the nearest owner.
   attack/dash/turn/victory/defeat priority, dash flip, turn hold/hop,
   boss-gauge red tint, ready aura, and psycho-ball afterimage trails.
 - `scripts/stages/stage3/stage3_boss_skill_state.gd`
-  Owns the Stage 3 Menhera boss skill runtime port: cooldown-only automatic
-  scheduling for 70-second psycho ball, 25-second falling tears, and
-  35-second curse chest, with the old boss-hit gauge gain disabled. It also
-  owns psycho ball looping audio and ball curve/teleport handoff, falling
-  tears with shared player slow status application, curse chest
-  windup/throw/smoke/reverse/explosion lifecycle with
-  capped dash-open smoke particles and the two-second curse control-reversal
-  timer, Kuromi score-2 awakening trigger with the
-  three-second pause, screen shake, one-shot audio, tail timing, and actor/HUD
-  draw context. Falling-tear, curse-smoke / explosion, psycho-ball
-  neutralize, Kuromi mouth, Kuromi spit-trail, tail-hit burst, and prism-particle payload
-  construction is delegated to `stage3_boss_skill_payload_factory.gd`.
-  The Kuromi burst sound uses the
-  original optional `sounds/stonebreak_large.wav` path and stays silent
-  when that missing Python-reference asset is absent. It is reset from
-  round, match, and stage-debug cleanup paths.
+  Owns the public Stage 3 Menhera boss-skill runtime facade, with the old
+  boss-hit gauge gain disabled. It retains public boss-hit/gauge fields,
+  owner construction/shared-RNG order, reset and event facade methods, and
+  public actor/snapshot/HUD signatures. Per-frame ordering delegates to
+  `stage3_boss_skill_update_coordinator.gd`; actor and diagnostic projection
+  delegates to `stage3_boss_skill_context_builder.gd`; shared cooldown/
+  activation/status policy delegates to `stage3_boss_skill_scheduler.gd`; HUD
+  payload projection delegates to `stage3_boss_skill_hud_state_builder.gd`;
+  ordered full/round reset policy delegates to
+  `stage3_boss_skill_lifecycle.gd` while the update coordinator orders
+  stage-leave detached-host cleanup around the public reset facade. Its 67
+  inherited legacy property proxies delegate to
+  `stage3_boss_skill_compatibility_surface.gd`; the host retains exact focused
+  owner construction and shared-RNG order. Tail and Kuromi synchronous
+  producer-consumer fanout delegates to
+  `stage3_boss_skill_handoff_coordinator.gd`; the update coordinator retains
+  their exact frame positions. Its only runtime-owned constants are `STAGE_ID`,
+  `BOSS_GAUGE_MAX`, and `BOSS_GAUGE_GAIN_ON_HIT`; skill-specific timing,
+  geometry, collision, and particle budgets remain with their focused state
+  owners and are consumed directly without host re-export aliases.
+  Kuromi score-3 awakening eligibility/timer/feedback/audio/flags/projection and
+  fracture-helper driving are delegated to `stage3_kuromi_awakening_state.gd`;
+  the host retains thin compatibility properties and public query/force wrappers.
+  Tear Shower cooldown/activation/motion/collision/slow/audio/projection is
+  delegated to `stage3_tear_shower_state.gd`; the host retains thin public
+  compatibility accessors while the scheduler retains Tears-before-Curse
+  activation priority.
+  Curse Chest cooldown/phase/smoke/reverse/explosion/audio/projection, including
+  timeout falloff knockback and shared hostile-knockback immunity gates, is
+  delegated to `stage3_curse_chest_state.gd`; the host retains thin public
+  compatibility accessors, the update coordinator retains its frame position,
+  and the scheduler retains its established activation position.
+  Tail Whip targeting/cooldown/curve/collision/burst/projection is delegated to
+  `stage3_tail_whip_state.gd`; the update coordinator immediately forwards its
+  hit event for shared prism, impact, starpoint, and audio side effects. Psychoball
+  cooldown/activation/hitstop/motion/smoke/audio/
+  projection is delegated to `stage3_psychoball_state.gd`. Kuromi ball-eating
+  state/phase/audio/external-ownership/projection is delegated to
+  `stage3_kuromi_eating_state.gd`; the update coordinator retains its exact
+  cross-skill update position and consumes the post-spit prism request using the
+  shared Prism owner/RNG. Menhera-tail starpoint spawning/updating/collection is delegated
+  to `stage3_starpoint_state.gd` without changing tail-hit or shared-RNG call
+  order. Prism array/spawn/motion/cap/projection and payload dispatch are
+  delegated to `stage3_prism_burst_state.gd`; the host retains strong/normal
+  public compatibility surface while the update coordinator retains handoff
+  positions around Tail hit and Kuromi release. The Tear Shower, Curse Chest,
+  Psychoball, Kuromi eating, and Tail Whip owners delegate their focused
+  payloads to `stage3_boss_skill_payload_factory.gd` as well.
+  It is reset from round, match, and stage-debug cleanup paths.
+- `scripts/stages/stage3/stage3_boss_skill_compatibility_surface.gd`
+  Owns the inherited static compatibility properties for seven focused Stage 3
+  owners. All 67 getters/setters route directly to the exact owner instances,
+  preserving property names/types, reflection visibility, and RefCounted
+  identity without mirrored state or dynamic lookup. It owns no construction,
+  RNG, update/reset policy, payload, audio, or drawing.
+- `scripts/stages/stage3/stage3_boss_skill_handoff_coordinator.gd`
+  Owns draw-free synchronous cross-owner fanout. Tail hit events dispatch
+  strong Prism -> unit impact -> Starpoint -> audio in exact shared-RNG order;
+  Kuromi's one-shot request dispatches one normal Prism. Missing optional sinks
+  and invalid-position fallback retain legacy behavior. It owns no clocks,
+  producer state, result mutation, activation, reset, or drawing.
+- `scripts/stages/stage3/stage3_boss_skill_update_coordinator.gd`
+  Owns the complete draw-free Stage 3 boss-skill frame order: off-stage reset
+  and detached Starpoint-host cleanup, 0.05-second delta clamp, awakening/Tail-
+  burst/Starpoint early ticks, Psychoball hitstop short circuit, scheduler call
+  positions, Tear/Curse/Kuromi/Tail/Psychoball/Prism advancement, handoff
+  positions, boss-red decay, audio sync, and status publication. It stores the
+  injected stage id and focused-owner/coordinator references but never retains
+  the host, owns focused state/RNG/payloads, or renders.
+- `scripts/stages/stage3/stage3_boss_skill_lifecycle.gd`
+  Owns draw-free Stage 3 reset coordination across eight focused owners. Full
+  reset restores initial Psychoball/Tear/Curse cooldowns, charging status,
+  fixed Tail initial cooldown, and petrified Kuromi. Round reset preserves
+  those three live cooldowns, status, and awakening state while clearing live
+  effects, then rerolls Tail after cleanup to preserve shared-RNG order. It
+  owns no per-frame state, RNG, audio, payload, or detached visual-host nodes.
+- `scripts/stages/stage3/stage3_boss_skill_scheduler.gd`
+  Owns draw-free Stage 3 cross-skill policy: canonical/legacy active-item pause
+  key precedence, exact Psychoball/Tears/Curse/Tail/eating cooldown fanout,
+  awakened/not-overdrive Tail gating, serve/ball/awakening/overdrive activation
+  guards, one-writer Tears-before-Curse-before-Tail activation priority, and
+  active-skill/public pause status priority. It owns no RNG, mutable skill
+  clock, reset state, payload, audio, or drawing; the facade calls it at the
+  established frame positions.
+- `scripts/stages/stage3/stage3_curse_chest_state.gd`
+  Owns Menhera Curse Chest's focused mutable lifecycle: 35-second cooldown,
+  windup/parabolic throw/landing, closed-chest lifetime and nudge/wobble,
+  dash-open smoke, two-second control reversal, timeout explosion with
+  120-pixel falloff knockback and shared Cleanse/Celestial Armor gates, one-shot
+  audio, effect/full reset policy, and borrowed-or-copied actor projection. It
+  borrows the shared Stage 3 RNG without construction-time consumption and
+  owns focused smoke/explosion payload dispatch through
+  `stage3_boss_skill_payload_factory.gd`. The facade keeps public compatibility
+  properties and the reverse query consumed by the input proxy; the focused
+  scheduler keeps cross-skill activation policy.
+- `scripts/stages/stage3/stage3_tear_shower_state.gd`
+  Owns Menhera Tear Shower's focused mutable lifecycle: 25-second cooldown,
+  automatic normal/enraged spawn, 400-frame duration, falling and recycle
+  motion, reverse-order player collision, source-scoped stacking slow and
+  Cleanse immunity, per-hit audio, effect/full reset policy, and borrowed-or-
+  copied actor projection. It borrows the shared Stage 3 RNG without
+  construction-time consumption and delegates falling-tear payload creation to
+  `stage3_boss_skill_payload_factory.gd`. The facade retains compatibility
+  properties and update position; the focused scheduler owns activation
+  priority.
+- `scripts/stages/stage3/stage3_kuromi_awakening_state.gd`
+  Owns Kuromi's score-3 statue-awakening lifecycle: eligibility/start, the
+  three-second timer and progress, progressive and burst screen shake, one-shot
+  awake/stonebreak audio, petrified/awakening/awakened flags, forced-awake
+  transition, round/full reset policy, and borrowed-or-copied actor projection.
+  It borrows the shared Stage 3 RNG without construction-time consumption and
+  owns the fracture helper before Starpoint owner construction. The optional
+  `sounds/stonebreak_large.wav` cue remains silent when the Python-reference
+  asset is absent.
+- `scripts/stages/stage3/stage3_kuromi_fracture_particles.gd`
+  Focused bounded fracture subsystem owned by the awakening state. It owns
+  pending large/small spawn budgets, fragment RNG payloads, per-frame motion and
+  decay, z-order sorting, the 96-particle cap, and separate pending-only versus
+  full-clear semantics. It borrows the awakening owner's shared Stage 3 RNG.
+- `scripts/stages/stage3/stage3_prism_burst_state.gd`
+  Owns the shared normal/strong Prism burst lifecycle: fixed 18-particle normal
+  spawn, 18-22 count-roll strong spawn, focused factory payload dispatch,
+  frame-rate-scaled motion/gravity/damping/sparkle/life, in-place compaction,
+  60-particle newest-window cap, reset, and borrowed-or-deep-copied actor
+  projection. It borrows the shared Stage 3 RNG without construction-time
+  consumption. The facade retains only compatibility storage and immediate
+  Tail/Kuromi handoff ordering.
+- `scripts/stages/stage3/stage3_kuromi_eating_state.gd`
+  Owns Kuromi's focused ball-eating runtime: overlap/chance entry, current
+  ball-owner deferral, tongue/swallow/chew/direction/spit phases, ball hide and
+  release result writes, 0.3-second spit-audio lead, one-shot tongue/swallow/
+  spit cues, Chaos Spear ownership release, cooldown/reset, mouth particles,
+  spit-trail lifecycle, and borrowed-or-copied actor projection. It borrows the
+  Stage 3 RNG without consuming it during construction and preserves release
+  order through spit speed then 25 mouth particles. The host consumes its
+  one-shot center-Prism request immediately afterward through the focused Prism
+  owner, retaining shared-RNG and cross-skill order.
+- `scripts/stages/stage3/stage3_psychoball_state.gd`
+  Owns Psychoball's focused mutable lifecycle: 70-second cooldown and boss-hit
+  gate, normal/enraged duration, hitstop, shared-RNG curve/rare teleport,
+  tear-gas smoke-zone lookup and neutralization, afterimage trails, capped
+  neutralize particles, loop-audio start/stop/sync, shake feedback, effect/full
+  reset policy, and borrowed-or-copied actor projection. It borrows the Stage 3
+  RNG without construction-time consumption. The facade retains boss-gauge
+  reset-before-feedback ordering, compatibility accessors, early-hitstop
+  return, and cross-skill order.
+- `scripts/stages/stage3/stage3_tail_whip_state.gd`
+  Owns Kuromi Tail Whip's mutable lifecycle: target tracking, cooldown/attack/
+  curve clocks, redirected ball result and speed cap, one-hit collision gate,
+  capped burst payloads, reset policy, and borrowed-or-copied actor projection.
+  It borrows the Stage 3 RNG without construction-time consumption and returns
+  a synchronous hit event after consuming the burst seed. The facade then owns
+  strong prism -> impact -> starpoint -> audio dispatch in the established
+  shared-RNG/frame order.
+- `scripts/stages/stage3/stage3_tail_whip_geometry.gd`
+  Pure draw-free owner for the live Tail Whip 24-point curve and bounded middle-
+  segment collision query. The state injects the animation clock; both live
+  runtime and focused geometry tests call this same implementation.
+- `scripts/stages/stage3/stage3_starpoint_state.gd`
+  Owns the Stage 3 Menhera-tail starpoint lifecycle behind the boss-skill host:
+  borrowed shared-RNG payload and pickup-particle generation, Star Detector
+  bonus recursion and caps, falling motion, Dowsing attraction, Lingpet
+  Starlight Tracking, player overlap, reward/audio/redraw dispatch, modal-safe
+  compaction, visual-host cleanup, and borrowed-or-copied actor draw snapshots.
+  Construction consumes no RNG; the host retains tail-hit sequencing, stage
+  lifecycle, and public snapshot/context facades while the context builder owns
+  read-only merge composition.
 - `scripts/stages/stage3/stage3_menhera_skill_effect_renderer.gd`
   Owns the Godot-native Stage 3 skill VFX layer for the Menhera runtime:
   psycho-field overlay, tear drops, curse chest/smoke/explosion, reverse
@@ -4329,9 +5087,23 @@ This section is intentionally long; use search to find the nearest owner.
   left/right input and flips horizontal direction metadata before character
   movement, full dash, half dash, and direction-reading skill runtimes
   consume the input snapshot.
+- `scripts/stages/stage3/stage3_boss_skill_context_builder.gd`
+  Owns read-only Stage 3 actor/snapshot composition: base gauge/ready/red keys,
+  exact eight-owner merge precedence, borrowed/deep-copy flag forwarding, and
+  the established diagnostic status/gauge/ready/cooldown fields. It captures
+  owner references once after Starpoint construction, allocates no owner list in
+  the draw path, and owns no RNG, mutable runtime, reset, audio, or drawing.
+- `scripts/stages/stage3/stage3_boss_skill_hud_state_builder.gd`
+  Owns pure Stage 3 boss-skill HUD projection: exact top-level payload keys,
+  Korean boss identity, disabled legacy gauge flag, gauge progress, fixed
+  Tears/Curse/Psychoball card order, labels/colors, cooldown status/progress,
+  trigger metadata, and fresh per-read dictionaries/arrays. It reads the three
+  focused state owners without mutating them and owns no clocks, RNG, reset,
+  texture, sorting, tooltip, or CanvasItem behavior.
 - `scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd`
-  Owns the Stage 3 boss skill-card HUD slice. It exposes Menhera's tears,
-  curse chest, and psycho ball as compact cooldown cards. Kuromi is not a
+  Owns Stage 3 boss skill-card layout, next-activation sorting, atlas/fallback
+  gauge drawing, tooltip rendering, and texture caching. It draws Menhera's
+  tears, curse chest, and psycho ball as compact cooldown cards. Kuromi is not a
   Menhera Girl skill card; the separate Kuromi event/tail runtime stays out
   of this HUD. The old top-right wand gauge is suppressed for Stage 3's
   cooldown-only skill model. The HUD loads the generated
@@ -4434,21 +5206,139 @@ This section is intentionally long; use search to find the nearest owner.
   renderer keeps texture caching, prewarm sequencing, card layout, and draw
   composition.
 - `scripts/stages/stage4/stage4_ponk_skill_state.gd`
-  Owns the first Stage 4 Ponk skill runtime slice: boss-hit gauge fill,
-  meditation trigger / orbit / release, refraction magnetic-field loop,
-  magnetic ball curvature, projectile launch / player slow collision, live
-  gauge HUD context, boss skill-card metadata, actor VFX draw context, and
-  the magnetic-field sheet under `godot/assets/sprites/stage4/`. It keeps
-  magnetic and meditation gameplay timing here while delegating the
+  Owns the public Stage 4 Ponk compatibility facade, live gauge HUD context,
+  boss skill-card metadata, actor VFX draw context, and
+  the magnetic-field sheet under `godot/assets/sprites/stage4/`. It delegates
+  node-free magnetic-field state/curvature/release math to
+  `stage4_ponk_magnetic_field_state.gd` and delegates the
   node-backed visual remasters to `stage4_ponk_magnetic_fx_host.gd`,
   `stage4_ponk_meditation_fx_host.gd`, and
-  `stage4_ponk_illusion_ripple_fx_host.gd`. It also owns the
-  `illusion_awaken_stage` 0-4 state machine, first-cast 180-frame delay,
-  one-shot awaken burst timer / played flag, permanent unlock,
-  70-second auto-loop cooldown, and round / result cleanup
-  policy for 몽환포영. Meditation trail, particle, and circle payload construction is delegated to
-  `stage4_ponk_skill_payload_factory.gd`. Loop sound cleanup stays
-  registered through `gameplay_loop_audio_cleanup.gd`.
+  `stage4_ponk_illusion_ripple_fx_host.gd`. The illusion-ripple mutable
+  lifecycle and actor/debug projection are delegated to
+  `stage4_ponk_illusion_state.gd`; cross-skill runtime/reset order is delegated
+  to `stage4_ponk_runtime_coordinator.gd`. The host preserves public
+  compatibility properties/methods and thin presentation/diagnostic delegates.
+  Static asset prewarm, fallback gating, cross-effect draw order, and asset/host
+  status are delegated to `stage4_ponk_presentation_coordinator.gd`. Host-facing
+  Dictionary projection is delegated to `stage4_ponk_fx_context_builder.gd`; retained
+  sheet caching and procedural fallback recipes are delegated to
+  `stage4_ponk_fallback_fx_renderer.gd`; detached FX-host reference/prewarm/
+  attach/sync/cleanup lifecycle is delegated to `stage4_ponk_fx_host_coordinator.gd`. The
+  post-field projectile's mutable motion/collision/fade state and projection
+  are delegated to `stage4_ponk_magnetic_projectile_state.gd`; cross-owner ball
+  handoff and projectile-contact policy are delegated to
+  `stage4_ponk_ball_interaction_coordinator.gd`. The runtime coordinator keeps
+  same-tick field-to-projectile spawn/update order and FX reset sync.
+  Meditation orbit/transient/release state is delegated to
+  `stage4_ponk_meditation_state.gd`; the runtime coordinator keeps activation/
+  release audio order, cross-skill updates, and reset FX lifecycle. Loop sound cleanup stays
+  registered through `gameplay_loop_audio_cleanup.gd`. Three-card order,
+  Korean display copy, trigger/status/progress projection, and fresh card
+  snapshots are delegated to `stage4_ponk_skill_card_state_builder.gd`; the
+  host retains the public HUD facade and live-owner assembly.
+- `scripts/stages/stage4/stage4_ponk_ball_interaction_coordinator.gd`
+  Owns stateless cross-owner gameplay sequencing for the public Stage 4 Ponk
+  ball paths: active meditation control, meditation release, magnetic release,
+  active curvature and speed capping, plus magnetic-projectile player contact.
+  It also owns boss/player geometry normalization, base-speed dependency
+  precedence, shared freeze gates, cleanse immunity, exact slow-status/scene
+  annotations, hit counters, and collision-time loop-audio cleanup. It owns no
+  RNG, mutable skill clocks, frame advancement, field/projectile activation,
+  nodes, assets, or drawing; `stage4_ponk_skill_state.gd` retains thin public
+  ball facades while the runtime coordinator owns update/activation orchestration.
+- `scripts/stages/stage4/stage4_ponk_runtime_coordinator.gd`
+  Owns stateful Ponk cross-owner runtime flow: shared gauge/ready/effect-clock
+  scalars, score and boss-hit activation, forced activation, cooldown/pause/
+  freeze policy, magnetic-field -> same-tick projectile -> meditation ->
+  illusion order, audio dispatch, and full/round/stage reset sequencing. It
+  directly requests all detached-host stops on lifecycle boundaries, including
+  meditation on stage leave, while preserving the mixed pending-release,
+  cooldown, gauge/clock, and illusion-unlock carry contracts. It holds focused
+  owner references but owns no Nodes, RNG, drawing, payload arrays, or focused
+  state clocks; the skill facade exposes thin methods and coordinator-backed
+  scalar properties.
+- `scripts/stages/stage4/stage4_ponk_presentation_coordinator.gd`
+  Owns Ponk's presentation-only orchestration: fixed five-step static asset
+  prewarm, draw-clock synchronization, pipeline/host status aggregation, exact
+  magnetic-field/projectile/meditation/awaken-aura/illusion draw fanout,
+  modular-host active gates, and deferred-host creation-frame fallback. It
+  borrows the live runtime clock, four focused state owners, context builder,
+  replaceable fallback renderer, and the same FX-host coordinator used by
+  runtime cleanup. It owns no gameplay update/reset policy, RNG, audio, mutable
+  skill payloads, or Nodes; the skill facade preserves public methods and
+  private diagnostic seams as thin delegates.
+- `scripts/stages/stage4/stage4_ponk_fx_host_coordinator.gd`
+  Owns Ponk's four detached FX-host references and lifecycle: magnetic,
+  meditation, illusion-ripple, and awaken-aura existing-child adoption,
+  duplicate-safe deferred attachment, fixed four-step runtime-node prewarm,
+  capability/runtime-asset gates, active sync, awaken-aura global cleanup
+  registration, and immediate deactivation on round/stage/full reset. It keeps
+  newly created hosts unattached for the creation frame so the presentation
+  coordinator can retain its procedural fallback, and it owns no gameplay clocks, RNG, static
+  asset-prewarm order, FX-context projection, reset ordering, or draw order.
+- `scripts/stages/stage4/stage4_ponk_fx_context_builder.gd`
+  Owns pure host-facing payload projection for magnetic field/projectile,
+  meditation/release, illusion ripple, and awaken aura: exact Dictionary keys,
+  state/default vs live-context precedence, progress/time/radius clamps,
+  Vector2/Vector2i normalization, render-scale and view-size fallback, magnetic
+  sheet-frame selection, meditation release trail/ball switching, and aura
+  center/intensity. Top-level payloads are fresh while existing meditation
+  trail arrays remain borrowed to avoid per-draw copies. It owns no nodes, RNG,
+  audio, gameplay clocks, host lifecycle, static asset prewarm, or draw order.
+- `scripts/stages/stage4/stage4_ponk_fallback_fx_renderer.gd`
+  Owns the retained magnetic-field sheet cache/status and draw-only fallback
+  recipes for magnetic field, magnetic projectile/fade, and meditation. It
+  preserves circle/sheet/ring/core layer order, atlas-region slicing, shared
+  frame/phase timing, shake, projectile fade alpha, meditation payload
+  filtering, radius floors, and borrowed owner arrays. It owns no gameplay
+  mutation, RNG, audio, modular-host lifecycle, or cross-effect fallback
+  decisions; `stage4_ponk_presentation_coordinator.gd` keeps host-handled gating
+  and order.
+- `scripts/stages/stage4/stage4_ponk_illusion_state.gd`
+  Owns Ponk illusion-ripple mutable state and pure projection: permanent
+  four-point unlock, awaken stages 0-4, serve-wait transitions, the 180-frame
+  first-cast countdown, one-shot 90-frame awaken burst, 240-frame active
+  duration, 70-second automatic cooldown loop, round/stage/full-reset policy,
+  enraged aura flag/intensity, and actor/debug snapshots. It owns no nodes,
+  textures, audio, or cross-skill ordering; `stage4_ponk_skill_state.gd` keeps
+  those responsibilities and exposes owner-backed compatibility properties.
+- `scripts/stages/stage4/stage4_ponk_magnetic_field_state.gd`
+  Owns Ponk's refraction magnetic-field mutable state and pure ball math:
+  cooldown/activation gates, normal/enraged radius and duration, live boss
+  center, curve-angle accumulation, rotated acceleration, per-frame speed
+  growth, 2.2x base-speed cap, one-shot release-speed floor, round/stage/full
+  reset policy, and actor/debug projection. It consumes no RNG and owns no
+  audio, scene annotations, projectile state, or nodes; the ball-interaction
+  coordinator retains base-speed lookup and release/curvature application order,
+  while the runtime coordinator retains gauge side effects, projectile spawn/
+  update order, and reset-time magnetic FX-host lifecycle.
+- `scripts/stages/stage4/stage4_ponk_magnetic_projectile_state.gd`
+  Owns Ponk's post-magnetic projectile mutable gameplay state and pure
+  projection: spawn/radius floor, normal/enraged horizontal homing, vertical
+  motion and contact slowdown, elapsed/velocity tracking, player-rect overlap,
+  floor exit, fade capture/decay, reset policy, and actor/debug snapshots. It
+  consumes no RNG and owns no status, audio, or nodes; the ball-interaction
+  coordinator retains immunity and shared slow-status application, scene
+  annotations, audio stop, and magnetic-field release order, while the runtime
+  coordinator retains projectile spawn/update and reset-time magnetic FX-host
+  lifecycle.
+- `scripts/stages/stage4/stage4_ponk_meditation_state.gd`
+  Owns Ponk meditation's mutable gameplay and pure projection: orbit position,
+  trail/particle/circle lifecycle, borrowed shared-RNG particle gate/payload and
+  release roll, cooldown, round/stage/full-reset policy, one-shot ball release,
+  detached release-FX snapshot/clock, and actor/debug context. Construction and
+  activation consume no RNG. The ball-interaction coordinator retains
+  base-ball-speed lookup and scene flags/spin/cap; the runtime coordinator
+  retains activation/release audio order, cross-skill frame order, and reset-
+  time meditation FX-host lifecycle.
+- `scripts/stages/stage4/stage4_ponk_skill_card_state_builder.gd`
+  Owns pure Ponk boss skill-card projection: fixed magnetic-field, meditation,
+  illusion-ripple order; Korean names/labels/descriptions; trigger metadata;
+  ready/casting/charging/locked rules; normal cooldown and first-awaken
+  countdown progress/seconds; and fresh card dictionaries. It reads the three
+  focused runtime state owners without mutating them and owns no renderer,
+  nodes, textures, audio, RNG, or gameplay clocks. `stage4_ponk_skill_state.gd`
+  keeps the public HUD facade and supplies the clamped meditation trigger chance.
 - `scripts/stages/stage4/stage4_ponk_magnetic_assets.gd`
   Owns shared Stage 4 Ponk magnetic-field asset metadata: the retained
   16-frame sheet path / grid / frame interval plus magnetic FX host texture
@@ -4458,8 +5348,8 @@ This section is intentionally long; use search to find the nearest owner.
   cache / prewarm sequencing.
 - `scripts/stages/stage4/stage4_ponk_skill_payload_factory.gd`
   Owns pure Stage 4 Ponk boss-skill payload construction for meditation
-  trail, particle, and circle VFX dictionaries; gameplay timing remains in
-  `stage4_ponk_skill_state.gd`.
+  trail, particle, and circle VFX dictionaries; their mutable lifecycle lives
+  in `stage4_ponk_meditation_state.gd`.
 - `scripts/stages/stage4/stage4_ponk_magnetic_fx_host.gd`
   Owns the Godot-native visual host for Ponk's refraction magnetic field:
   the Claude-provided charge glyph, shared `WritheEmberMaterial`
@@ -4502,10 +5392,10 @@ This section is intentionally long; use search to find the nearest owner.
   `hint_screen_texture` shader sampling, two-frequency sine-wave UV
   displacement, chromatic aberration, hue-wave color rotation, saturation
   breath, host-driven strength envelope, grace-timeout self cleanup, staged
-  asset prewarm through `stage4_ponk_skill_state.gd`, and the
+  asset prewarm through `stage4_ponk_presentation_coordinator.gd`, and the
   boot PSO draw pass in `battle_pso_prewarmer.gd`. Gameplay unlock,
-  `illusion_awaken_stage`, first-cast delay, duration, cooldown, and result / round cleanup ownership
-  remains in `stage4_ponk_skill_state.gd`.
+  `illusion_awaken_stage`, first-cast delay, duration, cooldown, and result /
+  round cleanup ownership remains in the focused state/runtime owners.
 - `scripts/stages/stage4/stage4_ponk_meditation_assets.gd`
   Owns shared Stage 4 Ponk meditation FX texture-path metadata for mandala,
   lotus, sutra, lock-burst, release-burst, and release-trail PNG slots.
@@ -4551,16 +5441,99 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage6/` — Stage 6 테트리서 / Tetriser cluster (port of Python
   Stage 7; Godot slot 6, see `docs/stage6_tetriser_port_plan.md`). Status:
   **complete through step 5c + boss sprite + static pillar background +
-  crystal-shield boss skill; loading/result art pending**. Owners (8 modules):
+  crystal-shield boss skill; loading/result art pending**. Owners (21 modules):
   - `stage6_tetriser_state.gd` — single owner of boss gauge (max 500, 25/sec
-    charge, round-persist via reset_round vs full reset), falling tetrominoes
-    (assembly→fall→drift/rotate→settle), guard blocks (slide→active), edge tetro
-    walls (per-cell), 초인테트리서 (gauge-drain transform, 2.0× body, super-flag
-    + 1.7× cell tetrominoes), 2D central cube (3×3 solve→explode→rebuild),
-    super laser melt + EMP, ball collision/reflection (`choose_reflection_axis`
-    port) + dash/smoke/explosion destruction, debris, per-frame sound flags,
-    Crystal Shield delegation, and the single `_clear_combat_state` cleanup core. Emits boss-AI / actor-draw
-    / `stage6_boss_skill_hud_*` HUD context.
+    charge, round-persist via reset_round vs full reset), per-frame owner order,
+    obstacle/starpoint/combat-feedback/player-explosion/event/context/HUD
+    delegation, falling/guard/wall/super/central-cube/Crystal Shield delegation,
+    and the single
+    `_clear_combat_state` cleanup core. Emits boss-AI / actor-draw /
+    `stage6_boss_skill_hud_*` HUD context.
+  - `stage6_tetriser_tetromino_state.gd` — single owner of the falling
+    tetromino shared-RNG cooldown and spawn rolls, canonical shape/color
+    catalogs, assembly→discrete fall→drift/rotate→settle→cell evaporation,
+    super-cell scaling and landing removal, installed-wall settling geometry,
+    solid-cell collision/attack queries, ordered clear visitation, and copied
+    draw/debug snapshots. It emits lifecycle callbacks synchronously so the
+    starpoint owner's shared-RNG payload, feedback-owner debris/EMP/sounds, and
+    player-explosion response retain their original frame and random-consumption
+    order. The host must not keep parallel tetromino arrays, spawn timers, or
+    motion functions.
+  - `stage6_tetriser_obstacle_interaction.gd` — single owner of the ordered
+    tetromino→guard→wall ball-collision policy, boss-serve penetration matrix,
+    power-smash pass-through destruction, normal-ball super-tetromino bounce,
+    reflection axis/min-speed/shared-RNG X jitter, and ordered dash/smoke/
+    explosion attack sweeps. It mutates the focused obstacle owners and calls
+    the event coordinator synchronously for starpoint/feedback owners and cube
+    progress; the host must not restore parallel reflection or sweep policy.
+  - `stage6_tetriser_starpoint_state.gd` — single owner of Stage 6 starpoint
+    drop payload construction with the shared stage RNG, golden-block
+    `star_dropped` one-shot mutation, motion/bounds/lifetime, Dowsing Pendulum
+    attraction, player overlap and runtime-perk collection, stage-leave/reset
+    cleanup, and deep-copied draw/debug snapshots. Combat event reactions remain
+    synchronous in the event coordinator; the host must keep no drop-array or
+    payload/motion/collection mirror.
+  - `stage6_tetriser_combat_feedback_state.gd` — single owner of grouped debris
+    flash geometry/lifetimes, EMP ripple lifetimes, copied renderer snapshots,
+    and the six frame-scoped sound requests. Sound cues deduplicate within the
+    frame and flush in legacy break→wall→super→big→shield→laser order, then clear
+    even without an audio dependency. Round/result/stage-leave reset clears all
+    feedback; the host must keep no parallel arrays, cue flags, or flush logic.
+  - `stage6_tetriser_player_explosion_applier.gd` — stateless owner of the
+    tetromino landing response applied to the player: scaled center-distance
+    gate, Smasher cleanse immunity, Celestial Armor lookup/consumption, then
+    stun followed by knockback. It preserves the 80px base radius, exact-edge
+    inclusion, normal/super 30/54-frame stun, normal/super 12/24 knockback,
+    18-frame window, 0.88 decay, and left/right direction rule. Range and
+    cleanse gates must run before Celestial Armor consumption; the event
+    coordinator keeps only the synchronous lifecycle-event call.
+  - `stage6_tetriser_event_coordinator.gd` — synchronous cross-owner reaction
+    owner for tetromino evaporation/landing/destruction, guard and wall removal,
+    central-cube explosion, and super-laser fire. It preserves live obstacle
+    visitation and shared-RNG starpoint order, then debris/EMP, sound,
+    player-explosion, cube rebuild/melt order. It never advances time; the host
+    retains frame ordering, reset policy, public gauge/status, and collision
+    facade.
+  - `stage6_tetriser_hud_state_builder.gd` — pure boss-skill HUD projection
+    owner. It owns the fixed tetromino→guard→wall→super card order, display
+    metadata, timer-based cost-card progress, gauge-gated ready/paused state,
+    `next_activation_remaining`, and gauge-based super card state. The Stage 6
+    host passes its live gauge/status plus focused owner timer snapshots and
+    must retain no parallel card builders or HUD-only aliases.
+  - `stage6_tetriser_context_builder.gd` — read-only actor and boss-AI context
+    projection owner. It owns the stable public key maps and the existing base
+    →super→Crystal Shield actor merge order plus base→Crystal Shield AI merge
+    order. Focused owners retain snapshot-copy policy; this builder performs no
+    additional deep copy, and the host retains only its two public facades.
+  - `stage6_tetriser_guard_state.gd` — single owner of guard-bar shared-RNG
+    cooldowns, one/pair spawn choice and side balancing, assembly→slide→active
+    transitions, active collision lookup/removal, dash/smoke/explosion extraction,
+    and copied draw/debug snapshots. The interaction owner consumes collision
+    and sweep queries; the host retains public boss-gauge accounting while the
+    event coordinator routes feedback, without a parallel guard array or
+    cooldown mirror.
+  - `stage6_tetriser_wall_state.gd` — single owner of edge-wall fixed cooldown,
+    shared-RNG left/right tetromino-piece generation, assembly→installed→natural
+    or hit-fast evaporation transitions, installed-cell collision/attack queries,
+    tetromino-settling collision geometry, block transfer for cube/laser clears,
+    and copied draw/debug snapshots. The interaction owner consumes collision
+    and sweep queries; the host retains gauge while the event coordinator owns
+    starpoint/feedback reactions, and must not keep parallel wall arrays or
+    cooldown fields.
+  - `stage6_tetriser_super_state.gd` — single owner of the 초인테트리서
+    activation/drain/deactivation lifecycle, intro clock, body-scale transition,
+    and super-scoped one-shot cube-laser charge/fire/linger cycle plus copied
+    renderer snapshot. The Stage 6 host retains public boss gauge/status and
+    activation sound; the event coordinator owns laser sound, cube melt,
+    obstacle clear, EMP, and debris order without super or laser state mirrors.
+  - `stage6_tetriser_cube_state.gd` — single owner of the 2D logical central
+    cube: shared-RNG 3×3 grid/pass target, outside-to-inside ball pass edges,
+    one-second solve delay and one-shot explosion event, player/dash-only
+    five-destroy rebuild, laser-melt state, delta-driven spin/melt clocks, and
+    copied draw/debug snapshots. The event coordinator consumes the explosion
+    event to clear obstacles, delegate the center drop to the starpoint owner,
+    and delegate debris/EMP to the feedback owner without restoring a parallel
+    cube dictionary in the host.
   - `stage6_tetriser_crystal_shield_state.gd` — owner of the Tetriser Crystal
     Shield boss skill port from Python `CrystalShieldSystem`: player-score-4
     scheduling, next-serve formation freeze flag, 24 orbiting shield blocks,
@@ -4588,6 +5561,9 @@ This section is intentionally long; use search to find the nearest owner.
   - `stage6_tetriser_boss_skill_hud_renderer.gd` — 달지식 boss skill-card HUD
     (gauge + 낙하/가드/벽/초인 cards) via shared `BossSkillCardHudSpec`
     with Stage 6 Tetriser imagegen skill-card textures and staged prewarm.
+  - `stage6_tetriser_boss_skill_hud_assets.gd` — focused card texture paths,
+    fallback-color specs, staged prewarm, and cached texture lookup consumed by
+    the Stage 6 boss-skill HUD renderer.
   - Integration touch points: `stage_runtime_router` (role map), `stage_debug_picker`
     (id 6, reset keys, prewarm), `gameplay_stage_module_catalog` (7 keys),
     `battle_update_stage_runtime_deps_builder` / `battle_update_boss_ai_context_builder`
@@ -4597,39 +5573,121 @@ This section is intentionally long; use search to find the nearest owner.
     (inactive-transient stage list incl. 6), `battle_scene_match_event_driver`
     (`DEMO_STAGE_SEQUENCE_END = 6`), `game_audio` (stage6 BGM ogg + break/wall/
     roar SFX), `battle_scene_update_prewarm_driver` (`STAGE6_RUNTIME_PREWARM_KEYS`).
-  - Regression guard: `tests/stage6_tetriser_state_smoke.gd`,
+  - Regression guard: `tests/stage6_tetriser_context_builder_smoke.gd`,
+    `tests/stage6_tetriser_event_coordinator_smoke.gd`,
+    `tests/stage6_tetriser_hud_state_builder_smoke.gd`,
+    `tests/stage6_tetriser_player_explosion_applier_smoke.gd`,
+    `tests/stage6_tetriser_state_smoke.gd`,
     `tests/battle_scene_stage_transition_loading_smoke.gd`,
     `tests/battle_perf_logger_smoke.gd`, full warning/headless gate, and direct
     Stage 6 runtime serve capture.
 - `scripts/stages/stage7/` — Stage 7 아카무 리고 / Akamu Rigo cluster (port of
-  Python Stage 8 닌자 보스; Godot slot 7). Status: **slice 1 wired — routing,
-  deps, score-carry, collision (boss-ball intangibility gate + committed-bounce
-  hook), awakening gameplay-freeze, scripted boss AI position, 4-step boot
-  prewarm, result/full reset fanout — then the audio slice landed the
-  STAGE7_* game_audio routes (six one-shot SFX + stage7 BGM + stepped-boot
-  step) and the prebattle slice landed the intro-video lifecycle (threaded
-  OGV prewarm-first boot step, video gate before landing BGM, intro-frame
-  drive, skip input, physics/mobile gates, stage 6->7 full intro replay,
-  reset/result/teardown cleanup). Stage-clear result constants are pending a
-  follow-up slice.**
-  Owners (11 committed modules):
-  - `stage7_akamu_state.gd` — single owner of boss gauge (round-persist:
-    generation-guarded 0.7 score carry via `apply_score_round_carry`, generic
-    resets are transient-only), awakening trigger/freeze, shadow clones,
-    shurikens, cloud dash, escape, superspeed, wind aura, boss-ball
-    intangibility (`is_boss_ball_intangible`), scripted boss position, and the
-    boss-AI / actor-draw / HUD context exports.
+  Python Stage 8 닌자 보스; Godot slot 7). Status: runtime, audio, render,
+  skill-card HUD, prebattle video, result routing, and focused clone, shuriken,
+  Cloud Veil, Stun/Net Escape, Superspeed, Awakening/Wind Aura, and shared
+  boss-gauge/motion/freeze/Odin/presentation/HUD/context-state/timing-policy/
+  geometry owners are present in the current worktree. Owners (26 current modules):
+  - `stage7_akamu_state.gd` — owner of Awakening/Superspeed freeze-completion
+    and audio / cross-skill orchestration, shared clone-bounce application,
+    public boss-AI / actor-draw / HUD context facades, and compatibility
+    facades for the focused state owners.
+  - `stage7_akamu_gauge_state.gd` — owns the shared boss-gauge value,
+    generation-guarded 0.7 score carry, normal/Awakened/Superspeed boss-hit
+    rewards, capped positive rewards, external drains, ordinary-dash cost, and
+    skill transaction result commits. `stage7_akamu_state.gd` retains the raw
+    public property facade required by external item/character integrations and
+    routes every internal mutation through this owner.
+  - `stage7_akamu_motion_state.gd` — owns the single scripted boss-position
+    publication boundary: Escape > Cloud Veil > clone > shuriken > debug
+    priority, external writer/conflict state, one-frame final-position release,
+    clone/shuriken Odin knockback-yield and stun-residual parity, and composite
+    clone/external ball-intangibility sources. Skill owners still calculate
+    their own trajectories; `stage7_akamu_state.gd` supplies their snapshots
+    and retains the public compatibility/context facades.
+  - `stage7_akamu_presentation_state.gd` — owns the 0.2-second boss attack-pose
+    clock/source/target and the single actor/HUD status-priority projection from
+    gameplay freeze through Escape, Cloud Veil, Superspeed, pause, casts,
+    lingering entities/debuffs, Wind Aura, and charging. Gameplay owners retain
+    skill timing; `stage7_akamu_state.gd` supplies typed state snapshots without
+    allocating a per-frame Dictionary and keeps the public `status` facade.
+  - `stage7_akamu_freeze_state.gd` — owns the atomic gameplay-freeze remaining
+    time/reason pair, begin/cancel/reset lifecycle, and one-shot completed-reason
+    edge. `stage7_akamu_state.gd` retains public frame-flow methods and advances
+    Awakening/Superspeed visuals plus reason-specific completion side effects.
+  - `stage7_akamu_odin_cc_state.gd` — owns the read-only per-update Odin boss-CC
+    snapshot and its non-instantiating lookup precedence: direct injected swamp
+    state, provided mythic runtime, then one registry `get_cached_instance`
+    peek. It publishes knockback-window velocity, independent stun residual,
+    and the pre-AI Escape rewind value to the motion/Escape orchestration.
+  - `stage7_akamu_hud_state_builder.gd` — owns pure boss-skill card projection:
+    clone → shuriken → Cloud Veil → Superspeed ordering, shared pause state,
+    per-card cross-skill/writer blocking, and calls into each skill owner's
+    existing `build_hud_skill` contract. The facade retains top-level boss/gauge
+    context publication and the routed HUD renderer retains all drawing.
+  - `stage7_akamu_context_builder.gd` — owns pure boss-AI and actor-draw context
+    assembly. It preserves the live clone, shuriken, Wind Aura burst, and other
+    render-payload array identities instead of deep-copying per-frame data;
+    `stage7_akamu_state.gd` retains the public context facade and supplies typed
+    owner snapshots.
+  - `stage7_akamu_timing_policy.gd` — owns pure cross-feature timing gates:
+    inactive/serve/global/item/perk/character gameplay freezes, direct Star
+    Coil pause, canonical active-item pause with legacy Tear Gas fallback, and
+    the one-shot active-item runtime context fallback. Wind Aura retains its
+    historical direct-context-only pause lookup through the same policy.
+  - `stage7_akamu_geometry_state.gd` — owns the last-known boss position, size,
+    and visual-scale snapshot shared by live updates, freeze visuals, Awakening,
+    Wind Aura collision, and Superspeed. It preserves typed `boss_paddle_size`
+    precedence, legacy width/height fallback, invalid-type cache retention, and
+    the shipped 0.2–1.0 visual-scale clamp.
+  - `stage7_akamu_clone_state.gd` — owns shadow-clone cast/cooldown state,
+    transactional gauge commit, normal/awakened entity spawn, deterministic
+    motion, emerge/fade/natural-expiry and hit-death lifecycles, swept collision
+    geometry, invulnerability buffer, HUD projection, and transient cleanup.
+    `stage7_akamu_state.gd` retains shared paddle-bounce application, auxiliary
+    contact side effects, and compatibility facades; the motion coordinator
+    composes clone intangibility and scripted-position ordering.
+  - `stage7_akamu_shuriken_state.gd` — owns shuriken cooldown scheduling,
+    casting/pending awakened volley, projectile motion and swept collision,
+    smoke absorption, cleanse/slow/gauge-drain results, hit particles, HUD
+    projection, and round-transient cleanup. `stage7_akamu_state.gd` keeps the
+    compatibility facade plus shared gauge and attack-pose coordination; the
+    motion coordinator owns scripted-position composition.
+  - `stage7_akamu_cloud_state.gd` — owns Cloud Veil trigger/cooldown and gauge
+    commit, precast/down/up motion state, field spawn/alpha/expiry lifecycle,
+    landing audio boundary, post-dash invulnerability buffer, render payloads,
+    HUD projection, and transient cleanup. `stage7_akamu_state.gd` keeps the
+    compatibility facade plus boss attack-pose publication; the motion
+    coordinator owns release delivery and intangibility-source composition.
+  - `stage7_akamu_escape_state.gd` — owns Stun/Net Escape episode detection,
+    net-delay and one-roll scheduling, disable-context collection/cleanup,
+    Odin knockback rewind application, gauge commit, target selection, ease-out
+    motion, fixed-scale ghosts/hologram, and transient cleanup.
+    `stage7_akamu_state.gd` keeps compatibility fields plus boss attack-pose
+    publication; the motion coordinator owns release delivery and composite
+    intangibility-source coordination.
+  - `stage7_akamu_superspeed_state.gd` — owns Superspeed activation eligibility
+    and gauge result, duration/cooldown state, dash metadata notifications,
+    afterimage/dark-particle/trail render payloads, HUD projection, and
+    full-vs-round cleanup. `stage7_akamu_state.gd` keeps compatibility fields
+    plus cross-skill cancellation, gameplay-freeze orchestration, and shared
+    context publication; predictive paddle movement remains in shared BossAI.
+  - `stage7_akamu_awakening_state.gd` — owns the score-threshold trigger and
+    intro flags, persistent Awakening state, Wind Aura collision/reflection
+    decision, five-hit durability, ten-second recharge, free-skill roll
+    decisions/queued-clone flag, persistent/burst particle payloads, draw-context
+    projection, and full-vs-round cleanup. `stage7_akamu_state.gd` keeps
+    compatibility fields plus gameplay-freeze, audio, gauge commit, and actual
+    Cloud Veil/shadow-clone execution orchestration.
   - `stage7_akamu_actor_renderer.gd` / `stage7_akamu_boss_actor_renderer.gd` /
     `stage7_akamu_playfield_renderer.gd` / `stage7_akamu_pillar_background.gd` /
     `stage7_akamu_pillar_scene_drawer.gd` / `stage7_akamu_boss_skill_hud_renderer.gd`
     (+ `_boss_skill_hud_assets.gd`, `_vfx_texture_cache.gd`) — render cluster;
     the skill-card gauge uses the shared
     `boss_skill_card_hud_spec.draw_skillcard_gauge_fill` cover-crop helper.
-  - `stage7_akamu_prebattle_presentation.gd` / `_prebattle_overlay_host.gd` —
-    prebattle intro video pair (threaded VideoStream prewarm with this-entry
-    failure degradation, playfield-clipped detached host, skip/fade, one-shot
-    per stage entry); sealed by `tests/stage7_akamu_prebattle_video_smoke.gd`
-    + `tests/stage7_akamu_prebattle_live_frame_smoke.gd`.
+  - `stage7_akamu_prebattle_presentation.gd` /
+    `stage7_akamu_prebattle_overlay_host.gd` — prebattle intro video state,
+    overlay host, catalog route, input/modal/readiness gates, teardown, and
+    transition cleanup.
   - Sprite contract: nine 4x2 sheets (dash is native left/right, mirroring
     forbidden) — `docs/sprites/stage7_akamu_rigo.md` +
     `stage7_akamu_boss_sprite_manifest.json`.
@@ -4637,25 +5695,51 @@ This section is intentionally long; use search to find the nearest owner.
     score-carry, freeze, collision + intangibility, prewarm dispatch,
     overdrive committed-bounce gating, result-reset fanout) +
     `tests/stage7_akamu_audio_smoke.gd` +
+    `tests/stage7_akamu_clone_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_shuriken_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_cloud_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_escape_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_superspeed_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_awakening_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_gauge_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_motion_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_presentation_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_control_state_refactor_smoke.gd` +
+    `tests/stage7_akamu_hud_state_builder_refactor_smoke.gd` +
+    `tests/stage7_akamu_context_builder_refactor_smoke.gd` +
+    `tests/stage7_akamu_timing_policy_refactor_smoke.gd` +
+    `tests/stage7_akamu_geometry_state_refactor_smoke.gd` +
     `tests/boss_skill_card_shuffle_motion_smoke.gd`; later slices own the
     remaining `stage7_akamu_*` smokes.
 - `scripts/stages/stage4/stage4_bird_event.gd` and
   `scripts/stages/stage4/stage4_brazier_monk_event.gd`
   Own the first Stage 4 event runtime slice. `stage4_bird_event` handles
   star-bird spawn timing / movement, gold-dust trail updates, catch
-  positions, catch side effects, crow starpoint drops / pickup particles, and
-  draw-context export; star-bird, gold-dust, fragment, and debris-particle
-  payload construction is delegated to `stage4_bird_payload_factory.gd`.
+  positions, catch side effects, starpoint rendering/host cleanup, and
+  draw-context export; starpoint state is delegated to
+  `stage4_bird_starpoint_state.gd`, while star-bird, gold-dust, fragment, and
+  debris-particle payload construction is delegated to
+  `stage4_bird_payload_factory.gd`.
   `stage4_brazier_monk_event` handles normal monk spawning, five
   smoke-grenade monks from the lit brazier, monk return timing, collapse
   cleanup explosions, staff-swing trigger / deflection timing, monk-hit
-  effects, and draw-context export; monk default payloads, staff hit-effect
-  payloads, and monk explosion particle payloads are delegated to
-  `stage4_brazier_monk_payload_factory.gd`. The map-state and pillar
+  effects, full draw-context export, and live-array/visual-time renderer facade;
+  monk default payloads, staff hit-effect payloads, and monk explosion particle
+  payloads are delegated to `stage4_brazier_monk_payload_factory.gd`.
+  `stage4_brazier_monk_renderer.gd` owns the three temple-ghost sheet caches,
+  deterministic walk/attack frame and hover projection, transform-safe UV flip,
+  procedural actor/staff fallback, and capped hit/death presentation. The map-state and pillar
   background facades forward smoke / brazier, tear-gas expiry, star-bird
   collision, monk staff collision, moon-fragment collision, and draw-context
   access so shared active-item and ball-runtime code do not need to know the
   event storage details.
+- `scripts/stages/stage4/stage4_bird_starpoint_state.gd`
+  Owns retained Stage 4 star-bird drop/particle collections, crow and Star
+  Detector spawn/clamping, borrowed shared-RNG payload order, caps, motion,
+  Dowsing and Starlight Tracking, circular paddle overlap, modal-safe
+  compaction, reward/particle/audio/redraw sequencing, and particle advancement.
+  The bird event keeps owner-backed compatibility accessors/methods plus draw
+  and detached-host cleanup responsibilities.
 - `scripts/characters/smasher_magnum_grip_state.gd`
   Owns the Godot Smasher Magnum Grip port: 300ms left+right hold
   activation, gauge/cooldown spend through the shared skill state, 2.5s
@@ -4683,43 +5767,74 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/characters/smasher_plasma_state.gd`
   Owns the Godot Smasher Plasma port: W / Up hold charging,
   0.5-second minimum-release refund, gauge drain and cooldown spend,
-  charge / shoot / contact audio sync, homing plasma-wave VFX, boss slow
-  context for AI movement plus shared boss slow status application,
-  Stage 1 boss-gauge drain hook, and
-  round/game-reset cleanup.
+  charge / shoot / contact audio sync, homing plasma-wave motion and payload
+  simulation/RNG, boss slow context for AI movement plus shared boss slow
+  status application, Stage 1 boss-gauge and Hongryun orb-gauge drain hooks,
+  modular-host state projection, and round/game-reset cleanup. Its two draw
+  facades sample one visual clock each and lend three typed live arrays.
+- `scripts/characters/smasher_plasma_renderer.gd`
+  Owns eight-step flare/shockwave/modular-host/node-pipeline prewarm and the
+  immediate-mode fallback presentation: player-anchored charge field, homing
+  wave/trail/particles, and boss-contact distortion overlay. It receives
+  explicit time/state/geometry and owns no charging, gauge/cooldown, boss
+  mutation, slow policy, audio, simulation, RNG, or retained arrays.
 - `scripts/characters/smasher_recovery_state.gd`
   Owns the Godot Smasher Recovery port: W / Up edge activation only during
   dash recovery, 120-gauge / shared-cooldown spend, immediate dash-recovery
   timer cleanup, dash-delay sound cancel, `recovery.wav` cast cue, 18-frame
-  green burst VFX, 5-second 30% movement-speed boost, `extension_gear`
-  duration scaling, and round/game-reset cleanup.
+  green-burst and moving-trail payload creation/simulation/RNG, 5-second 50%
+  movement-speed boost, `extension_gear` duration scaling, and round/game-reset
+  cleanup. Its draw facade samples one visual clock and lends three typed arrays.
+- `scripts/characters/smasher_recovery_renderer.gd`
+  Owns staged flare/shockwave-cache prewarm and Recovery presentation: moving
+  light trail, cast glow/rings/sparkles, and shared right-bottom timer-stack
+  drawing. It receives explicit timing/state and owns no activation, cooldown,
+  dash cleanup, duration scaling, audio, simulation, RNG, or retained arrays.
 - `scripts/characters/smasher_cleanse_state.gd`
   Owns the Godot Smasher Cleanse port: W / Up edge activation only while a
   player status effect is present, 100-gauge / shared-cooldown spend,
   `cleanse.wav` cast cue, current movement-knockback cleanup and immunity
-  blocking, 30-frame purification wave / particles, 5-second immunity
-  shield with `extension_gear` duration scaling, right-bottom timer-gauge
-  feedback, 2-second one-hit counter speed bonus, skill-orb debuff-ready
-  gating, and round/game-reset cleanup.
+  blocking, 30-frame purification-wave / particle simulation and RNG, 5-second
+  immunity with `extension_gear` duration scaling, 2-second one-hit counter
+  speed bonus, skill-orb debuff-ready gating, and round/game-reset cleanup. Its
+  draw facade samples one visual clock and lends the two typed live arrays.
+- `scripts/characters/smasher_cleanse_renderer.gd`
+  Owns Cleanse presentation and render-resource prewarm: flare/shockwave caches,
+  cast flash/rings/sparkles, immunity-shield projection, and the shared right-
+  bottom timer-stack recipe. It receives explicit state/timing/geometry and owns
+  no activation, cooldown, effective-level, status, simulation, or RNG behavior.
 - `scripts/characters/smasher_warp_gate_state.gd`
   Owns the Godot Smasher Warp Gate port: S / Down 0.5-second hold
   activation, 100-gauge / 50-second shared cooldown spend, 20-second
   gate lifetime with `extension_gear` duration scaling, free wall-wrap
   transitions, offscreen movement bounds, mirrored player paddle collision /
-  actor draw context, round-pause remaining-duration resume, copied
-  `warpgate.wav` loop sync, copied 8x4 portal-effect sheet drawing with
-  procedural fallback, right-bottom timer-gauge feedback, and
-  round/game-reset cleanup.
-- `scripts/characters/smasher_wheel_state.gd`
-  Owns the Godot Smasher Wheel port: A->W->D / D->W->A edge-command
+  actor draw context, round-pause remaining-duration resume, portal payload
+  spawn/expiry, `warpgate.wav` loop sync, feedback, and round/game-reset
+  cleanup. Its draw facade samples one visual clock and lends the typed live
+  portal array without copying; lifecycle exits directly hide retained FX.
+- `scripts/characters/smasher_warp_gate_presentation.gd`
+  Owns staged flare/shockwave/FX-host prewarm, detached-host adoption/deferred
+  attachment/direct hiding, game-to-screen active/burst portal projection,
+  modular node-FX synchronization, the complete procedural fallback, and the
+  shared index-0 right-bottom timer-stack recipe. It receives explicit time,
+  phase, player geometry, layout, and borrowed portals, and owns no activation,
+  cooldown, effective duration, wrapping, audio, feedback, payload mutation,
+  or RNG.
+- `scripts/characters/smasher_wheel_state.gd` and
+  `scripts/characters/smasher_wheel_cloud_fx_host.gd`
+  Own the Godot `풍운천선무` port (compatibility id `smasher_wheel`):
+  A->W->D / D->W->A edge-command
   activation, 200-gauge / 25-second shared cooldown spend, 1.2-second
-  rolling movement mode with dash blocking, auto-roll direction, -15%
-  max speed and slowed reverse acceleration, one-hit high-speed random
+  rolling movement mode with dash blocking, command-locked one-way travel,
+  -15% max speed, one-hit high-speed random
   curve relaunch with a difficulty-independent 60 effective-speed cap,
   non-drive spin state, 30 perk-gold skill reward,
-  copied 8x4 wheel-effect sheet drawing with procedural fallback,
-  drive-particle trail handoff, right-bottom timer-gauge feedback, and
-  round/game-reset cleanup.
+  dedicated 4x4 body-spin sheet, drive-particle trail handoff, right-bottom
+  timer-gauge feedback, and round/game-reset cleanup. The state owns gameplay,
+  burst serial/contact coordinates, and screen-layout handoff; the controller-
+  driven host owns the prewarmed static cloud piece, nine widening orbit
+  sprites, continuous swirl particles, contact scatter burst, and direct hide /
+  emission cleanup without an independent process loop.
 - `scripts/characters/viper_jetpack_state.gd`
   Owns the Godot Viper jetpack / hover port: SPACE / left-click hold input,
   Python-parity 200px rise/fall height, effective-level
@@ -4738,6 +5853,14 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/characters/runtime_perk_modal_input.gd`,
   `scripts/characters/runtime_perk_choice_selection.gd`,
   `scripts/characters/runtime_perk_snapshot_builder.gd`,
+  `scripts/characters/runtime_perk_fusion_runtime_state.gd`,
+  `scripts/characters/runtime_perk_mystic_dice_runtime_state.gd`,
+  `scripts/characters/runtime_perk_physique_training_runtime_state.gd`,
+  `scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd`,
+  `scripts/characters/runtime_perk_angel_blessing_runtime_state.gd`,
+  `scripts/characters/runtime_perk_choice_pipeline_state.gd`,
+  `scripts/characters/runtime_perk_unlock_pipeline_state.gd`,
+  `scripts/characters/runtime_perk_display_projection_state.gd`,
   `scripts/characters/runtime_perk_choice_audio.gd`,
   `scripts/characters/runtime_perk_choice_feedback.gd`,
   `scripts/characters/runtime_perk_choice_offer_modifiers.gd`,
@@ -4787,10 +5910,10 @@ This section is intentionally long; use search to find the nearest owner.
   Commando unlock choice cards, pending firearm-swap dialogs, and debug
   grant feedback use catalog / skill-config Korean display names instead
   of leaking `soldier_*` internal ids.
-  Shared dash scaling perks now include `dash_acceleration` / 버스트업: the
-  runtime state exposes level * 70% dash collision-height scaling and
-  keeps effective Lv.6+ bonus sources live instead of hard-capping at
-  the base Lv.5 card text.
+  Shared dash scaling perks now include `dash_acceleration` / 대붕전익: the
+  runtime state exposes level * 70% dash collision-height scaling plus
+  level * 10% centered collision-width scaling, and keeps effective Lv.6+
+  bonus sources live instead of hard-capping at the base Lv.5 card text.
   Common scaling perks now include `perk_laurel_shield` / 월계수잎; its
   effective level is exposed as a live leaf count and intentionally keeps
   scaling above Lv.5 when runtime perk-level bonuses apply.
@@ -4837,6 +5960,122 @@ This section is intentionally long; use search to find the nearest owner.
   wrapper around `runtime_perk_choice_completion.gd`.
   `runtime_perk_state.gd` keeps the live fields and exposes the public
   `get_snapshot()` wrapper.
+  `runtime_perk_fusion_runtime_state.gd` owns the lazy lifetime and cohesive
+  behavior of the fusion core state, byproduct transient runtime, and offer
+  planner. It owns commit/restore/query delegation, catalog-aware max-level
+  result context, fail-closed offer planning, production offer injection,
+  deterministic one-shot offer rolls, byproduct speed/gold/point-loss
+  calculations, round reset, and full-reset cleanup. Offer injection performs
+  source/candidate/lane eligibility before consuming RNG or its test seam, then
+  writes an appeared replacement back to runtime choices. It also owns modal
+  flow/input/catalog lifetime, candidate construction, frozen-catalog
+  authority, S0 start/input/cancel, S2 result RNG/build plus core commit, S4
+  common-choice-finish handoff, preview-cache reset boundaries, and direct
+  cold-boot host shutdown. Missing runtime/common-finish dependencies fail
+  closed before S2 commit. `runtime_perk_state.gd` retains the open-flow
+  callback position that enforces fusion-before-training order, modal priority,
+  public gameplay facades, snapshot/preview presentation composition, the
+  common choice-finish implementation, and the final global `gold_from_perks`
+  mutation. The owner-backed `_perk_fusion_modal_flow`,
+  `_perk_fusion_modal_input`, `_perk_fusion_modal_catalog`, and
+  `_test_perk_fusion_offer_roll_override` properties
+  preserve string lookup and focused-test replacement without parallel state.
+  The match-finished point-loss
+  facade must pass a non-random sentinel so clearing stale pending effects does
+  not consume the next gameplay RNG value. Regression guard:
+  `tests/runtime_perk_fusion_runtime_state_refactor_smoke.gd`.
+  `perk_fusion_reverb_vfx_state.gd` owns Reverb's activation flash, capped
+  direction-aware movement echoes, active wind seal, player sampling, and
+  visual cleanup. `perk_fusion_byproduct_runtime.gd` alone triggers and
+  advances it from the canonical Reverb timer; the shared playfield draw fanout
+  consumes it, and `battle_scene_runtime_perk_update_driver.gd` routes its
+  visible-tick redraw requests through `request_battle_redraw()`.
+  `runtime_perk_mystic_dice_runtime_state.gd` owns the lazy lifetime and
+  cohesive behavior of Mystic Dice permanent raw/use-count state, the roller,
+  offer planner, modal flow/input, and paddle-effect state/host binding. It owns
+  deterministic or production roll generation, fail-closed offer planning,
+  D0 modal start, input/action routing, rerolls, accepted raw commit,
+  ordinary/mythic owner synchronization, common choice-finish handoff, new-run
+  reset, detached-host cleanup, and the modal-to-first-physics-tick pending
+  boundary that starts the three-second effect without consuming blocked-modal
+  time. `runtime_perk_state.gd` retains the D0 interception position,
+  modal-update/input priority, and public facades. Its planner, pending, and
+  modal flow/input compatibility properties forward old lookup/test seams into
+  the owner and must not become duplicate storage. Missing runtime, owner-sync,
+  or common-finish dependencies fail closed before raw commit so a Dice use
+  cannot be partially consumed. Regression guard:
+  `tests/runtime_perk_mystic_dice_runtime_state_refactor_smoke.gd`.
+  `runtime_perk_physique_training_runtime_state.gd` owns the cohesive lifetime
+  of the Physique Training catalog, run state, offer planner, and probe-only
+  bonus override. It owns final active-item/Chosik cooldown, dash recharge/
+  recovery, and posture saturation probes; dedicated choice commit plus
+  ordinary/mythic consumer synchronization; and the 60% replacement offer with
+  fusion-first and no-op RNG ordering. `runtime_perk_state.gd` retains public
+  and save facades. Its writable computed catalog/state/planner properties
+  preserve string lookup and focused-test seams without parallel storage.
+  Regression guards:
+  `tests/runtime_perk_physique_training_runtime_state_refactor_smoke.gd` and
+  `tests/physique_training_category_smoke.gd`.
+  `runtime_perk_hyeonmun_charyeok_runtime_state.gd` owns the cohesive lifetime
+  of the Hyeonmun state machine and timer renderer plus raw invested-level proc,
+  refresh/expiry/round-reset orchestration, Transcendent Crown composition,
+  canonical `item_perk_level_bonus` publication, and cached-consumer refresh on
+  both bonus activation and removal. `runtime_perk_state.gd` retains public
+  gameplay/draw facades and writable computed state/renderer compatibility
+  properties without parallel storage. Regression guards:
+  `tests/runtime_perk_hyeonmun_charyeok_runtime_state_refactor_smoke.gd` and
+  `tests/hyeonmun_charyeok_runtime_smoke.gd`.
+  `runtime_perk_angel_blessing_runtime_state.gd` owns the five Angel feature
+  lifetimes: core blessing state, character cooldown-capability selector, stage
+  lifecycle, modal flow, and acquisition lifecycle. It owns core roll/query,
+  capability, stage-intro, accepted-choice, acquisition-finished, and core-reset
+  delegation plus the public perk/policy vocabulary used by the facade. It also
+  owns acquisition snapshot/work queries, update/input routing, higher-priority
+  blocker resolution, current-stage roll/reveal, cinematic-completion release,
+  deferred-choice resume/finalization, Angel audio handoff, and round/stage
+  cleanup. A banked ordinary runtime choice must reopen before a ready Angel
+  reveal after scoreboard release. `runtime_perk_state.gd` retains cross-feature
+  spawn-intro ordering, public APIs/input priority, and the shared
+  choice/cooldown/owner-sync callback implementations. Its computed
+  `_angel_blessing_state` and
+  `_angel_blessing_modal_flow` properties preserve existing
+  `RuntimePerkRuntimeStateAccess`, effective-stat, reset, acquisition, and test
+  consumers without becoming second storage locations. Regression guard:
+  `tests/runtime_perk_angel_blessing_runtime_state_refactor_smoke.gd`.
+  `runtime_perk_choice_pipeline_state.gd` owns the nine helper
+  lifetimes that implement the common choice pipeline: selection, completion,
+  dispatch, action execution, standard level path, open, apply, confirm, and
+  finish. `runtime_perk_state.gd` retains the public transaction orchestration
+  and source-contract type aliases. Its writable computed `_choice_*`
+  properties forward both production string lookup and focused-test injection
+  into the owner; they must never become parallel helper storage. The finish
+  helper is intentionally stateful: it owns the last committed Mystic Dice and
+  Fusion revisions and rejects duplicate D3/S4 finish calls before any common
+  choice state or side effect is consumed. Regression
+  guard: `tests/runtime_perk_choice_pipeline_state_refactor_smoke.gd`.
+  `runtime_perk_unlock_pipeline_state.gd` owns the six helpers that implement
+  active-unlock flight, showcase presentation flow, and slot-full unlock swap:
+  flight state, showcase controller/flow, swap layout/flow, and unlock-choice
+  apply. `runtime_perk_state.gd` keeps the live flight/showcase/swap payloads,
+  public wrappers, and transaction ordering. Writable computed compatibility
+  properties preserve reset helpers, production string lookup, and focused-test
+  replacement without parallel helper storage. Regression guard:
+  `tests/runtime_perk_unlock_pipeline_state_refactor_smoke.gd`.
+  `runtime_perk_display_projection_state.gd` owns runtime perk display cache
+  state and projection infrastructure: default catalog and projector lifetime,
+  the composite perk-fusion plus Mystic Dice cache signature across level hash,
+  fusion/Dice revision, locale, dynamic level bonuses, and catalog identity,
+  live pre-fusion and production-adjusted option projection, cache-hit/build
+  accounting, dedicated Dice projection, fusion-modal outcome/source preview
+  construction and caching, and explicit reset invalidation. Modal preview reuse
+  is keyed by selected sources, modal phase, and fusion revision, with explicit
+  invalidation at start/cancel/finish/full-reset boundaries.
+  Cache hits compare the seven signature scalars directly; the public
+  `cache_signature` hash Array is built only after a miss, so repeated HUD/TAB
+  reads do not allocate that temporary Array.
+  `runtime_perk_state.gd` retains live projection inputs, fusion snapshot
+  presentation composition, and public projection/cache-stat facades. Regression guard:
+  `tests/runtime_perk_display_projection_state_refactor_smoke.gd`.
   `runtime_perk_choice_audio.gd` owns runtime perk choice-modal one-shot audio
   routing: active-unlock flight cue priority (`play_item_get` before the
   runtime choice-open fallback), ordinary perk-select confirmation audio, and
@@ -4951,9 +6190,11 @@ This section is intentionally long; use search to find the nearest owner.
   application via `runtime_perk_choice_completion.gd`, post-state open-next /
   context-clear plan execution, next-choice open callback routing, modal-close
   side-effect callback sequencing, close-step perf labels, runtime-state
-  helper lookup, runtime-level lookup, and callback-map assembly. `runtime_perk_state.gd`
-  keeps the public/private finish wrapper, live fields, and side-effect
-  callback implementations.
+  helper lookup, runtime-level lookup, callback-map assembly, and Mystic
+  Dice/Fusion committed-revision idempotency. Duplicate D3/S4 calls return
+  `already_finished` before pending/sequence, next-choice, Megingjord/Dowsing,
+  or close callbacks can repeat. `runtime_perk_state.gd` keeps the public/private
+  finish wrapper, live perk fields, and side-effect callback implementations.
   `runtime_perk_unlock_choice_apply.gd` owns normal unlock-choice application
   orchestration: unlock-choice validation, character skill-config resolution,
   slot-full pending-swap start payload application, skill-config
@@ -5233,11 +6474,15 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the Godot 월계수잎 runtime shield: effective perk leaves plus future
   Sacred Laurel leaf bonuses, player-centered elliptical orbit timing,
   back-side-only ball collision, consumed-leaf 30-second regeneration,
-  upward random-speed reflection, leaf break particles, draw-layered leaf
-  visuals, `leaf.wav` audio feedback, match-reset cleanup, and ball-update
-  collision handoff. This shield currently uses procedural CanvasItem leaf
-  geometry and particles as a small parity-sized runtime effect rather than
-  a generated sprite sheet.
+  upward random-speed reflection, leaf-break particle creation/simulation,
+  `leaf.wav` audio feedback, match-reset cleanup, and ball-update collision
+  handoff. Its draw facade lends both live arrays and explicit orbit geometry.
+- `scripts/characters/laurel_leaf_shield_renderer.gd`
+  Owns the shield's depth-sorted procedural CanvasItem presentation: full and
+  severe-LOD leaf silhouettes, pygame-parity ellipse/line/arc helpers, particle
+  stride/drawing, deterministic orbit projection, and triangulation-safe fills.
+  It owns no perk count, collision, regeneration, reflection, audio, simulation,
+  RNG, reset, or retained leaf/particle state.
 - `scripts/characters/monkey_blessing_delivery_state.gd` and
   `scripts/characters/monkey_blessing_delivery_renderer.gd`
   Own the Godot `instant_monkey_blessing` delivery event: the perk-state
@@ -5427,22 +6672,78 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the procedural Stage 1 Dalji spinning-top skill rendering:
   startup whip curves, wooden top bodies, rotating color discs, golden-top
   glow, boost brightening, shadows, tilt, and fade-out.
+- `scripts/stages/stage1/stage1_pododaejang_patrol_guards_skill_state.gd`
+  Owns the Stage 1 Pododaejang 포졸소환 combat state: once-per-round
+  cooldown activation, two independently patrolling guards, deterministic
+  test RNG, fade/expiry, speed-preserving random ball deflection, guard push,
+  collision feedback, and round/reset cleanup.
+- `scripts/stages/stage1/stage1_pododaejang_arrest_rope_skill_state.gd`
+  Owns the Stage 1 Pododaejang 포승줄 combat state: boss-hit activation,
+  snapshotted target, throw/bound/release/miss phases, smoke immunity,
+  half-speed movement projection, dash break, audio cues, and draw context.
+- `scripts/stages/stage1/stage1_pododaejang_boss_skill_cooldown_state.gd`
+  Owns Pododaejang's 16-second instant Patrol Guards and 20-second on-hit
+  Arrest Rope cooldowns, per-round normalization, pause handling, and the
+  two-card HUD snapshot.
+- `scripts/stages/stage1/stage1_pododaejang_boss_skill_hud_renderer.gd` /
+  `stage1_pododaejang_boss_skill_hud_assets.gd`
+  Own Pododaejang's left-pillar skill-card layout, generated PNG metadata,
+  texture prewarm/cache, cooldown reveal, status feedback, and localized
+  trigger/effect tooltips.
+- `scripts/stages/stage1/stage1_pododaejang_skill_renderer.gd`
+  Owns Pododaejang's playfield skill presentation: the declared 3x3/eight-
+  frame guard walk sheet with procedural fallback plus throwing, bound,
+  releasing, and missed rope geometry.
 - `scripts/stages/stage1/stage1_balloon_event.gd`
-  Owns the Stage 1 balloon-machine event port: timer-based machine
-  phase state, balloon sprite-sheet loading, balloon motion / wall and
-  paddle interaction, ball collision deflection, pop-effect rendering, and
-  golden-balloon starpoint drop / paddle collection handoff to the runtime
-  perk state. Balloon spawn payloads, Chaos Spear absorb result payloads,
-  and sprite / fallback pop-effect payloads are delegated to
-  `stage1_balloon_payload_factory.gd`.
+  Owns the Stage 1 balloon-machine event facade: balloon sprite-sheet loading,
+  live balloon payload construction/pop audio, pop-effect/starpoint rendering,
+  and detached starpoint-host hide cleanup. Balloon spawn payloads,
+  Chaos Spear absorb result payloads, and sprite / fallback pop-effect payloads
+  are delegated to `stage1_balloon_payload_factory.gd`; retained starpoint
+  collections and their gameplay lifecycle are delegated to
+  `stage1_balloon_starpoint_state.gd` behind writable compatibility properties
+  and thin spawn/update methods. Machine cooldown/phase state, shot-plan RNG,
+  phase audio, and ordered prewarm/shot callbacks are delegated to
+  `stage1_balloon_machine_state.gd` behind writable compatibility properties
+  and methods. Live balloon storage/motion/geometry are delegated to
+  `stage1_balloon_runtime_state.gd`; destructive ball/projectile/Chaos/paddle
+  interactions and immunity/knockback policy are delegated to
+  `stage1_balloon_interaction_coordinator.gd`. The facade supplies their
+  synchronous pop-feedback callback.
   Its raw PNG sheets live under
   `godot/assets/sprites/stage1/balloon/`, with event sounds under
   `godot/assets/sounds/`.
+- `scripts/stages/stage1/stage1_balloon_machine_state.gd`
+  Retains Stage 1 balloon-machine active/phase/cooldown/presentation state and
+  the per-activation shot plan. It owns the original global-RNG sequence,
+  initial/reset cooldown, activation-frame delay, phase envelopes/transitions,
+  door/machine start-edge audio, prewarm request position, multi-shot catch-up,
+  and ordered facade shot callbacks. The facade retains concrete balloon
+  construction, pop audio, textures and drawing.
+- `scripts/stages/stage1/stage1_balloon_runtime_state.gd`
+  Retains the live Stage 1 balloon collection and playfield bounds. Owns
+  frame-scaled translation, post-paddle drag/cooldown, bob/spin, radius-aware
+  wall reflection, lifetime, swept-path and circle/rectangle geometry, paddle
+  bounce response, deflection math, and deep snapshots. Its random fallback /
+  deflection branches preserve the original global RNG.
+- `scripts/stages/stage1/stage1_balloon_interaction_coordinator.gd`
+  Owns Stage 1 ball collision/Whip response, Commando bullet filtering and
+  result projection, reverse-safe Chaos absorption/result creation, dash pop,
+  player/boss paddle routing, Cleanse-before-Celestial-Armor immunity, and
+  knockback. It removes first, calls the facade's pop feedback synchronously,
+  then applies deflection or publishes absorbed results.
+- `scripts/stages/stage1/stage1_balloon_starpoint_state.gd`
+  Retains the Stage 1 balloon-event starpoint drop and particle collections and
+  owns bounds configuration, primary / Star Detector bonus payload generation,
+  global-RNG ordering, fall/bounce motion, Dowsing attraction, Starlight
+  Tracking claim/delivery, rectangle-overlap collection, modal-safe in-place
+  compaction, reward/particle/audio/redraw ordering, clear state, and particle
+  advancement. The balloon facade retains draw and detached-host cleanup.
 - `scripts/stages/stage1/stage1_balloon_event_assets.gd`
   Owns Stage 1 balloon-event asset metadata: balloon sheet resource paths,
   sheet frame counts, texture prewarm step count, and balloon color palette.
   `stage1_balloon_event.gd` keeps texture cache fields, staged load order,
-  gameplay state, draw paths, and collision / reward handoff.
+  spawn/pop feedback, draw paths, and collision handoff.
 - `scripts/stages/stage1/stage1_context_reader.gd`
   Owns typed reads for Stage 1 renderer dictionaries: Vector2 and Color
   fallback coercion used by playfield, player, boss, and sprite fallback
@@ -5605,17 +6906,24 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ball/ball_motion_stepper.gd`
   Owns per-frame ball sweep detection: sub-step movement, left/right wall
   / active Brick Wall / paddle / Holy Barrier collision detector delegation,
-  and top/bottom score events. Stopwatch score-block context can suppress
-  the bottom-score event while the time-stop / recovery window is active.
-  The ball update controller owns the reactions to those events.
+  detector-owned contact-position preservation, and top/bottom score events.
+  Stopwatch score-block context can suppress the bottom-score event while the
+  time-stop / recovery window is active. The ball update controller owns the
+  reactions to those events.
 - `scripts/ball/ball_motion_collision_detector.gd`
   Owns ball motion collision tests used during sweep stepping: left/right
   wall clamping and impact positions plus player / boss paddle hitbox
   overlap snapshots, active Brick Wall overlap snapshots, and active Holy
   Barrier bottom-wall overlap snapshots. The player-paddle branch also
-  consumes shared `dash_acceleration` context to vertically inflate only
-  the collision hitbox during an active dash, matching the Python
-  "visual paddle unchanged, hit range expanded" behavior.
+  consumes shared `dash_acceleration` context to inflate the collision
+  hitbox vertically (+70%/Lv) and horizontally (+10%/Lv) around its unchanged
+  center during an active dash. The restrained horizontal expansion is an
+  intentional Godot extension beyond Python's vertical-only behavior and is
+  sized to remain inside the rendered wing aura. On committed 대붕전익 contact,
+  it also separates the ball through the nearest incoming/side surface before
+  the same-tick bounce, preventing an overlapped sample from looking like the
+  ball was pulled into the wing and fired back out. The Stage 5 Hongryun
+  motion-bypass guard reuses the same resolver through `ball_update_controller`.
 - `scripts/ball/ball_update_controller.gd`
   Owns active-ball frame orchestration: freeze-frame handoff, base-speed
   caps, impact-boost decay, Drive spin decay, Power Smashing motion,
@@ -5901,7 +7209,8 @@ This section is intentionally long; use search to find the nearest owner.
   roots, or curved streams should add a preset here before cloning shader
   code in a feature-specific host.
 - `scripts/audio/game_audio.gd`
-  Owns battle sound setup and playback: paddle / wall hit cooldowns,
+  Owns battle sound setup-group composition and playback: paddle / wall hit
+  cooldowns,
   serve and ping-pong serve sounds, dash and half-dash sounds, looping
   dash-recovery control-loss sound, active-item throw / grenade / flashbomb
   sounds, Drive / Power Smashing sounds, Dash Spirit delete sound, launch
@@ -5911,12 +7220,284 @@ This section is intentionally long; use search to find the nearest owner.
   bomb-trigger dedicated cues, round-set sound, Stage 2 hydro / stone-break /
   rock-hit / rock-spawn / boss-cry / quake-loop cues, Stage 1 BGM looping
   with Python's per-track gain, pitch randomization, and audio-player factory
-  delegation.
+  delegation. It retains public Guardian Spirit click-voice player properties,
+  final pitch/play policy, lazy replacement SFX-bus configuration, and staged
+  setup group side effects while delegating that catalog and player cache to
+  `lingpet_click_voice_audio.gd`. It retains the three Guardian Spirit
+  acquisition compatibility player properties, public playback/fallback
+  policy, cut-in pitch jitter, and item-phase orchestration while delegating
+  those cue specs and player cache to `lingpet_acquisition_audio.gd`. It also
+  retains Guardian Spirit combat-cue
+  play/stop/sync facades, pitch/fallback policy, random egg-hit playback, and
+  safe loop-stream mutation while delegating those player specs and caches to
+  `lingpet_combat_audio.gd`.
+  It retains audio-bus compatibility constants/properties, complete player
+  projections, public volume APIs, cue playback/pitch, hit cooldowns, and
+  event-time source-X selection while delegating bus creation/routing, volume
+  state/adoption, panner effects/cache, and pan geometry to
+  `game_audio_bus_controller.gd`.
+  It retains stage BGM compatibility constants/player properties, owner-stage
+  filtering, per-step player/mute setup side effects, and shared-stream-safe
+  loop mutation
+  while delegating nine track specs, ordered prewarm/catalog pools, and player
+  cache to `stage_bgm_audio.gd`. It retains public BGM method and state/RNG
+  property facades while delegating prime/play/stop/mute state, shared mute
+  persistence, and Stage 1/2 selection RNG to
+  `stage_bgm_playback_controller.gd`.
+  It retains UI move/confirm/back/perk-select/character-info-toggle
+  compatibility constants and
+  properties, public playback/pitch/fallback policy, bus volume, and modal
+  event timing while delegating five one-shot specs, eager setup, step-0
+  prewarm/SFX-bus head order, and player cache to
+  `game_ui_feedback_audio.gd`.
+  It also exposes `set/is_character_info_bgm_muffled` and releases the muffle
+  from `stop_bgm()` while delegating the filter itself to
+  `game_audio_bus_controller.gd`.
+  It retains core ball/dash compatibility properties, hit cooldown/panning,
+  public playback and selection/fallback policy, and shared-stream-safe Dash
+  Delay loop mutation/cleanup while delegating twelve cue specs, eager
+  setup/prewarm/SFX-bus order, and player cache to `core_ball_dash_audio.gd`.
+  It retains item/reward/defeat/Cold Boot/legendary-cinematic/generic-action
+  compatibility constants and player properties, public playback/fallback and
+  pitch policy, explicit Legendary After stopping, the Angel Blessing
+  three-player rotation cursor, and forced Angel cleanup while delegating
+  twenty-six primary cue specs, two optional absorb layers, three phase-correct
+  setup/prewarm/SFX projections, and cache ownership to
+  `item_reward_feedback_audio.gd`.
+  It retains projectile-item compatibility constants/properties, public
+  playback/fallback and pitch policy, dynamic Dynamite Fuse lifecycle, Bomb
+  Surprise tick-volume policy, and safe Boomerang/Spider Mine loop mutation
+  and cleanup while delegating twenty-four specs, twenty-three resident
+  players, split setup order, selective prewarm, SFX projection, and cache
+  ownership to `projectile_item_audio.gd`.
+  It retains Horn Strawberry/Odin's Eye compatibility constants/properties,
+  public playback aliases, pitch/fallback policy, explicit Eat stopping, and
+  transformation event timing while delegating fourteen cue specs, eager
+  setup, Horn-only prewarm, split SFX-bus projection, and player cache to
+  `transformation_item_audio.gd`.
+  It retains Ragnarok/Electric Shock/Poseidon and Lumion lightning
+  compatibility constants/properties, public playback/fallback and RNG policy,
+  plus shared-stream-safe loop mutation and cleanup while delegating ten cue
+  specs, eager setup/SFX-bus order, nine-path prewarm, three Mini Spark
+  candidates, loop membership, and player cache to
+  `elemental_combat_audio.gd`.
+  It retains shared round/intro/balloon/star/leaf-shield/trampoline
+  compatibility constants/properties, public playback/pitch/fallback policy,
+  and explicit ball-spawn intro stopping while delegating nine one-shot specs,
+  split primary/tail setup/prewarm/SFX projections, and player cache to
+  `shared_stage_feedback_audio.gd`.
+  It retains Stage 1 Dalji/Gaksital compatibility properties, public playback,
+  pitch/dynamic-volume policy, fan-pool cursor, and Whip cleanup while
+  delegating three primary cue specs, two extra fan players, interleaved setup,
+  unique prewarm, split SFX-bus projections, and cache ownership to
+  `stage1_boss_skill_audio.gd`.
+  It retains Blacksmith Thor Shield compatibility properties and public
+  playback/pitch policy while delegating the four one-shot cue specs, eager
+  creation/SFX-bus order, and player cache to
+  `blacksmith_thor_shield_audio.gd`. Those cues retain their no-explicit-prewarm
+  policy and non-looping cached streams.
+  It retains Smasher compatibility player/voice-stream properties, public
+  playback, pitch/voice-RNG policy, and shared-stream-safe loop mutation while
+  delegating thirteen base skill cues, four Power/Ghost Smashing feedback cues,
+  split setup/prewarm/SFX-bus projections, player cache, and both four-stream
+  cut-in voice pools to `smasher_skill_audio.gd`.
+  It retains Viper/Chaos compatibility player properties, public playback,
+  pitch/fallback policy, and shared-stream-safe Jetpack/black-hole loop mutation
+  while delegating twenty-two cue specs, eager setup/SFX-bus order, selective
+  prewarm projection, and player cache to `viper_skill_audio.gd`.
+  It retains Commando compatibility player properties, playback/pitch/fallback
+  policy, the four-player AK-47 rotation cursor, and shared-stream-safe loop
+  mutation while delegating nineteen primary cue specs, optional setup order,
+  selective prewarm/SFX-bus projections, and three extra AK-47 layers to
+  `commando_skill_audio.gd`. The historical supply-radio loop name remains a
+  non-looping one-shot; central cleanup still force-stops it at boundaries.
+  It retains Stage 7 Akamu compatibility player properties, public playback
+  methods, and per-cue pitch policy while delegating the six cue specs, eager
+  creation/prewarm order, and player cache to `stage7_akamu_audio.gd`.
+  It retains Stage 5 Hongryun compatibility player properties, public
+  play/stop methods, pitch policy, and random hurt selection while delegating
+  the primary/hurt catalogs, split setup/prewarm order, and player caches to
+  `stage5_hongryun_audio.gd`.
+  It retains Stage 6 Tetriser compatibility player properties, public playback
+  methods, and per-cue pitch policy while delegating the six cue specs, eager
+  creation order, and player cache to `stage6_tetriser_audio.gd`. The facade's
+  stage prewarm list intentionally remains free of those six paths.
+  It retains Stage 2 compatibility player properties, one-shot and size-banded
+  stonebreak pitch policy, Quake play/stop/sync, and shared-stream-safe loop
+  mutation while delegating nine cue specs, setup/prewarm order, and player
+  cache to `stage2_battle_audio.gd`.
+  It retains Stage 3 compatibility player properties, one-shot pitch policy,
+  Psychoball play/stop/sync, and shared-stream-safe loop mutation while
+  delegating eleven cue specs, optional stonebreak creation, setup/prewarm
+  order, and player cache to `stage3_battle_audio.gd`. Bomb Surprise retains a
+  separate semantic alias for its shared weak-explosion WAV.
+  It retains Stage 4 Ponk compatibility player properties, one-shot pitch
+  policy, magnetic play/stop/sync, and shared-stream-safe loop mutation while
+  delegating the seven cue specs, setup/prewarm order, and player cache to
+  `stage4_ponk_audio.gd`.
+- `scripts/audio/lingpet_click_voice_audio.gd`
+  Owns the Guardian Spirit click-reaction voice catalog for all eleven
+  supported pets, stable eager player-creation order, the existing four-stream
+  prewarm list, normalized pet-id lookup, ordered player enumeration, and
+  missing-stream recovery. Unsupported pet ids remain silent. It does not own
+  global SFX-bus application or final playback pitch.
+- `scripts/audio/lingpet_acquisition_audio.gd`
+  Owns the three Guardian Spirit acquisition-cinematic cue specs, stable eager
+  player-creation order, ordered item-phase prewarm projection, player cache,
+  and missing-stream recovery. It preserves optional-player fallback creation
+  but does not own cut-in pitch jitter, item-get fallback, or final playback
+  order.
+- `scripts/audio/lingpet_combat_audio.gd`
+  Owns twenty-seven Guardian Spirit combat-cue specs, item/projectile/stage
+  phase player creation order, selective item/stage prewarm projection,
+  phase-correct SFX-bus player enumeration, and the two loaded egg-hit
+  candidates. The stage projection deliberately keeps only the two Ghost
+  Summon players in the global SFX list; skeleton/barrier cues retain their
+  previous exclusion. Star Coil movement and projectile-phase cues retain
+  their existing lazy prewarm policy. It does not own playback pitch,
+  fallbacks, or loop-stream mutation.
+- `scripts/audio/smasher_skill_audio.gd`
+  Owns thirteen base Smasher skill-cue specs, four Power/Ghost Smashing
+  stage-feedback specs, their phase-stable setup/prewarm/SFX-bus projections,
+  player cache, and two four-stream cut-in voice pools. It does not own
+  playback pitch/voice RNG, shared-stream loop mutation, event timing, or
+  round cleanup.
+- `scripts/audio/game_audio_bus_controller.gd`
+  Owns BGM/SFX and Paddle/Wall pan-bus names, default and adopted volume state,
+  AudioServer bus creation/routing, volume application, panner installation/
+  cache, source-X pan projection, and the character-info BGM low-pass filter
+  (named-effect install/lookup, enable toggle, and setup-time re-sync to the
+  stored muffle state). It does not own cue catalogs, playback,
+  pitch, hit cooldowns, event timing, or player lifecycle.
+- `scripts/audio/game_audio_setup_controller.gd`
+  Owns the audio setup group/prewarm/BGM cursors, current group's borrowed
+  stream path list, shared-cache checks and synchronous loading, the
+  one-new-stream-per-call loading budget, 92/8 progress projection, and setup
+  completion math. `game_audio.gd` retains the exact seven group path
+  composition and setup side effects plus compatibility properties used by
+  boot performance labels.
+- `scripts/audio/stage_bgm_audio.gd`
+  Owns nine Stage 1-7 BGM specs, authored linear gains, stable setup/prewarm
+  order, Stage 1/2 selection pools, required-stream projection, and player
+  cache. It does not own owner-stage filtering, setup progress, track
+  selection/RNG, prime/play/stop/mute state, loop mutation, or bus volume.
+- `scripts/audio/stage_bgm_playback_controller.gd`
+  Owns current/muted names, prime-gain state, shared mute persistence, Stage
+  1/2 selection RNG, fixed-stage routing, and prime/play/restart/stop/mute
+  transitions. Catalog and player callbacks are invocation-scoped. It does not
+  own paths, player creation, stream loop mutation, bus policy, or event timing.
+- `scripts/audio/game_ui_feedback_audio.gd`
+  Owns five UI Move/Confirm/Back/Perk Select/Character Info Toggle one-shot
+  specs, native gains,
+  stable eager setup, step-0 prewarm and global SFX-bus head order, and player
+  cache. It does not own playback pitch/fallbacks, bus volume, or menu/modal/
+  reward event timing. Sibling owner smokes anchor core ball/dash order off
+  `get_cue_ids().size()`, never a hardcoded index — see the absolute-index
+  trap in `docs/godot_runtime_traps.md`.
+- `scripts/audio/core_ball_dash_audio.gd`
+  Owns twelve Paddle/Serve/Wall and Dash cue specs, native gains, stable eager
+  setup and step-0 prewarm order, global SFX-bus projection, and player cache.
+  It does not own hit cooldowns, positional buses, playback pitch/selections or
+  fallbacks, Dash Delay loop mutation, or round cleanup.
+- `scripts/audio/item_reward_feedback_audio.gd`
+  Owns twenty-six primary item, reward, defeat, perk-fusion Cold Boot,
+  legendary-cinematic, and generic item-action cue specs plus two optional
+  Angel Blessing absorb players. It preserves the original twenty-three-player
+  head phase, two-player post-Guardian-Spirit cinematic phase, three-player
+  post-elemental action phase, their matching split prewarm/SFX projections,
+  absorb-layer tail projection, and player cache. The four Cold Boot cues stay
+  outside prewarm. It does not choose playback pitch/fallbacks, stop Legendary
+  After, advance the Angel pool cursor, mutate streams, or own forced cleanup.
+- `scripts/audio/projectile_item_audio.gd`
+  Owns twenty-four throwable/deployable cue specs, twenty-three resident
+  players, the exact nine-player/loop-mutation/fourteen-player split setup,
+  selective sixteen-path step-4 prewarm projection, global SFX-bus order, and
+  player cache. Dynamite Fuse is cataloged here but intentionally created per
+  use by the facade. It does not choose playback/fallbacks, mutate Boomerang or
+  Spider Mine streams, own Bomb Surprise volume policy, or perform cleanup.
+- `scripts/audio/transformation_item_audio.gd`
+  Owns fourteen Horn Strawberry and Odin's Eye cue specs, exact nine-Horn then
+  five-Odin eager setup, Horn-only nine-path prewarm, legacy split SFX-bus
+  order, and player cache. Odin's five one-shots deliberately remain outside
+  prewarm. It does not choose pitch/fallbacks, stop Horn Eat, mutate streams,
+  or own transformation/revival event timing.
+- `scripts/audio/elemental_combat_audio.gd`
+  Owns ten Ragnarok, electric-shock, Lumion lightning, and Poseidon cue specs,
+  exact eager setup/SFX-bus order, nine-path step-3 prewarm projection, three
+  setup-time Mini Spark candidate streams, loop membership metadata, and player
+  cache. Mini Spark deliberately stays outside explicit prewarm. It does not
+  choose playback/fallbacks, consume RNG, mutate the two loop streams, or own
+  event timing and round cleanup.
+- `scripts/audio/shared_stage_feedback_audio.gd`
+  Owns nine Round Set, ball-spawn/stage-landing intro, balloon, star, Laurel
+  Leaf Shield, and Trampoline one-shot specs, their seven-player primary and
+  two-player tail setup/prewarm/SFX projections, and player cache. It does not
+  choose playback/pitch/fallbacks, consume RNG, stop intro audio, mutate
+  streams, or own score/intro/stage/perk/field event timing.
+- `scripts/audio/stage1_boss_skill_audio.gd`
+  Owns the Stage 1 Dalji Whip, Gaksital Fan, and Gaksital Whipcrack specs plus
+  two optional Fan players, their exact interleaved eager setup, three-path
+  unique prewarm projection, split primary/tail SFX-bus projections, and player
+  cache. It does not own playback pitch or dynamic volume, the fan-pool cursor,
+  event timing, or round cleanup.
+- `scripts/audio/blacksmith_thor_shield_audio.gd`
+  Owns four Blacksmith Thor Shield one-shot cue specs, native gains, stable
+  eager Open/Close/Swing/Block creation and SFX-bus order, and player cache. It
+  deliberately exposes no explicit prewarm projection and does not own pitch,
+  stream mutation, phase/collision event timing, or runtime cleanup.
+- `scripts/audio/perk_fusion_combat_audio.gd`
+  Owns the cross-character Mugong-fusion combat cue catalog, ordered
+  stage-feedback setup/prewarm/SFX projection, and player cache. It currently
+  ports the legacy `magicdefense.wav` Spellbreaker Guard parry one-shot at
+  linear volume 0.5 and does not own playback timing, pitch policy, stream
+  mutation, or round cleanup.
+- `scripts/audio/viper_skill_audio.gd`
+  Owns twenty-two Viper and Chaos Spear cue specs, native gains, stable eager
+  creation and global SFX-bus order, selective twenty-one-path prewarm
+  projection, and player cache. Marshal Kick deliberately reuses Shadow Kick's
+  stream without adding a duplicate prewarm entry. It does not own playback,
+  pitch/fallback policy, loop mutation, event timing, or round cleanup.
+- `scripts/audio/commando_skill_audio.gd`
+  Owns nineteen Commando primary cue specs, stable optional-player creation
+  order, selective prewarm and global SFX-bus projections, primary player
+  cache, and three extra AK-47 rapid-fire layers. It preserves the existing
+  weapon-change SFX-list exclusion, net-constrict prewarm exclusion, and AK-47
+  tail projection. It does not own playback/pitch/fallback policy, the pool
+  cursor, loop mutation, or round cleanup.
+- `scripts/audio/stage2_battle_audio.gd`
+  Owns nine Stage 2 cue specs, native gains, stable eager player-creation order,
+  ordered stage prewarm projection, and player cache. It does not mutate the
+  Quake stream loop flag, choose playback or size-banded stonebreak pitch, or
+  own round cleanup.
+- `scripts/audio/stage3_battle_audio.gd`
+  Owns eleven Stage 3 Menhera/Kuromi cue specs, native gains, stable eager
+  player-creation order, optional stonebreak-player routing, ordered stage
+  prewarm projection, and player cache. It does not mutate the Psychoball
+  stream loop flag, choose playback pitch, or own round cleanup.
+- `scripts/audio/stage4_ponk_audio.gd`
+  Owns seven Stage 4 Ponk cue specs, native gains, stable eager player-creation
+  order, stage prewarm projection, and player cache. It does not mutate the
+  magnetic stream loop flag, choose playback pitch, or own round cleanup.
+- `scripts/audio/stage5_hongryun_audio.gd`
+  Owns the three Stage 5 Hongryun primary cue specs and three-stream hurt pool,
+  including their deliberately split eager setup, prewarm, cache, and global
+  SFX projection positions. It does not own playback pitch, stop policy,
+  random hurt selection, or Stage 5 event timing.
+- `scripts/audio/stage6_tetriser_audio.gd`
+  Owns six Stage 6 Tetriser one-shot cue specs, native gains, stable eager
+  player-creation order, and player cache. It deliberately does not expose a
+  prewarm projection, choose pitch, or own combat-feedback trigger timing.
+- `scripts/audio/stage7_akamu_audio.gd`
+  Owns the six Stage 7 Akamu one-shot battle-cue specs, native gains, stable
+  eager player-creation order, ordered stage prewarm projection, and player
+  cache. It does not own playback pitch or the shuriken/cloud/aura/clone event
+  timing retained by the GameAudio facade and Stage 7 state modules.
 - `scripts/audio/gameplay_loop_audio_cleanup.gd`
   Owns the shared hard-stop list for non-BGM gameplay loop sounds across
   score events, scoreboard / serve-wait frames, round restart, ball reset,
-  stage debug reset, and full game reset. New looped gameplay SFX must add
-  their `stop_*` method here when they are introduced.
+  stage debug reset, and full game reset. New looped or sustained stop-capable
+  gameplay SFX must add their `stop_*` method here when introduced; this list
+  includes Dual Glitch wind-up so startup cancellation cannot leak its cue.
 - `scripts/audio/game_audio_player_factory.gd`
   Owns AudioStreamPlayer creation for battle sounds: bus / volume setup,
   resource loading, raw WAV / MP3 / OGG fallback loading,
@@ -5931,7 +7512,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the thin Node2D shell inherited by `scenes/main.gd`: registry
   creation, dynamic scene-state `_get` / `_set`, Godot callback bridges,
   and public compatibility wrapper names. The shell delegates startup,
-  update, draw, and public ball API behavior to registered modules. Module
+  update, draw, and public ball API behavior to registered modules. Its idle
+  bridge also performs the one-per-frame nonblocking collection of detached
+  threaded-texture results before delegating battle update. Module
   instance caching and cached-only cleanup lookups live in the gameplay
   module registry / script-instance cache, and boot / intro readiness gates
   live in the battle scene readiness controller, not in the shell. Modal /
@@ -5973,7 +7556,11 @@ This section is intentionally long; use search to find the nearest owner.
   boot texture resources are cached. This includes HUD / playfield
   primitives, skill-icon texture draws, common shader variants, and Stage 1
   round-result player / Dalji pose texture-region uploads so the first
-  scoreboard frame does not pay the upload cost.
+  scoreboard frame does not pay the upload cost. It also owns Hwangyeok plaza
+  GPU readiness: an independent 512x512 `SubViewport` performs the actual
+  retained seven-building/21-layer draw, then seals 21 current `Texture2D`
+  instance IDs, 21 in-bounds layers, and two `frame_post_draw` flushes. Texture
+  identity drift invalidates readiness.
 - `scripts/core/battle_scene_intro_input_controller.gd`
   Owns battle-scene intro input routing after boot / warmup gates:
   stage-landing skip / advance input, ball-spawn intro input, landing-to-
@@ -6131,8 +7718,20 @@ This section is intentionally long; use search to find the nearest owner.
   delegated to `battle_scene_update_prewarm_driver.gd`.
 - `scripts/core/battle_scene_update_prewarm_driver.gd`
   Owns update-runtime startup warming: lazy-loading frame-flow modules,
-  priming update context builders, and forwarding ball-update prewarm to
-  the ball update driver so first serve does not pay the lazy-load cost.
+  staged dependency execution/detail labels, priming update context builders,
+  staged asset readiness, BattlePerf lookup sampling, and forwarding ball-
+  update prewarm to the ball update driver so first serve does not pay the
+  lazy-load cost. Character/stage dependency composition is delegated to
+  `battle_scene_update_prewarm_plan.gd`.
+- `scripts/core/battle_scene_update_prewarm_plan.gd`
+  Owns pure update-prewarm planning: normalized character/stage cache keys,
+  character-specific player/effects/match dependency composition, current-
+  stage/all-stage selection, and stable nonempty deduplication. It has no
+  registry or staged-execution state.
+- `scripts/core/battle_scene_update_prewarm_key_sets.gd`
+  Owns the ordered static dependency groups consumed by the update-prewarm
+  plan. Keep runtime selection policy in the plan and step execution in the
+  driver instead of adding behavior to this data-only catalog.
 - `scripts/core/battle_scene_update_callbacks.gd`
   Owns the stateless scene update callback table for player / active items
   / boss / ball / effects-driver, score events, scoreboard updates,
@@ -6174,12 +7773,22 @@ This section is intentionally long; use search to find the nearest owner.
   item reset. Registered as `battle_scene_boss_health_flow`.
 - `scripts/core/battle_scene_match_flow_driver.gd`
   Owns scene-facing match-flow callbacks for score events, scoreboard
-  updates, game reset callbacks, match-flow dependency lookup, and handoff
-  of reset results to `battle_scene_match_reset_result_applier.gd`. It is
+  updates, game/continue reset callbacks, run-ending navigation, match-flow
+  dependency lookup, and handoff of reset results to
+  `battle_scene_match_reset_result_applier.gd`. Defeat classification and
+  chance-gem/settlement policy are delegated to
+  `battle_defeat_flow_resolver.gd`. It is
   registered in the core module catalog so scoreboard / score-event
   callbacks use the same lazy-load and warmup path as other update drivers.
   Reset-result application prefers the registry-owned applier and falls
   back to an internal instance for direct unit callers.
+- `scripts/core/battle_defeat_flow_resolver.gd`
+  Owns scoreboard defeat classification, chance-gem save-store reads and
+  owner mirroring, delayed confirmation-time consumption, legacy/missing
+  continue-screen fallbacks, and zero-gem settlement selection. It receives
+  match-flow-owned continue/exit callbacks so reset execution and scene
+  navigation stay in `battle_scene_match_flow_driver.gd`; the driver retains
+  one resolver instance for callbacks that outlive the scoreboard tick.
 - `scripts/core/battle_scene_match_reset_result_applier.gd`
   Owns owner-field application for match reset results returned by
   `match_flow_controller.gd`: special gauge values, paddle scale/size,
@@ -6293,7 +7902,35 @@ This section is intentionally long; use search to find the nearest owner.
   status, player / boss positions, paddle sizes / scale, and player / boss
   sprite texture references. Result scoreboard-to-actor draw state,
   result-frame constants, and cached result texture sync are delegated to
-  `scripts/core/battle_draw_actor_result_context.gd`.
+  `scripts/core/battle_draw_actor_result_context.gd`; player customization
+  texture/slot projection delegates to
+  `scripts/core/battle_draw_actor_customization_context.gd`; Commando B2,
+  weapon-fire, radio, anchor, and legacy overlay projection delegates to
+  `scripts/core/battle_draw_actor_commando_context.gd`; Stage 1-8 source
+  capture and merge precedence delegates to
+  `scripts/core/battle_draw_actor_stage_context.gd`.
+- `scripts/core/battle_draw_actor_customization_context.gd`
+  Owns draw-time player customization projection into the two established
+  dictionaries: deep-copied caller textures/slots, Texture2D-only battle-cache
+  additions, user-entry priority, Optimus default slot recipes, owned runtime
+  perk visual-part injection, and the Smasher debug paddle fallback. It does
+  not own actor animation/context assembly, resource loading, or rendering and
+  must not add an outer wrapper payload to the draw path.
+- `scripts/core/battle_draw_actor_commando_context.gd`
+  Owns Commando-specific draw projection: B2 animation/frame selection,
+  anchor-table lifetime/lookup/override resolution, authored weapon-fire
+  sheet/frame/facing policy, supply/reload/fire-support radio-motion detection,
+  radio-frame timing, and the dormant legacy weapon-overlay calibration table.
+  The shared actor facade retains final public key assembly; this owner returns
+  direct scalar/resource values and adds no per-frame wrapper dictionary.
+- `scripts/core/battle_draw_actor_stage_context.gd`
+  Owns Stage 1-8 actor-source capture and last-writer merge precedence,
+  including Stage 1 Dalji/Gaksital skill/cooldown/wall-flash order, Stage 2
+  background-before-skill, Stage 4 map dependencies and flash override, the
+  Stage 5 fire-machine availability gate, and direct Stage 3/6/7/8 reads. It
+  borrows payload dictionaries, merges into the facade's established result
+  before item/status contexts, and releases captured references after merging;
+  it returns no wrapper payload and owns no gameplay state.
 - `scripts/core/battle_draw_ball_context.gd`
   Owns ball draw snapshots: ball effect trails / particles, current
   intensity colors, serve-wait draw placement, current ball renderer flags,
@@ -6391,8 +8028,9 @@ This section is intentionally long; use search to find the nearest owner.
   skill runtime, and shared dash state.
 - `scripts/core/battle_update_stage_runtime_deps_builder.gd`
   Owns shared stage-runtime dependency collection for update and match
-  flows, including Stage 1 Dalji skill/event states, Stage 2 boss skill
-  state, and routed `stage_background` lookup with Stage 1 fallback.
+  flows, including variant-scoped Stage 1 Dalji, Gaksital, and Pododaejang
+  skill/event states, Stage 2 boss skill state, and routed
+  `stage_background` lookup with Stage 1 fallback.
 - `scripts/core/battle_update_match_stage_runtime_deps_builder.gd`
   Keeps the match-flow stage-runtime dependency facade and delegates to
   the shared stage-runtime dependency builder.
@@ -6403,12 +8041,12 @@ This section is intentionally long; use search to find the nearest owner.
   staged prewarm and synchronous loading resolve the same idle / walk /
   attack-left paths without changing gameplay collision state.
 - `scripts/resources/battle_resources.gd`
-  Owns battle texture paths and loading: player / boss sprites, ball
-  texture, orb / HUD frame textures, Smasher and Viper skill icon
-  textures, and missing-resource warnings through the shared project
-  resource loader. Round-result texture prewarm supports a one-frame delayed
-  queue so score-event handling does not start threaded texture requests
-  before the scoreboard has had a chance to draw.
+  Owns public battle-texture path aliases, domain-specific texture spec and
+  cache-key composition, result texture spec selection, transition step
+  composition, pseudo-spec and skill-icon temporary cache cleanup, skill-icon
+  normalization, and the public transition/result prewarm compatibility
+  facades. The backing cache and concrete resource-loading policy live in
+  `battle_texture_spec_store.gd`.
   Smasher ball-contact attacks prefer the 4x2 `player_attack_sheet` when
   present, while legacy hit strips remain the fallback path. The scene
   bootstrap loads this map, while the battle scene state keeps the loaded
@@ -6416,52 +8054,81 @@ This section is intentionally long; use search to find the nearest owner.
   shared resource map. Boss texture keys must keep attack and stun semantics
   separate; `boss_hit_sprite_sheet` is a legacy ball-contact attack alias,
   not a stun key.
+- `scripts/resources/battle_texture_spec_store.gd`
+  Owns the backing battle-texture `Dictionary`, texture spec construction,
+  alias/path completeness checks, raw/imported/optional loader selection,
+  shared cached-texture adoption, and writes to every compatibility alias.
+  `battle_resources.gd` retains domain composition and exposes this same
+  dictionary reference to existing consumers.
+- `scripts/resources/battle_transition_texture_prewarm_controller.gd`
+  Owns the active transition key, fine-grained step cursor, one threaded
+  texture request/status/completion slot, central export-safe threadability
+  gate, synchronous failure fallback, and reset drain. `battle_resources.gd`
+  supplies per-call spec/cache/load callbacks and retains domain-specific step
+  ordering plus skill-icon normalization.
+- `scripts/resources/battle_result_texture_prewarm_controller.gd`
+  Owns the round-result texture prewarm job queue, deferred-start frame count,
+  duplicate-path suppression, threaded request/status/completion slot, and
+  replacement drain. Score-event handling therefore still yields the
+  configured frame before starting texture work, while `battle_resources.gd`
+  supplies per-call spec/cache callbacks and retains no duplicated worker
+  state.
 - `scripts/resources/battle_skill_icon_paths.gd`
   Owns the read-only Smasher / Viper / Commando player skill-orb PNG path
   dictionaries. `battle_resources.gd` keeps the public `*_SKILL_ICON_PATHS`
-  aliases plus all texture loading, caching, normalization, and prewarm
-  sequencing.
+  aliases plus spec/cache-key composition, normalization, and prewarm
+  sequencing; the spec store performs concrete loading and owns the cache.
 - `scripts/resources/battle_core_texture_paths.gd`
   Owns read-only core battle texture paths for the runtime ball, orb / dash
   frames, player skill-cluster frames, and Stage 1 center background / border.
-  `battle_resources.gd` keeps public aliases plus loading, caching, and staged
-  prewarm sequencing.
+  `battle_resources.gd` keeps public aliases plus spec/cache-key composition
+  and staged prewarm sequencing through the shared spec store.
 - `scripts/resources/battle_boss_sprite_paths.gd`
   Owns read-only battle boss sprite sheet paths for Stage 1 Dalji, Stage 2,
   Stage 3 Menhera, and the current Godot Stage 5 Hongryun route.
-  `battle_resources.gd` keeps public aliases plus boss texture loading,
-  compatibility keys, and staged prewarm sequencing.
+  `battle_resources.gd` keeps public aliases plus boss spec composition,
+  compatibility keys, and staged prewarm sequencing through the spec store.
 - `scripts/resources/battle_blacksmith_sprite_paths.gd`
   Owns read-only Blacksmith / Baltor player sprite paths, including Thor
   Shield presentation textures and result sheets. `battle_resources.gd` keeps
-  public aliases plus texture loading, cache keys, and staged prewarm sequencing.
+  public aliases plus spec/cache-key composition and staged prewarm sequencing;
+  the spec store performs concrete I/O.
 - `scripts/resources/battle_commando_sprite_paths.gd`
   Owns read-only Commando / Soldier player sprite, firearm action-sheet, and
   weapon overlay paths. `battle_resources.gd` keeps public aliases plus texture
-  loading, cache keys, and staged prewarm sequencing.
+  spec/cache-key composition and staged prewarm sequencing through the store.
 - `scripts/resources/battle_optimus_sprite_paths.gd`
   Owns read-only Optimus player sprite and overlay paths. `battle_resources.gd`
-  keeps public aliases plus optional texture loading, cache keys, and staged
-  prewarm sequencing.
+  keeps public aliases plus optional-spec/cache-key composition and staged
+  prewarm sequencing; the store owns optional loading.
 - `scripts/resources/battle_smasher_sprite_paths.gd`
   Owns read-only Smasher player sprite paths, including idle / walk / dash /
   attack / hit / wheel / result sheets and the customization-debug overlay.
-  `battle_resources.gd` keeps public aliases plus texture loading, 2.5D
-  override fallback integration, cache keys, and staged prewarm sequencing.
+  `battle_resources.gd` keeps public aliases plus spec/cache-key composition,
+  2.5D override fallback integration, and staged prewarm sequencing through
+  the store.
 - `scripts/resources/battle_viper_sprite_paths.gd`
   Owns read-only Viper player sprite paths, including idle / walk / attack /
   airborne / wall / Venom Edge / hit / result sheets. `battle_resources.gd`
-  keeps public aliases plus texture loading, cache keys, and staged prewarm
-  sequencing.
+  keeps public aliases plus spec/cache-key composition and staged prewarm
+  sequencing through the store.
 - `scripts/resources/battle_skill_cutin_paths.gd`
   Owns read-only skill-presentation texture paths for Smasher / Viper cut-in
   sheets, Drive cut-in pieces, Shield Kiting cut-in art, and the Lingpet
   acquire resonance portal. `battle_resources.gd` keeps public aliases plus
-  imported texture loading, caching, and staged prewarm sequencing.
+  imported-spec/cache-key composition and staged prewarm sequencing; the spec
+  store performs imported loading and owns the cache.
 - `scripts/resources/project_resource_loader.gd`
   Owns clean-clone-safe resource loading helpers: raw source PNG and WAV
   files are loaded directly when present, while imported Godot resources
-  remain the fallback path. Texture, HUD, stage, and audio modules should
+  remain the fallback path. It also owns the shared bounded threaded-texture
+  slot, per-waiter timeout clocks, optional no-sync live-presentation fallback,
+  and immediate owner detachment plus nonblocking terminal-result collection
+  that keeps abandoned or wedged cinematic workers from occupying that shared
+  slot. A path that currently owns the threaded slot must close through terminal
+  `load_threaded_get()` even if another consumer fills the project cache or Godot
+  exposes it through the engine cache first; either cache shortcut is only valid
+  for non-owner paths. Texture, HUD, stage, and audio modules should
   reuse this helper instead of duplicating loader branches.
 - `scripts/resources/gameplay_module_registry.gd`
   Owns the public lazy-loaded gameplay module lookup API. It delegates the
@@ -6637,15 +8304,26 @@ This section is intentionally long; use search to find the nearest owner.
   Owns one-dot scoreboard LED rendering: a reduced lit glow stack, bright
   dot body, dim/off dots, and the round-end scoreboard draw-call budget.
 - `scripts/hud/scoreboard_overlay_renderer.gd`
-  Owns the full-screen score overlay canvas drawing: overlay layout,
-  full-board frame placement, inner screen, footer target text, and
-  delegation to the overlay frame / header / score-panel renderers.
+  Owns the full-screen score overlay canvas drawing: Hwangyeokjeon scroll
+  layout/unfurl timing, final-player-victory gating, and delegation to the
+  frame, header, score-panel, and victory renderers.
+- `scripts/hud/scoreboard_overlay_victory_renderer.gd` and
+  `scripts/characters/player_character_portrait_catalog.gd`
+  Own the stage-clear-only player-column portrait plaque, its delayed
+  portrait/feathered-backflash/stamp beats, visible upper hangers, dedicated
+  right-side vertical `승리` calligraphy with a small red seal, full-plaque
+  flash centering, and player-victory loser-column dimming plus the shared
+  character-select/scoreboard portrait source paths and crop anchors.
+  `battle_resources.gd` prewarms the selected portrait into `battle_textures`;
+  the victory renderer performs no draw-time loads.
 - `scripts/hud/scoreboard_overlay_frame_renderer.gd`
   Owns the full-screen score overlay frame chrome: metal frame bands,
   bevel lines, drop shadow, corner bolts, and frame color helpers.
 - `scripts/hud/scoreboard_overlay_header_renderer.gd`
   Owns the full-screen score overlay header: header panel chrome, player /
-  boss logo orbs, glow halos, and PLAYER / BOSS labels.
+  boss logo orbs, glow halos, the PLAYER label, and the localized Stage 1
+  boss name resolved from `stage1_boss_variant`. `stage_boss_variant` remains
+  a separate compatibility key and is not used for Stage 1 identity.
 - `scripts/hud/scoreboard_overlay_score_panel_renderer.gd`
   Owns the full-screen score overlay score panel: score-area split, LED
   score placement, continuous score glow / pulse timing, and VS plate
@@ -6700,9 +8378,20 @@ This section is intentionally long; use search to find the nearest owner.
   scene-level callers should not duplicate item texture/color parsing.
 - `scripts/hud/active_item_hud_renderer.gd`
   Owns the public active-item HUD draw API and delegates slot-panel,
-  per-slot status overlays, visual bodies, and slot-context normalization
-  to focused helpers. The Stage 1 active-item HUD scene drawer owns when to
-  draw it and passes layout/state/visual modules into the renderer.
+  per-slot status overlays, visual bodies, hover highlighting / tooltip
+  composition, and slot-context normalization to focused helpers. The Stage 1
+  active-item HUD scene drawer owns when to draw it and passes layout/state/
+  visual modules into the renderer.
+- `scripts/hud/active_item_hud_interaction_controller.gd`
+  Owns desktop active-item HUD pointer hit testing and click activation. It
+  reuses `active_item_hud_layout` rects and routes occupied-slot clicks through
+  `active_item_runtime.use_slot()` so keyboard and mouse use share cooldown,
+  input-lock, effect, consumption, and selection semantics. Mobile touch input
+  remains owned by `battle_mobile_touch_controller.gd`.
+- `scripts/hud/active_item_hud_tooltip_renderer.gd`
+  Owns the battle HUD active-item hover card: live-localized item name and
+  description, slot/click hint, ready/cooldown/throw-lock state, screen-edge
+  clamping, and compact text wrapping.
 - `scripts/hud/active_item_hud_slot_context_builder.gd`
   Owns active-item slot draw context normalization: selected index,
   round-start elapsed time, item dictionary lookup, and per-slot cooldown /
@@ -7180,29 +8869,219 @@ This section is intentionally long; use search to find the nearest owner.
   cooldown untouched. `commando_weapon_controller.gd` remains authoritative
   for owned / rental weapon state and ammo mutation.
 - `scripts/characters/commando_supply_drop_state.gd`
-  Owns the first Commando `supply_drop` runtime slice: down-plus-action hold
-  timing, radio-call transient state, delayed drop resolution, supply-position
-  collectible parachute boxes, direct player pickup, active-item pickup /
-  slot-store handoff for field items,
-  rejected-pickup retention, the aircraft / parachute / crash texture-piece
-  remaster layers, `commando_supply_drop_fx_host.gd` shader /
-  `GPUParticles2D` / pulse-Tween host synchronization, radio / aircraft /
-  drop / pickup / explosion audio hooks,
+  Owns the stateful Commando `supply_drop` runtime orchestration slice: delayed
+  payload dispatch, presentation-context assembly, detached-FX visibility
+  decisions, radio / aircraft / drop / pickup / explosion audio event timing,
   ball-update aircraft collision handoff,
   player-ball shootdown, player-paddle / Brick-wall aircraft collision,
-  crash / explosion lifecycle, and round-boundary cleanup for the aircraft
-  loop. Its save-snapshot surface restores active aircraft state, crash
-  state, pending payload queues, and collectible parachute drops so a future
-  integrated save file can resume the in-flight supply flow.
+  crash-impact explosion/audio sequencing and response delegation, and round-boundary
+  cleanup orchestration. Its save-snapshot facade composes aircraft lifecycle,
+  pending payload queues, collectible parachute drops, and transient effect
+  state so a future integrated save file can resume the in-flight supply flow.
+- `scripts/characters/commando_supply_drop_activation_policy.gd`
+  Owns the pure Supply Drop activation boundary: down/supply-hold command
+  aliases, Commando/Soldier identity normalization, original-skill and
+  transform blocks including runtime method fallbacks, Emergency Supply
+  suppression precedence, player-serve six-second and post-serve three-second
+  gates, explicit round bypass, configured gauge cost, and cooldown readiness.
+  `commando_supply_drop_state.gd` retains the actual activation commit and
+  delegates mutable hold feedback to its focused state owner. Regression guards:
+  `tests/commando_supply_drop_activation_policy_refactor_smoke.gd` and
+  `tests/commando_supply_drop_activation_gate_smoke.gd`.
+- `scripts/characters/commando_supply_drop_hold_feedback_state.gd`
+  Owns mutable Supply Drop hold feedback state: live and post-serve-buffered
+  hold duration, the Python-parity 0.3-second gauge threshold and one-second
+  activation edge, cached paddle anchor and gauge rectangle/progress
+  projection, radio-call pose tail timing, one-playback-per-hold audio gate,
+  transient cancel/reset, and normalized snapshot restore. The state host
+  delegates these transitions while retaining activation commit, save-schema
+  composition, and public gauge/audio query facades; concrete method routing
+  lives in `commando_supply_drop_audio_state.gd`.
+  Regression guards:
+  `tests/commando_supply_drop_hold_feedback_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_activation_gate_smoke.gd`,
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
+- `scripts/characters/commando_supply_drop_audio_state.gd`
+  Owns Supply Drop audio dispatch state: edge-triggered aircraft-loop start/
+  stop and snapshot projection, eligible restore-time loop restart, preferred
+  hold-radio loop with one-shot fallback, forced radio-loop stop, activation
+  radio, payload-drop cue, and grenade-explosion with supply-drop fallback.
+  It reuses `commando_firearm_audio_dispatcher.gd` for `audio`/`game_audio`
+  lookup and first-supported-method dispatch. The state host chooses gameplay
+  cue timing and composes the public audio snapshot/query facades. Regression
+  guards: `tests/commando_supply_drop_audio_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`,
+  `tests/commando_supply_drop_activation_gate_smoke.gd`,
+  `tests/commando_save_load_snapshot_smoke.gd`, and
+  `tests/gameplay_loop_audio_cleanup_smoke.gd`.
+- `scripts/characters/commando_supply_drop_aircraft_lifecycle_state.gd`
+  Owns the Supply Drop aircraft state machine without runtime side effects:
+  delayed-arrival timer and exact remainder, randomized/configured direction,
+  off-canvas start lane, 120 px/s bidirectional flight, collision projection,
+  payload drop-window elapsed math, offscreen completion, invulnerability
+  readiness, shoot-down transition, quadratic crash position, rotation,
+  one-shot impact edge, and deep-copy-compatible snapshot/restore fields. Its
+  combined active-flight transaction returns one allocation-conscious result
+  and advances motion with only the delta remaining after the arrival edge.
+  `commando_supply_drop_state.gd` retains activation, resolved-payload side
+  effects, collision eligibility/result application, audio-event timing,
+  effect-state spawn dispatch, and crash-response sequencing; concrete shake
+  and ball/player knockback side effects live in
+  `commando_supply_drop_crash_response.gd`.
+  Regression guards:
+  `tests/commando_supply_drop_aircraft_lifecycle_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`,
+  `tests/commando_supply_drop_obstacle_crash_smoke.gd`,
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
+- `scripts/characters/commando_supply_drop_runtime_context.gd`
+  Owns draw-free per-frame Supply Drop context projection: deep-copying the
+  injected collision base, merging active-item collision keys with override
+  precedence, safely rejecting invalid providers, deriving payload center
+  bounds from play width and collectible safe margins, collapsing inverted
+  bounds to center, and clamping aircraft-relative payload positions to the
+  shipped vertical range. The host consumes this projection for aircraft
+  obstacles, crash-player response, collectible pickup, and resolved-drop
+  placement. Regression guards:
+  `tests/commando_supply_drop_runtime_context_refactor_smoke.gd`,
+  `tests/commando_supply_drop_obstacle_crash_smoke.gd`,
+  `tests/commando_supply_drop_field_item_smoke.gd`, and
+  `tests/commando_supply_drop_multi_payload_smoke.gd`.
+- `scripts/characters/commando_supply_drop_aircraft_collision_resolver.gd`
+  Owns draw-free Supply Drop aircraft collision math: explicit/derived player
+  paddle hitboxes including centered dash-size expansion, paddle-before-brick obstacle
+  precedence, brick index/impact projection, swept segment-vs-grown-aircraft
+  tests, aircraft-hit vertical reflection, crash-blast radial falloff/upward
+  bias/speed ceiling, and player blast edge/fallback-direction knockback.
+  `commando_supply_drop_runtime_context.gd` owns merged context assembly, while
+  `commando_supply_drop_state.gd` retains last-hitter eligibility, shoot-down
+  state mutation, wall non-consumption,
+  audio-event timing, and response sequencing. One-shot impulse application,
+  movement-state calls, and feedback dispatch live in
+  `commando_supply_drop_crash_response.gd`.
+  Regression guards:
+  `tests/commando_supply_drop_aircraft_collision_resolver_refactor_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`, and
+  `tests/commando_supply_drop_obstacle_crash_smoke.gd`.
+- `scripts/characters/commando_supply_drop_crash_impact_state.gd`
+  Owns the mutable post-crash impact window: one pending ball-impulse edge and
+  center, consume-on-first-ball-frame semantics, grenade-class blast
+  timer/center, one successful player-knockback gate, blast-zone presentation
+  projection, reset, and the existing three-field save snapshot/restore
+  contract. Restore intentionally never recreates the unpersisted ball edge.
+  `commando_supply_drop_crash_response.gd` consumes this state for collision-
+  resolver calls, scene ball velocity application, movement-state lookup/call,
+  and screen shake. The state host retains impact ordering, explosion particles,
+  and audio-event timing; method routing lives in the audio state.
+  Regression guards:
+  `tests/commando_supply_drop_crash_impact_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_collision_resolver_refactor_smoke.gd`,
+  `tests/commando_supply_drop_snapshot_codec_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
+- `scripts/characters/commando_supply_drop_crash_response.gd`
+  Owns post-crash runtime side-effect application around the pure impact state
+  and collision resolver: optional feedback screen shake, consume-on-first-
+  attempt ball impulse and `scene.ball_vel` mutation, live player-hitbox
+  projection, direct/cached movement-state lookup, direction-aware player
+  knockback, and the successful one-shot player gate. A spatial miss leaves the
+  gate open so a paddle entering the active blast later is still shoved. The
+  state host preserves the shipped order: arm the impact before the instant
+  player response and consume the pending ball response before aircraft-hit
+  eligibility can early-out. Regression guards:
+  `tests/commando_supply_drop_crash_response_refactor_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`,
+  `tests/commando_supply_drop_crash_impact_state_refactor_smoke.gd`, and
+  `tests/commando_supply_drop_aircraft_collision_resolver_refactor_smoke.gd`.
+- `scripts/characters/commando_supply_drop_snapshot_codec.gd`
+  Owns the Supply Drop persistence schema boundary: public save-version stamp,
+  deep-copied save payloads, legacy spawned-aircraft inference, direction and
+  timing-pattern normalization, nonnegative scalar clamps, Vector2 fallbacks,
+  typed dictionary/float array filtering, pending-delay padding, and the
+  crashing-aircraft audio gate. `commando_supply_drop_state.gd` retains the
+  public save/restore facade and runtime field application; focused sub-owners
+  restore their fields and the audio state restarts an eligible aircraft loop.
+  Regression guards:
+  `tests/commando_supply_drop_snapshot_codec_smoke.gd`,
+  `tests/commando_save_load_snapshot_smoke.gd`, and
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`.
+- `scripts/characters/commando_supply_drop_aircraft_sprite_renderer.gd`
+  Owns the Supply Drop aircraft sprite presentation contract: left/right tilt
+  and crash sheet paths, one-time texture caches, 4x4 atlas frame projection,
+  looping flight frames, final-frame-held crash frames, public pipeline status,
+  prewarm, normal-flight region drawing, and normalized-UV rotated crash quads.
+  `commando_supply_drop_state.gd` delegates status/prewarm/sprite drawing here
+  through `commando_supply_drop_presentation_renderer.gd`; that presentation
+  owner retains the procedural missing-asset aircraft fallback plus shared
+  glow/ring composition. Regression guards:
+  `tests/commando_supply_drop_aircraft_sprite_renderer_smoke.gd`,
+  `tests/commando_supply_drop_vfx_remaster_smoke.gd`, and
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`.
+- `scripts/characters/commando_supply_drop_collectible_state.gd`
+  Owns Supply Drop parachute collectibles end to end: live array, deterministic
+  payload-index sway/fall setup, safe-margin motion, rotation, offscreen
+  despawn, deep-copy snapshot restore, 40x30 pickup geometry, rental weapon
+  grant routing, direct active-item collection / slot-store fallback / field
+  spawn fallback, rejected-pickup retention, result payloads, and pickup audio
+  ordering. `commando_supply_drop_runtime_context.gd` assembles player collision
+  context; the state host projects its paddle rect and retains collectible
+  drawing. Regression guards:
+  `tests/commando_supply_drop_collectible_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_field_item_smoke.gd`,
+  `tests/commando_supply_drop_multi_payload_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
 - `scripts/characters/commando_supply_drop_payload_resolver.gd`
   Owns the pure payload planning slice for Commando `supply_drop`: 1-3
   payload queue construction, Python parity delay schedules, rental weapon
   candidate filtering, Godot-ported field-item candidate weights,
   `ammo_box` / `doping_potion` candidate eligibility rules, duplicate rental
   reservation prevention, configured forced-payload handling, and fallback
-  field-item identity. `commando_supply_drop_state.gd` keeps compatibility
-  wrappers for the existing smoke-test/private helper surface while delegating
-  these calculations here.
+  field-item identity. `commando_supply_drop_payload_queue_state.gd` consumes
+  these planning functions, while `commando_supply_drop_state.gd` retains one
+  field-item candidate compatibility wrapper for the existing smoke surface.
+- `scripts/characters/commando_supply_drop_payload_queue_state.gd`
+  Owns the mutable payload delivery queue after pure planning: configured
+  pending dictionaries and delay array, current-payload compatibility facade,
+  aircraft-flight timer start/advance, ordered ready-drop popping, same-frame
+  zero-delay chaining, elapsed-time overshoot carry into the next delay,
+  aircraft-loss cleanup, deep-copy snapshot projection, and spawned-vs-arrival
+  restore timing. `commando_supply_drop_state.gd` retains the drop-window gate
+  and applies resolved collectible/VFX/audio dispatch; payload positions are
+  projected by `commando_supply_drop_runtime_context.gd`.
+  Regression guards:
+  `tests/commando_supply_drop_payload_queue_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_multi_payload_smoke.gd`,
+  `tests/commando_supply_drop_weighted_table_smoke.gd`,
+  `tests/commando_supply_drop_snapshot_codec_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
+- `scripts/characters/commando_supply_drop_effect_state.gd`
+  Owns the transient Supply Drop presentation state without CanvasItem calls:
+  the 0.55-second falling-drop fade and 84 px/s motion, the 12-spark plus
+  7-smoke aircraft-hit recipe, direction-mirrored damage smoke, the 18-spark
+  plus 14-smoke plus 10-debris crash recipe, per-effect gravity/damping/lifetime
+  updates, reset, and filtered deep-copy snapshot/restore. The state host
+  chooses gameplay spawn edges and synchronizes the texture/shader/particle FX
+  host, while the presentation renderer draws the projected arrays. Regression guards:
+  `tests/commando_supply_drop_effect_state_refactor_smoke.gd`,
+  `tests/commando_supply_drop_vfx_remaster_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`,
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`,
+  `tests/commando_supply_drop_snapshot_codec_smoke.gd`, and
+  `tests/commando_save_load_snapshot_smoke.gd`.
+- `scripts/characters/commando_supply_drop_presentation_renderer.gd`
+  Owns the complete immediate-mode Supply Drop draw pass: normalized draw-plan
+  inputs, hold-gauge fill/text, flare/shockwave texture layers, grenade-class
+  crash-zone composition, aircraft sprite delegation plus procedural fallback,
+  transient spark/smoke/debris primitives, parachute-crate sprite plus
+  procedural fallback, collectible projection, payload texture cache/status,
+  and presentation-only prewarm. `commando_supply_drop_state.gd` now supplies
+  one borrowed-reference presentation context and retains no direct
+  `CanvasItem.draw_*` calls. Regression guards:
+  `tests/commando_supply_drop_presentation_renderer_refactor_smoke.gd`,
+  `tests/commando_supply_drop_aircraft_sprite_renderer_smoke.gd`,
+  `tests/commando_supply_drop_vfx_remaster_smoke.gd`, and
+  `tests/commando_supply_drop_aircraft_crash_smoke.gd`.
 - `scripts/items/active_item_commando_supply_actions.gd`
   Owns the Commando-specific active-item effects that entered through the
   `supply_drop` table: `ammo_box` refills all non-rental permanent firearms
@@ -7214,8 +9093,21 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the live canvas-attached VFX host for `supply_drop`: cached flare /
   shockwave texture pieces, an additive shader core, one drift
   `GPUParticles2D` layer, one crash `GPUParticles2D` layer, and a looping
-  pulse `Tween`. `commando_supply_drop_state.gd` remains the gameplay state
-  owner and only synchronizes snapshots into this rendering host.
+  pulse `Tween`. `commando_supply_drop_fx_host_lifecycle.gd` owns allocation,
+  attachment, synchronization, diagnostics, and teardown around this node.
+- `scripts/characters/commando_supply_drop_fx_host_lifecycle.gd`
+  Owns the detached Supply Drop FX-host lifecycle: one retained host reference,
+  invalid/queued-free rejection, existing named-child adoption, deferred
+  `add_child` deduplication and pending-state clearance after attachment,
+  snapshot/shake/layout synchronization, visible/attached/status projection,
+  immediate hide-and-reuse teardown, optional queue-free release, and FX-host
+  pipeline prewarm/status delegation. The state host decides whether logical
+  VFX layers exist and exposes a compatibility `get_fx_host()` diagnostic
+  facade without retaining host fields. Regression guards:
+  `tests/commando_supply_drop_fx_host_lifecycle_refactor_smoke.gd`,
+  `tests/commando_supply_drop_vfx_remaster_smoke.gd`,
+  `tests/commando_supply_drop_fx_host_layout_smoke.gd`, and
+  `tests/commando_supply_drop_audio_cleanup_smoke.gd`.
 - `scripts/characters/commando_firearm_runtime.gd`
   Owns the first Commando selected-firearm use slice: action-edge input
   gating, supply-hold suppression, current-weapon readiness checks, ammo
@@ -7286,7 +9178,43 @@ This section is intentionally long; use search to find the nearest owner.
   net gun's expanded boss capture hitbox, and configured explosion radii for
   support / drone impacts. The Stage 1 firearm renderer and FX host own the
   Godot-native VFX remaster path; remaining work is live visual tuning and
-  weapon-feel QA.
+  weapon-feel QA. Public `reset()` / `reset_round()` remain compatibility
+  facades and delegate their mutations to the focused lifecycle owner below.
+  Public `WEAPON_*` profile aliases remain on this facade, backed by the
+  focused load-time profile catalog.
+- `scripts/characters/commando_firearm_runtime_lifecycle_state.gd`
+  Owns Commando firearm full-reset and round-boundary mutation: transient
+  collection clearing, pending damage/gauge cleanup, slingshot/pistol/AK-47/
+  bazooka/net-gun/bowling-trap/suicide-drone input and timer defaults, fire-
+  sheet cleanup, and bowling-guard clearing. At round boundaries it first
+  stops active support-aircraft loops and the suicide-drone loop, builds the
+  eligible bowling-trap carryover, performs the full reset, and restores the
+  normalized waiting traps unless explicit full cleanup was requested. It
+  intentionally preserves net-constrict direction/tick history and the shot
+  serial because those fields were outside the existing runtime reset
+  contract. Regression guard:
+  `tests/commando_firearm_runtime_lifecycle_refactor_smoke.gd`.
+- `scripts/characters/commando_firearm_runtime_config_catalog.gd`
+  Owns the read-only key projection for twelve Commando firearm facade routes:
+  base pistol, AK-47, bazooka, net gun, bowling trap, suicide-drone launch and
+  active control, fire spawn, projectile update, projectile hit, and lingering
+  spawn, plus per-frame effect update. The runtime supplies authoritative
+  scalar/profile tuning once at script load, and hot-path facade calls reuse
+  the projected dictionaries
+  without rebuilding literals. Fire spawn duplicates only its base route at
+  the actual shot event before merging dynamic Pistol Enhance options, so
+  shared static config is never mutated. Regression guard:
+  `tests/commando_firearm_runtime_config_catalog_refactor_smoke.gd`.
+- `scripts/characters/commando_firearm_ammo_weapon_input_state.gd`
+  Owns single-press ammo-weapon input side effects for bazooka, net gun,
+  bowling trap, and the generic extension-weapon fallback: post-switch and
+  shared-debounce gates, configured cooldown checks/triggers, ammo
+  consumption, firearm spawn-profile resolution, fire audio dispatch, and
+  stable success/failure results. `commando_firearm_runtime.gd` keeps selected-
+  weapon routing and delegates the generic branch through the same owner; no
+  per-frame config Dictionary is introduced because it reuses the static
+  `fire_spawn` route. Regression guard:
+  `tests/commando_firearm_generic_weapon_input_refactor_smoke.gd`.
 - `scripts/characters/commando_firearm_hit_geometry.gd`
   Owns the pure hit-geometry and projectile impact-reason helpers for
   Commando firearm runtime: boss-hitbox rect construction, projectile hitbox
@@ -7341,7 +9269,8 @@ This section is intentionally long; use search to find the nearest owner.
   suicide-drone loop stop dispatch, plus support-aircraft loop start / stop
   state flag gating for fire-support calls. The runtime keeps gameplay timing
   while calling the dispatcher directly instead of preserving private fire /
-  impact or support-aircraft audio bridges.
+  impact or support-aircraft audio bridges; the focused runtime lifecycle
+  owner calls it for round-boundary loop shutdown.
 - `scripts/characters/commando_firearm_bowling_trap_geometry.gd`
   Owns pure Commando bowling-trap geometry, state payloads, and kinematic
   helpers: install position / payload / marker dictionaries, install and
@@ -7351,18 +9280,23 @@ This section is intentionally long; use search to find the nearest owner.
   guard ball-speed restoration, guard knockback side, deterministic launch
   direction, and trap-vs-ball rectangle hits. `commando_firearm_runtime.gd`
   now calls this owner directly for install position / trap payload / marker
-  flash, install eligibility, active-install predicates, round carryover,
+  flash, install eligibility, active-install predicates,
   capture result payloads, guard ball softening / knockback, launch direction,
   and trap-vs-ball hits while resolving Stage 2 guard-immunity inline without
   private runtime bridge helpers. It still keeps the trap array, ammo / cooldown
   gates, capture / release side effects, audio, VFX, status application, and
-  guard state variable ownership.
+  guard state variable ownership. The lifecycle owner calls the carryover
+  builder at round reset.
 - `scripts/characters/commando_firearm_control_state.gd`
-  Owns pure Commando firearm control-state decisions: effect-update gating,
-  player-control lock aggregation, and movement-speed multiplier calculation
-  for AK-47 hold fire, hooked net fields, and active suicide-drone control.
-  `commando_firearm_runtime.gd` keeps the actual timer / projectile / lingering
-  state ownership and delegates only these boolean / scalar decisions.
+  Owns Commando firearm control-state decisions: effect-update gating,
+  player-control lock aggregation, movement-speed multiplier calculation for
+  AK-47 hold fire and active suicide-drone control, serve-wait suppression/
+  release-latch resolution and firearm-input clearing, plus reset-to-base-
+  weapon selection. The compatibility suppression query still returns its
+  documented Dictionary, while the production runtime uses compact bit flags
+  and applies the latch/clear result directly so the per-frame input path does
+  not allocate and unpack that Dictionary. `commando_firearm_runtime.gd` keeps
+  the actual timer/projectile/lingering state and selected-weapon routing.
 - `scripts/characters/commando_firearm_fire_sheet_resolver.gd`
   Owns pure Commando firearm weapon-fire sheet lookup behavior: which
   weapons use the shared authored fire sheet overlay, which use the long
@@ -7543,15 +9477,35 @@ This section is intentionally long; use search to find the nearest owner.
   unit/source accumulation, special-gauge gain/source/last-hit-kind
   accumulation, and the one-shot result dictionaries emitted to the battle
   effects controller. `commando_firearm_runtime.gd` keeps only the pending
-  fields and reset timing while calling this owner directly from projectile-hit
+  fields while calling this owner directly from projectile-hit
   queueing and `update_effects()` result emission. Do not reintroduce private
-  runtime queue / consume bridges for these pending-result paths.
+  runtime queue / consume bridges for these pending-result paths; the focused
+  runtime lifecycle owner clears pending state during reset.
+- `scripts/characters/commando_firearm_pistol_enhance_state.gd`
+  Owns Commando Pistol Enhance runtime policy: safe effective-level lookup,
+  the authored spread ladder and `Lv.5` accuracy cap, documented `Lv.5`
+  speed/normal-hit-knockback caps, intentionally uncapped `Lv.6+` magazine
+  growth, base-pistol ammo-max synchronization without per-frame spent-ammo
+  refill, and Beretta-isolated spawn-option projection. The firearm runtime
+  keeps its public static helpers plus `_build_firearm_spawn_options()` and
+  per-frame ammo-sync facades for compatibility. Regression guards:
+  `tests/commando_firearm_pistol_enhance_state_refactor_smoke.gd` and
+  `tests/commando_pistol_enhance_smoke.gd`.
+- `scripts/characters/commando_firearm_profile_catalog.gd`
+  Owns load-time construction of the eight weapon profiles, eight hit-feedback
+  profiles, eight hit-result profiles, three lingering-effect profiles, and
+  the fire-support profile/feedback/result override tables. The builder takes
+  the runtime's existing scalar tuning values as input, so projectile speed,
+  hitbox/lifetime, explosion, knockback, stun, and net-duration data keep one
+  authoritative tuning source while leaving the catalog independent of the
+  runtime facade. `commando_firearm_runtime.gd` builds it once and preserves
+  the existing public table names as compatibility aliases. Regression guard:
+  `tests/commando_firearm_profile_catalog_refactor_smoke.gd`.
 - `scripts/characters/commando_firearm_profile_resolver.gd`
   Owns pure Commando firearm profile lookup behavior: weapon-id
   normalization, fallback profile selection, deep-copy protection,
   fire-support override application, and no-fallback lingering-effect
-  lookup. The profile data tables stay in `commando_firearm_runtime.gd`, but
-  runtime call sites now query this resolver directly instead of preserving
+  lookup. Runtime call sites query this resolver directly instead of preserving
   private profile lookup bridges, including direct bazooka / net-gun fire
   profile bridges. Selected-firearm input, ammo, cooldown, projectile timing,
   audio, and result handoff remain untouched.
@@ -7567,8 +9521,9 @@ This section is intentionally long; use search to find the nearest owner.
   weapon filtering for base pistol / Beretta / AK-47, direct dependency and
   registry lookup for the Stage 1 balloon event, duplicate target suppression,
   and pop-result forwarding so projectile motion can consume the bullet
-  without spawning a boss-impact flash. `stage1_balloon_event.gd` owns the
-  actual balloon removal, pop VFX / audio, and special-balloon starpoint drop.
+  without spawning a boss-impact flash. The Stage 1 balloon interaction
+  coordinator owns actual removal; `stage1_balloon_event.gd` owns synchronous
+  pop VFX / audio and special-balloon starpoint feedback.
 - `scripts/characters/commando_firearm_support_aircraft_geometry.gd`
   Owns pure Commando fire-support aircraft geometry: collision-rect
   construction and ball-path segment intersection against the grown
@@ -7859,7 +9814,7 @@ This section is intentionally long; use search to find the nearest owner.
   Owns Smasher dash motion state: full/half dash timers, recovery lockout,
   consecutive-dash elapsed-frame timing, start / chain eligibility, and
   returned player-position update, including draw/audio recovery-progress
-  snapshot fields plus active `dash_acceleration` level / height-bonus
+  snapshot fields plus active `dash_acceleration` level / width-and-height bonus
   snapshot fields. Active movement and recovery timing are delegated to
   the motion update resolver.
 - `scripts/characters/smasher_dash_motion_update_resolver.gd`
@@ -7943,8 +9898,8 @@ This section is intentionally long; use search to find the nearest owner.
   prediction error, Power-Smashing combo focus mistake reduction, temporary
   fail windows, and fail-timer reset. The reflection bounds arguments and
   the boss-center clamp are decoupled: callers may narrow the reflection
-  bounds (hologram deception frames pass the decoy visual margin) while the
-  target clamp stays on the context-global play bounds. The hologram opt-in
+  bounds (허공환영 deception frames pass the decoy visual margin) while the
+  target clamp stays on the context-global play bounds. The decoy opt-in
   flag prediction_reflect_velocity switches the boss-line arrival to an O(1)
   closed form that is fps-scale-aware to mirror the decoy's real integer-tick
   motion (decoys move vel × fps_scale per tick; the project default is 72Hz
@@ -7964,7 +9919,16 @@ This section is intentionally long; use search to find the nearest owner.
   startup penguin logo playback / skip input, fixed Stage 1 startup
   selection, logo-to-loading-to-character-select flow, one-shot
   battle-logo skip handoff, and transition into the character-select scene
-  before battle.
+  before battle. It delegates early main-menu BGM preload/mute/player state to
+  `main_menu_audio_controller.gd` and drains its character-select prewarm on
+  scene exit, then releases all scene-local `RefCounted` collaborators before
+  ObjectDB shutdown.
+- `scripts/core/application_quit_coordinator.gd`
+  Owns process-lifetime final quit routing for the main-menu action, window
+  close, and the headless-load probe. It disables automatic close acceptance,
+  stops/detaches all tree audio streams, frees current and late-arriving scenes
+  across deferred scene-change gaps, drains loader caches, waits a bounded
+  mix-thread/RefCounted quiet window, and only then calls `SceneTree.quit()`.
 - `scripts/core/screenshot_capture.gd`
   Owns the app-wide F12 screenshot shortcut as an autoload. It listens
   above individual boot, character-select, and battle input ladders,
@@ -8007,9 +9971,9 @@ This section is intentionally long; use search to find the nearest owner.
   Owns the battle-scene selection handoff lifecycle: reading the optional
   `GameSelectionState` autoload selection, normalizing runtime character and
   league mode, clamping the selected stage, resolving the Stage 1 entry boss
-  roulette unless an explicit debug variant was selected, and writing the
-  selected character / runtime / display-name / AI-mode fields onto the
-  battle owner.
+  three-boss roulette through its dedicated RNG unless an explicit debug or
+  seeded Tower variant was selected, and writing the selected character /
+  runtime / display-name / AI-mode fields onto the battle owner.
 - `scripts/core/battle_scene_ready_lifecycle.gd`
   Owns battle-scene ready/startup lifecycle: applying the optional
   `GameSelectionState` autoload selection into battle state, initial
@@ -8059,18 +10023,130 @@ This section is intentionally long; use search to find the nearest owner.
   handoff callbacks, redraw requests, and viewport handled marking. The
   input controller delegates this ladder before overlay / debug input so
   intro phases keep their exclusive input priority.
+- `scripts/core/battle_debug_menu_shortcut_router.gd`
+  Owns pressed/non-echo logical and physical key matching plus the F1-F7/F9
+  key-to-menu mapping and switcher handoff. F8 remains the overlay
+  controller's separate perk-point grant and F10 remains the exhibition-reset
+  autoload key. The overlay controller retains public key aliases only for
+  compatibility and does not dispatch direct debug switches.
+- `scripts/core/battle_debug_menu_switcher.gd`
+  Owns the F1-F7/F9 debug-menu catalog and direct-switch lifecycle: selected
+  open-state lookup, normal-overlay closure, close-all and same-key-close
+  policy, menu-specific prewarm-before-open, active-item / mythic / ball-speed
+  close fallbacks, redraw, and handled-input marking. It receives owner/module
+  access per call and does not retain live runtime references. Menu-local state,
+  input, and drawing remain with each picker/runtime; modal predicates remain
+  in `battle_scene_modal_gate_controller.gd`.
+- `scripts/core/battle_debug_menu_input_router.gd`
+  Owns open-menu input delivery for character, weather, stage, Lingpet,
+  mythic-management, and runtime-perk debug surfaces. An open menu consumes
+  the event even when its local handler returns false; redraw and viewport-
+  handled marking happen only for a true handler result. It receives all live
+  references per call and retains none.
+- `scripts/core/battle_active_item_debug_input_router.gd`
+  Owns F2 active-item debug-grid event delivery after higher-priority overlay
+  routes: current full-event dispatch, legacy left-click compatibility,
+  viewport-size forwarding, and redraw/handled marking for true results. It
+  does not own active-slot input edges, catalog entries, item effects, or
+  acquisition state, and retains no live reference.
+- `scripts/core/battle_lingpet_priority_input_router.gd`
+  Owns the highest-priority acquisition-cutin and collection-full overflow
+  input routes. Acquisition dismissal outranks overflow choice, both active
+  modals swallow every event, and redraw/handled marking occurs only after a
+  successful local action. The router resolves the overflow host cache-first,
+  receives all live references per call, and retains none; modal predicates,
+  Lingpet state, and overflow rendering remain with their focused owners.
+- `scripts/core/battle_lingpet_interaction_input_router.gd`
+  Owns the top-level Guardian Spirit shell-break/acquisition guard and the later
+  companion click, E/RT interaction, and L/Shift+L slot-cycle route. It
+  preserves the two original ladder positions, click/interact/cycle priority,
+  screen-to-playfield conversion, module-first registry fallback, RT edge
+  latching, and success-only redraw/handled marking. Runtime state, reaction
+  effects, overlay-local cut-in/overflow input, rendering, and modal physics
+  remain with their existing owners.
+- `scripts/core/battle_terminal_screen_input_router.gd`
+  Owns the chance-gem continue, defeat settlement, and stage-clear result input
+  ladder in that order, including chance-gem refusal fallthrough, viewport-size
+  forwarding, active-screen consumption/redraw, and stage-clear runtime-perk
+  overlay forwarding. It retains no live reference; screen state/navigation,
+  rewards/effects/rendering, and runtime-perk state remain with their existing
+  owners.
+- `scripts/core/battle_reward_modal_input_router.gd`
+  Owns mythic acquisition, Pandora Legacy selection, and Angel Blessing modal
+  input in that order after the general runtime-perk choice route. It preserves
+  each handler signature, live viewport forwarding, active-modal consumption,
+  redraw, and handled marking while retaining no live reference. Reward state,
+  grants, effects, rendering, audio, and modal physics remain with their
+  existing owners.
+- `scripts/core/battle_combat_shortcut_input_router.gd`
+  Owns the post-overlay skill-tooltip-cycle then Commando-firearm-switch input
+  pair, including gamepad Back, arrow-space Shift aliases, grip normalization,
+  tooltip refusal fallthrough, focused driver/reader fanout, and success-only
+  redraw/handled marking. Tooltip UI/state and Commando weapon gameplay remain
+  with their existing owners.
+- `scripts/core/battle_system_shortcut_input_router.gd`
+  Owns top-priority F11 fullscreen, B-key BGM, right-stick suppression, and the
+  stateful 450ms synthetic-wheel suppression deadline. It preserves fullscreen
+  window/redraw forwarding, BGM's no-shell-redraw policy, and normal-wheel
+  fallthrough while retaining no owner/module reference.
+- `scripts/core/battle_pre_intro_stage_input_router.gd`
+  Owns the post-loading/pre-readiness stage input rung: F9 debug force-clear
+  before Stage 7 Akamu prebattle video input. It preserves battle/landing gates,
+  5:0 score and scoreboard/result handoff, completion callbacks, active-result
+  repeat-F9 behavior, module-first presentation fallback, and success-only
+  Stage 7 redraw. Score/result and video runtime state remain with their owners.
+- `scripts/core/battle_guided_overlay_input_router.gd`
+  Owns the fixed grip-selection-before-skill-tooltip-tutorial input priority,
+  active-modal consumption, local handler delivery, and success-only redraw /
+  handled-input marking. It retains no live reference; overlay state, local
+  input rules, drawing, modal predicates, and physics blocking remain with the
+  existing HUD and modal-gate owners.
+- `scripts/core/battle_character_info_input_router.gd`
+  Owns battle TAB character-info input and open policy: active-event delivery,
+  redraw-request throttling, overlay-frame redraw forwarding, pause closure,
+  equipped-slot Guardian Spirit prewarm filtering, current viewport size, and
+  modern/legacy `open` signature compatibility. The pause-menu character-info
+  action reuses its prewarm/open entry; overlay state and local input remain in
+  `character_info_overlay.gd`, and modal predicates remain in the modal gate.
+- `scripts/core/battle_pause_menu_input_router.gd`
+  Owns active pause-menu event consumption, dictionary/boolean result parsing,
+  character-info / continue / exit action dispatch, ESC and gamepad Start open
+  shortcuts, debug-menu close-all before open, redraw requests, and handled-
+  input marking. It reuses the character-info router, debug-menu switcher, and
+  match-flow driver while retaining no live runtime reference; pause overlay
+  state/rendering and modal predicates remain with their existing owners.
+- `scripts/core/battle_elixir_cinematic_input_router.gd`
+  Owns active Elixir of Mastery cinematic consumption, Space/Enter, left-mouse,
+  and shared gamepad confirm recognition, runtime confirm handoff, plus
+  success-only redraw and handled-input marking. It retains no live reference;
+  cinematic state/effects/drawing remain in active-item owners and the active
+  predicate remains in the modal gate.
+- `scripts/core/battle_runtime_perk_input_router.gd`
+  Owns active runtime-perk choice event delivery/consumption and the later F8
+  debug starpoint shortcut/callback, including logical/physical key edges,
+  success-only choice redraw, and debug-grant redraw/handled marking. It
+  retains no live reference; choice data, application, UI, persistence, and
+  effective-level behavior remain with the runtime perk owners.
 - `scripts/core/battle_scene_overlay_input_controller.gd`
-  Owns battle-scene overlay input after intro / warmup routing: F3 passive /
-  mythic management toggles and menu controls, F4 runtime-perk picker
-  toggles and menu controls, F5 debug stage picker toggles and menu
-  controls, F6 weather picker toggles and menu controls, runtime perk choice input,
-  TAB character-info open / modal controls, F8 debug perk-point grants,
-  F9 ball-speed debug overlay
-  toggles, and F2 active-item debug spawn toggles / clicks. These debug
-  surfaces share a direct-switch group: pressing a different debug key
-  moves to that screen without requiring the player to close the old one
-  first. The input controller delegates this modal
-  ladder here after fullscreen, mobile touch, and intro-skip handling.
+  Owns battle-scene overlay input priority after intro / warmup routing and
+  switch-key priority for F1-F7/F9, runtime perk choice, TAB placement,
+  F8 perk-point grants, specialized F2 active-item clicks, and pause. It
+  delegates the first acquisition/overflow modal rung to
+  `battle_lingpet_priority_input_router.gd`, the next grip/tutorial rungs to
+  `battle_guided_overlay_input_router.gd`,
+  delegates F1-F7/F9 key mapping to `battle_debug_menu_shortcut_router.gd`,
+  direct debug-menu switch/close/prewarm policy to
+  `battle_debug_menu_switcher.gd`, and six-menu local event delivery to
+  `battle_debug_menu_input_router.gd`, then delegates the final F2 grid/click
+  path to `battle_active_item_debug_input_router.gd`. Active character-info
+  input and TAB open delegate to `battle_character_info_input_router.gd`;
+  active pause input, shortcut opening, debug cleanup, and pause actions
+  delegate to `battle_pause_menu_input_router.gd`, while Elixir cinematic input
+  delegates to `battle_elixir_cinematic_input_router.gd`. Active runtime-perk
+  choice input and the later F8 grant delegate to
+  `battle_runtime_perk_input_router.gd`. The
+  top-level input controller enters this ladder after fullscreen, mobile touch,
+  and intro-skip handling.
 - `scripts/core/stage_debug_picker.gd`
   Owns the F5 debug stage picker overlay for stages 1-10,
   4천왕(11), and 진엔딩(12). It applies `current_stage` immediately,
@@ -8145,11 +10221,93 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/battle_scene_input_controller.gd`
   Owns battle-scene top-level unhandled-input routing: fullscreen toggle,
   mobile touch handoff, and boot / warmup gating. After those gates, it
-  delegates intro input to `battle_scene_intro_input_controller.gd`, then
-  delegates the overlay / debug keybinding ladder to
-  `battle_scene_overlay_input_controller.gd`. The battle shell now passes
-  current boot / intro readiness plus callbacks instead of owning the
-  keybinding ladder directly.
+  delegates intro input to `battle_scene_intro_input_controller.gd`, Guardian
+  Spirit cut-in/companion input to
+  `battle_lingpet_interaction_input_router.gd`, top-level system shortcuts to
+  `battle_system_shortcut_input_router.gd`, pre-intro F9/Stage 7 input to
+  `battle_pre_intro_stage_input_router.gd`, and the overlay / debug
+  keybinding ladder to `battle_scene_overlay_input_controller.gd`. Terminal
+  result-screen priority delegates to `battle_terminal_screen_input_router.gd`.
+  Mythic/Pandora/Angel reward-modal priority delegates to
+  `battle_reward_modal_input_router.gd`. Desktop active-item HUD input remains
+  immediately before the later companion route, followed by combat shortcuts
+  delegated to `battle_combat_shortcut_input_router.gd`. The battle shell passes
+  current boot / intro readiness plus callbacks instead of owning those focused
+  policies directly.
+- `scripts/core/battle_drive_cutin_presenter.gd`
+  Owns Drive-over-Shield cut-in priority, modal suppression, immediate draw
+  dispatch, shared particle-host lifecycle, FX state projection, reusable sync
+  payload, and cut-in BattlePerf samples. The frame controller keeps only draw
+  ordering and a narrow compatibility facade.
+- `scripts/core/battle_skill_cutin_presenter.gd`
+  Owns Smasher-before-Viper full-screen skill cut-in selection, modal
+  suppression, cached host lookup, draw dispatch, and its BattlePerf sample.
+  It retains no state/runtime/host reference and avoids a per-draw route Array;
+  the frame controller keeps only final ordering and a narrow facade.
+- `scripts/core/battle_lingpet_overlay_presenter.gd`
+  Owns the common cached-first registry lookup, normal-instantiation fallback,
+  route-active gate, host draw dispatch, and BattlePerf sampling for Lingpet
+  acquire-cut-in and overflow-choice overlays. It retains no runtime or host
+  reference; the frame controller keeps the two route facades, keys, labels,
+  and final draw ordering.
+- `scripts/core/battle_lingpet_ungated_idle_coordinator.gd`
+  Owns shell-break-before-acquire-before-overflow idle priority while modal
+  physics is paused, exact advance signatures, and redraw requests. It retains
+  no runtime/frame reference; the frame controller keeps group placement, total
+  sample closure, and a static source-wiring compatibility method catalog.
+- `scripts/core/battle_tutorial_idle_coordinator.gd`
+  Owns the seven tutorial/practice idle update routes, their fixed order,
+  signature differences, redraw requests, and BattlePerf labels. It retains no
+  owner, registry, module-getter, hint, or performance-logger reference and adds
+  no per-frame route collection.
+- `scripts/core/battle_tutorial_draw_coordinator.gd`
+  Owns the seven tutorial/practice draw routes, their fixed display order,
+  owner-only versus registry-aware signature difference, and BattlePerf labels.
+  It retains no draw-context or hint reference and adds no per-frame route
+  collection. The frame controller keeps only group placement and a static
+  source-wiring compatibility key catalog.
+- `scripts/core/battle_terminal_overlay_idle_coordinator.gd`
+  Owns stage-clear result, defeat continue, and defeat settlement idle priority,
+  the result-owned runtime-perk single tick, nonblocking-continue fallthrough,
+  redraw requests, and four BattlePerf samples. It retains no frame/runtime
+  reference; the frame controller keeps group placement and total-sample exit.
+- `scripts/core/battle_terminal_overlay_draw_presenter.gd`
+  Owns early result-screen dispatch plus late defeat continue-before-settlement
+  dispatch and their BattlePerf labels. It retains no draw context or screen
+  reference; the frame controller keeps the two placements around normal battle
+  and Lingpet overlays.
+- `scripts/core/battle_spawn_overlay_draw_coordinator.gd`
+  Owns normal battle draw, ball-spawn overlay hook, conditional pillar-overlay
+  restoration, and their three BattlePerf samples. It retains no draw/runtime
+  reference and does not own the intro FX host or full-playfield clip; the frame
+  controller keeps only this group's placement before mobile controls.
+- `scripts/core/battle_stage_transition_frame_coordinator.gd`
+  Owns first-priority stage-transition idle update/redraw and draw dispatch,
+  including the black fallback and three BattlePerf samples. It retains no
+  driver/runtime reference; transition state, staged work, artwork, and final
+  ball-spawn replay remain in the match-event driver.
+- `scripts/core/battle_physics_gate_coordinator.gd`
+  Owns the ordered physics gate ladder from logo readiness through modal block,
+  per-gate BattlePerf labels, the grip zero-delta/redraw probe, and modal pause
+  enter/leave symmetry. It retains no frame/runtime reference; the frame
+  controller keeps total/update-driver timing and a direct-test grip facade.
+- `scripts/core/battle_grip_selection_frame_coordinator.gd`
+  Owns grip-selection idle update/redraw/active blocking plus active draw
+  dispatch and both BattlePerf samples. It retains no overlay/runtime reference;
+  physics gating, input, and selection/render state remain in their existing
+  focused owners.
+- `scripts/core/battle_result_prewarm_frame_coordinator.gd`
+  Owns result-prewarm idle scheduling: visible-scoreboard delay, score-pause
+  safety gate, pending reset and custom win-goal checks, active result-screen
+  exclusion, work gates, and result/stage-clear BattlePerf samples. It retains no
+  owner or module references; the resource worker and staged boot prewarm remain
+  in their existing owners.
+- `scripts/core/battle_modal_pause_runtime_state.gd`
+  Owns the physics-blocking modal interval's active-item cooldown pause latch and
+  per-blocked-tick gameplay-loop audio cleanup. It receives owner, registry, and
+  module getter only for the current call and retains no runtime references.
+  `battle_scene_frame_controller.gd` keeps the gate ordering and delegates modal
+  block entry/exit to this composed state.
 - `scripts/core/battle_scene_frame_controller.gd`
   Owns battle-scene shell frame routing for idle process, physics process,
   and final draw: intro-frame delegation, overlay-frame delegation,
@@ -8160,8 +10318,33 @@ This section is intentionally long; use search to find the nearest owner.
   only callbacks for initialization, intro starts, battle draw, mobile
   controls, and current flow flags; modal open-state predicates are delegated
   to the battle scene modal-gate controller, while boot / logo / landing /
-  ball-spawn frame phases are delegated to the intro-frame controller and
-  overlay idle / draw phases are delegated to the overlay-frame controller.
+  ball-spawn frame phases are delegated to the intro-frame controller, overlay
+  idle / draw phases are delegated to the overlay-frame controller, modal
+  cooldown/audio pause lifetime is delegated to
+  `battle_modal_pause_runtime_state.gd`, result-prewarm scoreboard scheduling is
+  delegated to `battle_result_prewarm_frame_coordinator.gd`, tutorial / practice
+  idle fanout is delegated to `battle_tutorial_idle_coordinator.gd`, tutorial /
+  practice draw fanout is delegated to `battle_tutorial_draw_coordinator.gd`,
+  terminal result/defeat idle routing is delegated to
+  `battle_terminal_overlay_idle_coordinator.gd`,
+  terminal result/defeat drawing is delegated at two ordered points to
+  `battle_terminal_overlay_draw_presenter.gd`,
+  normal battle / ball-spawn / conditional pillar restoration drawing is
+  delegated to `battle_spawn_overlay_draw_coordinator.gd`,
+  first-priority stage-transition idle/draw work is delegated to
+  `battle_stage_transition_frame_coordinator.gd`,
+  the ordered pre-update physics gate ladder is delegated to
+  `battle_physics_gate_coordinator.gd`,
+  grip-selection idle and draw frame work is delegated to
+  `battle_grip_selection_frame_coordinator.gd`,
+  full-screen skill cut-in selection/draw is delegated to
+  `battle_skill_cutin_presenter.gd`, and Drive/Shield cut-in draw plus FX-host
+  lifecycle is delegated to
+  `battle_drive_cutin_presenter.gd`. Lingpet acquire-cut-in and overflow-choice
+  runtime/host resolution plus draw dispatch is delegated to
+  `battle_lingpet_overlay_presenter.gd`. Lingpet shell-break/acquire/overflow
+  ungated idle branching is delegated to
+  `battle_lingpet_ungated_idle_coordinator.gd`.
 - `scripts/core/penguin_logo_intro.gd`
   Owns the Godot startup penguin-logo screen port: full-screen black intro
   draw, Python-parity bootstrap red-disc pre-roll, wave-sheet frame
@@ -8357,23 +10540,38 @@ This section is intentionally long; use search to find the nearest owner.
   and character-select scene. It loads the character-select scene plus each
   unlocked character's card / still image and primary Live2D preview sheet
   into `ProjectResourceLoader`'s shared texture cache so card clicks do not
-  trigger large per-character PNG loads.
+  trigger large per-character PNG loads. Its cancel-and-drain terminal path
+  claims the current threaded request before a boot/menu owner is destroyed,
+  clears queued work, and releases the retained PackedScene.
 - `scripts/ui/character_live_preview.gd`
-  Owns the animated top preview for the character-select scene. It first
-  consumes boot-prewarmed full-frame preview sheets from the shared texture
-  cache, then attempts imagegen-style part layers under
-  `assets/ui/character_live2d/`, then falls back to card-art parallax /
-  breathing motion so the scene can ship before dedicated Live2D layer PNGs
-  exist. It also owns the preview hover / click overlay so the large
-  character portrait reads as an interactive selection target.
+  Owns the animated top preview for the character-select scene: texture/cache
+  loading, first-use alpha-trim scheduling, animation and one-shot state,
+  VFX-host lifecycle, and CanvasItem drawing. It delegates trim/projection math
+  to `character_live_preview_sheet_geometry.gd`.
+- `scripts/ui/character_live_preview_sheet_geometry.gd`
+  Owns draw-free LivePreview sheet geometry: explicit trim metadata parsing,
+  bounded sampled alpha bounds, normalized source mapping, source-to-target
+  projection, aspect fit, bottom-anchored stage Y scale, and centered scale.
 - `scripts/ui/character_select_screen.gd`
-  Owns the Godot character-select UI: cyberpunk background, selected
-  character detail panel, bottom card row, mouse / keyboard selection,
-  bottom Champion / Mythic league buttons, content-area-safe responsive
-  layout, preview-click confirmation, and handoff to `main.tscn` from
-  either the app-root flow or direct scene execution. Full-frame confirm /
-  preview-click motion config dictionaries are assembled by
-  `scripts/ui/character_select_motion_config_builder.gd`.
+  Owns the Godot character-select scene orchestration: scene-tree lifecycle,
+  CanvasItem drawing, texture lookup, input/selection routing, live-preview and
+  flash-overlay sync, compatibility facades, and handoff to `main.tscn`.
+  Focused owners provide layout, confirm state, skill-preview resolution,
+  motion config, and audio lifecycle.
+- `scripts/ui/character_select_layout.gd`
+  Owns draw-free responsive character-select geometry, card/action/info-panel
+  layout, text wrapping, badge sizing, and lore microstat row projection.
+- `scripts/ui/character_select_confirm_intro_state.gd`
+  Owns confirm-intro logical state: selected-character snapshot, elapsed/hold
+  clocks, pending scene path, exit-flash action edge, and flash payload values.
+- `scripts/ui/character_select_skill_preview_resolver.gd`
+  Owns character runtime-id normalization, skill-config cache selection,
+  representative icon skill-id inference, tooltip data lookup, colors, and
+  cost/cooldown number formatting.
+- `scripts/audio/character_select_audio_controller.gd`
+  Owns character-select BGM/click/confirm players, mute/manual-loop state,
+  delayed voice playback, stream release, and player teardown. The screen
+  retains only input routing and compatibility property reads.
 - `scripts/characters/optimus_energy_state.gd`
   Owns the initial Godot Optimus / Io core battery mechanic: full starting
   battery, per-second drain, gauge-ratio paddle shrink, movement-speed
@@ -8546,16 +10744,39 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/lingpet/lingpet_banana_slice_payload_factory.gd`
   Owns pure Monkeyring Banana Slice runtime payload construction for thrown
   bananas, landed banana slip traps, and slip burst particles.
-  `scripts/lingpet/lingpet_banana_slice_skill.gd` should keep the skill
-  lifecycle, boss-slip state, collision checks, and rendering, but should not
-  reintroduce inline projectile / landed-banana / burst-particle dictionary
-  scaffolding.
+  `scripts/lingpet/lingpet_banana_slice_skill.gd` should not reintroduce inline
+  projectile / landed-banana / burst-particle dictionary scaffolding.
+- `scripts/lingpet/lingpet_banana_slice_skill.gd`
+  Owns Monkeyring Banana Slice level scaling, prepare/staged-throw lifecycle,
+  landing-x and slip-direction RNG, projectile/trail movement, landed-banana
+  collision/expiry, boss-slip decay and AI context, burst-particle simulation,
+  audio, companion pose, and `banana_slice_*` snapshots. It delegates render
+  resources/composition to `lingpet_banana_slice_renderer.gd` with three borrowed
+  live arrays and preserves texture-readiness snapshot compatibility.
+- `scripts/lingpet/lingpet_banana_slice_renderer.gd`
+  Owns the Banana Slice texture and filled-ellipse mesh caches plus stateless
+  prepare, trail/projectile, rotated-region, landed shadow/blink, and particle
+  drawing. It owns no gameplay/RNG/payload/audio/context/snapshot state and must
+  not retain the borrowed projectile, landed-banana, or particle arrays.
+- `scripts/lingpet/lingpet_gatling_burst_skill.gd`
+  Owns Volty Gatling Burst runtime: mount / fire / dismount timing, aimed spread
+  fire, bullet movement and boss collision, AK-style status application,
+  transform/fire/hit feedback, loop-audio cleanup, particle simulation,
+  gameplay-aligned tank/muzzle geometry, and `gatling_burst_*` snapshots.
+  Stateless drawing and the transform-sheet cache are delegated to
+  `lingpet_gatling_burst_renderer.gd` with four borrowed live arrays.
+- `scripts/lingpet/lingpet_gatling_burst_renderer.gd`
+  Owns Volty Gatling Burst's transform-sheet load/prewarm cache and stateless
+  tank/cannon/muzzle-flash, mount-bar, bullet/trail, hit-particle, casing, and
+  smoke CanvasItem recipes. It must not own phase/projectile simulation,
+  spread RNG, collision/status/audio policy, or retained payload collections.
 - `scripts/lingpet/lingpet_gatling_burst_payload_factory.gd`
   Owns pure Volty Gatling Burst payload construction for bullets, AK-style
   stun status data, hit particles, shell casings, and muzzle smoke.
   `scripts/lingpet/lingpet_gatling_burst_skill.gd` should keep transform /
   firing phase timing, aiming, hit detection, audio, loop cleanup, and
-  rendering, but should not reintroduce inline Gatling projectile / particle
+  simulation while rendering stays in `lingpet_gatling_burst_renderer.gd`;
+  neither owner should reintroduce inline Gatling projectile / particle
   dictionary scaffolding.
 - `scripts/characters/runtime_perk_angel_blessing_state.gd`,
   `scripts/characters/runtime_perk_angel_blessing_cooldown_capability.gd`,
@@ -8625,6 +10846,236 @@ This section is intentionally long; use search to find the nearest owner.
   round/stage/full-reset cleanup owners
   Own the roll cue, three-voice absorption pool, first-use GPU/resource warmup,
   and direct host/audio teardown when draw fanout is inactive.
+- `scripts/items/mythic_item_acquisition_timeline_state.gd`
+  Owns mythic acquisition phase clocks, reveal-click arming, one-shot absorb,
+  delayed after-cue stop, cancellation, and natural-completion events.
+- `scripts/items/mythic_item_acquisition_presentation_factory.gd`
+  Owns the cinematic's fixed 13-node manifest, writhe/arc materials, particle
+  recipes, icon hosts, and reveal-text controls.
+- `scripts/items/mythic_item_acquisition_visual_envelope.gd`
+  Owns allocation-free buildup/ignite/fade/reveal/absorb/impact scalar
+  projection. The cinematic host applies these values to live nodes.
+- `scripts/items/mythic_item_acquisition_light_beam_state.gd` and
+  `scripts/items/mythic_item_acquisition_light_beam_renderer.gd`
+  Own seeded sparse-beam spawn/lifetime and exact full-set geometry/rendering,
+  respectively. The renderer must not use live-index stride decimation.
+- `scripts/items/mythic_item_acquisition_overlay_renderer.gd`
+  Owns shaken-field overscan, monitor-covering white-out, and paddle glow/slam
+  ray geometry while the host retains lazy resource loading and draw order.
+- `scripts/items/mythic_item_acquisition_reveal_presenter.gd`
+  Owns injected-time icon frame/fit projection and fixed reveal text layout.
+  `mythic_item_acquisition_cinematic_v2.gd` retains localization and resource
+  loading.
+- `tools/bake_mythic_acquisition_raster_textures.gd` and the three PNGs under
+  `assets/sprites/effects/mythic_acquisition/`
+  Own offline generation of the icon backdrop, soft vignette, and soft white
+  flash. Runtime acquisition code loads these assets and performs no raster
+  buffer allocation or image upload.
+- `scripts/hud/pause_menu_session_state.gd`
+  Owns pause activation/options modes, opening and dial clocks, main selection,
+  and slider-drag lifetime. `pause_menu_overlay.gd` exposes compatibility
+  properties and delegates transitions.
+- `scripts/hud/pause_menu_options_navigation_policy.gd` and
+  `scripts/hud/pause_menu_options_navigation_state.gd`
+  Own settings tab/device order, focus counts, wrapping/clamping, feedback
+  scopes, and the live tab/focus/device tuple.
+- `scripts/hud/pause_menu_input_command_router.gd`
+  Owns side-effect-free keyboard/gamepad interpretation into semantic pause
+  commands across main and every settings tab. The overlay executes those
+  commands with audio/state/system side effects.
+  Regression guard: `tests/pause_menu_input_command_router_smoke.gd`.
+- `scripts/hud/pause_menu_pointer_command_router.gd`
+  Owns side-effect-free mouse press/release, right-click, main/options hit
+  routing, slider-drag projection, select-chevron direction, and language/
+  control/display click commands. The overlay retains hover animation updates
+  and executes pointer commands through the shared side-effect boundary.
+  Regression guard: `tests/pause_menu_pointer_command_router_smoke.gd`.
+- `scripts/hud/pause_menu_audio_controller.gd`
+  Owns pause-menu `game_audio` lookup, move/confirm/back cues, BGM/SFX fallback
+  reads, clamped writes, focused adjustment, and slider-value projection. The
+  overlay retains timing decisions and compatibility wrappers. Regression
+  guard: `tests/pause_menu_audio_controller_owner_smoke.gd`.
+- `scripts/hud/pause_menu_content_catalog.gd`
+  Owns stable main action identifiers, localized main entries, options
+  back/close labels, and the exact tab/device/focus-to-readout-description
+  mapping. The overlay preserves `_text`/`_get_*` compatibility wrappers and
+  assembles the final options render snapshot. Regression guard:
+  `tests/pause_menu_content_catalog_owner_smoke.gd`.
+- `scripts/hud/pause_menu_controls_settings_controller.gd`
+  Owns saved vibration sync, clamped adjustment/persistence, default
+  restoration, localized vibration labels, and keyboard/joypad mapping-row
+  projection. Device selection and focus clamping remain in the options
+  navigation state; the overlay preserves compatibility properties and
+  wrappers. Regression guard:
+  `tests/pause_menu_controls_settings_controller_owner_smoke.gd`.
+- `scripts/hud/pause_menu_language_settings_controller.gd`
+  Owns saved-language sync, canonical language ordering/focus mapping,
+  cycle/wrap selection, persistence, native-name projection, and owner
+  text-refresh notification. The pointer router reuses its canonical mapping;
+  the overlay retains compatibility wrappers and localized render-snapshot
+  assembly. Regression guard:
+  `tests/pause_menu_language_settings_controller_owner_smoke.gd`.
+- `scripts/hud/pause_menu_selection_feedback_state.gd` and
+  `scripts/hud/pause_menu_selection_feedback_renderer.gd`
+  Own selection slide/pop clocks and hover transitions, plus main/options focus
+  rect routing, interpolation, pop scaling, flash panel, and focus-frame draw,
+  respectively. The facade retains transition triggers and compatibility
+  wrappers. Regression guards: `tests/pause_menu_selection_feedback_state_smoke.gd`
+  and `tests/pause_menu_selection_feedback_renderer_owner_smoke.gd`.
+- `scripts/hud/pause_menu_display_settings_state.gd` and
+  `scripts/hud/pause_menu_display_settings_controller.gd`
+  Own normalized display preference values/local transitions/baselines and the
+  `battle_view_layout` sync/apply/save transaction respectively. The controller
+  also owns refresh-rate discovery, labels/recommendations, and the explicit
+  60 Hz system-settings fallback. The overlay preserves compatibility wrappers.
+  Regression guards: `tests/pause_menu_display_settings_state_smoke.gd` and
+  `tests/pause_menu_display_settings_controller_owner_smoke.gd`.
+- `scripts/hud/pause_menu_main_renderer.gd`
+  Owns editorial pause-main asset prewarm, opening projections, background and
+  compass geometry, selection bar, and entry rendering. Compatibility wrappers
+  in `pause_menu_overlay.gd` delegate to this renderer.
+- `scripts/hud/pause_menu_overlay_layout.gd`
+  Owns pure pause-main and all settings-tab geometry shared by rendering, mouse
+  hit testing, hover feedback, and keyboard/gamepad focus projection. The
+  facade preserves its established `_get_*` methods but delegates every layout
+  calculation here. Regression guard:
+  `tests/pause_menu_overlay_layout_owner_smoke.gd`.
+- `scripts/hud/pause_menu_options_renderer.gd`
+  Owns the options palette, stateless option-window and display/controls/
+  language tab composition, plus header, tab/icon, slider, setting row, toggle,
+  button, readout, shared panel, neon-line, and focus-frame drawing. It consumes
+  only the facade's resolved render snapshot and does not read registries or
+  settings singletons. `pause_menu_overlay.gd` retains snapshot projection,
+  selection-feedback/readout ordering, and compatibility `_draw_*` APIs.
+  Regression guard: `tests/pause_menu_options_renderer_owner_smoke.gd`.
+- `scripts/core/display_settings_config_codec.gd`
+  Owns display-settings schema defaults, missing-key completion, version
+  migration, graphics payload copying, BOM recognition, and display/FPS/VSync
+  normalization. `battle_view_layout.gd` retains filesystem, backup recovery,
+  OS/window application, and diagnostics.
+- `scripts/plaza/plaza_save_config_codec.gd`
+  Owns the plaza save `ConfigFile` schema, encode/decode, legacy schema reads,
+  quest and stage-map projections, boolean/int section filtering, and
+  gold/AP/gem/decoder sanitization. `plaza_save_store.gd` retains live state,
+  transactions, filesystem/BOM handling, backup recovery, and diagnostics.
+- `scripts/hud/character_info_overlay_lingpet_vitality_projection.gd`
+  Owns character-info satiety snapshot merge and affinity/satiety strip state,
+  layout, color, shared meter width, and hover zones.
+- `scripts/hud/character_info_overlay_lingpet_card_specs.gd`
+  Owns Lingpet names, active/passive skill-card specs, unlock-option filtering,
+  and unlock candidate/title/subtitle projection.
+- `scripts/hud/character_info_overlay_lingpet_stats_projection.gd`
+  Owns Lingpet character-info stat rows, row-budget policy, cache invalidation
+  hash, and cached row payloads.
+- `scripts/hud/character_info_overlay_lingpet_ring_core_projection.gd`
+  Owns Ring Core/chip row geometry, labels, hover/tooltip projection, icon inset,
+  and stable vertical pip geometry. The Lingpet presenter retains drawing and
+  texture lookup.
+- `scripts/ui/main_menu_ambient_state.gd`
+  Owns deterministic main-menu ambient particle, sky-light, and silhouette
+  simulation, including seeded RNG order and silhouette scheduling. The ambient
+  `Control` retains process gating and drawing, clears the payload, and releases
+  the state owner on tree exit.
+- `scripts/ui/main_menu_ambient_projection.gd`
+  Owns draw-free main-menu source/screen projection, rectangle/line clipping,
+  title glint sweep/fade/hash math, and gate-seam mask classification used by the offline
+  baker. `main_menu_ambient.gd` keeps compatibility facades.
+- `scripts/ui/main_menu_ambient_mask_data.gd` and
+  `assets/ui/main_menu/main_menu_ambient_masks.res`
+  Own the validated baked Hangul-title/gate-seam mask schema and accepted pixel arrays.
+  Runtime code duplicates the packed arrays once and performs no source-image
+  readback or pixel scan.
+- `assets/ui/main_menu/main_menu_ambient_vignette.res`,
+  `tools/bake_main_menu_ambient_masks.gd`, and
+  `tools/bake_main_menu_ambient_vignette.gd`
+  Own the baked 256x256 vignette and the offline-only mask/vignette regeneration
+  paths. Runtime ambient code performs no `Image` allocation or texture upload.
+- `scripts/ui/main_menu_scene.gd`
+  Owns title-screen scene orchestration, input/navigation, reveal/settings/quit
+  routing, transition tweens/drawing, background-prewarm polling, and the final
+  character-select scene handoff. Focused owners provide clocks, prompt UI,
+  audio lifetime, and settings services; the scene explicitly releases those
+  short-lived owners during tree exit.
+- `scripts/ui/main_menu_start_transition_state.gd`
+  Owns the deterministic start-transition duration, elapsed clock, normalized
+  progress, cancel/reset, and one-shot completion edge.
+- `scripts/ui/main_menu_gate_transition_projection.gd`
+  Owns draw-free gate-opening panel rectangles, expanding spirit-light beam,
+  shadow, and final whitewash envelopes. The scene retains CanvasItem drawing.
+- `scripts/ui/main_menu_touch_start_prompt.gd`
+  Owns the runtime localized input-neutral start copy, label/control, pulse clock,
+  full-rect anchor contract, faded-ribbon drawing, and visible pulse sync.
+- `scripts/audio/main_menu_audio_controller.gd`
+  Owns title BGM/start-SFX players, boot-preloaded player creation/adoption,
+  mute toggles, player/stream cleanup, and lazy settings-adapter lifetime.
+- `scripts/audio/main_menu_audio_stream_policy.gd`
+  Owns AudioServer bus defaults, volume conversion, and private looping stream
+  duplication so shared path-cached audio is never mutated per player.
+- `scripts/ui/main_menu_audio_settings.gd`
+  Owns the AudioServer-backed BGM/SFX volume adapter consumed by the shared
+  pause/settings overlay on the main menu.
+- `scripts/ui/main_menu_settings_registry.gd`
+  Owns the narrow main-menu dependency registry for audio settings and
+  `battle_view_layout`, including explicit reference cleanup.
+
+## 2026-07-13 — Smasher Overdrive active skill
+
+- `scripts/characters/smasher_overdrive_state.gd` owns `smasher_overdrive` activation, the 360-frame gameplay-time duration (5 seconds at the shipped 72 Hz physics tick), capped flat speed boost, alternating kink schedule, reflection heading refresh, timer snapshot, and visual-facing kink/active signals.
+- `scripts/ball/ball_frame_motion_controller.gd` applies the non-owning velocity field and temporary speed cap; `ball_motion_event_processor.gd` centrally reports the final velocity after wall, paddle, barrier, terrain, trampoline, and Stage 2 backstop reflections. Overdrive never skips the normal motion step or replaces collision ownership.
+- The skill awards no separate skill gold; normal paddle/rally reward paths remain authoritative.
+- Runtime ids are sealed as `smasher_overdrive` and `unlock_smasher_overdrive`; the pre-existing Lingpet `overdrive` id is intentionally untouched.
+
+## 2026-07-29 — 허공환영 (Void Phantom) Smasher form
+
+Supersedes the deleted `scripts/items/active_item_hologram_disk_runtime.gd`
+active-item entry above. Design note: `docs/void_phantom_smasher_skill.md`.
+
+- `scripts/characters/smasher_void_phantom_state.gd` owns the `void_phantom`
+  form end to end: the contact-launch gate (↓/S + left-click held at the
+  paddle bounce), the 60-frame owned-ball charge (ball follows the player at
+  zero velocity with motion-step skip), one-shot decoy spawning on release
+  (two fixed left/right phantoms, so exactly three balls read on screen), the
+  24°~35° widened split-angle band, the single per-activation deception roll,
+  decoy kinematics in the center-coordinate convention (visual-margin wall reflection, boss-band
+  glitch-pop death), pop-particle spawning, the cache-only deception peek the
+  boss AI context builder consumes, and round/match cleanup. The 1-second
+  cinematic startup is internal and has no duration HUD; the flight remains
+  one-shot.
+- `is_command_armable()` in that module is the **single ownership predicate**
+  for the shared input tokens. Both `scripts/ball/paddle_bounce_skill_router.gd`
+  (left-click contact, yielding 천뢰격/빙혼비격 and 벽력타) and
+  `scripts/characters/smasher_warp_gate_state.gd` (↓ hold, suppressing 건곤환문
+  arming) must route through it; splitting the predicate is what let the warp
+  gate stay sealed through the 100~349 gauge band and the whole 70s cooldown.
+  It is peek-only — activation and gauge spend stay in
+  `ball_motion_event_processor._try_launch_smasher_void_phantom`, which writes
+  the spend into the snapshotted `scene` dict.
+- `ball_frame_motion_controller.apply_smasher_void_phantom_charge` owns the
+  pre-step charge wrapper and runs before the first skip early-return in
+  `ball_update_controller`; the 60th tick clears stale skip and restores the
+  preserved launch velocity into the scene snapshot. `_skip_advance_on_launch_frame`
+  then owns the release-frame ordering contract so freshly spawned decoys do
+  not advance ahead of the real ball.
+- `scripts/characters/smasher_void_phantom_renderer.gd` owns decoy and
+  pop-particle drawing plus the charge/release Taoist seal composition
+  (prewarmed Hanryeongtan seal ring, cyan gathering arcs, gold converging
+  strokes). `stage1_player_sprite_renderer.gd` owns the dedicated 16-frame
+  Han Miryang charge sheet at
+  `assets/sprites/smasher/hanmiryang_void_phantom_charge_autosprite_v2_4x4_160_clean.png`.
+  The VFX is driven from
+  `battle_playfield_scene_drawer._draw_void_phantom_decoys`, deliberately
+  outside the decorative LOD gate because decoys are gameplay-readable
+  entities, not decoration.
+- `scripts/ball/ball_frame_motion_controller.gd` owns the ball-path decoy tick
+  wrapper plus the stopwatch time-freeze gate; `battle_effects_update_controller.gd`
+  drives pop-particle lifetime so pops finish after the form ends.
+- Runtime ids are sealed as `void_phantom` and `unlock_void_phantom`. The 5-orb
+  icon and perk-card cover currently reuse the retired item art as a
+  placeholder (`assets/sprites/skills/smasher_void_phantom_skill_orb.png`);
+  a dedicated 비급 cover is still outstanding.
+- Seals: `tests/smasher_void_phantom_smoke.gd` and
+  `tests/smasher_void_phantom_vfx_contract_smoke.gd` (replaces the deleted
+  `tests/active_item_hologram_disk_smoke.gd` in the pre-push and CI lists).
 
 ## 2026-07-21 minimal loading cameo presentation
 
@@ -8634,12 +11085,53 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/loading_cameo_host.gd` owns the loading-session random pick,
   16-frame animation projection, layered glow sprites, and literal English
   `Now Loading...` copy. The pick is stable until `hide_loading()` resets the
-  session.
+  session. Terminal `tear_down()` releases texture/material/font/RNG ownership;
+  boot and battle loading owners synchronously free the detached host so final
+  shutdown never depends on another message-queue flush.
 - `scripts/core/battle_loading_screen_renderer.gd` retains warmup snapshot,
   completion-hold, stage-transition, and Stage 7 Akamu exemption contracts;
   `scripts/core/boot_flow_scene.gd` retains character-select prewarm and
   navigation ownership. Both delegate their visible loading presentation to
   the shared cameo modules.
+
+## 2026-07-24 defeat continue scene presentation
+
+- `scripts/core/defeat_continue_visual_projection.gd` owns draw-free confirm,
+  shatter, impact, and whiteout envelopes plus gem/button/source-sheet
+  geometry, fit/cover rectangles, scaling, and easing. Screen and renderers
+  delegate shared math here instead of retaining parallel formulas.
+- `scripts/core/defeat_continue_ambient_renderer.gd` owns the chance-gem
+  continue screen's bounded divine-mote and fan-ray counts, portal-breath
+  status projection, and portal-glow/light-shaft/mote drawing.
+- `scripts/core/defeat_continue_scene_renderer.gd` owns static backdrop cover,
+  vignette bands, entry reveal glow/veil, cached boss-victory sheet selection,
+  stage-specific source rectangles, boss portal figure drawing, and the
+  full-screen whiteout/fringe overlay.
+- `scripts/core/defeat_continue_gem_renderer.gd` owns reusable scalar
+  presentation state, chance-gem rail/slot layout, cached full/broken/shatter
+  texture projection, 64-frame sheet handoff, pre-shatter charge/cracks,
+  chroma split, and impact ring/shard/beam drawing. It accepts explicit scalar
+  sync calls and allocates no per-frame context dictionary.
+- `scripts/core/defeat_continue_ui_renderer.gd` owns defeat title ornaments,
+  three-phase status copy, normal/last-chance guide copy, confirm-button frame,
+  and text drawing. It shares button geometry with the pure projection and
+  avoids the former per-frame segment dictionaries.
+- `scripts/core/defeat_continue_cinematic_state.gd` owns PRESENT/CONSUMING
+  phase, confirm-clock advancement, consumed-count fallback/result state,
+  allocation-free one-shot consume/shatter/reset event bits, the hitch-safe
+  peak-white clamp, revival-update gating, fadeback completion, and confirm-
+  time projection delegation. It owns no callback, audio, tree, or draw side
+  effects.
+- `scripts/core/defeat_continue_transition_controller.gd` owns explicit bind,
+  attachment, scalar sync, and direct reset cleanup for the detached shatter
+  and color-restore hosts. It also bridges the registered revival beat's
+  start/update/draw/reset/physics-gate protocol without an independent process
+  loop or draw-time node creation.
+- `scripts/core/defeat_chance_gems_continue_screen.gd` retains chance-gem
+  state, input, consume/continue callbacks, audio one-shots, and the modal
+  facade. It consumes cinematic-state event bits and delegates
+  scene, ambient, gem, UI, detached-host, and revival-beat work using the
+  shared pure projection, existing screen clocks, and derived impact envelopes.
 
 ## 2026-08-01 Viper Wall-Leap Night Raid
 
@@ -8651,6 +11143,53 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/ball/ball_update_controller.gd` owns observations A/B;
   `scripts/ball/ball_motion_event_processor.gd` owns the 0.7 displacement-only
   multiplier; `scripts/ball/ball_motion_collision_detector.gd` owns the base-
+  paddle-only guard gate.
+
+## 2026-08-03 common boss Vision Chosik
+
+- `scripts/characters/common_skill_catalog.gd` owns character-neutral Chosik
+  definitions and boss-manual metadata. `dalji_vision_chain_top` is the first
+  boss Vision entry and remains equipable through every character skill config.
+- `scripts/characters/dalji_vision_chosik_state.gd` owns Shift+A-D-A command
+  recognition, vigor/cooldown/cast state, two-top lifecycle, ball capture and
+  boss-directed release, boss stagger consumption, and round/full reset.
+- `scripts/characters/cheongringwi_vision_chosik_state.gd` owns the Stage 2
+  `cheongringwi_vision_dragon_torrent` Shift+D-A-D command, 140-vigor / 28-second
+  cooldown contract, tracking water-cannon lifecycle, boss-owned-ball capture,
+  boss-directed release, and round/full reset. Its renderer reuses the Stage 2
+  water-cannon visual owner rather than duplicating that effect family.
+- `scripts/characters/yeonmyo_vision_chosik_state.gd` owns the Stage 3
+  `yeonmyo_vision_bonghongwe` Shift+S command, 200-vigor / 35-second cooldown,
+  gravity-arc throw, closed-chest 12-second lifetime, dash-segment opening,
+  three-second smoke emission, smoke-radius exposure, dash cancellation without
+  recovery stun, and owned confusion cleanup. Landing does not apply confusion:
+  the chest must first be opened by dash contact, then the boss center must enter
+  the smoke. The renderer owns the detached moving shadow, tumble/landing impact,
+  open lid, and smoke layers and must not draw a player-to-chest tether. The
+  equipped 5-orb HUD and `unlock_*` perk-choice card use the accepted
+  `yeonmyo_vision_bonghongwe` orb and dedicated manual-cover PNGs. Only the
+  dedicated Stage 3 victory-result box sheet remains an art-track deferral and
+  currently uses the normal result-box fallback.
+- `scripts/core/victory_loot_phase_state.gd` owns the one-roll-per-victory
+  boss-manual box reservation: Stage 1 Dalji and Stage 2 Cheongringwi each use
+  their dedicated 16-frame sheet under the shared 20-percent screen-level
+  chance. `runtime_perk_catalog.gd` owns the protected next-offer card; the
+  existing unlock swap flow remains the only full-slot replacement authority.
+
+## 2026-08-05 Physique Training Category
+
+- `scripts/characters/physique_training_catalog.gd` owns the ten `physique_*`
+  definitions, per-pick amounts, per-stat caps, weights, and card payloads.
+- `scripts/characters/physique_training_state.gd` owns run-lifetime acquisition
+  counts, the six-pick total cap, save restore, and pre/post Mystic Dice offer
+  metrics. Round reset must not clear this state.
+- `scripts/characters/physique_training_offer_planner.gd` owns eligible-source
+  filtering, the conditional 40-percent roll, weighted selection, and append-
+  only auxiliary-card planning. `runtime_perk_choice_open_flow.gd` remains the
+  sole owner of Dice-before-training lane order.
+- `runtime_perk_effective_stat_query_surface.gd` is the only gameplay stat
+  composition point. Training values bypass Mugong level, fusion, and polish
+  amplification; active-item cooldown still flows through the shared composer.
 
 ## 2026-08-07 Victory Highlight Replay
 
@@ -8663,6 +11202,14 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/core/victory_highlight_renderer.gd` owns snapshot-only replay
   drawing. Match-flow, frame-flow, and input controllers retain orchestration,
   freeze, and routing authority respectively.
+- `scripts/core/victory_highlight_frame_capture_state.gd` owns the optional
+  380x375/30Hz async CPU-ring frame lane, its three online clip candidates,
+  epoch rejection, and detached blit-viewport/RD cleanup. It never replaces
+  the recorder's shadow state lane.
+- `scripts/core/victory_highlight_frame_renderer.gd` owns the single
+  ImageTexture frame-replay surface. Playback state alone selects it when every
+  selected clip carries a frame payload; otherwise the snapshot renderer stays
+  authoritative.
 
 ## 2026-08-08 Online 1v1 Han Miryang MVP
 
@@ -8672,9 +11219,95 @@ This section is intentionally long; use search to find the nearest owner.
   fixed 60Hz simulation-tick lock lifecycle.
 - `scripts/network/online_enet_transport.gd` owns raw ENet peer lifecycle and
   channels; `online_match_protocol.gd` owns sanitized compact binary packets.
+- `scripts/network/online_match_simulation.gd` owns host-authoritative ball,
+  collision, serve, and match outcomes by composing existing score/round/ball
+  owners plus the production paddle-bounce resolver group and public rally-cap
+  progression API. `online_paddle_state.gd` owns the symmetric 155px
+  player-rule state.
+- `scripts/network/online_match_runtime.gd` owns the battle-shell takeover,
+  central single-player feature bypass, compatibility projection, audio-event
+  bridge, online draw/input routing, and fail-closed startup error when a
+  required online owner is unavailable.
+- `scripts/network/online_match_input_collector.gd` owns one idempotent local
+  InputFrame snapshot per physics frame; `online_match_renderer.gd` owns the
+  role-projected technical battle presentation only.
+- `scripts/core/battle_scene_input_controller.gd` retains input orchestration
+  ownership and consumes active-online events before all legacy feature routes;
+  ESC stops the online runtime and exits through the existing match-flow owner.
 
-## 2026-08-16 Tower-ascent vertical slice
+## 2026-08-09 Lingpet ownership refresh
 
+- `scripts/lingpet/guardian_egg_access_policy.gd` owns the shared read-only
+  Guardian Egg access predicate and cached-registry lookup used before an egg
+  candidate enters a reward surface.
+- `scripts/lingpet/lingpet_duration_runtime_state.gd` owns duration-pool drain,
+  drain-exemption latching, inactive advancement, percentage projection, and
+  passive-skill drain multipliers. `scripts/lingpet/lingpet_duration_field_gauge_renderer.gd`
+  owns the matching layout, color tier, pulse, and snapshot-only field gauge
+  draw contract.
+- `scripts/lingpet/lingpet_guardian_duration_lifecycle_coordinator.gd` owns the
+  cross-owner Guardian uptime lifecycle: active/stowed state, six-second manual
+  hold, recovery-gated resummon, transition start/completion, drain warnings,
+  stage/replacement refill order, forced expiry, and ordered skill/passive/VFX/
+  mount/guard teardown. It holds the egg-runtime facade through `WeakRef` only;
+  legacy facade fields and APIs project to this canonical state. Regression
+  guard: `tests/lingpet_guardian_duration_lifecycle_coordinator_owner_smoke.gd`.
+- `scripts/lingpet/lingpet_guard_feedback_state.gd` owns transient guard-label
+  timing, position, reset, visibility, and snapshot state.
+  `scripts/lingpet/lingpet_guard_hit_tag_resolver.gd` owns the draw-free merge
+  of motion and ring-dash guard tags plus the authoritative defense-tag query.
+- `scripts/lingpet/lingpet_guardian_enhance_offer_engine.gd` owns Guardian
+  Enhancement eligibility, screen cooldown, localized card/result copy,
+  candidate weighting, and offer state. `scripts/lingpet/lingpet_guardian_enhance_applier.gd`
+  owns weighted selection, runtime application dispatch, and normalized result
+  feedback, while `scripts/lingpet/lingpet_guardian_enhance_result_detail.gd`
+  owns the before/after detail payload for skill, stat, unlock, and fallback
+  results.
+- `scripts/lingpet/lingpet_guardian_enhance_flow_coordinator.gd` owns the
+  end-to-end gameplay orchestration across those focused owners: Guardian
+  resolution/context, offer/live candidates, weighted roll and revalidation,
+  run-state application, unlock loadout refresh, result detail/fallback,
+  snapshot and owner sync, and presentation handoff. It retains the egg-runtime
+  facade through `WeakRef` only; public facade methods are compatibility
+  delegates. Regression guard:
+  `tests/lingpet_guardian_enhance_flow_coordinator_owner_smoke.gd`.
+- `scripts/lingpet/lingpet_guardian_enhance_cutin_state.gd` owns the five-phase
+  cut-in clock, roll/reaction frame projection, cancel/reset, and immutable
+  snapshot. `scripts/lingpet/lingpet_guardian_enhance_cutin_overlay_host_resolver.gd`
+  owns cache-only overlay-host resolution, animation readiness/contract reads,
+  and result-icon prewarm queries; it does not own cut-in logical time.
+- `scripts/lingpet/lingpet_guardian_enhance_presentation_coordinator.gd` owns
+  the applied-result presentation lifecycle across those focused owners:
+  cache-only reel-icon filtering, source labeling and offer reservation commit,
+  retained result, prewarm/start/advance/cancel, modal cooldown pause/resume
+  safety, and enhancement-loop audio shutdown. `lingpet_egg_runtime.gd` keeps
+  only its public compatibility methods and one configured coordinator field.
+  Regression guard:
+  `tests/lingpet_guardian_enhance_presentation_coordinator_owner_smoke.gd`.
+- `scripts/lingpet/lingpet_guardian_run_state.gd` owns persistent per-run
+  Guardian duration, enhancement, re-summon, and dirty/save state.
+  `scripts/lingpet/lingpet_guardian_run_context_coordinator.gd` owns new-run
+  configuration, current-profile synchronization, stored-loadout selection,
+  and enhancement-gain handoff into that state.
+- `scripts/lingpet/lingpet_guardian_transition_state.gd` owns summon/stow
+  transition timing, alpha/progress projection, trail presentation, prewarm,
+  and immediate reset.
+- `scripts/lingpet/lingpet_item_offer_policy.gd` owns the shared Guardian Egg
+  and Spirit Water candidate gate. Cards, drops, capsules, gacha, and future
+  reward builders must call this policy before selection instead of repairing
+  an already-selected forbidden item.
+- `scripts/lingpet/lingpet_mokrin_transform_skill.gd` owns Mokrin transform
+  launch/update/cancel, guard-stage progression, cue routing, remaining time,
+  cast-pose projection, and snapshots.
+- `scripts/lingpet/lingpet_mount_topdown_readiness.gd` owns cache-only readiness
+  resolution for top-down mount/rider textures and canonical rider specs; it
+  must not trigger synchronous asset loading from the live render path.
+- `scripts/lingpet/lingpet_overflow_absorb_plan.gd` owns the draw-free consume
+  plan for overflow Guardian absorption, including selected-pet and collection
+  validation plus the normalized no-op result.
+- `scripts/lingpet/lingpet_spirit_water_drop_state.gd` owns the once-per-run
+  Spirit Water pending/succeeded gate, stage-transition rearm, eligibility from
+  Guardian duration state, save/restore, and diagnostic snapshot.
 - `scripts/tower_ascent/tower_ascent_flow_owner.gd` is the stable one-line
   compatibility facade for the default-off generated run-map flow. Its eager
   inheritance chain splits ownership without changing the public API:
@@ -8698,18 +11331,3 @@ This section is intentionally long; use search to find the nearest owner.
   Existing battle match/input/physics/draw modules only route the facade; the
   legacy result/plaza path remains the fallback until a later atomic production
   promotion.
-- `scripts/network/online_match_simulation.gd` owns host-authoritative ball,
-  collision, serve, and match outcomes by composing existing score/round/ball
-  owners plus the production paddle-bounce resolver group and public rally-cap
-  progression API. `online_paddle_state.gd` owns the symmetric 155px
-  player-rule state.
-- `scripts/network/online_match_runtime.gd` owns the battle-shell takeover,
-  central single-player feature bypass, compatibility projection, audio-event
-  bridge, online draw/input routing, and fail-closed startup error when a
-  required online owner is unavailable.
-- `scripts/network/online_match_input_collector.gd` owns one idempotent local
-  InputFrame snapshot per physics frame; `online_match_renderer.gd` owns the
-  role-projected technical battle presentation only.
-- `scripts/core/battle_scene_input_controller.gd` retains input orchestration
-  ownership and consumes active-online events before all legacy feature routes;
-  ESC stops the online runtime and exits through the existing match-flow owner.

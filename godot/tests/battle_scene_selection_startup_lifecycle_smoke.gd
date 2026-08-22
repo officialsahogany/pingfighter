@@ -201,7 +201,7 @@ func _verify_selection_startup_lifecycle_randomizes_stage1_boss_variant() -> voi
 	var lifecycle: Object = BattleSceneSelectionStartupLifecycle.new()
 	lifecycle.set_stage1_boss_rng_seed_for_test(7321)
 	var random_pool: Array[String] = lifecycle.get_stage1_random_boss_variants()
-	_expect(random_pool == ["dalji"], "Stage 1 player-facing pool should stay Dalji-only until Gaksital / Pododaejang are release-ready (2026-07-04 decision)")
+	_expect(random_pool == ["dalji", "gaksi", "podo"], "Stage 1 player-facing pool should expose all three production-ready bosses")
 	var seen := {}
 	for _i in range(48):
 		var owner := FakeOwner.new()
@@ -215,11 +215,11 @@ func _verify_selection_startup_lifecycle_randomizes_stage1_boss_variant() -> voi
 		lifecycle.apply_selection_state(owner)
 
 		var variant: String = str(owner.data.get("stage1_boss_variant", ""))
-		_expect(variant == "dalji", "non-explicit Stage 1 startup must always resolve Dalji while the pool is Dalji-only")
+		_expect(variant in random_pool, "non-explicit Stage 1 startup must resolve a registered production boss")
 		seen[variant] = true
 	_expect(bool(seen.get("dalji", false)), "seeded Stage 1 startup should select Dalji")
-	_expect(not bool(seen.get("gaksi", false)), "Stage 1 player-facing startup must not roll Gaksital until it rejoins the pool")
-	_expect(not bool(seen.get("podo", false)), "Stage 1 player-facing startup must not roll Pododaejang until it rejoins the pool")
+	_expect(bool(seen.get("gaksi", false)), "seeded Stage 1 startup should select Gaksital")
+	_expect(bool(seen.get("podo", false)), "seeded Stage 1 startup should select Pododaejang")
 
 	var explicit_dalji_owner := FakeOwner.new()
 	explicit_dalji_owner.selection_state.selection = {

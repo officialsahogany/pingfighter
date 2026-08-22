@@ -53,6 +53,17 @@ func update(delta: float, context: Dictionary, deps: Dictionary) -> Dictionary:
 		if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
 			context.merge(active_item_runtime.get_boss_ai_context(), true)
 		gaksital_cooldown_state.update(fps_scale, context, effect_deps)
+	elif stage1_boss_variant == "podo":
+		var active_item_runtime = deps.get("active_item_runtime", null)
+		if active_item_runtime != null and active_item_runtime.has_method("get_boss_ai_context"):
+			context.merge(active_item_runtime.get_boss_ai_context(), true)
+		var pododaejang_cooldown_state = deps.get("stage1_pododaejang_boss_skill_cooldown_state", null)
+		if pododaejang_cooldown_state != null and pododaejang_cooldown_state.has_method("update"):
+			pododaejang_cooldown_state.update(fps_scale, context, effect_deps)
+		var arrest_rope_state = deps.get("stage1_pododaejang_arrest_rope_skill_state", null)
+		if arrest_rope_state != null and arrest_rope_state.has_method("update"):
+			var arrest_rope_result: Dictionary = arrest_rope_state.update(fps_scale, context, effect_deps)
+			context.merge(arrest_rope_result, true)
 	elif stage1_boss_variant == "dalji":
 		var dalji_cooldown_state = deps.get("stage1_dalji_boss_skill_cooldown_state", null)
 		if dalji_cooldown_state != null and dalji_cooldown_state.has_method("update"):

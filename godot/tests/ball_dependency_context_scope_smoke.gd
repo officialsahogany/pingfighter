@@ -101,6 +101,9 @@ class FakeRegistry:
 			"stage1_gaksital_fan_throw_skill_state",
 			"stage1_gaksital_fan_wind_skill_state",
 			"stage1_gaksital_boss_skill_cooldown_state",
+			"stage1_pododaejang_patrol_guards_skill_state",
+			"stage1_pododaejang_arrest_rope_skill_state",
+			"stage1_pododaejang_boss_skill_cooldown_state",
 			"stage1_balloon_event",
 			"stage2_pillar_background",
 			"stage2_boss_skill_state",
@@ -197,15 +200,19 @@ func _verify_smasher_stage1_pododaejang_scope_and_cache() -> void:
 	})
 	_expect(deps_has(podo_deps, registry, "stage1_balloon_event"), "Pododaejang scope should keep Stage 1 balloon event")
 	_expect(podo_deps.get("stage1_boss_variant", "") == "podo", "Pododaejang scope should normalize the boss variant")
-	_expect(not podo_deps.has("stage1_dalji_whip_skill_state"), "Pododaejang Slice 1 scope should omit Dalji whip")
-	_expect(not podo_deps.has("stage1_dalji_spinning_top_skill_state"), "Pododaejang Slice 1 scope should omit Dalji spinning top")
-	_expect(not podo_deps.has("stage1_dalji_boss_skill_cooldown_state"), "Pododaejang Slice 1 scope should omit Dalji cooldown state")
-	_expect(not podo_deps.has("stage1_gaksital_fan_throw_skill_state"), "Pododaejang Slice 1 scope should omit Gaksital fan throw")
-	_expect(not podo_deps.has("stage1_gaksital_fan_wind_skill_state"), "Pododaejang Slice 1 scope should omit Gaksital fan wind")
-	_expect(not podo_deps.has("stage1_gaksital_boss_skill_cooldown_state"), "Pododaejang Slice 1 scope should omit Gaksital cooldown state")
+	_expect(deps_has(podo_deps, registry, "stage1_pododaejang_patrol_guards_skill_state"), "Pododaejang scope should include patrol guards")
+	_expect(deps_has(podo_deps, registry, "stage1_pododaejang_arrest_rope_skill_state"), "Pododaejang scope should include arrest rope")
+	_expect(deps_has(podo_deps, registry, "stage1_pododaejang_boss_skill_cooldown_state"), "Pododaejang scope should include boss cooldown state")
+	_expect(not podo_deps.has("stage1_dalji_whip_skill_state"), "Pododaejang scope should omit Dalji whip")
+	_expect(not podo_deps.has("stage1_dalji_spinning_top_skill_state"), "Pododaejang scope should omit Dalji spinning top")
+	_expect(not podo_deps.has("stage1_dalji_boss_skill_cooldown_state"), "Pododaejang scope should omit Dalji cooldown state")
+	_expect(not podo_deps.has("stage1_gaksital_fan_throw_skill_state"), "Pododaejang scope should omit Gaksital fan throw")
+	_expect(not podo_deps.has("stage1_gaksital_fan_wind_skill_state"), "Pododaejang scope should omit Gaksital fan wind")
+	_expect(not podo_deps.has("stage1_gaksital_boss_skill_cooldown_state"), "Pododaejang scope should omit Gaksital cooldown state")
 	_expect(_requested(registry, "stage1_balloon_event"), "Pododaejang variant must break the Stage 1 ball deps cache key")
-	_expect(not _requested(registry, "stage1_dalji_whip_skill_state"), "Pododaejang Slice 1 scope should not request Dalji modules")
-	_expect(not _requested(registry, "stage1_gaksital_fan_throw_skill_state"), "Pododaejang Slice 1 scope should not request Gaksital modules")
+	_expect(_requested(registry, "stage1_pododaejang_patrol_guards_skill_state"), "Pododaejang variant must request its combat modules")
+	_expect(not _requested(registry, "stage1_dalji_whip_skill_state"), "Pododaejang scope should not request Dalji modules")
+	_expect(not _requested(registry, "stage1_gaksital_fan_throw_skill_state"), "Pododaejang scope should not request Gaksital modules")
 
 
 func _verify_viper_stage4_scope_and_cache() -> void:

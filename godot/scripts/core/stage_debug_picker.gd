@@ -67,6 +67,9 @@ const STAGE_RESET_MODULE_KEYS := [
 	"stage1_gaksital_fan_throw_skill_state",
 	"stage1_gaksital_fan_wind_skill_state",
 	"stage1_gaksital_boss_skill_cooldown_state",
+	"stage1_pododaejang_patrol_guards_skill_state",
+	"stage1_pododaejang_arrest_rope_skill_state",
+	"stage1_pododaejang_boss_skill_cooldown_state",
 	"stage1_balloon_event",
 	"stage2_boss_skill_state",
 	"stage3_boss_skill_state",
@@ -522,6 +525,8 @@ func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:
 	match _normalize_stage1_boss_variant(stage1_boss_variant):
 		"gaksi":
 			return "stage1_gaksital_boss_skill_hud_renderer"
+		"podo":
+			return "stage1_pododaejang_boss_skill_hud_renderer"
 		"dalji":
 			return "stage1_dalji_boss_skill_hud_renderer"
 	return ""

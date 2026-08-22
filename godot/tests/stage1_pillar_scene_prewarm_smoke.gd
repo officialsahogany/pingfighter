@@ -144,10 +144,13 @@ func _verify_stage1_pillar_prewarm_touches_hud_modules() -> void:
 	_expect(_requests.has("stage1_pillar_ui_renderer"), "Pododaejang Stage 1 pillar prewarm should keep shared HUD modules")
 	_expect(_requests.has("active_item_hud_renderer"), "Pododaejang Stage 1 pillar prewarm should keep active item HUD modules")
 	_expect(_requests.has("commando_firearm_selector_renderer"), "Pododaejang Stage 1 pillar prewarm should keep Commando panel modules")
-	_expect(not _requests.has("stage1_dalji_boss_skill_cooldown_state"), "Pododaejang Slice 1 prewarm should not touch Dalji cooldown state")
-	_expect(not _requests.has("stage1_dalji_boss_skill_hud_renderer"), "Pododaejang Slice 1 prewarm should not touch Dalji boss skill HUD")
-	_expect(not _requests.has("stage1_gaksital_boss_skill_cooldown_state"), "Pododaejang Slice 1 prewarm should not touch Gaksital cooldown state")
-	_expect(not _requests.has("stage1_gaksital_boss_skill_hud_renderer"), "Pododaejang Slice 1 prewarm should not touch Gaksital boss skill HUD")
+	_expect(_requests.has("stage1_pododaejang_boss_skill_cooldown_state"), "Pododaejang prewarm should touch its cooldown state")
+	_expect(_requests.has("stage1_pododaejang_boss_skill_hud_renderer"), "Pododaejang prewarm should touch its boss skill HUD")
+	_expect(_get_fake_module("stage1_pododaejang_boss_skill_hud_renderer").prewarm_count == 1, "Pododaejang boss skill HUD should prewarm its assets")
+	_expect(not _requests.has("stage1_dalji_boss_skill_cooldown_state"), "Pododaejang prewarm should not touch Dalji cooldown state")
+	_expect(not _requests.has("stage1_dalji_boss_skill_hud_renderer"), "Pododaejang prewarm should not touch Dalji boss skill HUD")
+	_expect(not _requests.has("stage1_gaksital_boss_skill_cooldown_state"), "Pododaejang prewarm should not touch Gaksital cooldown state")
+	_expect(not _requests.has("stage1_gaksital_boss_skill_hud_renderer"), "Pododaejang prewarm should not touch Gaksital boss skill HUD")
 
 
 func _verify_stage1_pillar_ui_draw_uses_cached_mythic_runtime() -> void:

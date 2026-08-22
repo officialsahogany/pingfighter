@@ -129,6 +129,7 @@ $focusedSmoke = @(
     "res://tests/weather_event_render_budget_smoke.gd",
     "res://tests/limit_league_tier_smoke.gd",
     "res://tests/stage1_han_miryang_prologue_smoke.gd",
+    "res://tests/stage1_variant_boss_routing_smoke.gd",
     "res://tests/stage7_akamu_prebattle_video_smoke.gd",
     "res://tests/victory_highlight_replay_smoke.gd",
     "res://tests/stage7_akamu_prebattle_live_frame_smoke.gd",

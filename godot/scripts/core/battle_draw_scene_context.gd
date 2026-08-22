@@ -66,6 +66,9 @@ func _build_full_scene_deps(registry, feedback, power_state) -> Dictionary:
 		"stage1_gaksital_fan_throw_skill_state": _get_instance(registry, "stage1_gaksital_fan_throw_skill_state"),
 		"stage1_gaksital_fan_wind_skill_state": _get_instance(registry, "stage1_gaksital_fan_wind_skill_state"),
 		"stage1_gaksital_boss_skill_cooldown_state": _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state"),
+		"stage1_pododaejang_patrol_guards_skill_state": _get_instance(registry, "stage1_pododaejang_patrol_guards_skill_state"),
+		"stage1_pododaejang_arrest_rope_skill_state": _get_instance(registry, "stage1_pododaejang_arrest_rope_skill_state"),
+		"stage1_pododaejang_boss_skill_cooldown_state": _get_instance(registry, "stage1_pododaejang_boss_skill_cooldown_state"),
 		"stage2_pillar_background": _get_instance(registry, "stage2_pillar_background"),
 		"stage2_boss_skill_state": _get_instance(registry, "stage2_boss_skill_state"),
 		"stage3_boss_skill_state": _get_instance(registry, "stage3_boss_skill_state"),
@@ -131,6 +134,10 @@ func _append_stage_scene_deps(
 				deps["stage1_gaksital_fan_throw_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_throw_skill_state")
 				deps["stage1_gaksital_fan_wind_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_wind_skill_state")
 				deps["stage1_gaksital_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "podo":
+				deps["stage1_pododaejang_patrol_guards_skill_state"] = _get_instance(registry, "stage1_pododaejang_patrol_guards_skill_state")
+				deps["stage1_pododaejang_arrest_rope_skill_state"] = _get_instance(registry, "stage1_pododaejang_arrest_rope_skill_state")
+				deps["stage1_pododaejang_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_pododaejang_boss_skill_cooldown_state")
 			elif stage1_boss_variant == "dalji":
 				deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
 				deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")

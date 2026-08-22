@@ -67,6 +67,10 @@ func _append_stage1_deps(
 		deps["stage1_gaksital_fan_throw_skill_state"] = _lookup_instance(registry, "stage1_gaksital_fan_throw_skill_state", peek_only)
 		deps["stage1_gaksital_fan_wind_skill_state"] = _lookup_instance(registry, "stage1_gaksital_fan_wind_skill_state", peek_only)
 		deps["stage1_gaksital_boss_skill_cooldown_state"] = _lookup_instance(registry, "stage1_gaksital_boss_skill_cooldown_state", peek_only)
+	if peek_only or stage1_boss_variant == "podo":
+		deps["stage1_pododaejang_patrol_guards_skill_state"] = _lookup_instance(registry, "stage1_pododaejang_patrol_guards_skill_state", peek_only)
+		deps["stage1_pododaejang_arrest_rope_skill_state"] = _lookup_instance(registry, "stage1_pododaejang_arrest_rope_skill_state", peek_only)
+		deps["stage1_pododaejang_boss_skill_cooldown_state"] = _lookup_instance(registry, "stage1_pododaejang_boss_skill_cooldown_state", peek_only)
 	deps["stage1_balloon_event"] = _lookup_instance(registry, "stage1_balloon_event", peek_only)
 
 

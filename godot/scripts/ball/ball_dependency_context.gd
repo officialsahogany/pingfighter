@@ -133,6 +133,10 @@ static func get_stage_round_dep_keys(current_stage: int, stage1_boss_variant: St
 				keys.append("stage1_gaksital_fan_throw_skill_state")
 				keys.append("stage1_gaksital_fan_wind_skill_state")
 				keys.append("stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "podo":
+				keys.append("stage1_pododaejang_patrol_guards_skill_state")
+				keys.append("stage1_pododaejang_arrest_rope_skill_state")
+				keys.append("stage1_pododaejang_boss_skill_cooldown_state")
 			elif stage1_boss_variant == "dalji":
 				keys.append("stage1_dalji_whip_skill_state")
 				keys.append("stage1_dalji_spinning_top_skill_state")
@@ -212,6 +216,9 @@ func _build_legacy_round_deps(registry) -> Dictionary:
 		"stage1_dalji_whip_skill_state": registry.get_instance("stage1_dalji_whip_skill_state"),
 		"stage1_dalji_spinning_top_skill_state": registry.get_instance("stage1_dalji_spinning_top_skill_state"),
 		"stage1_dalji_boss_skill_cooldown_state": registry.get_instance("stage1_dalji_boss_skill_cooldown_state"),
+		"stage1_pododaejang_patrol_guards_skill_state": registry.get_instance("stage1_pododaejang_patrol_guards_skill_state"),
+		"stage1_pododaejang_arrest_rope_skill_state": registry.get_instance("stage1_pododaejang_arrest_rope_skill_state"),
+		"stage1_pododaejang_boss_skill_cooldown_state": registry.get_instance("stage1_pododaejang_boss_skill_cooldown_state"),
 		"stage2_boss_skill_state": registry.get_instance("stage2_boss_skill_state"),
 		"stage3_boss_skill_state": registry.get_instance("stage3_boss_skill_state"),
 		"stage2_pillar_background": registry.get_instance("stage2_pillar_background"),
@@ -442,6 +449,9 @@ func _append_legacy_stage_update_deps(deps: Dictionary, registry) -> void:
 	deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
 	deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")
 	deps["stage1_dalji_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_dalji_boss_skill_cooldown_state")
+	deps["stage1_pododaejang_patrol_guards_skill_state"] = _get_instance(registry, "stage1_pododaejang_patrol_guards_skill_state")
+	deps["stage1_pododaejang_arrest_rope_skill_state"] = _get_instance(registry, "stage1_pododaejang_arrest_rope_skill_state")
+	deps["stage1_pododaejang_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_pododaejang_boss_skill_cooldown_state")
 	deps["stage1_balloon_event"] = _get_instance(registry, "stage1_balloon_event")
 
 
@@ -465,6 +475,10 @@ func _append_stage_update_deps(
 				deps["stage1_gaksital_fan_throw_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_throw_skill_state")
 				deps["stage1_gaksital_fan_wind_skill_state"] = _get_instance(registry, "stage1_gaksital_fan_wind_skill_state")
 				deps["stage1_gaksital_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_gaksital_boss_skill_cooldown_state")
+			elif stage1_boss_variant == "podo":
+				deps["stage1_pododaejang_patrol_guards_skill_state"] = _get_instance(registry, "stage1_pododaejang_patrol_guards_skill_state")
+				deps["stage1_pododaejang_arrest_rope_skill_state"] = _get_instance(registry, "stage1_pododaejang_arrest_rope_skill_state")
+				deps["stage1_pododaejang_boss_skill_cooldown_state"] = _get_instance(registry, "stage1_pododaejang_boss_skill_cooldown_state")
 			elif stage1_boss_variant == "dalji":
 				deps["stage1_dalji_whip_skill_state"] = _get_instance(registry, "stage1_dalji_whip_skill_state")
 				deps["stage1_dalji_spinning_top_skill_state"] = _get_instance(registry, "stage1_dalji_spinning_top_skill_state")

@@ -81,6 +81,22 @@ const MODULES := {
 		"path": "res://scripts/stages/stage1/stage1_gaksital_boss_skill_hud_renderer.gd",
 		"label": "stage1 Gaksital boss skill HUD renderer",
 	},
+	"stage1_pododaejang_patrol_guards_skill_state": {
+		"path": "res://scripts/stages/stage1/stage1_pododaejang_patrol_guards_skill_state.gd",
+		"label": "stage1 Pododaejang patrol guards skill state",
+	},
+	"stage1_pododaejang_arrest_rope_skill_state": {
+		"path": "res://scripts/stages/stage1/stage1_pododaejang_arrest_rope_skill_state.gd",
+		"label": "stage1 Pododaejang arrest rope skill state",
+	},
+	"stage1_pododaejang_boss_skill_cooldown_state": {
+		"path": "res://scripts/stages/stage1/stage1_pododaejang_boss_skill_cooldown_state.gd",
+		"label": "stage1 Pododaejang boss skill cooldown state",
+	},
+	"stage1_pododaejang_boss_skill_hud_renderer": {
+		"path": "res://scripts/stages/stage1/stage1_pododaejang_boss_skill_hud_renderer.gd",
+		"label": "stage1 Pododaejang boss skill HUD renderer",
+	},
 	"stage1_balloon_event": {
 		"path": "res://scripts/stages/stage1/stage1_balloon_event.gd",
 		"label": "stage1 balloon machine event",

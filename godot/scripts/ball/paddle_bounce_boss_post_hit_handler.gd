@@ -60,6 +60,10 @@ func apply(
 	if fan_wind_state != null and fan_wind_state.has_method("try_consume_boss_hit"):
 		fan_wind_state.try_consume_boss_hit(context, deps)
 
+	var arrest_rope_state: Object = deps.get("stage1_pododaejang_arrest_rope_skill_state", null)
+	if arrest_rope_state != null and arrest_rope_state.has_method("register_boss_hit"):
+		arrest_rope_state.register_boss_hit(context, deps)
+
 	var stage2_result: Dictionary = {}
 	var stage2_skill_state: Object = deps.get("stage2_boss_skill_state", null)
 	if stage2_skill_state != null and stage2_skill_state.has_method("register_boss_hit"):

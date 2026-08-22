@@ -1,16 +1,17 @@
 extends RefCounted
 
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
 const StageSnapshotBuilder := preload("res://scripts/core/stage_clear_result_stage_snapshot_builder.gd")
 const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 const BUTTON_SIZE := Vector2(190.0, 42.0)
 const LIST_LIMIT := 5
 const STAGE_BOSS_NAMES := {
 	1: "달지",
-	2: "악어장군",
-	3: "멘헤라걸",
 	4: "폰크",
 	5: "홍련",
 	6: "테트리서",
@@ -99,7 +100,7 @@ func draw(canvas: CanvasItem, _owner: Object, _registry: Object, view_size: Vect
 		"액티브  " + _format_labels(settlement_snapshot.get("active_items", [])),
 		"패시브  " + _format_labels(settlement_snapshot.get("passive_items", [])),
 	], line_color)
-	_draw_section(canvas, font, right_rect, "퍽", [
+	_draw_section(canvas, font, right_rect, "무공", [
 		_format_labels(settlement_snapshot.get("perks", [])),
 	], line_color)
 
@@ -116,6 +117,8 @@ func draw(canvas: CanvasItem, _owner: Object, _registry: Object, view_size: Vect
 
 func _build_snapshot(owner: Object, registry: Object) -> Dictionary:
 	var stage_id: int = max(1, _read_int(owner, "current_stage", 1))
+	var stage_boss_variant: String = _read_string(owner, "stage_boss_variant", "")
+	var stage1_boss_variant: String = _read_string(owner, "stage1_boss_variant", "")
 	var progress: Dictionary = _build_progress_snapshot(owner, registry, stage_id)
 	var runtime_gold: int = _read_int(owner, "runtime_perk_gold", 0)
 	var plaza_gold: int = _get_plaza_gold(registry)
@@ -124,7 +127,7 @@ func _build_snapshot(owner: Object, registry: Object) -> Dictionary:
 	var passive_items: Array[String] = _build_item_labels(progress.get("passive_item_inventory", []), false)
 	var perks: Array[String] = _build_perk_labels(progress.get("runtime_perk_levels", {}))
 	return {
-		"stage": _build_stage_snapshot(stage_id),
+		"stage": _build_stage_snapshot(stage_id, stage_boss_variant, stage1_boss_variant),
 		"score": score,
 		"gold": {
 			"plaza": plaza_gold,
@@ -151,13 +154,24 @@ func _build_progress_snapshot(owner: Object, registry: Object, stage_id: int) ->
 	}
 
 
-func _build_stage_snapshot(stage_id: int) -> Dictionary:
+func _build_stage_snapshot(
+	stage_id: int,
+	stage_boss_variant: String = "",
+	stage1_boss_variant: String = ""
+) -> Dictionary:
+	# Stage 1 keeps its variant in a SEPARATE owner field from every other stage,
+	# so a Stage 1 row must read stage1_boss_variant, and a cleared Stage 1 row
+	# must keep that name even when the defeat happened on a later floor.
+	var stage1_variant: String = stage1_boss_variant.strip_edges()
 	var cleared: Array[String] = []
 	for index in range(1, stage_id):
-		cleared.append(_get_stage_boss_name(index))
+		cleared.append(_get_stage_boss_name(index, stage1_variant if index == 1 else ""))
+	var current_variant: String = stage_boss_variant
+	if stage_id == 1 and not stage1_variant.is_empty():
+		current_variant = stage1_variant
 	return {
 		"current_stage": stage_id,
-		"current_boss": _get_stage_boss_name(stage_id),
+		"current_boss": _get_stage_boss_name(stage_id, current_variant),
 		"reached_stage_label": "스테이지 %d" % stage_id,
 		"cleared_bosses": cleared,
 	}
@@ -177,7 +191,7 @@ func _get_score_snapshot(registry: Object) -> Dictionary:
 	return {
 		"player": _call_int(scoreboard_state, "get_player_points", 0),
 		"boss": _call_int(scoreboard_state, "get_boss_points", 0),
-		"win_goal": max(1, _call_int(scoreboard_state, "get_win_goal", 5)),
+		"win_goal": max(1, _call_int(scoreboard_state, "get_win_goal", MatchScoreState.WIN_GOAL)),
 	}
 
 
@@ -185,7 +199,7 @@ func _normalize_score_snapshot(snapshot: Dictionary) -> Dictionary:
 	return {
 		"player": int(snapshot.get("player_score", snapshot.get("player_points", snapshot.get("player", 0)))),
 		"boss": int(snapshot.get("boss_score", snapshot.get("boss_points", snapshot.get("boss", 0)))),
-		"win_goal": max(1, int(snapshot.get("win_goal", 5))),
+		"win_goal": max(1, int(snapshot.get("win_goal", MatchScoreState.WIN_GOAL))),
 	}
 
 
@@ -247,21 +261,31 @@ func _build_perk_labels(levels_value: Variant) -> Array[String]:
 		var level := int(levels.get(perk_id, levels.get(StringName(perk_id), 0)))
 		if level <= 0:
 			continue
-		labels.append("%s Lv.%d" % [_get_perk_name(perk_id), level])
+		var perk_data := _get_perk_data(perk_id)
+		labels.append("%s %s" % [
+			str(perk_data.get("name", perk_id)),
+			LanguageSettings.format_mugong_rank(perk_data, level),
+		])
 	return labels
 
 
 func _get_perk_name(perk_id: String) -> String:
+	return str(_get_perk_data(perk_id).get("name", perk_id))
+
+
+func _get_perk_data(perk_id: String) -> Dictionary:
 	if _perk_catalog != null and _perk_catalog.has_method("get_perk_data"):
 		var perk_value: Variant = _perk_catalog.get_perk_data(perk_id)
 		if perk_value is Dictionary:
-			var perk_name := str((perk_value as Dictionary).get("name", ""))
-			if perk_name != "":
-				return perk_name
-	return perk_id
+			return (perk_value as Dictionary).duplicate(true)
+	return {"id": perk_id, "name": perk_id}
 
 
-func _get_stage_boss_name(stage_id: int) -> String:
+func _get_stage_boss_name(stage_id: int, stage_boss_variant: String = "") -> String:
+	var entry: Dictionary = StageBossVariantCatalog.get_entry(stage_id, stage_boss_variant)
+	var display_name: String = str(entry.get("display_name", ""))
+	if display_name != "":
+		return display_name
 	return str(STAGE_BOSS_NAMES.get(stage_id, "스테이지 %d 보스" % stage_id))
 
 
@@ -414,6 +438,15 @@ func _read_int(owner: Object, key: String, fallback: int) -> int:
 	if value == null:
 		return fallback
 	return int(value)
+
+
+func _read_string(owner: Object, key: String, fallback: String) -> String:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	if value == null:
+		return fallback
+	return str(value)
 
 
 func _read_array(owner: Object, key: String) -> Array:

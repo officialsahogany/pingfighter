@@ -403,6 +403,22 @@ func apply_stage1_gaksital_fan_wind(scene: Dictionary, fps_scale: float, context
 		scene["stage1_gaksital_fan_wind_expired_release"] = true
 
 
+func apply_stage1_pododaejang_patrol_guards(
+	scene: Dictionary,
+	fps_scale: float,
+	context: Dictionary,
+	deps: Dictionary
+) -> void:
+	var patrol_guards_state: Object = deps.get("stage1_pododaejang_patrol_guards_skill_state", null)
+	if patrol_guards_state == null or not patrol_guards_state.has_method("update_and_collide"):
+		return
+	var result: Dictionary = patrol_guards_state.update_and_collide(fps_scale, scene, context, deps)
+	if result.has("ball_vel"):
+		scene["ball_vel"] = _get_vector2(result, "ball_vel", _get_vector2(scene, "ball_vel", Vector2.ZERO))
+	if bool(result.get("stage1_pododaejang_patrol_guard_hit", false)):
+		scene["stage1_pododaejang_patrol_guard_hit"] = true
+
+
 func apply_magnum_grip(scene: Dictionary, fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
 	if str(context.get("selected_character_type", "smasher")) != "smasher":
 		return
