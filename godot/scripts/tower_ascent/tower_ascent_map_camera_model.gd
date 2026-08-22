@@ -12,6 +12,71 @@ static func minimum_cover_zoom(view_rect: Rect2, world_rect: Rect2) -> float:
 	)
 
 
+static func cursor_anchored_offset(
+	cursor_screen_position: Vector2,
+	old_offset: Vector2,
+	old_zoom: float,
+	new_zoom: float
+) -> Vector2:
+	var safe_old_zoom := maxf(0.001, old_zoom)
+	var safe_new_zoom := maxf(0.001, new_zoom)
+	# The world point below the cursor is invariant:
+	# offset' = cursor - (cursor - offset) * (z' / z).
+	return (
+		cursor_screen_position
+		- (cursor_screen_position - old_offset) * (safe_new_zoom / safe_old_zoom)
+	)
+
+
+static func build_cursor_zoom_override(
+	camera_model: Dictionary,
+	cursor_screen_position: Vector2,
+	requested_zoom: float,
+	minimum_zoom: float,
+	maximum_zoom: float
+) -> Dictionary:
+	if camera_model.is_empty():
+		return {}
+	var view_rect: Rect2 = camera_model.get("view_rect", Rect2())
+	var world_rect: Rect2 = camera_model.get("world_rect", Rect2())
+	if view_rect.size.x <= 0.0 or view_rect.size.y <= 0.0:
+		return {}
+	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
+		return {}
+	var safe_minimum := maxf(minimum_cover_zoom(view_rect, world_rect), minimum_zoom)
+	var safe_maximum := maxf(safe_minimum, maximum_zoom)
+	var old_zoom := maxf(
+		0.001,
+		float(camera_model.get(
+			"render_zoom_multiplier",
+			camera_model.get("zoom_multiplier", 1.0)
+		))
+	)
+	var new_zoom := clampf(requested_zoom, safe_minimum, safe_maximum)
+	var old_offset: Vector2 = camera_model.get("offset", Vector2.ZERO)
+	var requested_offset := cursor_anchored_offset(
+		cursor_screen_position,
+		old_offset,
+		old_zoom,
+		new_zoom
+	)
+	var rebuilt := build(
+		view_rect,
+		world_rect,
+		camera_model.get("focus_world_position", world_rect.get_center()),
+		0.0,
+		0.5,
+		new_zoom,
+		0.0
+	)
+	apply_offset_override(rebuilt, requested_offset)
+	rebuilt["minimum_cover_zoom"] = safe_minimum
+	rebuilt["maximum_zoom"] = safe_maximum
+	rebuilt["render_zoom_multiplier"] = new_zoom
+	rebuilt["zoom_multiplier"] = new_zoom
+	return rebuilt
+
+
 static func build(
 	content_rect: Rect2,
 	world_rect: Rect2,

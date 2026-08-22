@@ -46,6 +46,11 @@ func restore_snapshot(
 	_rebuild_graph_indices()
 	_map_render_revision += 1
 	_current_node_id = str(snapshot.get("current_node_id", ""))
+	var restored_current_node := _get_node(_current_node_id)
+	_run_state.reveal_floor(int(restored_current_node.get(
+		"segment_floor",
+		restored_current_node.get("floor", 0)
+	)))
 	_completed_nodes.assign(_dictionary_array(snapshot.get("completed_nodes", [])))
 	for entry in _completed_nodes:
 		_resolution_ids[str(entry.get("node_resolution_id", ""))] = true
@@ -137,6 +142,14 @@ func restore_snapshot(
 		str(snapshot.get("retained_noncombat_background_kind", ""))
 	)
 	if _phase == PHASE_MAP_TRANSITION:
+		var reveal_target_node := _get_node(_selected_target_id)
+		_floor_reveal_state.begin_if_needed(
+			int(reveal_target_node.get(
+				"segment_floor",
+				reveal_target_node.get("floor", 0)
+			)),
+			_run_state.get_revealed_floor()
+		)
 		var selected_node := _get_node(_selected_target_id)
 		var selected_kind := str(selected_node.get("kind", ""))
 		if selected_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:

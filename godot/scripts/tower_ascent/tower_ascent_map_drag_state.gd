@@ -17,16 +17,24 @@ var _press_screen_position := Vector2.ZERO
 var _press_camera_offset := Vector2.ZERO
 var _manual_camera_offset := Vector2.ZERO
 var _manual_override_active := false
+var _manual_zoom_multiplier := 1.0
+var _manual_zoom_override_active := false
 var _selected_node_id := ""
 
 
 func reset_surface() -> void:
+	# A surface is one M-key overview or one walking transition. Their approved
+	# base zooms differ, so pan/zoom are deliberately not shared across the reset
+	# sites owned by open/close, route selection, arrival, ending, and run reset.
+	# Within one surface both inputs compose through this single manual camera.
 	_press_active = false
 	_dragging = false
 	_press_screen_position = Vector2.ZERO
 	_press_camera_offset = Vector2.ZERO
 	_manual_camera_offset = Vector2.ZERO
 	_manual_override_active = false
+	_manual_zoom_multiplier = 1.0
+	_manual_zoom_override_active = false
 	_selected_node_id = ""
 
 
@@ -89,6 +97,28 @@ func has_manual_camera_override() -> bool:
 
 func get_manual_camera_offset() -> Vector2:
 	return _manual_camera_offset
+
+
+func apply_zoom_override(zoom_multiplier: float, camera_offset: Vector2) -> void:
+	# The camera model already owns the exact cover floor. Keep only a numerical
+	# safety bound here so unusual aspect ratios whose cover zoom is below 1.0 are
+	# not silently pushed away from that authority.
+	_manual_zoom_multiplier = maxf(0.001, zoom_multiplier)
+	_manual_camera_offset = camera_offset
+	_manual_zoom_override_active = true
+	_manual_override_active = true
+	# A wheel event takes over the same manual camera surface as drag. Canceling
+	# an in-flight press prevents the subsequent button-up from restoring a stale
+	# pre-zoom offset.
+	cancel_press()
+
+
+func has_manual_zoom_override() -> bool:
+	return _manual_zoom_override_active
+
+
+func get_manual_zoom_multiplier() -> float:
+	return _manual_zoom_multiplier
 
 
 func select_node(node_id: String) -> void:

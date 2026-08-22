@@ -74,6 +74,7 @@ func open_map_overlay(
 	if (
 		not TowerAscentFeatureFlags.is_vertical_slice_enabled()
 		or _map_overlay_active
+		or _floor_reveal_state.is_pending()
 	):
 		return false
 	if _map_overlay_closing:
@@ -131,6 +132,7 @@ func can_open_map_overlay() -> bool:
 	return (
 		TowerAscentFeatureFlags.is_vertical_slice_enabled()
 		and not _map_overlay_active
+		and not _floor_reveal_state.is_pending()
 		and (not _active or _phase in [PHASE_ROUTE_AIM, PHASE_MAP_TRANSITION])
 	)
 
@@ -259,6 +261,21 @@ func _handle_fullscreen_map_pointer_input(
 	if not (event is InputEventMouseButton):
 		return false
 	var mouse_event := event as InputEventMouseButton
+	if (
+		_floor_reveal_state.has_visible_animation_started()
+		and mouse_event.button_index == MOUSE_BUTTON_LEFT
+		and mouse_event.pressed
+	):
+		# The reveal repeats every newly reached floor, so a single click skips its
+		# remaining presentation. It is consumed here and cannot also begin a drag.
+		_floor_reveal_state.skip()
+		_complete_pending_floor_reveal()
+		return true
+	if (
+		mouse_event.pressed
+		and mouse_event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]
+	):
+		return _apply_fullscreen_map_wheel_zoom(mouse_event)
 	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
 		return false
 	if mouse_event.pressed:
@@ -283,6 +300,49 @@ func _handle_fullscreen_map_pointer_input(
 	return release_kind != TowerAscentMapDragState.RELEASE_NONE
 
 
+func _apply_fullscreen_map_wheel_zoom(mouse_event: InputEventMouseButton) -> bool:
+	var camera_model: Dictionary = _renderer.get_last_fullscreen_camera_model()
+	if camera_model.is_empty():
+		return true
+	var current_zoom := float(camera_model.get(
+		"render_zoom_multiplier",
+		camera_model.get("zoom_multiplier", 1.0)
+	))
+	var wheel_notches := maxf(0.01, absf(mouse_event.factor))
+	var zoom_step := pow(
+		TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_STEP_MULTIPLIER,
+		wheel_notches
+	)
+	var requested_zoom := (
+		current_zoom * zoom_step
+		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP
+		else current_zoom / zoom_step
+	)
+	var minimum_zoom := float(camera_model.get(
+		"minimum_cover_zoom",
+		TowerAscentMapCameraModel.minimum_cover_zoom(
+			camera_model.get("view_rect", Rect2()),
+			camera_model.get("world_rect", Rect2())
+		)
+	))
+	var zoom_override := TowerAscentMapCameraModel.build_cursor_zoom_override(
+		camera_model,
+		mouse_event.position,
+		requested_zoom,
+		minimum_zoom,
+		TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+	)
+	if not zoom_override.is_empty():
+		_map_drag_state.apply_zoom_override(
+			float(zoom_override.get("render_zoom_multiplier", current_zoom)),
+			zoom_override.get("offset", Vector2.ZERO)
+		)
+		_request_redraw(
+			_map_overlay_owner_value() if _map_overlay_active else _active_owner
+		)
+	return true
+
+
 func get_map_drag_threshold_screen_px() -> float:
 	return float(_map_drag_state.get_threshold_screen_px())
 
@@ -297,6 +357,14 @@ func has_map_camera_manual_override() -> bool:
 
 func get_map_camera_manual_offset() -> Vector2:
 	return _map_drag_state.get_manual_camera_offset()
+
+
+func has_map_camera_manual_zoom_override() -> bool:
+	return bool(_map_drag_state.has_manual_zoom_override())
+
+
+func get_map_camera_manual_zoom_multiplier() -> float:
+	return float(_map_drag_state.get_manual_zoom_multiplier())
 
 
 func get_map_pointer_selected_node_id() -> String:
@@ -317,12 +385,7 @@ func update_selective(delta: float, owner: Object = null) -> void:
 	if _phase == PHASE_ROUTE_AIM:
 		_update_route_serve(maxf(0.0, delta))
 	elif _phase == PHASE_MAP_TRANSITION:
-		var transition_finished: bool = bool(
-			_transition_fade_state.update_map_transition(maxf(0.0, delta))
-		)
-		_map_transition_progress = _transition_fade_state.get_map_transition_progress()
-		if transition_finished:
-			_complete_map_transition()
+		_update_map_transition_with_floor_reveal(maxf(0.0, delta))
 	elif _phase == PHASE_NODE_MODAL:
 		_transition_fade_state.update_node_modal_fade(maxf(0.0, delta))
 		# GRT-016 / GRT-043: modal physics is blocked, so the training strike
@@ -334,6 +397,48 @@ func update_selective(delta: float, owner: Object = null) -> void:
 		):
 			_node_modal_state.update_training_strike_wall_clock()
 	_request_redraw(owner)
+
+
+func _update_map_transition_with_floor_reveal(delta: float) -> void:
+	if _floor_reveal_state.is_pending():
+		if not _floor_reveal_state.has_visible_animation_started():
+			var transition_finished := bool(
+				_transition_fade_state.update_map_transition(delta)
+			)
+			_map_transition_progress = _transition_fade_state.get_map_transition_progress()
+			if transition_finished:
+				# Defensive only: the map becomes visible near the start of the timeline,
+				# so a pending reveal must normally take ownership before completion.
+				_floor_reveal_state.cancel()
+				_complete_map_transition()
+				return
+			if bool(get_map_transition_visual_model().get("map_visible", false)):
+				_floor_reveal_state.begin_visible_animation()
+			return
+		if _floor_reveal_state.update(delta):
+			_complete_pending_floor_reveal()
+		return
+	var transition_finished := bool(
+		_transition_fade_state.update_map_transition(delta)
+	)
+	_map_transition_progress = _transition_fade_state.get_map_transition_progress()
+	if transition_finished:
+		_complete_map_transition()
+
+
+func _complete_pending_floor_reveal() -> void:
+	var revealed_floor: int = int(_floor_reveal_state.finish())
+	if revealed_floor <= 0:
+		return
+	_run_state.reveal_floor(revealed_floor)
+
+
+func get_floor_reveal_visual_model() -> Dictionary:
+	return _floor_reveal_state.get_visual_model(_run_state.get_revealed_floor())
+
+
+func is_floor_reveal_pending() -> bool:
+	return bool(_floor_reveal_state.is_pending())
 
 
 func draw(canvas: CanvasItem) -> void:

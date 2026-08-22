@@ -150,6 +150,9 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 	return {"accepted": false, "reason": "unknown_node_action"}
 
 func _open_node_modal() -> void:
+	# A node modal is a new opaque input owner. No reveal timer may survive into
+	# it even if a future transition path opens the card early (GRT-019/GRT-058).
+	_floor_reveal_state.cancel()
 	_node_modal_state.open(
 		_current_node_id,
 		_node_modal_kind,

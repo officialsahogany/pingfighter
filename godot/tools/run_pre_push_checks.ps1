@@ -85,6 +85,8 @@ $focusedSmoke = @(
     "res://tests/tower_fullscreen_map_content_scale_smoke.gd",
     "res://tests/tower_fullscreen_map_cover_contract_smoke.gd",
     "res://tests/tower_map_camera_drag_contract_smoke.gd",
+    "res://tests/tower_map_wheel_zoom_contract_smoke.gd",
+    "res://tests/tower_map_floor_reveal_cloud_contract_smoke.gd",
     "res://tests/tower_character_exclusive_item_acquisition_smoke.gd",
     "res://tests/tower_guardian_spring_chosik_bridge_smoke.gd",
     "res://tests/tower_map_walker_zoom_intro_smoke.gd",

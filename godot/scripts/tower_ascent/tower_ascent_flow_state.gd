@@ -8,6 +8,12 @@ const TowerAscentFlowRenderer := preload("res://scripts/tower_ascent/tower_ascen
 const TowerAscentMapDragState := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_drag_state.gd"
 )
+const TowerAscentMapCameraModel := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
+)
+const TowerAscentFloorRevealState := preload(
+	"res://scripts/tower_ascent/tower_ascent_floor_reveal_state.gd"
+)
 const TowerAscentMapGenerator := preload("res://scripts/tower_ascent/tower_ascent_map_generator.gd")
 const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascent_boss_registry.gd")
 const TowerAscentRouteCandidatePolicy := preload(
@@ -154,6 +160,7 @@ var _map_render_revision := 0
 var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()
 var _map_drag_state: Object = TowerAscentMapDragState.new()
+var _floor_reveal_state: Object = TowerAscentFloorRevealState.new()
 var _map_generator: Object = TowerAscentMapGenerator.new()
 var _route_candidate_policy: Object = TowerAscentRouteCandidatePolicy.new()
 var _route_serve_runtime: Object = TowerAscentRouteServeRuntime.new()
@@ -279,6 +286,7 @@ func _reset_runtime_state() -> void:
 	_map_overlay_owner = null
 	_map_overlay_registry = null
 	_map_drag_state.reset_surface()
+	_floor_reveal_state.cancel()
 	_selected_target_id = ""
 	_map_transition_progress = 0.0
 	_transition_fade_state.reset()

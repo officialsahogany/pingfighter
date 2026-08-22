@@ -146,6 +146,7 @@ func _capture_reentry_progress() -> Dictionary:
 	var result := {
 		"run_progress": {
 			"active_phase_index": _run_state.get_active_phase_index(),
+			"revealed_floor": _run_state.get_revealed_floor(),
 			"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
 			"burned_vision_boss_ids": _run_state.get_burned_vision_boss_ids(),
 			"start_card": _run_state.get_start_card_result(),
@@ -416,6 +417,10 @@ func _build_generated_graph(_current_stage: int) -> bool:
 		return false
 	var phase := phase_variant as Dictionary
 	_route_source_node_id = str(phase.get("entry_node_id", ""))
+	_run_state.reveal_floor(int(_get_node(_route_source_node_id).get(
+		"segment_floor",
+		_get_node(_route_source_node_id).get("floor", 1)
+	)))
 	_route_target_ids.assign(_string_array(phase.get("initial_route_candidate_ids", [])))
 	var immortal_phase: Dictionary = _graph_phases[1]
 	var valid: bool = (
@@ -568,6 +573,10 @@ func _resolve_route_target(target_id: String) -> void:
 	_route_serve_runtime.finish_selection()
 	_route_pickup_state.clear_route()
 	_selected_target_id = target_id
+	_floor_reveal_state.begin_if_needed(
+		int(target_node.get("segment_floor", target_node.get("floor", 0))),
+		_run_state.get_revealed_floor()
+	)
 	_commit_node_resolution(_route_source_node_id, "route_selected", {"target_node_id": target_id})
 	for candidate_id in _route_target_ids:
 		if candidate_id == target_id:

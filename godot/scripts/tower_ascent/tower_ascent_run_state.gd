@@ -15,6 +15,7 @@ var _muhon := 0
 var _chance_gems := 0
 var _phases: Array[Dictionary] = []
 var _active_phase_index := 0
+var _revealed_floor := 0
 var _skipped_boss_ids: Array[String] = []
 var _burned_vision_boss_ids: Array[String] = []
 var _start_card_result: Dictionary = {
@@ -43,6 +44,20 @@ func begin(
 	):
 		reset()
 		return false
+	var phase_floor_start := int(
+		_phases[_active_phase_index].get("floor_start", 0)
+		if not _phases.is_empty()
+		else 0
+	)
+	var requested_revealed_floor := maxi(0, int(progress.get("revealed_floor", phase_floor_start)))
+	var maximum_floor := maxi(phase_floor_start, requested_revealed_floor)
+	for phase in _phases:
+		maximum_floor = maxi(maximum_floor, int(phase.get("floor_end", maximum_floor)))
+	_revealed_floor = clampi(
+		requested_revealed_floor,
+		0,
+		maximum_floor
+	)
 	_skipped_boss_ids.assign(_sanitize_ids(progress.get("skipped_boss_ids", [])))
 	_burned_vision_boss_ids.assign(_sanitize_ids(progress.get("burned_vision_boss_ids", [])))
 	_start_card_result = _sanitize_start_card_result(progress.get("start_card", {}))
@@ -56,6 +71,7 @@ func reset() -> void:
 	_chance_gems = 0
 	_phases.clear()
 	_active_phase_index = 0
+	_revealed_floor = 0
 	_skipped_boss_ids.clear()
 	_burned_vision_boss_ids.clear()
 	_start_card_result = _default_start_card_result()
@@ -95,6 +111,7 @@ func export_snapshot_fields() -> Dictionary:
 		"run_state": export_economy(),
 		"run_progress": {
 			"active_phase_index": _active_phase_index,
+			"revealed_floor": _revealed_floor,
 			"skipped_boss_ids": _skipped_boss_ids.duplicate(),
 			"burned_vision_boss_ids": _burned_vision_boss_ids.duplicate(),
 			"start_card": _start_card_result.duplicate(true),
@@ -124,6 +141,18 @@ func set_active_phase_index(phase_index: int) -> bool:
 
 func get_active_phase_index() -> int:
 	return _active_phase_index
+
+
+func reveal_floor(floor_number: int) -> bool:
+	var normalized_floor := maxi(0, floor_number)
+	if normalized_floor <= _revealed_floor:
+		return false
+	_revealed_floor = normalized_floor
+	return true
+
+
+func get_revealed_floor() -> int:
+	return _revealed_floor
 
 
 static func snapshot_restore_policy(snapshot: Dictionary) -> String:

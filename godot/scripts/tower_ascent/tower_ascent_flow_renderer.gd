@@ -27,6 +27,9 @@ const TowerAscentRoutePickupState := preload(
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
+const TowerAscentMapCloudLayer := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
+)
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
@@ -136,6 +139,7 @@ var _path_cached_dot_count := 0
 var _path_cached_dot_gap := 0.0
 var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
+var _map_cloud_layer := TowerAscentMapCloudLayer.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
 var _route_wind_effect_renderer: Object = WeatherEventRenderer.new()
 
@@ -444,6 +448,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		else ""
 	)
 	model["route_history"] = base.get("route_history", [])
+	model["floor_reveal_visual"] = (
+		flow.get_floor_reveal_visual_model()
+		if flow.has_method("get_floor_reveal_visual_model")
+		else {"revealed_floor": 0}
+	)
 	model["transition_marker"] = _build_fullscreen_transition_marker(
 		flow,
 		base,
@@ -489,6 +498,28 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		camera_focus_x_blend
 	)
 	if (
+		flow.has_method("has_map_camera_manual_zoom_override")
+		and bool(flow.has_map_camera_manual_zoom_override())
+		and flow.has_method("get_map_camera_manual_zoom_multiplier")
+	):
+		camera_render_multiplier = clampf(
+			float(flow.get_map_camera_manual_zoom_multiplier()),
+			float(model.get("minimum_cover_zoom", 1.0)),
+			maxf(
+				float(model.get("minimum_cover_zoom", 1.0)),
+				TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+			)
+		)
+		camera_model = TowerAscentMapCameraModel.build(
+			model.get("camera_view_rect", Rect2()),
+			model.get("camera_world_rect", Rect2()),
+			focus_world_position,
+			0.0,
+			TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
+			camera_render_multiplier,
+			camera_focus_x_blend
+		)
+	if (
 		flow.has_method("has_map_camera_manual_override")
 		and bool(flow.has_map_camera_manual_override())
 		and flow.has_method("get_map_camera_manual_offset")
@@ -499,7 +530,14 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		)
 	camera_model["base_zoom_multiplier"] = camera_base_multiplier
 	camera_model["render_zoom_multiplier"] = camera_render_multiplier
+	# Keep the established intro-only diagnostic field stable; all drawing and
+	# hit testing read render_zoom_multiplier.
 	camera_model["zoom_multiplier"] = camera_intro_multiplier
+	camera_model["minimum_cover_zoom"] = float(model.get("minimum_cover_zoom", 1.0))
+	camera_model["maximum_zoom"] = maxf(
+		float(model.get("minimum_cover_zoom", 1.0)),
+		TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+	)
 	model["camera"] = camera_model
 	_last_fullscreen_model = model
 	return model
@@ -645,6 +683,13 @@ func _build_static_fullscreen_map_model(
 	)
 	var dot_gap := art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO
 	var dotted_edges: Array[Dictionary] = []
+	var cloud_draw_call_reserve := TowerAscentMapCloudLayer.estimate_draw_calls(
+		projected_nodes
+	)
+	var route_draw_call_budget := maxi(
+		2,
+		TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET - cloud_draw_call_reserve
+	)
 	# This loop runs only while rebuilding the cached graph projection. If a
 	# wider v7 graph exceeds the draw budget, it keeps every route and expresses
 	# the same paths with wider dot spacing instead of clipping connections.
@@ -657,11 +702,11 @@ func _build_static_fullscreen_map_model(
 			TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
 		)
 		var draw_call_count := TowerAscentMapPathGeometry.dot_count(dotted_edges) * 2
-		if draw_call_count <= TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET:
+		if draw_call_count <= route_draw_call_budget:
 			break
 		dot_gap *= maxf(
 			1.05,
-			float(draw_call_count) / float(TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET)
+			float(draw_call_count) / float(route_draw_call_budget)
 		)
 	var projected_edges := _attach_route_brush_strips(dotted_edges, map_scale)
 	_path_cache_build_count += 1
@@ -719,6 +764,12 @@ func _build_static_fullscreen_map_model(
 		minimum_cover_zoom,
 		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM if not fit_content_width else 1.0
 	)
+	var cloud_layer_model := _map_cloud_layer.build(
+		projected_nodes,
+		camera_world_rect,
+		int(base.get("map_seed", 0)),
+		art_size
+	)
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
@@ -729,6 +780,7 @@ func _build_static_fullscreen_map_model(
 		"camera_world_rect": camera_world_rect,
 		"minimum_cover_zoom": minimum_cover_zoom,
 		"preferred_camera_zoom": preferred_camera_zoom,
+		"cloud_layer": cloud_layer_model,
 		"map_scale": map_scale,
 		"plaque_size": MAP_SCROLL_PLAQUE_SIZE * map_scale,
 		"nodes": projected_nodes,
@@ -844,6 +896,13 @@ func get_last_fullscreen_camera_offset() -> Vector2:
 		return Vector2.ZERO
 	var camera: Dictionary = _last_fullscreen_model.get("camera", {})
 	return camera.get("offset", Vector2.ZERO)
+
+
+func get_last_fullscreen_camera_model() -> Dictionary:
+	if _last_fullscreen_model.is_empty():
+		return {}
+	var camera_value: Variant = _last_fullscreen_model.get("camera", {})
+	return (camera_value as Dictionary).duplicate(true) if camera_value is Dictionary else {}
 
 
 func resolve_fullscreen_node_id_at_screen_position(
@@ -1004,6 +1063,15 @@ func _draw_fullscreen_map_model(
 		walker_model,
 		float(model.get("art_size", 24.0)),
 		camera_model
+	)
+	# Clouds own spatial disclosure inside the camera. The locked-phase hint is a
+	# single status badge in fixed screen chrome and is drawn later, so the two
+	# roles never stack text or outlines over an obscured floor.
+	_map_cloud_layer.draw(
+		canvas,
+		model.get("cloud_layer", {}),
+		camera_model,
+		model.get("floor_reveal_visual", {})
 	)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
@@ -2137,6 +2205,8 @@ func _draw_scroll_texture_region(
 
 
 func get_render_cache_debug_state() -> Dictionary:
+	var cloud_model: Dictionary = _cached_fullscreen_model.get("cloud_layer", {})
+	var cloud_draw_calls := int(cloud_model.get("draw_call_count", 0))
 	return {
 		"graph_key": _cached_graph_key,
 		"graph_build_count": _graph_cache_build_count,
@@ -2146,6 +2216,8 @@ func get_render_cache_debug_state() -> Dictionary:
 		"path_dot_count": _path_cached_dot_count,
 		"path_dot_gap": _path_cached_dot_gap,
 		"path_draw_call_budget": _path_cached_dot_count * 2,
+		"cloud_draw_call_budget": cloud_draw_calls,
+		"total_map_draw_call_budget": _path_cached_dot_count * 2 + cloud_draw_calls,
 		"path_brush_segment_count": _path_cached_brush_segment_count,
 		"path_brush_draw_call_budget": _path_cached_brush_segment_count,
 	}

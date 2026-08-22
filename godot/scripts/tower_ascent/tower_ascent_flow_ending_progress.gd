@@ -322,6 +322,7 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	var callback := _finish_callback
 	_finish_callback = Callable()
 	_map_drag_state.reset_surface()
+	_floor_reveal_state.cancel()
 	_route_serve_runtime.cancel()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
@@ -347,6 +348,7 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 			)
 
 func _complete_map_transition() -> void:
+	_floor_reveal_state.cancel()
 	_map_drag_state.reset_surface()
 	var arrived_node := _get_node(_selected_target_id)
 	if arrived_node.is_empty():
@@ -480,6 +482,10 @@ func _enter_true_route_transition() -> void:
 		_route_target_ids.assign([target_id])
 		_selected_target_id = target_id
 		_route_history.append({"from": _route_source_node_id, "to": target_id})
+		_floor_reveal_state.begin_if_needed(
+			int(_get_node(target_id).get("segment_floor", _get_node(target_id).get("floor", 0))),
+			_run_state.get_revealed_floor()
+		)
 	_phase = PHASE_MAP_TRANSITION
 	_map_transition_progress = 0.0
 	_transition_fade_state.begin_map_transition()

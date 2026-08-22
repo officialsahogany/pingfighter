@@ -114,6 +114,18 @@ const TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO := 0.78
 # read as an intro without hiding the next route row.
 const TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER := 1.0
 const TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER := 1.18
+# A wheel notch reuses the already-approved intro scale step. The absolute
+# ceiling is exactly the largest production walker-camera zoom that existed
+# before free zoom, so this input slice does not demand a higher-resolution map
+# source than the current renderer already displays.
+const TEMP_MAP_WHEEL_ZOOM_STEP_MULTIPLIER := TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+const TEMP_MAP_WHEEL_ZOOM_MAX := (
+	TEMP_MAP_CAMERA_ZOOM * TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+)
+# The map becomes visible first, then a newly reached floor owns this pause.
+# The existing one-second walker intro and travel beats resume unchanged after
+# the reveal completes.
+const TEMP_MAP_FLOOR_REVEAL_SEC := 2.0
 const TEMP_MAP_PATH_CURVE_MIN_RATIO := 0.10
 const TEMP_MAP_PATH_CURVE_MAX_RATIO := 0.24
 const TEMP_MAP_PATH_CURVE_SKEW_RATIO := 0.08
