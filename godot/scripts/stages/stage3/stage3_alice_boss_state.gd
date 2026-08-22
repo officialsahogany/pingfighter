@@ -15,16 +15,19 @@ const GAUGE_GAIN_ON_HIT := 50.0
 const MIRROR_COST := 500.0
 const MIRROR_DURATION_SEC := 180.0 / LEGACY_FPS
 const MIRROR_COOLDOWN_SEC := 900.0 / LEGACY_FPS
+const MIRROR_INITIAL_COOLDOWN_SEC := MIRROR_COOLDOWN_SEC
 const MIRROR_FADE_SEC := 30.0 / LEGACY_FPS
 
 const SIZE_SHIFT_COST := 70.0
 const SIZE_SHIFT_CHANCE := 0.12
 const SIZE_SHIFT_DURATION_SEC := 240.0 / LEGACY_FPS
 const SIZE_SHIFT_COOLDOWN_SEC := 600.0 / LEGACY_FPS
+const SIZE_SHIFT_INITIAL_COOLDOWN_SEC := SIZE_SHIFT_COOLDOWN_SEC
 
 const RABBIT_COST := 120.0
 const RABBIT_CHANCE := 0.13
 const RABBIT_COOLDOWN_SEC := 480.0 / LEGACY_FPS
+const RABBIT_INITIAL_COOLDOWN_SEC := RABBIT_COOLDOWN_SEC
 const RABBIT_WINDUP_SEC := 30.0 / LEGACY_FPS
 const RABBIT_COUNT_MIN := 3
 const RABBIT_COUNT_MAX := 4
@@ -65,6 +68,9 @@ func _init() -> void:
 func reset() -> void:
 	boss_special_gauge = 0.0
 	_reset_round_effects()
+	mirror_cooldown = MIRROR_INITIAL_COOLDOWN_SEC
+	size_shift_cooldown = SIZE_SHIFT_INITIAL_COOLDOWN_SEC
+	rabbit_cooldown = RABBIT_INITIAL_COOLDOWN_SEC
 
 
 func reset_round(deps: Dictionary = {}) -> void:
@@ -433,6 +439,8 @@ func _build_skill(id: String, label: String, active: bool, cooldown: float, tota
 		"cooldown_total": total,
 		"progress": 1.0 if active else clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0),
 		"ready": skill_status == "ready",
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"trigger_type": "boss_hit",
 		"color": color,
 	}

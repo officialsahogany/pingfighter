@@ -297,9 +297,11 @@ func _verify_arachne_skill_routes() -> void:
 		"player_paddle_size": Vector2(155.0, 50.0),
 		"dash_snapshot": {"active": false},
 	}
+	state.reset()
 	var size_result: Dictionary = state.update(0.0, context, deps)
 	_expect(float(size_result.get("boss_paddle_width", 0.0)) == 130.0 and float(size_result.get("boss_hitbox_height", 0.0)) == 52.0, "production update must keep Arachne collision size on the owner result route")
 	_verify_hud_skill_key_contract(state)
+	state.arachne_state.web_trap_cooldown = 0.0
 	state.arachne_state.boss_special_gauge = 440.0
 	var hit_result: Dictionary = state.register_boss_hit(Vector2(3.0, 8.0), context, deps)
 	_expect(bool(hit_result.get("arachne_web_trap_triggered", false)), "boss contact must add 60 then trigger the 500-cost Web Trap")
@@ -322,7 +324,7 @@ func _verify_arachne_skill_routes() -> void:
 		state.update(0.05, context, deps)
 	_expect(background.starpoint_count == 1, "destroyed golden web must spawn a starpoint after 48 frames")
 
-	state.arachne_state.web_trap_cooldown = 0.0
+	state.arachne_state.web_rescue_cooldown = 0.0
 	state.arachne_state.boss_special_gauge = 50.0
 	context["dash_snapshot"] = {"active": false}
 	context["player_pos"] = Vector2(302.5, 700.0)
@@ -456,12 +458,17 @@ func _verify_chaos_spear_absorption(state: Object, context: Dictionary) -> void:
 
 
 func _verify_hud_skill_key_contract(state: Object) -> void:
-	var ready_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
-	_expect(not ready_skill.is_empty(), "Arachne HUD must publish the Web Trap card")
+	var reset_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
+	_expect(not reset_skill.is_empty(), "Arachne HUD must publish the Web Trap card")
 	for legacy_key in ["active", "cooldown", "cooldown_total", "cooldown_progress"]:
-		_expect(ready_skill.has(legacy_key), "Arachne HUD must preserve legacy producer key %s" % legacy_key)
-	for renderer_key in ["status", "ready", "progress"]:
-		_expect(ready_skill.has(renderer_key), "Arachne HUD must publish renderer key %s" % renderer_key)
+		_expect(reset_skill.has(legacy_key), "Arachne HUD must preserve legacy producer key %s" % legacy_key)
+	for renderer_key in ["status", "ready", "progress", "cooldown_remaining", "cooldown_contract", "initial_ready_allowed"]:
+		_expect(reset_skill.has(renderer_key), "Arachne HUD must publish renderer or cooldown-contract key %s" % renderer_key)
+	_expect(str(reset_skill.get("status", "")) == "charging" and not bool(reset_skill.get("ready", true)) and is_zero_approx(float(reset_skill.get("progress", -1.0))), "reset Web Trap must begin charging at zero percent")
+	_expect(float(reset_skill.get("cooldown_remaining", 0.0)) > 0.0 and float(reset_skill.get("cooldown_total", 0.0)) > 0.0, "reset Web Trap must publish a positive cooldown rail")
+	_expect(str(reset_skill.get("cooldown_contract", "")) == "time" and not bool(reset_skill.get("initial_ready_allowed", true)), "Web Trap must declare the standard non-ready time contract")
+	state.arachne_state.web_trap_cooldown = 0.0
+	var ready_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
 	_expect(str(ready_skill.get("status", "")) == "ready" and bool(ready_skill.get("ready", false)) and is_equal_approx(float(ready_skill.get("progress", -1.0)), 1.0), "zero-cooldown inactive Web Trap must render as ready at 100 percent")
 	state.arachne_state.web_trap_cooldown = 7.5
 	var charging_skill := _find_hud_skill(state.get_hud_context(), "web_trap")

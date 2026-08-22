@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
+
 const STAGE_ID := 1
 const BOSS_VARIANT := "gaksi"
 const SKILL_FAN_THROW := "fan_throw"
@@ -44,7 +46,7 @@ func update(fps_scale: float, context: Dictionary, deps: Dictionary = {}) -> Dic
 	return {}
 
 
-func consume_on_hit(skill_id: String, _context: Dictionary = {}, _deps: Dictionary = {}) -> bool:
+func consume_on_hit(skill_id: String, context: Dictionary = {}, deps: Dictionary = {}) -> bool:
 	if skill_id != SKILL_FAN_WIND:
 		return false
 	var runtime: Dictionary = _get_runtime(SKILL_FAN_WIND)
@@ -55,6 +57,8 @@ func consume_on_hit(skill_id: String, _context: Dictionary = {}, _deps: Dictiona
 	runtime["status"] = "casting"
 	runtime["flash_timer"] = CAST_FLASH_FRAMES
 	skill_runtime[SKILL_FAN_WIND] = runtime
+	if BossSkillParryGate.try_parry(SKILL_FAN_WIND, "부채바람", context, deps):
+		return false
 	return true
 
 
@@ -101,6 +105,14 @@ func _update_fan_throw(fps_scale: float, context: Dictionary, deps: Dictionary) 
 	runtime = _charge_skill(runtime, fps_scale)
 	if bool(runtime.get("ready", false)):
 		runtime["status"] = "ready"
+		if BossSkillParryGate.try_parry(SKILL_FAN_THROW, "부채던지기", context, deps):
+			runtime["timer"] = 0.0
+			runtime["ready"] = false
+			runtime["used"] = false
+			runtime["status"] = "charging"
+			runtime["flash_timer"] = CAST_FLASH_FRAMES
+			skill_runtime[SKILL_FAN_THROW] = runtime
+			return
 		if fan_throw_state != null and fan_throw_state.has_method("activate"):
 			if bool(fan_throw_state.activate(context, deps)):
 				runtime["timer"] = 0.0
@@ -199,6 +211,8 @@ func _build_hud_skill(skill_id: String, label: String, trigger_type: String, col
 		"cooldown_total": duration_seconds,
 		"sort_remaining": remaining_seconds,
 		"ready": bool(runtime.get("ready", false)),
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"used": bool(runtime.get("used", false)),
 		"status": str(runtime.get("status", "charging")),
 		"flash": clamp(float(runtime.get("flash_timer", 0.0)) / READY_FLASH_FRAMES, 0.0, 1.0),

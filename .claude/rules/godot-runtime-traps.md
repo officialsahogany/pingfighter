@@ -628,3 +628,13 @@ Full rule: `docs/godot_runtime_traps.md`.
 - 필수: per-frame anchor는 이동량≤6px sheet에만 쓰고 missing entry와 유효한 zero inset을 구분한다.
 - 필수: 회전은 AABB로 clamp하고 sample time을 frame당 고정하며 새 sheet마다 표를 재생성한다.
 - 검증: 최종 draw rect·독립 픽셀 재측정·명시적 SKIPPED allowlist를 함께 봉인한다.
+
+## GRT-060 — Godot 보스 스킬카드 0-초기화 즉시-ready 트랩
+
+[Full ledger](../../docs/godot_runtime_traps.md#grt-060)
+
+- 증상: reset cooldown 0은 `progress = 1 - remaining/total`을 첫 프레임부터 1로 고정한다.
+- 필수: 스킬별 양수 initial 상수, 양수 total, 명시적 cooldown contract를 함께 게시한다.
+- 필수: 감소 owner는 정확히 하나이고, 성공한 시전은 양수 cooldown을 다시 적재해야 한다.
+- 예외: 즉시 ready 디자인은 `initial_ready_allowed=true`로 선언하고 문서와 전수 씰에 등재한다.
+- 검증: catalog의 전 보스·전 스킬 reset/진행/시전/재충전과 0-초기화 RED 픽스처를 봉인한다.

@@ -14,6 +14,7 @@ const GAUGE_GAIN_ON_HIT := 50.0
 const COTTON_THROW_COST := 200.0
 const COTTON_THROW_CHANCE := 0.15
 const COTTON_THROW_COOLDOWN_SEC := 600.0 / LEGACY_FPS
+const COTTON_THROW_INITIAL_COOLDOWN_SEC := COTTON_THROW_COOLDOWN_SEC
 const COTTON_THROW_WINDUP_SEC := 30.0 / LEGACY_FPS
 const COTTON_THROW_COUNT_MIN := 3
 const COTTON_THROW_COUNT_MAX := 5
@@ -26,6 +27,7 @@ const COTTON_BLACKOUT_FULL_SEC := 30.0 / LEGACY_FPS
 const COTTON_BOMB_COST := 150.0
 const COTTON_BOMB_CHANCE := 0.10
 const COTTON_BOMB_COOLDOWN_SEC := 720.0 / LEGACY_FPS
+const COTTON_BOMB_INITIAL_COOLDOWN_SEC := COTTON_BOMB_COOLDOWN_SEC
 const COTTON_BOMB_WINDUP_SEC := 30.0 / LEGACY_FPS
 const COTTON_BOMB_COUNT_MIN := 3
 const COTTON_BOMB_COUNT_MAX := 5
@@ -41,6 +43,7 @@ const GHOST_CURVE_DURATION_SEC := 60.0 / LEGACY_FPS
 const DEADLY_HUG_COST := 250.0
 const DEADLY_HUG_CHANCE := 0.20
 const DEADLY_HUG_COOLDOWN_SEC := 900.0 / LEGACY_FPS
+const DEADLY_HUG_INITIAL_COOLDOWN_SEC := DEADLY_HUG_COOLDOWN_SEC
 const DEADLY_HUG_DURATION_SEC := 300.0 / LEGACY_FPS
 const DEADLY_HUG_RUSH_SPEED := 6.0
 const DEADLY_HUG_ZONE_WIDTH := 350.0
@@ -50,6 +53,7 @@ const HEART_BEAM_COST := 150.0
 # The legacy comment says 13%, but the live branch compares against 0.20.
 const HEART_BEAM_CHANCE := 0.20
 const HEART_BEAM_COOLDOWN_SEC := 480.0 / LEGACY_FPS
+const HEART_BEAM_INITIAL_COOLDOWN_SEC := HEART_BEAM_COOLDOWN_SEC
 const HEART_BEAM_SPEED := 9.0
 const HEART_BEAM_SIZE := 12.0
 const HEART_BEAM_HIT_RADIUS := 18.0
@@ -96,10 +100,10 @@ func _init() -> void:
 
 func reset() -> void:
 	boss_special_gauge = 0.0
-	cotton_throw_cooldown = 0.0
-	cotton_bomb_cooldown = 0.0
-	deadly_hug_cooldown = 0.0
-	heart_beam_cooldown = 0.0
+	cotton_throw_cooldown = COTTON_THROW_INITIAL_COOLDOWN_SEC
+	cotton_bomb_cooldown = COTTON_BOMB_INITIAL_COOLDOWN_SEC
+	deadly_hug_cooldown = DEADLY_HUG_INITIAL_COOLDOWN_SEC
+	heart_beam_cooldown = HEART_BEAM_INITIAL_COOLDOWN_SEC
 	_reset_round_effects()
 
 
@@ -653,6 +657,8 @@ func _build_skill(id: String, label: String, active: bool, cooldown: float, tota
 		"cooldown_total": total,
 		"progress": 1.0 if active else clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0),
 		"ready": skill_status == "ready",
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"trigger_type": "boss_hit",
 		"color": color,
 	}

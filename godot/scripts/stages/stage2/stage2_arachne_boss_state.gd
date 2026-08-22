@@ -8,6 +8,7 @@ const GAUGE_MAX := 500.0
 const GAUGE_GAIN_ON_HIT := 60.0
 const WEB_TRAP_COST := 500.0
 const WEB_TRAP_COOLDOWN_SEC := 15.0
+const WEB_TRAP_INITIAL_COOLDOWN_SEC := WEB_TRAP_COOLDOWN_SEC
 const WEB_TRAP_TRAVEL_SEC := 35.0 / 60.0
 const WEB_TRAP_DURATION_SEC := 300.0 / 60.0
 const WEB_TRAP_RADIUS := 50.0
@@ -16,6 +17,7 @@ const WEB_TRAP_EXPAND_SEC := 12.0 / 60.0
 const GOLDEN_WEB_STAR_DELAY_SEC := 48.0 / 60.0
 const WEB_RESCUE_COST := 50.0
 const WEB_RESCUE_COOLDOWN_SEC := 25.0
+const WEB_RESCUE_INITIAL_COOLDOWN_SEC := WEB_RESCUE_COOLDOWN_SEC
 const WEB_RESCUE_TRIGGER_Y := 25.0
 const WEB_RESCUE_SHOOT_SEC := 15.0 / 60.0
 const WEB_RESCUE_HOLD_WAIT_SEC := 60.0 / 60.0
@@ -82,12 +84,12 @@ func _init() -> void:
 
 func reset() -> void:
 	boss_special_gauge = 0.0
-	web_trap_cooldown = 0.0
+	web_trap_cooldown = WEB_TRAP_INITIAL_COOLDOWN_SEC
 	web_trap_projectile.clear()
 	web_traps.clear()
 	pending_stars.clear()
 	break_bursts.clear()
-	web_rescue_cooldown = 0.0
+	web_rescue_cooldown = WEB_RESCUE_INITIAL_COOLDOWN_SEC
 	web_rescue_active = false
 	web_rescue_phase = "idle"
 	web_rescue_timer = 0.0
@@ -231,7 +233,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_skills": [
 			_build_skill("web_trap", "천라주망", not web_trap_projectile.is_empty(), web_trap_cooldown, WEB_TRAP_COOLDOWN_SEC, Color(0.78, 0.73, 0.68)),
 			_build_skill("web_rescue", "견사회수", web_rescue_active, web_rescue_cooldown, WEB_RESCUE_COOLDOWN_SEC, Color(0.88, 0.88, 0.96)),
-			_build_skill("spider_rage", "혈주망진", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16)),
+			_build_skill("spider_rage", "혈주망진", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16), "score_latched"),
 		],
 	}
 
@@ -835,7 +837,15 @@ func _web_rescue_progress() -> float:
 	return 0.0
 
 
-func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
+func _build_skill(
+	id: String,
+	label: String,
+	active: bool,
+	cooldown: float,
+	total: float,
+	color: Color,
+	cooldown_contract: String = "time"
+) -> Dictionary:
 	var normalized_cooldown: float = maxf(0.0, cooldown)
 	var normalized_total: float = maxf(0.001, total)
 	var ready: bool = not active and normalized_cooldown <= 0.0
@@ -846,10 +856,13 @@ func _build_skill(id: String, label: String, active: bool, cooldown: float, tota
 		"label": label,
 		"active": active,
 		"cooldown": normalized_cooldown,
+		"cooldown_remaining": normalized_cooldown,
 		"cooldown_total": normalized_total,
 		"cooldown_progress": progress,
 		"status": skill_status,
 		"ready": ready,
+		"cooldown_contract": cooldown_contract,
+		"initial_ready_allowed": false,
 		"progress": progress,
 		"color": color,
 	}

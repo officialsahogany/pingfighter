@@ -8,6 +8,7 @@ const GAUGE_MAX := 500.0
 const GAUGE_GAIN_ON_HIT := 60.0
 const TUNNEL_COST := 500.0
 const TUNNEL_COOLDOWN_SEC := 8.0
+const TUNNEL_INITIAL_COOLDOWN_SEC := TUNNEL_COOLDOWN_SEC
 const TUNNEL_WARN_SEC := 30.0 / 60.0
 const TUNNEL_STRIKE_SEC := 40.0 / 60.0
 const TUNNEL_RETURN_SEC := 60.0 / 60.0
@@ -15,6 +16,7 @@ const TUNNEL_SPIKE_INTERVAL_SEC := 4.0 / 60.0
 const TUNNEL_MAX_SPIKES := 10
 const SPINNING_CLAW_COST := 60.0
 const SPINNING_CLAW_COOLDOWN_SEC := 20.0
+const SPINNING_CLAW_INITIAL_COOLDOWN_SEC := SPINNING_CLAW_COOLDOWN_SEC
 const SPINNING_CLAW_DURATION_SEC := 30.0 / 60.0
 const SPINNING_CLAW_BALL_SPEED_MULTIPLIER := 0.8
 const SPINNING_CLAW_SPIN_STRENGTH := 0.55
@@ -26,6 +28,7 @@ const FRIEND_MOLE_FALL_SEC := 12.0 / 60.0
 const PHYSICS_TICKS_PER_SECOND := 72
 const FRIEND_MOLES_DURATION_TICKS := PHYSICS_TICKS_PER_SECOND * 10
 const FRIEND_MOLES_COOLDOWN_TICKS := PHYSICS_TICKS_PER_SECOND * 40
+const FRIEND_MOLES_INITIAL_COOLDOWN_TICKS := FRIEND_MOLES_COOLDOWN_TICKS
 
 var rng := RandomNumberGenerator.new()
 var boss_special_gauge := 0.0
@@ -58,7 +61,7 @@ func _init() -> void:
 
 func reset() -> void:
 	boss_special_gauge = 0.0
-	tunnel_cooldown = 0.0
+	tunnel_cooldown = TUNNEL_INITIAL_COOLDOWN_SEC
 	tunnel_active = false
 	tunnel_phase = "idle"
 	tunnel_timer = 0.0
@@ -66,13 +69,13 @@ func reset() -> void:
 	tunnel_spikes.clear()
 	tunnel_strike_applied = false
 	spinning_claw_timer = 0.0
-	spinning_claw_cooldown = 0.0
+	spinning_claw_cooldown = SPINNING_CLAW_INITIAL_COOLDOWN_SEC
 	hit_emerge_timer = 0.0
 	friend_moles_pending = false
 	friend_moles_triggered = false
 	friend_moles_active = false
 	friend_moles_duration_ticks_remaining = 0
-	friend_moles_cooldown_ticks_remaining = 0
+	friend_moles_cooldown_ticks_remaining = FRIEND_MOLES_INITIAL_COOLDOWN_TICKS
 	friend_moles_spawn_timer = 0.0
 	friend_moles.clear()
 	friend_mole_particles.clear()
@@ -182,7 +185,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_skills": [
 			_build_skill("tunnel_raid", "지맥잠행", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
 			_build_skill("spinning_claw", "선조율풍", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28)),
-			_build_skill("friend_moles", "지굴원군", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16)),
+			_build_skill("friend_moles", "지굴원군", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16), "event_cycle"),
 		],
 	}
 
@@ -564,7 +567,15 @@ func _get_friend_moles_hud_cooldown_sec() -> float:
 	return float(friend_moles_cooldown_ticks_remaining) / float(PHYSICS_TICKS_PER_SECOND)
 
 
-func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
+func _build_skill(
+	id: String,
+	label: String,
+	active: bool,
+	cooldown: float,
+	total: float,
+	color: Color,
+	cooldown_contract: String = "time"
+) -> Dictionary:
 	var normalized_cooldown: float = maxf(0.0, cooldown)
 	var normalized_total: float = maxf(0.001, total)
 	var ready: bool = not active and normalized_cooldown <= 0.0
@@ -575,10 +586,13 @@ func _build_skill(id: String, label: String, active: bool, cooldown: float, tota
 		"label": label,
 		"active": active,
 		"cooldown": normalized_cooldown,
+		"cooldown_remaining": normalized_cooldown,
 		"cooldown_total": normalized_total,
 		"cooldown_progress": progress,
 		"status": skill_status,
 		"ready": ready,
+		"cooldown_contract": cooldown_contract,
+		"initial_ready_allowed": false,
 		"progress": progress,
 		"color": color,
 	}

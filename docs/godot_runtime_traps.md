@@ -3995,3 +3995,39 @@ horizontal` 의 `draw_rect(rect.grow(6.0), Color(CHROME_GLOW…, 0.10))` 선택 
 
 **봉인 상태.** 자동 씰 없음 — SubViewport 렌더가 필요해 표준(헤드리스) 러너에
 못 올린다. 회귀 판정은 위 캡처 하네스 재실행 + 델타 대조가 정본.
+
+---
+
+<a id="grt-060"></a>
+## Godot 보스 스킬카드 0-초기화 즉시-ready 트랩
+
+**사건 (2026-08-22).** 2~3층 신규 보스 지굴왕·거미각시·포웅귀·옥토선자의
+reset 직후 좌측 필러 카드가 처음부터 가득 차고 그림자가 움직이지 않았다. 네
+보스가 같은 결함을 반복했으므로 개별 초기화 실수가 아니라 신규 보스 계약 공백으로
+판정했다. 1층 각시탈·포도대장의 별도 cooldown state도 같은 기준으로 함께 감사했다.
+
+**메커니즘.** 카드 채움은 `progress = 1.0 - cooldown_remaining /
+cooldown_total`이다. 기본 청린귀/연묘는 reset에서 양수 초기 대기를 적재하지만 신규
+네 보스는 모든 time cooldown을 0으로 넣었다. 따라서 `progress=1`, `ready=true`가
+첫 프레임부터 성립하고, 감소시킬 잔량 자체가 없어 애니메이션이 정지한다. 정지
+그림은 렌더러 결함이 아니라 producer state가 이미 끝점만 게시한 결과다.
+
+**표준 규칙.** 각 스킬은 양수 `*_INITIAL_COOLDOWN_*` 상수를 선언하고 reset에서
+남은 값과 양수 total을 게시한다. 기존 재충전 총량이 이미 밸런스 계약이면 그 값을
+초기값으로 재사용한다. 즉시-ready가 정말 의도라면 암묵적 0 대신
+`initial_ready_allowed=true`를 게시하고 문서/씰 어댑터에 이유를 등재한다. 현재
+ported 보스의 허용 예외는 없다. 상세 payload와 초기값 표는
+`docs/boss_skill_card_cooldown_contract.md`가 정본이다.
+
+**업데이트/재충전 규칙.** 쿨다운 감소 owner는 활성 stage state의 production
+update 한 경로뿐이어야 한다. ball/effects 양쪽이 같은 state를 갱신하면 GRT-018의
+2배속 회귀다. 성공한 시전 owner는 남은 cooldown을 양수로 다시 적재하고, 다음 live
+tick부터 한 번씩 줄여야 한다. 0 레일과 끝점 비교는 epsilon 밴드를 사용해 GRT-037의
+float 잔여 영구 정지를 피한다.
+
+**봉인.** `boss_skill_card_cooldown_contract_smoke.gd`가 catalog의 9보스·25스킬을
+전수 순회해 required keys, 양수 total, reset 비-ready, 여러 tick의 progress 변화,
+실제 시전 owner, 양수 재충전, production controller의 정확히 한 번 감소를 단언한다.
+계약 분포도 `TIME=23 EVENT_CYCLE=1 SCORE_LATCHED=1`로 출력한다. 환경 변수
+`BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 지굴왕 tunnel 초기값을 0으로 되돌려
+즉시-ready와 progress 정지를 둘 다 RED로 만드는 반증 레그다.

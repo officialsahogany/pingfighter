@@ -169,6 +169,7 @@ them. Heading text must match between registry essence and ledger.
 - [GRT-057](docs/godot_runtime_traps.md#grt-057) — Godot 페인티드 크롬 뒤 평면 헤일로 rect 트랩 (그림틀 투명 여백이 상자를 드러낸다)
 - [GRT-058](docs/godot_runtime_traps.md#grt-058) — Godot 물리차단 모달 개폐 계약 트랩 (새 진입점은 형제 모달의 훅을 상속하지 않는다)
 - [GRT-059](docs/godot_runtime_traps.md#grt-059) — Godot 스프라이트 셀 여백 × 패들 배율 트랩 (캐릭터가 벽에 못 닿는다)
+- [GRT-060](docs/godot_runtime_traps.md#grt-060) — Godot 보스 스킬카드 0-초기화 즉시-ready 트랩
 
 ## Legacy reference
 

@@ -241,6 +241,7 @@ func _verify_molewang_production_state() -> void:
 	hud_skills = state.get_hud_context().get("stage2_boss_skill_hud_skills", [])
 	_expect(str(hud_skills[2].get("status", "")) == "casting" and is_equal_approx(float(hud_skills[2].get("progress", 0.0)), 1.0), "active Friend Moles HUD card must expose casting at full progress")
 	state.reset()
+	state.molewang_state.spinning_claw_cooldown = 0.0
 	var post_hit_handler: Object = PaddleBouncePostHitHandler.new()
 	post_hit_handler.event_router = FakeBounceEventRouter.new()
 	context["ball_pos"] = Vector2(300.0, 60.0)
@@ -252,6 +253,7 @@ func _verify_molewang_production_state() -> void:
 	_expect(audio.claw_hits == 1, "Spinning Claw must route contact audio")
 	_expect(state.get_boss_special_gauge() <= 0.001, "Spinning Claw must consume its 60-point hit gain")
 	state.reset()
+	state.molewang_state.spinning_claw_cooldown = 0.0
 	context["ball_pos"] = Vector2(450.0, 60.0)
 	var right_hit_result: Dictionary = _apply_boss_post_hit(post_hit_handler, Vector2(-5.0, 8.0), 0.15, context, deps)
 	_expect(_as_vector2(right_hit_result.get("ball_vel", Vector2.ZERO), Vector2.ZERO).is_equal_approx(Vector2(-4.0, 6.4)), "right-side Spinning Claw must slow both velocity axes without changing their signs")
@@ -281,6 +283,7 @@ func _verify_molewang_production_state() -> void:
 	context["current_stage"] = 2
 	context["stage_boss_variant"] = "molewang"
 	state.molewang_state.spinning_claw_timer = 0.0
+	state.molewang_state.tunnel_cooldown = 0.0
 	state.molewang_state.boss_special_gauge = 499.0
 	var blocked_tunnel_result: Dictionary = state.update(0.0, context, deps)
 	_expect(state.get_status() == "charging" and not state.molewang_state.tunnel_active, "Tunnel Raid must remain blocked below the unchanged 500 gauge gate")

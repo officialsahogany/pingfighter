@@ -420,6 +420,8 @@ func _get_quake_hud_skill(quake_active: bool, _context: Dictionary) -> Dictionar
 		"cooldown_total": cooldown_total,
 		"progress": progress,
 		"ready": skill_status == "ready",
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"trigger_type": "auto",
 		"gauge": boss_special_gauge,
 		"gauge_max": BOSS_GAUGE_MAX,
@@ -449,6 +451,8 @@ func _get_water_cannon_hud_skill(water_phase: String, water_unlocked: bool) -> D
 		"cooldown_total": total,
 		"progress": progress,
 		"ready": skill_status == "ready",
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"trigger_type": "auto",
 		"color": Color(0.35, 0.78, 1.0, 1.0),
 	}
@@ -483,6 +487,8 @@ func _get_speed_defense_hud_skill() -> Dictionary:
 		"cooldown_total": cooldown_total,
 		"progress": progress,
 		"ready": skill_status == "ready",
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"trigger_type": "auto",
 		"color": Color(0.25, 0.82, 1.0, 1.0),
 	}

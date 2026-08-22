@@ -216,6 +216,8 @@ func _build_hud_skill(skill_id: String, label: String, trigger_type: String, col
 		"cooldown_total": duration_seconds,
 		"sort_remaining": remaining_seconds,
 		"ready": bool(runtime.get("ready", false)),
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"used": bool(runtime.get("used", false)),
 		"status": str(runtime.get("status", "charging")),
 		"flash": clamp(float(runtime.get("flash_timer", 0.0)) / READY_FLASH_FRAMES, 0.0, 1.0),

@@ -406,7 +406,7 @@ foreach ($entry in $manifestEntries) {
 $canonicalManifestIdentity = (($manifestEntries | ForEach-Object {
     $_.Groups["id"].Value + "`t" + $_.Groups["title"].Value.Trim()
 }) -join "`n") + "`n"
-$expectedTrapManifestSha256 = "C0B6BE9C6C8ABF6AEA750D16CEDA1DCF93A5B96B0099819BA1BC3899508BB6B7"
+$expectedTrapManifestSha256 = "B1EAB1F5A356CC5BC466BB68F620B0ADAE1DD57AE7E2CF417760007390671023"
 $actualTrapManifestSha256 = Get-Utf8Sha256 $canonicalManifestIdentity
 if ($actualTrapManifestSha256 -cne $expectedTrapManifestSha256) {
     $failures.Add("immutable GRT identity manifest hash changed: $actualTrapManifestSha256")
