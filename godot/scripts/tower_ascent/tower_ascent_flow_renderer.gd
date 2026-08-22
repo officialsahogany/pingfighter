@@ -111,6 +111,7 @@ const BALANCE_ICON_LEFT_PAD := 12.0
 const BALANCE_TEXT_GAP := 10.0
 const BALANCE_FONT_SIZE := 18.0
 const BALANCE_TEXT_OUTLINE_SIZE := 2.0
+const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
 
 const INK := Color("30271f")
 const INK_SOFT := Color("665343")
@@ -2772,6 +2773,14 @@ func _draw_node_modal(
 			str(model.get("gold_text", "")),
 			content_scale
 		)
+	var layout_flags_value: Variant = model.get("layout_flags", {})
+	var layout_flags: Dictionary = (
+		layout_flags_value as Dictionary
+		if layout_flags_value is Dictionary
+		else {}
+	)
+	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
+		_draw_training_stage_layout(canvas, model, content_scale)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var interaction_visuals: Array = model.get("interaction_visuals", [])
@@ -2844,14 +2853,86 @@ func _draw_node_modal(
 				index == selected_index,
 				content_scale
 			)
+	var status_baseline: Vector2 = model.get(
+		"status_baseline",
+		_screen_point(Vector2(126.0, 680.0), content_scale, content_offset)
+	)
 	canvas.draw_string(
 		font,
-		_screen_point(Vector2(126.0, 680.0), content_scale, content_offset),
+		status_baseline,
 		str(model.get("status_text", "")),
 		HORIZONTAL_ALIGNMENT_CENTER,
 		508.0 * content_scale,
 		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
+	)
+
+
+func _draw_training_stage_layout(
+	canvas: CanvasItem,
+	model: Dictionary,
+	content_scale: float
+) -> void:
+	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
+	if not stage_rect.has_area():
+		return
+	# S2 reserves a quiet production surface for the S3 character strike host and
+	# the approval-gated S5 dummy. It creates no nodes and performs no idle-time
+	# state lookup; only these retained draw commands exist before the first click.
+	canvas.draw_rect(stage_rect, Color(0.12, 0.075, 0.052, 0.94), true)
+	for band_index in range(4):
+		var band_progress := float(band_index) / 3.0
+		var band_rect := Rect2(
+			stage_rect.position + Vector2(0.0, stage_rect.size.y * band_progress * 0.58),
+			Vector2(stage_rect.size.x, stage_rect.size.y * 0.20 + 1.0)
+		)
+		canvas.draw_rect(
+			band_rect,
+			Color(0.36, 0.22, 0.13, 0.055 + band_progress * 0.025),
+			true
+		)
+	var floor_rect := Rect2(
+		stage_rect.position + Vector2(0.0, stage_rect.size.y * 0.61),
+		Vector2(stage_rect.size.x, stage_rect.size.y * 0.39)
+	)
+	canvas.draw_rect(floor_rect, Color(0.23, 0.13, 0.075, 0.90), true)
+	_draw_training_slot_shadow(
+		canvas,
+		model.get("training_player_slot_rect", Rect2()),
+		stage_rect,
+		content_scale
+	)
+	_draw_training_slot_shadow(
+		canvas,
+		model.get("training_dummy_slot_rect", Rect2()),
+		stage_rect,
+		content_scale
+	)
+
+
+func _draw_training_slot_shadow(
+	canvas: CanvasItem,
+	slot_rect: Rect2,
+	stage_rect: Rect2,
+	content_scale: float
+) -> void:
+	if not slot_rect.has_area():
+		return
+	var shadow_center := Vector2(
+		slot_rect.get_center().x,
+		stage_rect.end.y - 15.0 * content_scale
+	)
+	canvas.draw_line(
+		shadow_center - Vector2(48.0 * content_scale, 0.0),
+		shadow_center + Vector2(48.0 * content_scale, 0.0),
+		Color(0.02, 0.015, 0.012, 0.20),
+		22.0 * content_scale
+	)
+	canvas.draw_line(
+		shadow_center - Vector2(34.0 * content_scale, 0.0),
+		shadow_center + Vector2(34.0 * content_scale, 0.0),
+		Color(0.72, 0.42, 0.18, 0.08),
+		7.0 * content_scale
 	)
 
 

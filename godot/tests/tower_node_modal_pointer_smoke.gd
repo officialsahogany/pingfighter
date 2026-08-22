@@ -513,16 +513,22 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 		for index in range(6):
 			actions.append({"id": "%s-card-%d" % [node_kind, index], "label": "card %d" % index})
 		modal.open("six-card-node", node_kind, {"muhon": 20}, actions)
-		var rects := modal.get_action_rects()
+		var model: Dictionary = modal.build_view_model()
+		var layout_flags: Dictionary = model.get("layout_flags", {})
+		var layout: Dictionary = modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
+		var rects: Array = model.get("action_rects", [])
 		_expect(rects.size() == 7, "%s must expose six cards plus the end-work action" % node_kind)
+		var card_grid_rect: Rect2 = layout.get("card_grid_rect", Rect2())
+		var column_gap := float(layout.get("grid_column_gap", TowerAscentNodeModalState.GRID_COLUMN_GAP))
+		var row_gap := float(layout.get("grid_row_gap", TowerAscentNodeModalState.GRID_ROW_GAP))
 		var card_width := (
-			TowerAscentNodeModalState.CARD_GRID_RECT.size.x
-			- TowerAscentNodeModalState.GRID_COLUMN_GAP
+			card_grid_rect.size.x
+			- column_gap
 			* float(TowerAscentNodeModalState.CARD_GRID_COLUMNS - 1)
 		) / float(TowerAscentNodeModalState.CARD_GRID_COLUMNS)
 		var card_height := (
-			TowerAscentNodeModalState.CARD_GRID_RECT.size.y
-			- TowerAscentNodeModalState.GRID_ROW_GAP
+			card_grid_rect.size.y
+			- row_gap
 			* float(TowerAscentNodeModalState.CARD_GRID_ROWS - 1)
 		) / float(TowerAscentNodeModalState.CARD_GRID_ROWS)
 		for index in range(6):
@@ -530,25 +536,25 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 			var expected_column := index % TowerAscentNodeModalState.CARD_GRID_COLUMNS
 			var expected_row := index / TowerAscentNodeModalState.CARD_GRID_COLUMNS
 			var expected_rect := Rect2(
-				TowerAscentNodeModalState.CARD_GRID_RECT.position + Vector2(
+				card_grid_rect.position + Vector2(
 					float(expected_column) * (
-						card_width + TowerAscentNodeModalState.GRID_COLUMN_GAP
+						card_width + column_gap
 					),
 					float(expected_row) * (
-						card_height + TowerAscentNodeModalState.GRID_ROW_GAP
+						card_height + row_gap
 					)
 				),
 				Vector2(card_width, card_height)
 			)
 			_expect(rect.is_equal_approx(expected_rect), "%s card %d must occupy its exact 3x2 cell" % [node_kind, index])
-			_expect(TowerAscentNodeModalState.CARD_GRID_RECT.encloses(rect), "%s card %d must remain inside the card grid" % [node_kind, index])
+			_expect(card_grid_rect.encloses(rect), "%s card %d must remain inside the flagged card grid" % [node_kind, index])
 			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
 			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
 		var end_work_rect := rects[6] as Rect2
-		_expect(end_work_rect.is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "%s end-work action must use the dedicated footer rect" % node_kind)
+		_expect(end_work_rect.is_equal_approx(layout.get("end_work_rect", Rect2())), "%s end-work action must use its flagged footer rect" % node_kind)
 		_expect(modal.select_at_position(end_work_rect.position + Vector2(2.0, 2.0)), "%s end-work top corner must be selectable" % node_kind)
 		_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "%s footer hit test must select end-work" % node_kind)
-		_expect(TowerAscentNodeModalState.MODAL_RECT.encloses(TowerAscentNodeModalState.CARD_GRID_RECT), "%s card grid must stay inside the playfield-owned modal" % node_kind)
+		_expect(TowerAscentNodeModalState.MODAL_RECT.encloses(card_grid_rect), "%s card grid must stay inside the playfield-owned modal" % node_kind)
 
 
 func _verify_tower_node_card_description_rows() -> void:

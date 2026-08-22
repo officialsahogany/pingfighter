@@ -17,6 +17,14 @@ const CARD_GRID_ROWS := 2
 const GRID_COLUMN_GAP := 12.0
 const GRID_ROW_GAP := 14.0
 const END_WORK_RECT := Rect2(246.0, 602.0, 268.0, 40.0)
+const STATUS_BASELINE := Vector2(126.0, 680.0)
+const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const TRAINING_CARD_GRID_RECT := Rect2(43.0, 144.0, 674.0, 226.0)
+const TRAINING_STAGE_RECT := Rect2(43.0, 382.0, 674.0, 236.0)
+const TRAINING_PLAYER_SLOT_RECT := Rect2(190.0, 386.0, 168.0, 228.0)
+const TRAINING_DUMMY_SLOT_RECT := Rect2(402.0, 386.0, 168.0, 228.0)
+const TRAINING_END_WORK_RECT := Rect2(246.0, 630.0, 268.0, 40.0)
+const TRAINING_STATUS_BASELINE := Vector2(126.0, 700.0)
 const HOVER_ENTER_MSEC := 120
 const HOVER_EXIT_MSEC := 90
 const SUCCESS_RECEIPT_MSEC := 420
@@ -213,34 +221,42 @@ func get_action_index_by_id(action_id: String) -> int:
 	return _find_action_index_by_id(action_id)
 
 
-func get_action_rects(view_size: Vector2 = BASE_VIEW_SIZE) -> Array[Rect2]:
+func get_action_rects(
+	view_size: Vector2 = BASE_VIEW_SIZE,
+	layout_flags: Dictionary = {}
+) -> Array[Rect2]:
 	var result: Array[Rect2] = []
-	var layout := build_screen_layout(view_size)
-	var content_scale := float(layout.get("content_scale", 1.0))
-	var content_offset: Vector2 = layout.get("content_offset", Vector2.ZERO)
+	var layout := build_screen_layout(view_size, layout_flags)
 	if _node_kind in SIX_CARD_NODE_KINDS:
+		var card_grid_rect: Rect2 = layout.get("card_grid_rect", CARD_GRID_RECT)
+		var column_gap := float(layout.get("grid_column_gap", GRID_COLUMN_GAP))
+		var row_gap := float(layout.get("grid_row_gap", GRID_ROW_GAP))
+		var columns := maxi(1, int(layout.get("card_grid_columns", CARD_GRID_COLUMNS)))
+		var rows := maxi(1, int(layout.get("card_grid_rows", CARD_GRID_ROWS)))
 		var column_width := (
-			CARD_GRID_RECT.size.x - GRID_COLUMN_GAP * float(CARD_GRID_COLUMNS - 1)
-		) / float(CARD_GRID_COLUMNS)
+			card_grid_rect.size.x - column_gap * float(columns - 1)
+		) / float(columns)
 		var row_height := (
-			CARD_GRID_RECT.size.y - GRID_ROW_GAP * float(CARD_GRID_ROWS - 1)
-		) / float(CARD_GRID_ROWS)
+			card_grid_rect.size.y - row_gap * float(rows - 1)
+		) / float(rows)
 		var card_index := 0
 		for index in range(_actions.size()):
 			if str(_actions[index].get("id", "")) == ACTION_END_WORK:
-				result.append(_scale_rect(END_WORK_RECT, content_scale, content_offset))
+				result.append(layout.get("end_work_rect", END_WORK_RECT))
 				continue
-			var column := card_index % CARD_GRID_COLUMNS
-			var row := card_index / CARD_GRID_COLUMNS
-			result.append(_scale_rect(Rect2(
-				CARD_GRID_RECT.position + Vector2(
-					float(column) * (column_width + GRID_COLUMN_GAP),
-					float(row) * (row_height + GRID_ROW_GAP)
+			var column := card_index % columns
+			var row := card_index / columns
+			result.append(Rect2(
+				card_grid_rect.position + Vector2(
+					float(column) * (column_width + column_gap),
+					float(row) * (row_height + row_gap)
 				),
 				Vector2(column_width, row_height)
-			), content_scale, content_offset))
+			))
 			card_index += 1
 		return result
+	var content_scale := float(layout.get("content_scale", 1.0))
+	var content_offset: Vector2 = layout.get("content_offset", Vector2.ZERO)
 	for index in range(_actions.size()):
 		result.append(_scale_rect(Rect2(
 			ACTION_LIST_RECT.position + Vector2(0.0, float(index) * (ACTION_ROW_HEIGHT + ACTION_ROW_GAP)),
@@ -254,7 +270,8 @@ func get_selected_action() -> Dictionary:
 
 
 func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
-	var layout := build_screen_layout(view_size)
+	var layout_flags := _build_layout_flags()
+	var layout := build_screen_layout(view_size, layout_flags)
 	var interaction_model := _build_interaction_model()
 	var balance_receipt_texts: Dictionary = interaction_model.get(
 		"balance_receipt_texts",
@@ -275,7 +292,7 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 			{"amount": int(_balances.get("gold", 0))}
 		))),
 		"actions": _actions.duplicate(true),
-		"action_rects": get_action_rects(view_size),
+		"action_rects": get_action_rects(view_size, layout_flags),
 		"selected_index": _keyboard_selected_index,
 		"keyboard_selected_index": _keyboard_selected_index,
 		"hovered_index": _hovered_index,
@@ -288,10 +305,19 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"modal_rect": layout.get("modal_rect", MODAL_RECT),
 		"content_scale": layout.get("content_scale", 1.0),
 		"content_offset": layout.get("content_offset", Vector2.ZERO),
+		"layout_flags": layout.get("layout_flags", {}).duplicate(true),
+		"card_grid_rect": layout.get("card_grid_rect", Rect2()),
+		"training_stage_rect": layout.get("training_stage_rect", Rect2()),
+		"training_player_slot_rect": layout.get("training_player_slot_rect", Rect2()),
+		"training_dummy_slot_rect": layout.get("training_dummy_slot_rect", Rect2()),
+		"status_baseline": layout.get("status_baseline", STATUS_BASELINE),
 	}
 
 
-func build_screen_layout(view_size: Vector2) -> Dictionary:
+func build_screen_layout(
+	view_size: Vector2,
+	layout_flags: Dictionary = {}
+) -> Dictionary:
 	var safe_view_size := Vector2(
 		maxf(1.0, view_size.x),
 		maxf(1.0, view_size.y)
@@ -301,10 +327,44 @@ func build_screen_layout(view_size: Vector2) -> Dictionary:
 		safe_view_size.y / BASE_VIEW_SIZE.y
 	)
 	var content_offset := (safe_view_size - BASE_VIEW_SIZE * content_scale) * 0.5
+	var resolved_flags := _resolve_layout_flags(layout_flags)
+	var uses_training_stage := bool(resolved_flags.get(
+		LAYOUT_FLAG_TRAINING_STAGE,
+		false
+	))
+	var card_grid_source := TRAINING_CARD_GRID_RECT if uses_training_stage else CARD_GRID_RECT
+	var end_work_source := TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
 	return {
 		"content_scale": content_scale,
 		"content_offset": content_offset,
 		"modal_rect": _scale_rect(MODAL_RECT, content_scale, content_offset),
+		"layout_flags": resolved_flags,
+		"card_grid_rect": _scale_rect(card_grid_source, content_scale, content_offset),
+		"card_grid_columns": CARD_GRID_COLUMNS,
+		"card_grid_rows": CARD_GRID_ROWS,
+		"grid_column_gap": GRID_COLUMN_GAP * content_scale,
+		"grid_row_gap": GRID_ROW_GAP * content_scale,
+		"end_work_rect": _scale_rect(end_work_source, content_scale, content_offset),
+		"training_stage_rect": (
+			_scale_rect(TRAINING_STAGE_RECT, content_scale, content_offset)
+			if uses_training_stage
+			else Rect2()
+		),
+		"training_player_slot_rect": (
+			_scale_rect(TRAINING_PLAYER_SLOT_RECT, content_scale, content_offset)
+			if uses_training_stage
+			else Rect2()
+		),
+		"training_dummy_slot_rect": (
+			_scale_rect(TRAINING_DUMMY_SLOT_RECT, content_scale, content_offset)
+			if uses_training_stage
+			else Rect2()
+		),
+		"status_baseline": _scale_point(
+			TRAINING_STATUS_BASELINE if uses_training_stage else STATUS_BASELINE,
+			content_scale,
+			content_offset
+		),
 	}
 
 
@@ -312,8 +372,32 @@ func _scale_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
 	return Rect2(offset + rect.position * scale_value, rect.size * scale_value)
 
 
+func _scale_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector2:
+	return offset + point * scale_value
+
+
+func _build_layout_flags() -> Dictionary:
+	return {
+		LAYOUT_FLAG_TRAINING_STAGE: _node_kind == "training",
+	}
+
+
+func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
+	var result := _build_layout_flags()
+	if layout_flags.has(LAYOUT_FLAG_TRAINING_STAGE):
+		result[LAYOUT_FLAG_TRAINING_STAGE] = bool(layout_flags.get(
+			LAYOUT_FLAG_TRAINING_STAGE,
+			false
+		))
+	return result
+
+
 func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
-	var rects := get_action_rects(view_size)
+	# GRT-022: rendering and hit testing resolve and pass the same layout flag.
+	# In particular, the compact training grid must never be hit-tested with the
+	# legacy six-card rects after the lower training stage is exposed.
+	var layout_flags := _build_layout_flags()
+	var rects := get_action_rects(view_size, layout_flags)
 	# Reverse iteration makes a future overlap deterministic and agrees with the
 	# visual topmost-card rule instead of accepting row-gap clicks.
 	for index in range(rects.size() - 1, -1, -1):

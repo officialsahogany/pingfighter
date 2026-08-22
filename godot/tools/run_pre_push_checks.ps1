@@ -98,6 +98,7 @@ $focusedSmoke = @(
     "res://tests/stage7_akamu_golden_clone_starpoint_smoke.gd",
     "res://tests/tower_boss_routing_smoke.gd",
     "res://tests/tower_node_modal_pointer_smoke.gd",
+    "res://tests/tower_training_screen_layout_smoke.gd",
     "res://tests/tower_node_modal_feedback_smoke.gd",
     "res://tests/tower_ascent_vertical_slice_smoke.gd",
     "res://tests/tower_start_card_smoke.gd",

@@ -145,6 +145,10 @@ const TOWER_NODE_HOVER_ICON_SCALE := 1.08
 const TOWER_NODE_HOVER_LIFT := 5.0
 const TOWER_NODE_OTHER_DIM_ALPHA := 0.10
 const TOWER_NODE_HOVER_DETAIL_ROW_LIMIT := 3
+const TOWER_NODE_COMPACT_CARD_MAX_ASPECT := 0.70
+const TOWER_NODE_COMPACT_CARD_BASE_WIDTH := 216.66667
+const TOWER_NODE_DESCRIPTION_ROW_LIMIT := 3
+const TOWER_NODE_BONUS_BADGE_ROW_LIMIT := 1
 
 var _fallback_font: Font = null
 var _draw_now_msec := 0
@@ -642,20 +646,64 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 	var description := str(choice.get("description", "")).strip_edges()
 	if description.is_empty():
 		description = str(choice.get("detail", "")).strip_edges()
-	var font_size := clampi(int(round(rect.size.x * 0.056)), 11, 13)
-	var description_rows := _wrap_text_px(
+	# The card rect is already in screen space. An absolute pixel-height gate
+	# would flip back to the legacy layout at a large Vulkan viewport, so the
+	# compact training profile is identified by its scale-invariant aspect.
+	var compact_card := (
+		rect.size.y / maxf(1.0, rect.size.x)
+		<= TOWER_NODE_COMPACT_CARD_MAX_ASPECT
+	)
+	var compact_scale := (
+		maxf(0.01, rect.size.x / TOWER_NODE_COMPACT_CARD_BASE_WIDTH)
+		if compact_card
+		else 1.0
+	)
+	var font_size := (
+		clampi(int(round(10.0 * compact_scale)), 10, 18)
+		if compact_card
+		else clampi(int(round(rect.size.x * 0.056)), 11, 13)
+	)
+	var text_width := maxf(24.0, rect.size.x - (22.0 if compact_card else 28.0))
+	var description_wrap := _wrap_text_px_with_budget(
 		description,
 		font_size,
-		maxf(24.0, rect.size.x - 28.0),
-		3
+		text_width,
+		TOWER_NODE_DESCRIPTION_ROW_LIMIT
 	)
+	var description_rows: Array = description_wrap.get("lines", [])
+	var bonus_badge_text := str(choice.get("bonus_badge_text", "")).strip_edges()
+	var bonus_badge_font_size := clampi(int(round(10.0 * compact_scale)), 9, 18)
+	var bonus_badge_rows: Array[String] = []
+	var bonus_badge_hidden_by_budget := false
+	if compact_card and not bonus_badge_text.is_empty():
+		var font := _get_font()
+		var badge_fits_one_row := (
+			font != null
+			and _get_text_size(font, bonus_badge_text, bonus_badge_font_size).x <= text_width
+		)
+		if badge_fits_one_row and TOWER_NODE_BONUS_BADGE_ROW_LIMIT >= 1:
+			bonus_badge_rows.append(bonus_badge_text)
+		else:
+			# GRT-021: the bonus promise is semantic. If the complete Korean copy
+			# cannot consume one additional row, omit the entire badge instead of
+			# showing an ellipsis that can be mistaken for a different rule.
+			bonus_badge_hidden_by_budget = true
 	return {
 		"choice": choice,
+		"compact_card": compact_card,
+		"compact_scale": compact_scale,
 		"description_font_size": font_size,
 		"description_rows": description_rows,
 		# GRT-021: this is the count of rows actually appended by the same
 		# width-aware builder consumed by draw_tower_node_card below.
 		"appended_description_row_count": description_rows.size(),
+		"bonus_badge_text": bonus_badge_text,
+		"bonus_badge_font_size": bonus_badge_font_size,
+		"bonus_badge_rows": bonus_badge_rows,
+		"bonus_badge_visible": bonus_badge_rows.size() == 1,
+		"bonus_badge_hidden_by_budget": bonus_badge_hidden_by_budget,
+		"appended_bonus_badge_row_count": bonus_badge_rows.size(),
+		"appended_text_row_count": description_rows.size() + bonus_badge_rows.size(),
 	}
 
 
@@ -756,6 +804,8 @@ func draw_tower_node_card(
 	_capture_draw_msec()
 	var text_layout := build_tower_node_card_text_layout(action, rect)
 	var choice: Dictionary = text_layout.get("choice", {})
+	var compact_card := bool(text_layout.get("compact_card", false))
+	var compact_scale := float(text_layout.get("compact_scale", 1.0))
 	var visual_plan := build_tower_node_card_visual_plan(visual_state)
 	var hover_blend := float(visual_plan.get("hover_blend", 0.0))
 	var pressed := bool(visual_state.get("pressed", false))
@@ -804,8 +854,10 @@ func draw_tower_node_card(
 		"icon_color",
 		Color(100.0 / 255.0, 150.0 / 255.0, 1.0)
 	))
-	var icon_center := rect.position + Vector2(38.0, 39.0) + content_offset
-	var icon_radius := 24.0
+	var icon_center := rect.position + (
+		Vector2(25.0, 25.0) * compact_scale if compact_card else Vector2(38.0, 39.0)
+	) + content_offset
+	var icon_radius := 15.0 * compact_scale if compact_card else 24.0
 	canvas.draw_circle(icon_center, icon_radius + 4.0, Color(0.17, 0.12, 0.08, 0.96))
 	canvas.draw_circle(icon_center, icon_radius, Color(0.07, 0.10, 0.12, 0.97))
 	canvas.draw_arc(icon_center, icon_radius, 0.0, TAU, 28, Color(icon_color, 0.76), 1.6)
@@ -813,16 +865,27 @@ func draw_tower_node_card(
 		canvas,
 		choice,
 		Rect2(
-			icon_center - Vector2.ONE * 20.0 * float(visual_plan.get("icon_scale", 1.0)),
-			Vector2.ONE * 40.0 * float(visual_plan.get("icon_scale", 1.0))
+			icon_center
+			- Vector2.ONE
+			* (13.0 * compact_scale if compact_card else 20.0)
+			* float(visual_plan.get("icon_scale", 1.0)),
+			Vector2.ONE
+			* (26.0 * compact_scale if compact_card else 40.0)
+			* float(visual_plan.get("icon_scale", 1.0))
 		),
 		icon_renderer,
 		active_item_hud_visuals
 	)
 
 	var nameplate := Rect2(
-		Vector2(rect.position.x + 70.0, rect.position.y + 14.0) + content_offset,
-		Vector2(maxf(48.0, rect.size.x - 83.0), 29.0)
+		Vector2(
+			rect.position.x + (48.0 * compact_scale if compact_card else 70.0),
+			rect.position.y + (8.0 * compact_scale if compact_card else 14.0)
+		) + content_offset,
+		Vector2(
+			maxf(48.0, rect.size.x - (60.0 * compact_scale if compact_card else 83.0)),
+			22.0 * compact_scale if compact_card else 29.0
+		)
 	)
 	RuntimePerkTraditionalChrome.draw_nameplate(
 		canvas,
@@ -840,26 +903,52 @@ func draw_tower_node_card(
 		canvas,
 		name,
 		nameplate.get_center() + Vector2(0.0, 1.0),
-		15,
+		clampi(int(round(13.0 * compact_scale)), 11, 22) if compact_card else 15,
 		Color(0.94, 0.87, 0.72).lerp(node_accent, 0.76 * hover_blend),
 		nameplate.size.x - 12.0,
-		10
+		clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10
 	)
 	var rank_text := _level_text(choice)
 	_draw_text_centered_fitted(
 		canvas,
 		rank_text,
-		Vector2(nameplate.get_center().x, rect.position.y + 58.0 + content_offset.y),
-		12,
+		(
+			Vector2(
+				rect.position.x + 88.0 * compact_scale + content_offset.x,
+				rect.position.y + 45.0 * compact_scale + content_offset.y
+			)
+			if compact_card
+			else Vector2(nameplate.get_center().x, rect.position.y + 58.0 + content_offset.y)
+		),
+		clampi(int(round(10.0 * compact_scale)), 9, 18) if compact_card else 12,
 		_level_color(choice, premium, 1.0),
-		nameplate.size.x - 8.0,
-		9
+		80.0 * compact_scale if compact_card else nameplate.size.x - 8.0,
+		clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 9
 	)
+	if compact_card and hover_blend <= 0.0:
+		_draw_text_centered_fitted(
+			canvas,
+			str(action.get("cost_text", "")),
+			Vector2(
+				rect.end.x - 43.0 * compact_scale + content_offset.x,
+				rect.position.y + 45.0 * compact_scale + content_offset.y
+			),
+			clampi(int(round(10.0 * compact_scale)), 9, 18),
+			Color(0.35, 0.22, 0.09) if enabled else Color(0.35, 0.30, 0.26),
+			78.0 * compact_scale,
+			clampi(int(round(9.0 * compact_scale)), 9, 16)
+		)
 	canvas.draw_line(
-		Vector2(paper_rect.position.x + 10.0, rect.position.y + 76.0) + content_offset,
-		Vector2(paper_rect.end.x - 10.0, rect.position.y + 76.0) + content_offset,
+		Vector2(
+			paper_rect.position.x + (10.0 * compact_scale if compact_card else 10.0),
+			rect.position.y + (54.0 * compact_scale if compact_card else 76.0)
+		) + content_offset,
+		Vector2(
+			paper_rect.end.x - (10.0 * compact_scale if compact_card else 10.0),
+			rect.position.y + (54.0 * compact_scale if compact_card else 76.0)
+		) + content_offset,
 		Color(0.45, 0.34, 0.20, 0.48),
-		1.0
+		compact_scale if compact_card else 1.0
 	)
 
 	var description_rows: Array = text_layout.get("description_rows", [])
@@ -869,13 +958,33 @@ func draw_tower_node_card(
 			canvas,
 			str(description_rows[row_index]),
 			Vector2(
-				rect.position.x + 14.0,
-					rect.position.y + 96.0 + float(row_index) * 16.0 + content_offset.y
-				),
+				rect.position.x + (11.0 * compact_scale if compact_card else 14.0),
+					rect.position.y
+					+ (67.0 * compact_scale if compact_card else 96.0)
+					+ float(row_index) * (12.0 * compact_scale if compact_card else 16.0)
+					+ content_offset.y
+			),
 			description_font_size,
 			Color(0.24, 0.19, 0.14, 0.96),
-			rect.size.x - 28.0,
-			10
+			rect.size.x - (22.0 * compact_scale if compact_card else 28.0),
+			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10
+		)
+	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])
+	if compact_card and bonus_badge_rows.size() == 1:
+		var badge_rect := Rect2(
+			Vector2(
+				rect.position.x + 10.0 * compact_scale,
+				rect.end.y - 13.0 * compact_scale
+			) + content_offset,
+			Vector2(rect.size.x - 20.0 * compact_scale, 11.0 * compact_scale)
+		)
+		canvas.draw_rect(badge_rect, Color(0.54, 0.31, 0.08, 0.12), true)
+		_draw_text_centered(
+			canvas,
+			str(bonus_badge_rows[0]),
+			badge_rect.get_center(),
+			int(text_layout.get("bonus_badge_font_size", 10)),
+			Color(0.50, 0.22, 0.06, 0.96)
 		)
 
 	var reason := str(action.get("unavailable_reason", "")).strip_edges()
@@ -905,13 +1014,16 @@ func draw_tower_node_card(
 		_draw_text_centered_fitted(
 			canvas,
 			reason,
-			Vector2(rect.get_center().x, rect.end.y - 42.0),
-			11,
+			Vector2(
+				rect.get_center().x,
+				rect.end.y - (31.0 * compact_scale if compact_card else 42.0)
+			),
+			clampi(int(round(11.0 * compact_scale)), 10, 19) if compact_card else 11,
 			Color(0.49, 0.12, 0.10),
 			rect.size.x - 22.0,
-			9
+			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 9
 		)
-	if hover_blend <= 0.0:
+	if hover_blend <= 0.0 and not compact_card:
 		_draw_text_centered_fitted(
 			canvas,
 			str(action.get("cost_text", "")),
