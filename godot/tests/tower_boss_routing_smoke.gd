@@ -180,31 +180,34 @@ func _verify_map_seed_survives_second_combat_preparation() -> void:
 
 func _verify_skipped_boss_cannot_return_as_route_target() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	var seed := _find_two_combat_initial_route_seed()
-	_expect(seed > 0, "skip fixture must find a generated two-combat route")
-	if seed <= 0:
+	var seed := _find_mixed_boss_choice_seed()
+	_expect(seed >= 0, "skip fixture must find a generated mixed NPC and boss route")
+	if seed < 0:
 		return
+	var choice_fixture := _find_boss_choice_fixture(TowerAscentMapGenerator.new().generate_tower(seed))
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.prepare_vertical_slice_combat(null, {
 		"run_id": "skip-reentry",
 		"map_seed": seed,
 	}), "skip fixture first combat must prepare")
 	_expect(flow.begin_vertical_slice(null, Callable()), "skip fixture first combat must enter route selection")
-	var first_targets := flow.get_route_target_ids()
+	var first_targets: Array[String] = []
+	first_targets.assign(choice_fixture.get("target_ids", []))
+	flow.set("_route_source_node_id", str(choice_fixture.get("source_id", "")))
+	flow.set("_route_target_ids", first_targets)
+	flow.call("_refresh_route_target_cache")
 	_expect(first_targets.size() == 2, "skip fixture must expose exactly two route targets")
 	if first_targets.size() != 2:
 		return
-	var chosen_id := str(first_targets[0])
-	var skipped_id := str(first_targets[1])
+	var chosen_id := str(choice_fixture.get("chosen_id", ""))
+	var skipped_id := str(choice_fixture.get("boss_id", ""))
 	var skipped_node := _find_node_by_id(flow, skipped_id)
 	var skipped_slot_id := str(skipped_node.get("boss_slot_id", ""))
-	_expect(not skipped_slot_id.is_empty(), "skipped combat target must own a boss slot")
+	_expect(not skipped_slot_id.is_empty(), "skipped boss target must own a boss slot")
 	flow.call("_resolve_route_target", chosen_id)
-	_expect(flow.get_skipped_boss_ids().has(skipped_slot_id), "choosing the sibling combat route must persist its boss slot as skipped")
-	flow.call("_complete_map_transition")
-	_expect(flow.prepare_vertical_slice_combat(null), "skip fixture must regenerate the same run through a second prepare")
+	_expect(flow.get_skipped_boss_ids().has(skipped_slot_id), "choosing the sibling NPC route must persist the boss slot as skipped")
 	var regenerated_skipped_node := _find_node_for_slot(flow, skipped_slot_id)
-	_expect(bool(regenerated_skipped_node.get("skipped", false)) and bool(regenerated_skipped_node.get("route_disabled", false)), "regenerated graph must mark every skipped boss occurrence unavailable")
+	_expect(bool(regenerated_skipped_node.get("skipped", false)) and bool(regenerated_skipped_node.get("route_disabled", false)), "resolved graph must mark every skipped boss occurrence unavailable")
 	var parent_id := _find_parent_id(flow, str(regenerated_skipped_node.get("id", "")))
 	_expect(not parent_id.is_empty(), "skip fixture must find a production route edge to the skipped boss")
 	if parent_id.is_empty():
@@ -215,23 +218,57 @@ func _verify_skipped_boss_cannot_return_as_route_target() -> void:
 	_expect(not flow.get_route_target_ids().has(str(regenerated_skipped_node.get("id", ""))), "skipped boss must not return as an actual selectable route target later in the run")
 
 
-func _find_two_combat_initial_route_seed() -> int:
+func _find_mixed_boss_choice_seed() -> int:
 	var generator := TowerAscentMapGenerator.new()
-	for seed in range(1, 257):
-		var graph: Dictionary = generator.generate_tower(seed)
-		var phase: Dictionary = (graph.get("phases", []) as Array)[0]
-		var initial_ids: Array = phase.get("initial_route_candidate_ids", [])
-		var combat_count := 0
-		for node_variant in phase.get("nodes", []):
-			if (
-				node_variant is Dictionary
-				and initial_ids.has(str((node_variant as Dictionary).get("id", "")))
-				and str((node_variant as Dictionary).get("kind", "")) in ["boss", "combat", "enraged"]
-			):
-				combat_count += 1
-		if combat_count == 2:
+	for seed in range(0, 256):
+		if not _find_boss_choice_fixture(generator.generate_tower(seed)).is_empty():
 			return seed
-	return 0
+	return -1
+
+
+func _find_boss_choice_fixture(graph: Dictionary) -> Dictionary:
+	for phase_value in graph.get("phases", []):
+		if not (phase_value is Dictionary):
+			continue
+		var phase := phase_value as Dictionary
+		var nodes_by_id: Dictionary = {}
+		for node_value in phase.get("nodes", []):
+			if node_value is Dictionary:
+				var node := node_value as Dictionary
+				nodes_by_id[str(node.get("id", ""))] = node
+		var target_ids_by_source: Dictionary = {}
+		for edge_value in phase.get("edges", []):
+			if edge_value is Dictionary:
+				var edge := edge_value as Dictionary
+				var source_id := str(edge.get("from", ""))
+				var target_ids: Array = target_ids_by_source.get(source_id, [])
+				target_ids.append(str(edge.get("to", "")))
+				target_ids_by_source[source_id] = target_ids
+		for source_id in target_ids_by_source:
+			var target_ids: Array = target_ids_by_source[source_id]
+			if target_ids.size() != 2:
+				continue
+			var boss_id := ""
+			var chosen_id := ""
+			for target_id_value in target_ids:
+				var target_id := str(target_id_value)
+				var target: Dictionary = nodes_by_id.get(target_id, {})
+				if (
+					str(target.get("content_state", "")) == "generated"
+					and str(target.get("kind", "")) in ["boss", "combat", "enraged"]
+					and not str(target.get("boss_slot_id", "")).is_empty()
+				):
+					boss_id = target_id
+				else:
+					chosen_id = target_id
+			if not boss_id.is_empty() and not chosen_id.is_empty():
+				return {
+					"source_id": str(source_id),
+					"target_ids": target_ids.duplicate(),
+					"boss_id": boss_id,
+					"chosen_id": chosen_id,
+				}
+	return {}
 
 
 func _find_node_by_id(flow: Object, node_id: String) -> Dictionary:

@@ -167,18 +167,28 @@ func _verify_seeded_ported_boss_pools_and_startup() -> void:
 		var phase: Dictionary = graph.phases[0]
 		var node_by_id := _node_by_id(phase)
 		for floor_number in range(1, 4):
-			var gate_id := "floor_%02d_gatekeeper" % floor_number
-			var gate: Dictionary = node_by_id.get(gate_id, {})
-			var slot_id := str(gate.get("boss_slot_id", ""))
-			seen_by_floor[floor_number][slot_id] = true
-			_expect(
-				str(gate.get("boss_port_status", "")) == TowerAscentBossRegistry.STATUS_PORTED,
-				"audition floor %d gatekeeper must never resolve a shell" % floor_number
-			)
-			_expect(
-				_sorted_strings(gate.get("boss_pool_slot_ids", [])) == _sorted_strings(expected_by_floor[floor_number]),
-				"audition floor %d must expose its complete three-boss ported pool" % floor_number
-			)
+			var gate_row := _gatekeeper_row(phase, floor_number)
+			var assigned_count := 0
+			for gate_id_variant in gate_row.get("node_ids", []):
+				var gate: Dictionary = node_by_id.get(str(gate_id_variant), {})
+				_expect(
+					_sorted_strings(gate.get("boss_pool_slot_ids", [])) == _sorted_strings(expected_by_floor[floor_number]),
+					"audition floor %d must expose its complete three-boss ported pool" % floor_number
+				)
+				if str(gate.get("boss_assignment_state", "")) != "assigned":
+					_expect(
+						str(gate.get("boss_assignment_state", "")) == "npc_fill",
+						"audition surplus gate lanes must normalize to NPCs"
+					)
+					continue
+				assigned_count += 1
+				var slot_id := str(gate.get("boss_slot_id", ""))
+				seen_by_floor[floor_number][slot_id] = true
+				_expect(
+					str(gate.get("boss_port_status", "")) == TowerAscentBossRegistry.STATUS_PORTED,
+					"audition floor %d generated boss must never resolve a shell" % floor_number
+				)
+			_expect(assigned_count >= 1, "audition floor %d must retain one generated boss" % floor_number)
 		var seeded_floor_one := registry.get_seeded_floor_slots(1, map_seed)
 		if not seeded_floor_one.is_empty():
 			var variant := str(seeded_floor_one[0].get("variant", "dalji"))
@@ -271,6 +281,16 @@ func _node_by_id(phase: Dictionary) -> Dictionary:
 			var node := node_variant as Dictionary
 			result[str(node.get("id", ""))] = node
 	return result
+
+
+func _gatekeeper_row(phase: Dictionary, floor_number: int) -> Dictionary:
+	for floor_variant in phase.get("floors", []):
+		if not (floor_variant is Dictionary) or int((floor_variant as Dictionary).get("floor", 0)) != floor_number:
+			continue
+		for row_variant in (floor_variant as Dictionary).get("rows", []):
+			if row_variant is Dictionary and bool((row_variant as Dictionary).get("gatekeeper", false)):
+				return row_variant as Dictionary
+	return {}
 
 
 func _sorted_strings(values: Array) -> Array[String]:

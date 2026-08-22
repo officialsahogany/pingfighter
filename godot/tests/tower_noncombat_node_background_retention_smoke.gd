@@ -194,7 +194,7 @@ func _verify_modal_close_retains_background_until_combat_selection() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
 		"run_id": "noncombat-background-retention",
-		"map_seed": 1,
+		"map_seed": 2,
 	}), "retention fixture must begin")
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "fixture must begin at post-combat route aim")
 	_expect(flow.get_retained_noncombat_node_background_kind().is_empty(), "combat-owned entry must not start with a retained noncombat background")

@@ -182,6 +182,8 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 	var nodes: Array = phase.get("nodes", [])
 	var active_clear_floor := _resolve_active_clear_floor(result)
 	var used_generated_encounter_keys: Dictionary = {}
+	var generated_boss_budget := _generated_boss_budget(nodes, active_clear_floor)
+	var assigned_generated_boss_count := 0
 	var terminal_node_index := _find_generated_terminal_node_index(
 		nodes,
 		active_clear_floor
@@ -206,7 +208,60 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 			terminal_key
 		)
 		used_generated_encounter_keys[terminal_key] = true
-	for floor_number in range(1, 13):
+		assigned_generated_boss_count = 1
+	var generated_candidates := _generated_boss_candidate_indexes(
+		nodes,
+		active_clear_floor,
+		terminal_node_index,
+		map_seed
+	)
+	var unique_exhausted_node_indexes: Dictionary = {}
+	for candidate_index in generated_candidates:
+		if assigned_generated_boss_count >= generated_boss_budget:
+			break
+		var candidate_node := nodes[candidate_index] as Dictionary
+		var floor_number := int(
+			candidate_node.get("segment_floor", candidate_node.get("floor", 0))
+		)
+		var slots := _get_shuffled_generation_slots(floor_number, map_seed)
+		var assigned_candidate := false
+		for slot in slots:
+			var slot_id := str(slot.get("slot_id", ""))
+			var encounter_key := canonical_encounter_key(get_standin(slot_id))
+			if encounter_key.is_empty() or used_generated_encounter_keys.has(encounter_key):
+				continue
+			_assign_boss_slot(candidate_node, slot, slots, encounter_key)
+			used_generated_encounter_keys[encounter_key] = true
+			assigned_generated_boss_count += 1
+			assigned_candidate = true
+			break
+		if not assigned_candidate:
+			unique_exhausted_node_indexes[candidate_index] = true
+	for node_index in range(nodes.size()):
+		if node_index == terminal_node_index or not (nodes[node_index] is Dictionary):
+			continue
+		var node := nodes[node_index] as Dictionary
+		var segment_floor := int(node.get("segment_floor", node.get("floor", 0)))
+		if (
+			segment_floor <= active_clear_floor
+			and str(node.get("content_state", "")) == CONTENT_GENERATED
+			and str(node.get("kind", "")) in COMBAT_NODE_KINDS
+			and str(node.get("boss_assignment_state", "")) != "assigned"
+		):
+			_assign_deterministic_npc_fill(
+				node,
+				nodes,
+				map_seed,
+				_slot_ids(_get_shuffled_generation_slots(segment_floor, map_seed)),
+				(
+					"unique_visible_pool_exhausted"
+					if unique_exhausted_node_indexes.has(node_index)
+					else "boss_density_budget_exhausted"
+				)
+			)
+	# Locked registry-only floors retain preview metadata but never consume the
+	# visible-run density or uniqueness budgets.
+	for floor_number in range(active_clear_floor + 1, 13):
 		var boss_node_indexes: Array[int] = []
 		for node_index in range(nodes.size()):
 			var node_variant: Variant = nodes[node_index]
@@ -234,27 +289,16 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 		var used_floor_registry_keys: Dictionary = {}
 		for node_index in boss_node_indexes:
 			var node := nodes[node_index] as Dictionary
-			if str(node.get("boss_assignment_state", "")) == "assigned":
-				continue
-			var generated := (
-				str(node.get("content_state", "")) == CONTENT_GENERATED
-				and floor_number <= active_clear_floor
-			)
 			var assigned := false
 			for slot in slots:
 				var slot_id := str(slot.get("slot_id", ""))
 				var encounter_key := canonical_encounter_key(get_standin(slot_id))
 				if encounter_key.is_empty():
 					continue
-				var used_keys := (
-					used_generated_encounter_keys
-					if generated
-					else used_floor_registry_keys
-				)
-				if used_keys.has(encounter_key):
+				if used_floor_registry_keys.has(encounter_key):
 					continue
 				_assign_boss_slot(node, slot, slots, encounter_key)
-				used_keys[encounter_key] = true
+				used_floor_registry_keys[encounter_key] = true
 				assigned = true
 				break
 			if not assigned:
@@ -340,6 +384,74 @@ func analyze_visible_boss_contract(
 		"visible_encounter_count": visible_encounter_count,
 		"unique_encounter_count": used_encounter_keys.size(),
 	}
+
+
+func _generated_boss_budget(nodes: Array, active_clear_floor: int) -> int:
+	var generated_node_count := 0
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if (
+			str(node.get("content_state", "")) == CONTENT_GENERATED
+			and int(node.get("segment_floor", node.get("floor", 0))) <= active_clear_floor
+		):
+			generated_node_count += 1
+	return maxi(
+		1,
+		floori(
+			float(generated_node_count)
+			* TowerAscentTuning.TEMP_GENERATED_BOSS_NODE_MAX_RATIO
+		)
+	)
+
+
+func _generated_boss_candidate_indexes(
+	nodes: Array,
+	active_clear_floor: int,
+	terminal_node_index: int,
+	map_seed: int
+) -> Array[int]:
+	var indexes_by_floor: Dictionary = {}
+	for node_index in range(nodes.size()):
+		if node_index == terminal_node_index or not (nodes[node_index] is Dictionary):
+			continue
+		var node := nodes[node_index] as Dictionary
+		var floor_number := int(node.get("segment_floor", node.get("floor", 0)))
+		if (
+			floor_number <= 0
+			or floor_number > active_clear_floor
+			or str(node.get("content_state", "")) != CONTENT_GENERATED
+			or str(node.get("kind", "")) not in COMBAT_NODE_KINDS
+		):
+			continue
+		var floor_indexes: Array = indexes_by_floor.get(floor_number, [])
+		floor_indexes.append(node_index)
+		indexes_by_floor[floor_number] = floor_indexes
+	var maximum_lane_count := 0
+	for floor_number in range(1, active_clear_floor + 1):
+		var floor_indexes: Array = indexes_by_floor.get(floor_number, [])
+		if floor_indexes.size() > 1:
+			var start_index := _stable_npc_fill_index(
+				map_seed,
+				"generated_boss_floor_%02d" % floor_number,
+				floor_indexes.size()
+			)
+			var rotated: Array = []
+			for offset in range(floor_indexes.size()):
+				rotated.append(floor_indexes[(start_index + offset) % floor_indexes.size()])
+			indexes_by_floor[floor_number] = rotated
+		maximum_lane_count = maxi(maximum_lane_count, floor_indexes.size())
+	var result: Array[int] = []
+	# Round-robin by lane gives each reachable floor a boss before any floor
+	# receives a second parallel boss choice. The terminal reservation remains
+	# first and cannot be normalized into an NPC.
+	for lane_round in range(maximum_lane_count):
+		for floor_number in range(1, active_clear_floor + 1):
+			var floor_indexes: Array = indexes_by_floor.get(floor_number, [])
+			if lane_round < floor_indexes.size():
+				result.append(int(floor_indexes[lane_round]))
+	return result
 
 
 func _register_visible_encounter(
@@ -455,7 +567,8 @@ func _assign_deterministic_npc_fill(
 	node: Dictionary,
 	nodes: Array,
 	map_seed: int,
-	pool_slot_ids: Array[String]
+	pool_slot_ids: Array[String],
+	reason: String = "unique_visible_pool_exhausted"
 ) -> void:
 	var row_kinds: Dictionary = {}
 	var global_row := int(node.get("global_row", -1))
@@ -494,7 +607,7 @@ func _assign_deterministic_npc_fill(
 	node["label"] = str(NPC_FILL_LABELS.get(chosen_kind, "노드"))
 	node["boss_pool_slot_ids"] = pool_slot_ids.duplicate()
 	node["boss_assignment_state"] = "npc_fill"
-	node["boss_assignment_reason"] = "unique_visible_pool_exhausted"
+	node["boss_assignment_reason"] = reason
 
 
 func _stable_npc_fill_index(map_seed: int, node_id: String, modulo: int) -> int:

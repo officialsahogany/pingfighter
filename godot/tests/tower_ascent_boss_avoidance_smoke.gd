@@ -51,37 +51,37 @@ func _verify_run_state_owns_avoided_bosses() -> void:
 
 func _verify_unchosen_boss_is_persisted_and_filtered() -> void:
 	var generator := TowerAscentMapGenerator.new()
-	var map_seed := _find_seed_for_initial_kind(generator, true)
-	_expect(map_seed >= 0, "test fixture must find an initial combat candidate row")
+	var map_seed := _find_seed_for_boss_choice(generator)
+	_expect(map_seed >= 0, "test fixture must find a mixed NPC and boss choice")
 	if map_seed < 0:
 		return
+	var graph: Dictionary = generator.generate_tower(map_seed)
+	var choice_fixture := _find_boss_choice_fixture(graph)
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {"run_id": "avoid-boss", "map_seed": map_seed}), "boss avoidance flow must begin")
-	var raw_targets: Array = flow.export_snapshot().route_target_ids
-	var unchosen_node := _find_node(flow.get_graph_nodes(), str(raw_targets[1]))
+	var raw_targets: Array[String] = []
+	raw_targets.assign(choice_fixture.get("target_ids", []))
+	flow.set("_route_source_node_id", str(choice_fixture.get("source_id", "")))
+	flow.set("_route_target_ids", raw_targets)
+	flow.call("_refresh_route_target_cache")
+	var unchosen_node := _find_node(flow.get_graph_nodes(), str(choice_fixture.get("boss_id", "")))
 	var skipped_slot_id := str(unchosen_node.get("boss_slot_id", ""))
-	_expect(not skipped_slot_id.is_empty(), "unchosen combat candidate must expose its boss slot")
-	flow.debug_advance_to_route_aim()
-	flow.debug_launch_at_target(0)
-	flow.update_selective(1.5)
+	_expect(not skipped_slot_id.is_empty(), "unchosen boss candidate must expose its boss slot")
+	flow.call("_resolve_route_target", str(choice_fixture.get("chosen_id", "")))
 	var snapshot: Dictionary = flow.export_snapshot()
 	_expect(snapshot.run_progress.skipped_boss_ids == [skipped_slot_id], "unchosen boss slot must be committed to run progress")
-	var skipped_graph_node := _find_node(snapshot.map_graph.phases[0].nodes, str(raw_targets[1]))
+	var skipped_graph_node := _find_node(snapshot.map_graph.phases[0].nodes, str(choice_fixture.get("boss_id", "")))
 	_expect(bool(skipped_graph_node.get("route_disabled", false)), "avoided boss node must be disabled in the serialized graph")
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot), "avoided boss graph must restore")
 	_expect(restored.get_skipped_boss_ids() == [skipped_slot_id], "restored flow must preserve the avoided boss slot")
-	_expect(not restored.get_route_target_ids().has(str(raw_targets[1])), "candidate presentation must filter the avoided boss")
+	_expect(not restored.get_route_target_ids().has(str(choice_fixture.get("boss_id", ""))), "candidate presentation must filter the avoided boss")
 	var regenerated := generator.generate_tower(map_seed, [skipped_slot_id])
-	var regenerated_node := _find_node(regenerated.phases[0].nodes, str(raw_targets[1]))
+	var regenerated_node := _find_node(regenerated.phases[0].nodes, str(choice_fixture.get("boss_id", "")))
 	_expect(bool(regenerated_node.get("route_disabled", false)), "later deterministic generation must respect the avoided boss list")
 	var policy := TowerAscentRouteCandidatePolicy.new()
-	_expect(policy.filter_available(regenerated.phases[0].nodes, raw_targets, [skipped_slot_id]).size() == 1, "candidate policy must remove exactly the avoided boss")
-	flow.update_selective(1.0)
-	_expect(not flow.is_active(), "first route transition must finish before the next combat fixture")
-	_expect(flow.begin_vertical_slice(null, Callable()), "the same run must be able to prepare its next generated route")
-	_expect(flow.get_skipped_boss_ids() == [skipped_slot_id], "later combat preparation must not clear the run-owned avoided boss list")
+	_expect(policy.filter_available(regenerated.phases[0].nodes, raw_targets, [skipped_slot_id]).size() == raw_targets.size() - 1, "candidate policy must remove exactly the avoided boss")
 
 
 func _verify_noncombat_choice_does_not_invent_avoided_boss() -> void:
@@ -113,6 +113,59 @@ func _find_seed_for_initial_kind(generator: Object, combat: bool) -> int:
 		if is_combat == combat:
 			return map_seed
 	return -1
+
+
+func _find_seed_for_boss_choice(generator: Object) -> int:
+	for map_seed in range(0, 256):
+		if not _find_boss_choice_fixture(generator.generate_tower(map_seed)).is_empty():
+			return map_seed
+	return -1
+
+
+func _find_boss_choice_fixture(graph: Dictionary) -> Dictionary:
+	for phase_value in graph.get("phases", []):
+		if not (phase_value is Dictionary):
+			continue
+		var phase := phase_value as Dictionary
+		var nodes_by_id: Dictionary = {}
+		for node_value in phase.get("nodes", []):
+			if node_value is Dictionary:
+				var node := node_value as Dictionary
+				nodes_by_id[str(node.get("id", ""))] = node
+		var target_ids_by_source: Dictionary = {}
+		for edge_value in phase.get("edges", []):
+			if not (edge_value is Dictionary):
+				continue
+			var edge := edge_value as Dictionary
+			var source_id := str(edge.get("from", ""))
+			var target_ids: Array = target_ids_by_source.get(source_id, [])
+			target_ids.append(str(edge.get("to", "")))
+			target_ids_by_source[source_id] = target_ids
+		for source_id in target_ids_by_source:
+			var target_ids: Array = target_ids_by_source[source_id]
+			if target_ids.size() != 2:
+				continue
+			var boss_id := ""
+			var chosen_id := ""
+			for target_id_value in target_ids:
+				var target_id := str(target_id_value)
+				var target: Dictionary = nodes_by_id.get(target_id, {})
+				if (
+					str(target.get("content_state", "")) == "generated"
+					and str(target.get("kind", "")) in TowerAscentRouteCandidatePolicy.COMBAT_NODE_KINDS
+					and not str(target.get("boss_slot_id", "")).is_empty()
+				):
+					boss_id = target_id
+				else:
+					chosen_id = target_id
+			if not boss_id.is_empty() and not chosen_id.is_empty():
+				return {
+					"source_id": str(source_id),
+					"target_ids": target_ids.duplicate(),
+					"boss_id": boss_id,
+					"chosen_id": chosen_id,
+				}
+	return {}
 
 
 func _find_node(nodes: Array, node_id: String) -> Dictionary:

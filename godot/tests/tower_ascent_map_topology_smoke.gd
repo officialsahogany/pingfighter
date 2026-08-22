@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentMapGenerator := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
@@ -16,7 +19,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v8_segment_floor_unique_bosses"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v9_sparse_boss_branching_routes"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
@@ -31,6 +34,9 @@ var _sample_wide_rows := 0
 var _sample_longest_multilane_run := 0
 var _sample_degree_one_count := 0
 var _sample_degree_two_count := 0
+var _sample_branch_eligible_count := 0
+var _sample_generated_node_count := 0
+var _sample_combat_node_count := 0
 var _max_human_edge_seed := 1
 var _max_human_edge_count := 0
 
@@ -40,8 +46,20 @@ func _init() -> void:
 	_verify_cached_budget_and_static_indices()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
+		var degree_two_ratio := _safe_ratio(
+			_sample_degree_two_count,
+			_sample_branch_eligible_count
+		)
+		var raw_degree_two_ratio := _safe_ratio(
+			_sample_degree_two_count,
+			_sample_degree_one_count + _sample_degree_two_count
+		)
+		var boss_ratio := _safe_ratio(
+			_sample_combat_node_count,
+			_sample_generated_node_count
+		)
 		print(
-			"tower_ascent_map_topology_smoke: seeds=%d topologies=%d nodes=%d edges=%d singleton_rows=%d wide_rows=%d longest_multilane=%d degree1=%d degree2=%d services=%s"
+			"tower_ascent_map_topology_smoke: seeds=%d topologies=%d nodes=%d edges=%d singleton_rows=%d wide_rows=%d longest_multilane=%d degree1=%d degree2=%d boss_ratio=%0.4f degree2_ratio=%0.4f raw_degree2_ratio=%0.4f services=%s"
 			% [
 				SAMPLE_SEED_COUNT,
 				_topology_signatures.size(),
@@ -52,6 +70,9 @@ func _init() -> void:
 				_sample_longest_multilane_run,
 				_sample_degree_one_count,
 				_sample_degree_two_count,
+				boss_ratio,
+				degree_two_ratio,
+				raw_degree_two_ratio,
 				str(_service_kind_counts),
 			]
 		)
@@ -98,7 +119,7 @@ func _verify_many_seed_topology() -> void:
 			_max_human_edge_seed = map_seed
 	_expect(
 		_topology_signatures.size() >= 12,
-		"authoritative map seeds must vary lane rhythm and partial topology across runs"
+		"authoritative map seeds must vary non-crossing partial edge layouts across runs"
 	)
 	for required_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
 		_expect(
@@ -113,9 +134,13 @@ func _verify_many_seed_topology() -> void:
 		_sample_longest_multilane_run >= 5,
 		"branches must survive at least five consecutive rows before a true reunion"
 	)
+	var degree_two_ratio := _safe_ratio(
+		_sample_degree_two_count,
+		_sample_branch_eligible_count
+	)
 	_expect(
-		_sample_degree_one_count > 0 and _sample_degree_two_count > 0,
-		"generated nodes must mix one-edge and two-edge outgoing choices"
+		degree_two_ratio + 0.000001 >= TowerAscentTuning.TEMP_MAP_DEGREE_TWO_MIN_RATIO,
+		"at least seventy percent of choice-capable nodes must expose two outgoing choices"
 	)
 
 
@@ -172,6 +197,10 @@ func _verify_phase(map_seed: int, phase: Dictionary, signature_parts: Array[Stri
 		for node_id in row_ids:
 			var node: Dictionary = node_by_id.get(node_id, {})
 			var node_kind := str(node.get("kind", ""))
+			if str(node.get("content_state", "")) == "generated":
+				_sample_generated_node_count += 1
+				if node_kind in TowerAscentMapGenerator.COMBAT_NODE_KINDS:
+					_sample_combat_node_count += 1
 			if node_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
 				_expect(
 					not service_kinds.has(node_kind),
@@ -184,6 +213,8 @@ func _verify_phase(map_seed: int, phase: Dictionary, signature_parts: Array[Stri
 			if row_index == rows.size() - 1:
 				_expect(targets.is_empty(), "%s terminal node %s must not emit an edge" % [phase_id, node_id])
 			else:
+				if _string_array(rows[row_index + 1].get("node_ids", [])).size() >= 2:
+					_sample_branch_eligible_count += 1
 				_expect(
 					targets.size() in [1, 2],
 					"%s seed %d node %s must expose one or two outgoing choices"
@@ -382,6 +413,10 @@ func _string_array(value: Variant) -> Array[String]:
 		for entry in value as Array:
 			result.append(str(entry))
 	return result
+
+
+func _safe_ratio(numerator: int, denominator: int) -> float:
+	return 0.0 if denominator <= 0 else float(numerator) / float(denominator)
 
 
 func _expect(condition: bool, message: String) -> void:

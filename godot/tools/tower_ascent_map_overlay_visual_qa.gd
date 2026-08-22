@@ -286,6 +286,9 @@ func _save_boss_icon_zoom(image: Image, flow_owner: Object, output_path: String)
 		"offset",
 		Vector2.ZERO
 	)
+	var camera_zoom := float(
+		(model.get("camera", {}) as Dictionary).get("render_zoom_multiplier", 1.0)
+	)
 	for node_variant in model.get("nodes", []):
 		if not (node_variant is Dictionary):
 			continue
@@ -294,8 +297,8 @@ func _save_boss_icon_zoom(image: Image, flow_owner: Object, output_path: String)
 			continue
 		var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
 		var art_rect := Rect2(
-			world_art_rect.position + camera_offset,
-			world_art_rect.size
+			world_art_rect.position * camera_zoom + camera_offset,
+			world_art_rect.size * camera_zoom
 		)
 		var bounds := Rect2i(art_rect.grow(6.0)).intersection(Rect2i(Vector2i.ZERO, GAME_SIZE))
 		if bounds.size.x <= 0 or bounds.size.y <= 0:

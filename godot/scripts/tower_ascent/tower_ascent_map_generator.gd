@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v8_segment_floor_unique_bosses"
+const GENERATOR_VERSION := "tower_map_v9_sparse_boss_branching_routes"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -26,7 +26,6 @@ const MAP_LANE_COUNT_MIN := 3
 const MAP_LANE_COUNT_MAX := 4
 const GENERATION_MAX_ATTEMPTS := 8
 const MAX_NODE_OUTGOING_EDGES := 2
-const SAME_WIDTH_CROSS_LINK_CHANCE := 0.35
 const COMBAT_NODE_KINDS := ["boss", "combat", "enraged"]
 const NONCOMBAT_NODE_KINDS := [
 	"shop",
@@ -41,18 +40,6 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
-	var extra_combat_floor_count := rng.randi_range(
-		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MIN,
-		TowerAscentTuning.TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX
-	)
-	var standard_optional_floors: Array[int] = []
-	var first_optional_floor := 1 if TowerAuditionBuildConfig.is_enabled() else 2
-	for floor_number in range(first_optional_floor, active_clear_floor):
-		if TowerAuditionBuildConfig.is_linear_floor(floor_number):
-			continue
-		standard_optional_floors.append(floor_number)
-	_shuffle_ints(standard_optional_floors, rng)
-	var combat_optional_floors := standard_optional_floors.slice(0, extra_combat_floor_count)
 	var total_rows := 1 + (TOWER_FLOOR_COUNT - 1) * (
 		TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
 	)
@@ -89,13 +76,12 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 				)
 				var node_kinds: Array[String] = []
 				var labels: Array[String] = []
-				if floor_number <= active_clear_floor and combat_optional_floors.has(floor_number):
-					node_kinds = ["combat", "enraged"]
-					labels = ["전투", "광폭화"]
-				else:
-					for node_kind in _draw_unique_noncombat_kinds(rng, lane_count):
-						node_kinds.append(node_kind)
-						labels.append(_label_for_kind(node_kind))
+				# A complete NPC row separates every pair of generated boss rows.
+				# Boss density is normalized later by the registry after unique
+				# encounter allocation, never by retrying a combat-row lottery.
+				for node_kind in _draw_unique_noncombat_kinds(rng, lane_count):
+					node_kinds.append(node_kind)
+					labels.append(_label_for_kind(node_kind))
 				var row_id := "floor_%02d_route_%02d" % [floor_number, optional_index + 1]
 				rows.append({
 					"id": row_id,
@@ -153,56 +139,11 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 		skipped_boss_ids
 	)
 	var split := _split_tower_realms(marked)
-	var split_integrity := analyze_graph_integrity(split, true)
+	var split_integrity := analyze_graph_integrity(split, true, true)
 	if not bool(split_integrity.get("valid", false)):
 		return {}
 	split["integrity"] = split_integrity
 	return split
-
-
-func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
-	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
-	var phases_variant: Variant = graph.get("phases", [])
-	if not (phases_variant is Array) or (phases_variant as Array).is_empty():
-		return {}
-	var phase_variant: Variant = (phases_variant as Array)[0]
-	if not (phase_variant is Dictionary):
-		return {}
-	var phase := phase_variant as Dictionary
-	var node_by_id: Dictionary = {}
-	for node_variant in phase.get("nodes", []):
-		if node_variant is Dictionary:
-			var node := node_variant as Dictionary
-			node_by_id[str(node.get("id", ""))] = node
-	var minimum := 0
-	var maximum := 0
-	for floor_variant in phase.get("floors", []):
-		if not (floor_variant is Dictionary):
-			continue
-		var floor_data := floor_variant as Dictionary
-		if int(floor_data.get("floor", 0)) > active_clear_floor:
-			break
-		for row_variant in floor_data.get("rows", []):
-			if not (row_variant is Dictionary):
-				continue
-			var counts: Array[int] = []
-			for node_id_variant in (row_variant as Dictionary).get("node_ids", []):
-				var node: Dictionary = node_by_id.get(str(node_id_variant), {})
-				var preserves_pre_s3_combat_tier := str(
-					node.get("boss_assignment_state", "")
-				) in ["assigned", "npc_fill"]
-				counts.append(
-					1
-					if (
-						COMBAT_NODE_KINDS.has(str(node.get("kind", "")))
-						or preserves_pre_s3_combat_tier
-					)
-					else 0
-				)
-			if not counts.is_empty():
-				minimum += counts.min()
-				maximum += counts.max()
-	return {"minimum": minimum, "maximum": maximum}
 
 
 func generate(map_seed: int, floor_specs: Array) -> Dictionary:
@@ -212,7 +153,11 @@ func generate(map_seed: int, floor_specs: Array) -> Dictionary:
 		var candidate := _generate_candidate(map_seed, floor_specs, generation_attempt)
 		if candidate.is_empty():
 			continue
-		var integrity := analyze_graph_integrity(candidate)
+		# Boss-slot shortages are content facts, not retryable topology failures.
+		# The raw graph receives structural validation only; generate_tower()
+		# normalizes boss placeholders to unique bosses or NPCs before applying
+		# the S3 distribution contract.
+		var integrity := analyze_graph_integrity(candidate, false, false)
 		if bool(integrity.get("valid", false)):
 			candidate["generation_attempt"] = generation_attempt
 			candidate["integrity"] = integrity
@@ -354,7 +299,8 @@ func _derive_outgoing_target_ids(phase: Dictionary, source_node_id: String) -> A
 
 func analyze_graph_integrity(
 	graph: Dictionary,
-	require_boss_terminal: bool = false
+	require_boss_terminal: bool = false,
+	require_distribution_contract: bool = true
 ) -> Dictionary:
 	var issues: Array[String] = []
 	var total_nodes := 0
@@ -365,6 +311,17 @@ func analyze_graph_integrity(
 	var total_dead_ends := 0
 	var total_crossings := 0
 	var maximum_out_degree := 0
+	var total_generated_nodes := 0
+	var total_combat_nodes := 0
+	var total_npc_nodes := 0
+	var total_boss_adjacencies := 0
+	var total_boss_spacing_violations := 0
+	var total_branch_eligible_nodes := 0
+	var total_degree_one_nodes := 0
+	var total_degree_two_nodes := 0
+	var total_raw_outgoing_nodes := 0
+	var total_consecutive_single_transitions := 0
+	var total_singleton_rows := 0
 	var phases_variant: Variant = graph.get("phases", [])
 	if not (phases_variant is Array) or (phases_variant as Array).is_empty():
 		return {"valid": false, "issues": ["missing_phases"]}
@@ -375,7 +332,8 @@ func analyze_graph_integrity(
 			continue
 		var phase_report := _analyze_phase_integrity(
 			phase_variant as Dictionary,
-			require_boss_terminal
+			require_boss_terminal,
+			require_distribution_contract
 		)
 		for issue_variant in phase_report.get("issues", []):
 			issues.append("phase_%d:%s" % [phase_index, str(issue_variant)])
@@ -390,6 +348,32 @@ func analyze_graph_integrity(
 			maximum_out_degree,
 			int(phase_report.get("maximum_out_degree", 0))
 		)
+		total_generated_nodes += int(phase_report.get("generated_node_count", 0))
+		total_combat_nodes += int(phase_report.get("combat_node_count", 0))
+		total_npc_nodes += int(phase_report.get("npc_node_count", 0))
+		total_boss_adjacencies += int(phase_report.get("boss_adjacency_count", 0))
+		total_boss_spacing_violations += int(
+			phase_report.get("boss_spacing_violation_count", 0)
+		)
+		total_branch_eligible_nodes += int(
+			phase_report.get("branch_eligible_node_count", 0)
+		)
+		total_degree_one_nodes += int(phase_report.get("degree_one_node_count", 0))
+		total_degree_two_nodes += int(phase_report.get("degree_two_node_count", 0))
+		total_raw_outgoing_nodes += int(phase_report.get("raw_outgoing_node_count", 0))
+		total_consecutive_single_transitions += int(
+			phase_report.get("consecutive_single_transition_count", 0)
+		)
+		total_singleton_rows += int(phase_report.get("singleton_row_count", 0))
+	var boss_ratio := _safe_ratio(total_combat_nodes, total_generated_nodes)
+	var degree_two_ratio := _safe_ratio(
+		total_degree_two_nodes,
+		total_branch_eligible_nodes
+	)
+	var raw_degree_two_ratio := _safe_ratio(
+		total_degree_two_nodes,
+		total_raw_outgoing_nodes
+	)
 	return {
 		"valid": issues.is_empty(),
 		"issues": issues,
@@ -401,12 +385,28 @@ func analyze_graph_integrity(
 		"dead_end_count": total_dead_ends,
 		"crossing_count": total_crossings,
 		"maximum_out_degree": maximum_out_degree,
+		"generated_node_count": total_generated_nodes,
+		"combat_node_count": total_combat_nodes,
+		"npc_node_count": total_npc_nodes,
+		"boss_ratio": boss_ratio,
+		"boss_adjacency_count": total_boss_adjacencies,
+		"boss_spacing_violation_count": total_boss_spacing_violations,
+		"branch_eligible_node_count": total_branch_eligible_nodes,
+		"degree_one_node_count": total_degree_one_nodes,
+		"degree_two_node_count": total_degree_two_nodes,
+		"degree_two_ratio": degree_two_ratio,
+		"eligible_degree_two_ratio": degree_two_ratio,
+		"raw_outgoing_node_count": total_raw_outgoing_nodes,
+		"raw_degree_two_ratio": raw_degree_two_ratio,
+		"consecutive_single_transition_count": total_consecutive_single_transitions,
+		"singleton_row_count": total_singleton_rows,
 	}
 
 
 func _analyze_phase_integrity(
 	phase: Dictionary,
-	require_boss_terminal: bool
+	require_boss_terminal: bool,
+	require_distribution_contract: bool
 ) -> Dictionary:
 	var issues: Array[String] = []
 	var nodes_variant: Variant = phase.get("nodes", [])
@@ -434,6 +434,10 @@ func _analyze_phase_integrity(
 		node_by_id[node_id] = node
 	if duplicate_node_count > 0:
 		issues.append("duplicate_or_empty_node_ids=%d" % duplicate_node_count)
+	var row_index_by_node_id: Dictionary = {}
+	for row_index in range(ordered_rows.size()):
+		for node_id_variant in ordered_rows[row_index]:
+			row_index_by_node_id[str(node_id_variant)] = row_index
 	var outgoing: Dictionary = {}
 	var incoming: Dictionary = {}
 	for node_id_variant in node_by_id.keys():
@@ -442,6 +446,7 @@ func _analyze_phase_integrity(
 		incoming[node_id] = []
 	var invalid_edge_count := 0
 	var duplicate_edges: Dictionary = {}
+	var boss_adjacency_count := 0
 	for edge_variant in edges:
 		if not (edge_variant is Dictionary):
 			invalid_edge_count += 1
@@ -471,8 +476,16 @@ func _analyze_phase_integrity(
 		var sources: Array = incoming[to_id]
 		sources.append(from_id)
 		incoming[to_id] = sources
+		if (
+			require_distribution_contract
+			and _is_generated_combat_node(from_node)
+			and _is_generated_combat_node(to_node)
+		):
+			boss_adjacency_count += 1
 	if invalid_edge_count > 0:
 		issues.append("invalid_edges=%d" % invalid_edge_count)
+	if boss_adjacency_count > 0:
+		issues.append("boss_adjacencies=%d" % boss_adjacency_count)
 	var first_row: Array = ordered_rows[0]
 	var last_row: Array = ordered_rows[ordered_rows.size() - 1]
 	var entry_id := str(phase.get("entry_node_id", ""))
@@ -487,6 +500,28 @@ func _analyze_phase_integrity(
 			var terminal_node: Dictionary = node_by_id.get(str(terminal_id_variant), {})
 			if str(terminal_node.get("kind", "")) != "boss":
 				issues.append("terminal_not_boss=%s" % str(terminal_id_variant))
+	var singleton_row_count := 0
+	for row_index in range(ordered_rows.size()):
+		var row_ids: Array = ordered_rows[row_index]
+		if row_ids.size() != 1:
+			continue
+		singleton_row_count += 1
+		if not require_distribution_contract:
+			continue
+		if not _is_allowed_singleton_row(
+			phase,
+			row_index,
+			ordered_rows,
+			node_by_id
+		):
+			issues.append("forbidden_singleton_row=%d" % row_index)
+		if row_index > 0 and (ordered_rows[row_index - 1] as Array).size() < 2:
+			issues.append("singleton_previous_row_too_narrow=%d" % row_index)
+		if (
+			row_index + 1 < ordered_rows.size()
+			and (ordered_rows[row_index + 1] as Array).size() < 2
+		):
+			issues.append("singleton_next_row_too_narrow=%d" % row_index)
 	var reachable_from_entry := _walk_adjacency([entry_id], outgoing)
 	var reaches_terminal := _walk_adjacency(last_row, incoming)
 	var entry_unreachable_count := maxi(0, node_by_id.size() - reachable_from_entry.size())
@@ -498,11 +533,42 @@ func _analyze_phase_integrity(
 	var isolated_count := 0
 	var dead_end_count := 0
 	var maximum_out_degree := 0
+	var degree_one_node_count := 0
+	var degree_two_node_count := 0
+	var raw_outgoing_node_count := 0
+	var branch_eligible_node_count := 0
+	var consecutive_single_transition_count := 0
 	for node_id_variant in node_by_id.keys():
 		var node_id := str(node_id_variant)
 		var out_degree: int = (outgoing.get(node_id, []) as Array).size()
 		var in_degree: int = (incoming.get(node_id, []) as Array).size()
 		maximum_out_degree = maxi(maximum_out_degree, out_degree)
+		if out_degree > 0:
+			raw_outgoing_node_count += 1
+		if out_degree == 1:
+			degree_one_node_count += 1
+		elif out_degree == 2:
+			degree_two_node_count += 1
+		var row_index := int(row_index_by_node_id.get(node_id, -1))
+		if (
+			row_index >= 0
+			and row_index + 1 < ordered_rows.size()
+			and (ordered_rows[row_index + 1] as Array).size() >= 2
+		):
+			branch_eligible_node_count += 1
+		if require_distribution_contract and out_degree == 1:
+			var target_id := str((outgoing.get(node_id, []) as Array)[0])
+			var target_outgoing: Array = outgoing.get(target_id, [])
+			if target_outgoing.size() == 1:
+				var final_target_id := str(target_outgoing[0])
+				var final_target: Dictionary = node_by_id.get(final_target_id, {})
+				var allowed_final_boss_chain := (
+					last_row.has(final_target_id)
+					and str(final_target.get("kind", "")) in COMBAT_NODE_KINDS
+				)
+				if not allowed_final_boss_chain:
+					consecutive_single_transition_count += 1
+					issues.append("consecutive_single_transition=%s>%s" % [node_id, target_id])
 		if in_degree == 0 and out_degree == 0:
 			isolated_count += 1
 		if not last_row.has(node_id) and out_degree == 0:
@@ -517,6 +583,50 @@ func _analyze_phase_integrity(
 		issues.append("dead_ends=%d" % dead_end_count)
 	if maximum_out_degree > MAX_NODE_OUTGOING_EDGES:
 		issues.append("maximum_out_degree=%d" % maximum_out_degree)
+	var degree_two_ratio := _safe_ratio(
+		degree_two_node_count,
+		branch_eligible_node_count
+	)
+	var raw_degree_two_ratio := _safe_ratio(
+		degree_two_node_count,
+		raw_outgoing_node_count
+	)
+	if (
+		require_distribution_contract
+		and branch_eligible_node_count > 0
+		and degree_two_ratio + 0.000001 < TowerAscentTuning.TEMP_MAP_DEGREE_TWO_MIN_RATIO
+	):
+		issues.append("degree_two_ratio=%0.6f" % degree_two_ratio)
+	var generated_node_count := 0
+	var combat_node_count := 0
+	var npc_node_count := 0
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if str(node.get("content_state", "")) != "generated":
+			continue
+		generated_node_count += 1
+		var node_kind := str(node.get("kind", ""))
+		if node_kind in COMBAT_NODE_KINDS:
+			combat_node_count += 1
+		elif node_kind in NONCOMBAT_NODE_KINDS:
+			npc_node_count += 1
+	var boss_spacing_violation_count := 0
+	if require_distribution_contract:
+		var boss_ratio := _safe_ratio(combat_node_count, generated_node_count)
+		if (
+			boss_ratio > TowerAscentTuning.TEMP_GENERATED_BOSS_NODE_MAX_RATIO + 0.000001
+		):
+			issues.append("boss_ratio=%0.6f" % boss_ratio)
+		if npc_node_count < combat_node_count * TowerAscentTuning.TEMP_GENERATED_NPC_PER_BOSS_MIN:
+			issues.append("boss_npc_ratio=%d:%d" % [combat_node_count, npc_node_count])
+		boss_spacing_violation_count = _count_boss_spacing_violations(
+			ordered_rows,
+			node_by_id
+		)
+		if boss_spacing_violation_count > 0:
+			issues.append("boss_spacing_violations=%d" % boss_spacing_violation_count)
 	var crossing_count := _count_crossing_edges(edges, node_by_id)
 	if crossing_count > 0:
 		issues.append("crossings=%d" % crossing_count)
@@ -530,7 +640,99 @@ func _analyze_phase_integrity(
 		"dead_end_count": dead_end_count,
 		"crossing_count": crossing_count,
 		"maximum_out_degree": maximum_out_degree,
+		"generated_node_count": generated_node_count,
+		"combat_node_count": combat_node_count,
+		"npc_node_count": npc_node_count,
+		"boss_ratio": _safe_ratio(combat_node_count, generated_node_count),
+		"boss_adjacency_count": boss_adjacency_count,
+		"boss_spacing_violation_count": boss_spacing_violation_count,
+		"branch_eligible_node_count": branch_eligible_node_count,
+		"degree_one_node_count": degree_one_node_count,
+		"degree_two_node_count": degree_two_node_count,
+		"degree_two_ratio": degree_two_ratio,
+		"eligible_degree_two_ratio": degree_two_ratio,
+		"raw_outgoing_node_count": raw_outgoing_node_count,
+		"raw_degree_two_ratio": raw_degree_two_ratio,
+		"consecutive_single_transition_count": consecutive_single_transition_count,
+		"singleton_row_count": singleton_row_count,
 	}
+
+
+func _is_generated_combat_node(node: Dictionary) -> bool:
+	return (
+		str(node.get("content_state", "")) == "generated"
+		and str(node.get("kind", "")) in COMBAT_NODE_KINDS
+	)
+
+
+func _is_allowed_singleton_row(
+	phase: Dictionary,
+	row_index: int,
+	ordered_rows: Array,
+	node_by_id: Dictionary
+) -> bool:
+	if row_index == 0:
+		return true
+	var row_ids: Array = ordered_rows[row_index]
+	if row_ids.size() != 1:
+		return false
+	var node: Dictionary = node_by_id.get(str(row_ids[0]), {})
+	var segment_floor := int(node.get("segment_floor", node.get("floor", 0)))
+	if bool(node.get("gatekeeper", false)) and segment_floor in [11, TOWER_FLOOR_COUNT]:
+		return true
+	return (
+		row_index == ordered_rows.size() - 1
+		and bool(node.get("gatekeeper", false))
+		and segment_floor == int(phase.get("standard_clear_floor", STANDARD_CLEAR_FLOOR))
+	)
+
+
+func _count_boss_spacing_violations(
+	ordered_rows: Array,
+	node_by_id: Dictionary
+) -> int:
+	var result := 0
+	var previous_boss_row := -1
+	for row_index in range(ordered_rows.size()):
+		var row_ids: Array = ordered_rows[row_index]
+		var has_generated_boss := false
+		for node_id_variant in row_ids:
+			var node: Dictionary = node_by_id.get(str(node_id_variant), {})
+			if _is_generated_combat_node(node):
+				has_generated_boss = true
+				break
+		if not has_generated_boss:
+			continue
+		if previous_boss_row >= 0:
+			var has_full_npc_row := false
+			for gap_row_index in range(previous_boss_row + 1, row_index):
+				if _is_full_generated_npc_row(
+					ordered_rows[gap_row_index],
+					node_by_id
+				):
+					has_full_npc_row = true
+					break
+			if not has_full_npc_row:
+				result += 1
+		previous_boss_row = row_index
+	return result
+
+
+func _is_full_generated_npc_row(row_ids: Array, node_by_id: Dictionary) -> bool:
+	if row_ids.is_empty():
+		return false
+	for node_id_variant in row_ids:
+		var node: Dictionary = node_by_id.get(str(node_id_variant), {})
+		if (
+			str(node.get("content_state", "")) != "generated"
+			or str(node.get("kind", "")) not in NONCOMBAT_NODE_KINDS
+		):
+			return false
+	return true
+
+
+func _safe_ratio(numerator: int, denominator: int) -> float:
+	return 0.0 if denominator <= 0 else float(numerator) / float(denominator)
 
 
 func _ordered_phase_row_ids(phase: Dictionary) -> Array:
@@ -592,72 +794,119 @@ func _build_partial_row_edges(
 	previous_row_ids: Array[String],
 	current_row_ids: Array[String]
 ) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
 	var previous_count := previous_row_ids.size()
 	var current_count := current_row_ids.size()
 	if previous_count <= 0 or current_count <= 0 or current_count > previous_count * 2:
-		return result
-	if current_count > previous_count:
-		var split_indices: Array[int] = []
-		for source_index in range(previous_count):
-			split_indices.append(source_index)
-		_shuffle_ints(split_indices, rng)
-		var split_sources: Dictionary = {}
-		for split_cursor in range(current_count - previous_count):
-			split_sources[split_indices[split_cursor]] = true
-		var target_cursor := 0
-		for source_index in range(previous_count):
-			var target_count := 2 if split_sources.has(source_index) else 1
-			for _target_offset in range(target_count):
-				result.append({
-					"from": previous_row_ids[source_index],
-					"to": current_row_ids[target_cursor],
-				})
-				target_cursor += 1
-		return result
-	if current_count < previous_count:
-		var possible_boundaries: Array[int] = []
-		for boundary in range(1, previous_count):
-			possible_boundaries.append(boundary)
-		_shuffle_ints(possible_boundaries, rng)
-		var selected_boundaries: Array[int] = []
-		for boundary_cursor in range(current_count - 1):
-			selected_boundaries.append(possible_boundaries[boundary_cursor])
-		selected_boundaries.sort()
-		var target_index := 0
-		for source_index in range(previous_count):
-			if selected_boundaries.has(source_index):
-				target_index += 1
-			result.append({
-				"from": previous_row_ids[source_index],
-				"to": current_row_ids[target_index],
-			})
-		return result
-	var out_degree: Array[int] = []
-	var seams: Array[int] = []
-	for lane_index in range(previous_count):
-		result.append({
-			"from": previous_row_ids[lane_index],
-			"to": current_row_ids[lane_index],
-		})
-		out_degree.append(1)
-		if lane_index < previous_count - 1:
-			seams.append(lane_index)
-	_shuffle_ints(seams, rng)
-	for seam in seams:
-		if rng.randf() > SAME_WIDTH_CROSS_LINK_CHANCE:
-			continue
-		var upward := rng.randi_range(0, 1) == 0
-		var source_index := seam if upward else seam + 1
-		var target_index := seam + 1 if upward else seam
-		if out_degree[source_index] >= MAX_NODE_OUTGOING_EDGES:
-			continue
-		result.append({
+		return []
+	var state := {
+		"best_degree_two_count": -1,
+		"layouts": [],
+	}
+	var target_coverage: Array[int] = []
+	target_coverage.resize(current_count)
+	target_coverage.fill(0)
+	_collect_best_non_crossing_layouts(
+		0,
+		0,
+		previous_row_ids,
+		current_row_ids,
+		[],
+		target_coverage,
+		state
+	)
+	var layouts: Array = state.get("layouts", [])
+	if layouts.is_empty():
+		return []
+	var selected_variant: Variant = layouts[rng.randi_range(0, layouts.size() - 1)]
+	var result: Array[Dictionary] = []
+	if selected_variant is Array:
+		for edge_variant in selected_variant as Array:
+			if edge_variant is Dictionary:
+				result.append((edge_variant as Dictionary).duplicate(true))
+	return result
+
+
+func _collect_best_non_crossing_layouts(
+	source_index: int,
+	minimum_target_index: int,
+	previous_row_ids: Array[String],
+	current_row_ids: Array[String],
+	edges: Array,
+	target_coverage: Array[int],
+	state: Dictionary
+) -> void:
+	if source_index >= previous_row_ids.size():
+		if target_coverage.min() <= 0:
+			return
+		var out_degree_by_id: Dictionary = {}
+		for edge_variant in edges:
+			var from_id := str((edge_variant as Dictionary).get("from", ""))
+			out_degree_by_id[from_id] = int(out_degree_by_id.get(from_id, 0)) + 1
+		var degree_two_count := 0
+		for degree_variant in out_degree_by_id.values():
+			if int(degree_variant) == MAX_NODE_OUTGOING_EDGES:
+				degree_two_count += 1
+		var best_count := int(state.get("best_degree_two_count", -1))
+		if degree_two_count < best_count:
+			return
+		if degree_two_count > best_count:
+			state["best_degree_two_count"] = degree_two_count
+			state["layouts"] = []
+		var layouts: Array = state.get("layouts", [])
+		layouts.append(edges.duplicate(true))
+		state["layouts"] = layouts
+		return
+	for target_index in range(minimum_target_index, current_row_ids.size()):
+		_append_layout_option(
+			source_index,
+			[target_index],
+			previous_row_ids,
+			current_row_ids,
+			edges,
+			target_coverage,
+			state
+		)
+		if target_index + 1 < current_row_ids.size():
+			_append_layout_option(
+				source_index,
+				[target_index, target_index + 1],
+				previous_row_ids,
+				current_row_ids,
+				edges,
+				target_coverage,
+				state
+			)
+
+
+func _append_layout_option(
+	source_index: int,
+	target_indexes: Array,
+	previous_row_ids: Array[String],
+	current_row_ids: Array[String],
+	edges: Array,
+	target_coverage: Array[int],
+	state: Dictionary
+) -> void:
+	var edge_count_before := edges.size()
+	for target_index_variant in target_indexes:
+		var target_index := int(target_index_variant)
+		edges.append({
 			"from": previous_row_ids[source_index],
 			"to": current_row_ids[target_index],
 		})
-		out_degree[source_index] += 1
-	return result
+		target_coverage[target_index] += 1
+	_collect_best_non_crossing_layouts(
+		source_index + 1,
+		int(target_indexes[-1]),
+		previous_row_ids,
+		current_row_ids,
+		edges,
+		target_coverage,
+		state
+	)
+	for target_index_variant in target_indexes:
+		target_coverage[int(target_index_variant)] -= 1
+	edges.resize(edge_count_before)
 
 
 func _generation_attempt_seed(map_seed: int, generation_attempt: int) -> int:
@@ -856,7 +1105,7 @@ func _last_row_lane_count(
 
 
 func _choose_route_lane_count(
-	rng: RandomNumberGenerator,
+	_rng: RandomNumberGenerator,
 	floor_number: int,
 	previous_lane_count: int,
 	active_clear_floor: int
@@ -865,14 +1114,11 @@ func _choose_route_lane_count(
 		return 1
 	if previous_lane_count <= 1:
 		return ROUTE_CANDIDATE_COUNT
-	return mini(
-		rng.randi_range(MAP_LANE_COUNT_MIN, MAP_LANE_COUNT_MAX),
-		previous_lane_count * MAX_NODE_OUTGOING_EDGES
-	)
+	return mini(MAP_LANE_COUNT_MAX, previous_lane_count * MAX_NODE_OUTGOING_EDGES)
 
 
 func _choose_gatekeeper_lane_count(
-	rng: RandomNumberGenerator,
+	_rng: RandomNumberGenerator,
 	floor_number: int,
 	previous_lane_count: int,
 	active_clear_floor: int
@@ -888,7 +1134,7 @@ func _choose_gatekeeper_lane_count(
 	# Lane width belongs to graph topology. Boss availability is normalized later
 	# by the registry with deterministic NPC fills, so audition filtering and
 	# sparse content pools can never collapse a route into a one-lane chain.
-	return MAP_LANE_COUNT_MIN if rng.randf() < 0.72 else ROUTE_CANDIDATE_COUNT
+	return MAP_LANE_COUNT_MIN
 
 
 func _segment_floor_for_optional_row(

@@ -18,7 +18,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_verify_12_floor_rows_and_node_slots()
-	_verify_standard_combat_budget_for_many_seeds()
+	_verify_standard_distribution_for_many_seeds()
 	_verify_flow_exposes_only_the_next_two_candidates()
 	_verify_flag_off_remains_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -86,14 +86,22 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 		_expect(seen_kinds.has(required_kind), "generated slots must include node kind: %s" % required_kind)
 
 
-func _verify_standard_combat_budget_for_many_seeds() -> void:
+func _verify_standard_distribution_for_many_seeds() -> void:
 	var generator := TowerAscentMapGenerator.new()
 	for map_seed in [1, 2, 7, 31, 99, 83521, 700001]:
 		var graph: Dictionary = generator.generate_tower(map_seed)
-		var budget: Dictionary = generator.analyze_standard_combat_budget(graph)
-		_expect(int(budget.minimum) >= TowerAscentTuning.TEMP_STANDARD_COMBAT_BUDGET_MIN, "minimum standard-route combat count must respect tuning for seed %d" % map_seed)
-		_expect(int(budget.maximum) <= TowerAscentTuning.TEMP_STANDARD_COMBAT_BUDGET_MAX, "maximum standard-route combat count must respect tuning for seed %d" % map_seed)
-		_expect(int(budget.minimum) == int(budget.maximum), "each generated optional row must keep all route choices inside one combat budget tier")
+		var integrity: Dictionary = generator.analyze_graph_integrity(graph, true, true)
+		_expect(bool(integrity.get("valid", false)), "standard distribution contract must hold for seed %d" % map_seed)
+		_expect(
+			float(integrity.get("boss_ratio", 1.0))
+			<= TowerAscentTuning.TEMP_GENERATED_BOSS_NODE_MAX_RATIO + 0.000001,
+			"generated boss density must stay at or below twenty percent for seed %d" % map_seed
+		)
+		_expect(
+			int(integrity.get("npc_node_count", 0))
+			>= int(integrity.get("combat_node_count", 0)) * TowerAscentTuning.TEMP_GENERATED_NPC_PER_BOSS_MIN,
+			"generated NPC nodes must outnumber bosses by at least four to one for seed %d" % map_seed
+		)
 
 
 func _verify_flow_exposes_only_the_next_two_candidates() -> void:

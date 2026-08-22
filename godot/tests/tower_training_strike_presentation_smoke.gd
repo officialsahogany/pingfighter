@@ -6,6 +6,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentMapGenerator := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
+)
 const TowerAscentNodeArrivalTestFixture := preload(
 	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
 )
@@ -263,9 +266,11 @@ func _verify_production_pointer_and_idle_gates() -> void:
 	}
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
+	var training_seed := _find_initial_route_seed("training")
+	_expect(training_seed > 0, "distribution must expose a deterministic initial training fixture")
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "training-strike-pointer",
-		"map_seed": 23,
+		"map_seed": training_seed,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30, "gold": 0, "chance_gems": 0},
 		"registry": registry,
@@ -356,6 +361,25 @@ func _verify_source_and_host_contracts() -> void:
 	var impact_source := renderer_source.substr(impact_start, impact_end - impact_start)
 	_expect(not impact_source.contains("draw_arc") and not impact_source.contains("draw_polyline") and not impact_source.contains("draw_dashed_line"), "impact effect must contain no rings, polygon outlines, or dotted strokes")
 	_expect(impact_source.contains("22.0 * content_scale") and impact_source.contains("broad_alpha := 0.02"), "impact effect must use the approved broad low-alpha filled strokes")
+
+
+func _find_initial_route_seed(expected_kind: String) -> int:
+	var generator := TowerAscentMapGenerator.new()
+	for map_seed in range(1, 513):
+		var graph: Dictionary = generator.generate_tower(map_seed)
+		if graph.is_empty():
+			continue
+		var phase: Dictionary = graph.get("phases", [])[0]
+		var node_by_id: Dictionary = {}
+		for node_variant in phase.get("nodes", []):
+			if node_variant is Dictionary:
+				var node := node_variant as Dictionary
+				node_by_id[str(node.get("id", ""))] = node
+		for node_id_variant in phase.get("initial_route_candidate_ids", []):
+			var node: Dictionary = node_by_id.get(str(node_id_variant), {})
+			if str(node.get("kind", "")) == expected_kind:
+				return map_seed
+	return 0
 
 
 func _build_texture_cache() -> Dictionary:

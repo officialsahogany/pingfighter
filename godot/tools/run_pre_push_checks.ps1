@@ -109,6 +109,7 @@ $focusedSmoke = @(
     "res://tests/tower_ascent_route_serve_smoke.gd",
     "res://tests/tower_ascent_map_overlay_render_smoke.gd",
     "res://tests/tower_ascent_map_topology_smoke.gd",
+    "res://tests/tower_ascent_map_distribution_contract_smoke.gd",
     "res://tests/tower_ascent_boss_floor_contract_smoke.gd",
     "res://tests/tower_reward_pick_smoke.gd",
     "res://tests/battle_scene_modal_overlap_input_smoke.gd",

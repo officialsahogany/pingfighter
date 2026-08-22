@@ -128,7 +128,7 @@ func _verify_spring_grant_reaches_next_battle_chosik_slots() -> void:
 	registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-chosik-bridge",
-		"map_seed": 1,
+		"map_seed": 2,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 0, "gold": 0, "chance_gems": 3},
 		"registry": registry,

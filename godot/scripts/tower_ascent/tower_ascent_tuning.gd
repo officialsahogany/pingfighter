@@ -23,12 +23,12 @@ const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
 
 # TEMP: Phase B establishes generated floor/row ownership. Product tuning may
 # change only these values while the 12-floor and floor-gate contracts remain
-# fixed; map row width now belongs to the seeded v7 graph generator.
+# fixed. S3 derives combat allocation from the NPC distribution contract rather
+# than an independent extra-combat-row budget.
 const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
-const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MIN := 1
-const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX := 3
-const TEMP_STANDARD_COMBAT_BUDGET_MIN := 10
-const TEMP_STANDARD_COMBAT_BUDGET_MAX := 12
+const TEMP_GENERATED_BOSS_NODE_MAX_RATIO := 0.20
+const TEMP_GENERATED_NPC_PER_BOSS_MIN := 4
+const TEMP_MAP_DEGREE_TWO_MIN_RATIO := 0.70
 const TEMP_NODE_TYPE_WEIGHTS := {
 	"shop": 2,
 	"training": 2,

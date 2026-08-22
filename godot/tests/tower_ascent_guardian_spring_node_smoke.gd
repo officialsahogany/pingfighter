@@ -204,6 +204,15 @@ func _initialize() -> void:
 	_verify_flag_off_is_untouched()
 	_verify_source_contracts()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	call_deferred("_finish_test_after_resource_release")
+
+
+func _finish_test_after_resource_release() -> void:
+	# Reaching the real spring now prewarms its bitmap background. Give the
+	# renderer two idle frames to release those test-only texture RIDs before
+	# SceneTree shutdown so the production-path fixture stays classifier-clean.
+	await process_frame
+	await process_frame
 	if _failures.is_empty():
 		print("tower_ascent_guardian_spring_node_smoke: ok")
 		quit(0)
@@ -220,7 +229,7 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-contract",
-		"map_seed": 1,
+		"map_seed": 2,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 20, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
@@ -318,6 +327,8 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	_finish_flow(flow, owner)
 	_finish_flow(later_flow, later_owner)
 	_finish_flow(restored_flow, null)
+	fixture.registry.instances.clear()
+	restored_fixture.registry.instances.clear()
 
 
 func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
@@ -332,7 +343,7 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-poor",
-		"map_seed": 11,
+		"map_seed": 2,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 1},
 		"registry": fixture.registry,
@@ -351,6 +362,7 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 	_expect(not bool(rejected.get("accepted", true)) and fixture.runtime.enhance_calls == 0 and int(later.get_run_state_snapshot().get("muhon", -1)) == 1, "insufficient Muhon must issue no runtime effect or transaction")
 	_finish_flow(flow, owner)
 	_finish_flow(later, owner)
+	fixture.registry.instances.clear()
 	fixture.codex.clear()
 
 
@@ -375,6 +387,7 @@ func _verify_flag_off_is_untouched() -> void:
 		"registry": fixture.registry,
 	}), "flag OFF must not enter the guardian spring")
 	_expect(not flow.has_soul_summoning() and fixture.runtime.activate_calls == 0 and fixture.runtime.enhance_calls == 0, "flag OFF must not grant access or touch guardian runtime")
+	fixture.registry.instances.clear()
 	fixture.codex.clear()
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 
