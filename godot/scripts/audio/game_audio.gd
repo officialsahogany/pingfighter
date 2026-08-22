@@ -9,6 +9,7 @@ const BlacksmithThorShieldAudio := preload("res://scripts/audio/blacksmith_thor_
 const PerkFusionCombatAudio := preload("res://scripts/audio/perk_fusion_combat_audio.gd")
 const CommandoSkillAudio := preload("res://scripts/audio/commando_skill_audio.gd")
 const CoreBallDashAudio := preload("res://scripts/audio/core_ball_dash_audio.gd")
+const PaddleHitAudioLayers := preload("res://scripts/audio/paddle_hit_audio_layers.gd")
 const ElementalCombatAudio := preload("res://scripts/audio/elemental_combat_audio.gd")
 const GameAudioBusController := preload("res://scripts/audio/game_audio_bus_controller.gd")
 const GameAudioSetupController := preload(
@@ -217,6 +218,7 @@ var blacksmith_thor_shield_audio: Object = BlacksmithThorShieldAudio.new()
 var perk_fusion_combat_audio: Object = PerkFusionCombatAudio.new()
 var commando_skill_audio: Object = CommandoSkillAudio.new()
 var core_ball_dash_audio: Object = CoreBallDashAudio.new()
+var paddle_hit_audio_layers: Object = PaddleHitAudioLayers.new()
 var elemental_combat_audio: Object = ElementalCombatAudio.new()
 var game_audio_bus_controller: Object = GameAudioBusController.new()
 var game_audio_setup_controller: Object = GameAudioSetupController.new()
@@ -1676,6 +1678,11 @@ func _setup_core_ball_sfx() -> void:
 	_ensure_hit_pan_buses()
 	game_ui_feedback_audio.setup(owner_node, player_factory)
 	core_ball_dash_audio.setup(owner_node, player_factory)
+	paddle_hit_audio_layers.setup(
+		owner_node,
+		paddle_hit_sfx.stream if paddle_hit_sfx != null else null,
+		SFX_PAN_PADDLE_BUS_NAME
+	)
 	_enable_loop(dash_delay_sfx)
 
 
@@ -3205,6 +3212,50 @@ func play_paddle_hit(source_x: float = PLAYFIELD_CENTER_X) -> void:
 		paddle_sound_cooldown = PADDLE_HIT_SOUND_COOLDOWN
 
 
+func play_paddle_hit_profile(
+	source_x: float,
+	ball_speed: float,
+	contact_ratio: float,
+	is_player: bool,
+	drive_activated: bool = false,
+	rally_tier: int = 0
+) -> void:
+	if paddle_sound_cooldown > 0.0:
+		return
+	var profile: Dictionary = PaddleHitAudioLayers.build_profile(
+		ball_speed,
+		contact_ratio,
+		is_player,
+		not drive_activated,
+		rally_tier
+	)
+	_ensure_hit_pan_buses()
+	paddle_hit_audio_layers.stop_layers()
+	var pitch: float = float(profile.get("base_pitch", 1.0))
+	pitch *= _core_match_feedback_randf_range(0.985, 1.015)
+	if _play_with_pitch_at(paddle_hit_sfx, pitch, source_x, paddle_hit_panner):
+		paddle_hit_audio_layers.play_layers(profile)
+		paddle_sound_cooldown = PADDLE_HIT_SOUND_COOLDOWN
+
+
+func play_training_strike_hit(source_x: float = PLAYFIELD_CENTER_X) -> void:
+	# Training owns the modal presentation lane rather than the combat
+	# cooldown. Reuse the production paddle-impact player and presentation RNG,
+	# while keeping an explicit stop boundary for GRT-058 modal cancellation.
+	_ensure_hit_pan_buses()
+	_play_with_pitch_at(
+		paddle_hit_sfx,
+		_core_match_feedback_randf_range(0.98, 1.02),
+		source_x,
+		paddle_hit_panner
+	)
+
+
+func stop_training_strike_audio() -> void:
+	if paddle_hit_sfx != null and paddle_hit_sfx.playing:
+		paddle_hit_sfx.stop()
+
+
 func play_rally_tier_accent(tier: int, source_x: float = PLAYFIELD_CENTER_X) -> void:
 	var clamped_tier: int = clampi(tier, 1, 5)
 	var pitch: float = 1.08 + float(clamped_tier) * 0.035
@@ -4086,6 +4137,7 @@ func _apply_audio_buses_and_volumes() -> void:
 		paddle_hit_sfx,
 		wall_hit_sfx
 	)
+	paddle_hit_audio_layers.route_to_bus(SFX_PAN_PADDLE_BUS_NAME)
 
 
 func _adopt_existing_audio_bus_volumes() -> void:
@@ -4102,6 +4154,7 @@ func _apply_bgm_bus_to_players() -> void:
 
 func _apply_sfx_bus_to_players() -> void:
 	game_audio_bus_controller.route_sfx_players(_get_sfx_players(), paddle_hit_sfx, wall_hit_sfx)
+	paddle_hit_audio_layers.route_to_bus(SFX_PAN_PADDLE_BUS_NAME)
 
 
 func _ensure_hit_pan_buses() -> void:
@@ -4153,7 +4206,7 @@ func _get_sfx_players() -> Array:
 		lingpet_onimaru_click_voice_sfx,
 		lingpet_orosha_click_voice_sfx,
 		lingpet_koyora_click_voice_sfx,
-	] + lingpet_combat_audio.get_players() + item_reward_feedback_audio.get_cinematic_players() + elemental_combat_audio.get_sfx_bus_players() + item_reward_feedback_audio.get_item_action_players() + transformation_item_audio.get_sfx_bus_players() + projectile_item_audio.get_players() + smasher_skill_audio.get_stage_feedback_players() + shared_stage_feedback_audio.get_primary_players() + stage2_battle_audio.get_players() + stage3_battle_audio.get_players() + lingpet_combat_audio.get_stage_sfx_bus_players() + stage4_ponk_audio.get_players() + stage5_hongryun_audio.get_primary_players() + stage6_tetriser_audio.get_players() + stage7_akamu_audio.get_players() + shared_stage_feedback_audio.get_tail_players() + stage1_boss_skill_audio.get_fan_layers() + commando_skill_audio.get_ak47_fire_layers() + item_reward_feedback_audio.get_absorb_layers() + stage5_hongryun_audio.get_hurt_players() + perk_fusion_combat_audio.get_players()
+	] + lingpet_combat_audio.get_players() + item_reward_feedback_audio.get_cinematic_players() + elemental_combat_audio.get_sfx_bus_players() + item_reward_feedback_audio.get_item_action_players() + transformation_item_audio.get_sfx_bus_players() + projectile_item_audio.get_players() + smasher_skill_audio.get_stage_feedback_players() + shared_stage_feedback_audio.get_primary_players() + stage2_battle_audio.get_players() + stage3_battle_audio.get_players() + lingpet_combat_audio.get_stage_sfx_bus_players() + stage4_ponk_audio.get_players() + stage5_hongryun_audio.get_primary_players() + stage6_tetriser_audio.get_players() + stage7_akamu_audio.get_players() + shared_stage_feedback_audio.get_tail_players() + stage1_boss_skill_audio.get_fan_layers() + commando_skill_audio.get_ak47_fire_layers() + item_reward_feedback_audio.get_absorb_layers() + stage5_hongryun_audio.get_hurt_players() + perk_fusion_combat_audio.get_players() + paddle_hit_audio_layers.get_players()
 
 
 func _select_stage1_bgm_name() -> String:

@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerTrainingStrikePresentationState := preload(
+	"res://scripts/tower_ascent/tower_training_strike_presentation_state.gd"
+)
 
 const ACTION_END_WORK := "end_work"
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
@@ -41,6 +44,7 @@ var _status_text := ""
 var _hover_transitions: Dictionary = {}
 var _interaction_receipt: Dictionary = {}
 var _clock_override_msec := -1
+var _training_stage_presentation: Object = null
 
 
 func open(
@@ -49,6 +53,7 @@ func open(
 	balances: Dictionary,
 	actions: Array = []
 ) -> void:
+	_clear_training_stage_presentation()
 	_node_id = node_id.strip_edges()
 	_node_kind = node_kind.strip_edges().to_lower()
 	if not TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.has(_node_kind):
@@ -66,6 +71,7 @@ func open(
 
 
 func close() -> void:
+	_clear_training_stage_presentation()
 	_node_id = ""
 	_actions.clear()
 	_keyboard_selected_index = 0
@@ -74,6 +80,70 @@ func close() -> void:
 	_status_text = ""
 	_hover_transitions.clear()
 	_interaction_receipt.clear()
+
+
+func configure_training_stage_presentation(
+	character_type: Variant,
+	texture_cache: Dictionary,
+	audio: Object = null
+) -> bool:
+	_clear_training_stage_presentation()
+	if _node_kind != "training":
+		return false
+	_training_stage_presentation = TowerTrainingStrikePresentationState.new()
+	_training_stage_presentation.configure(character_type, texture_cache, audio)
+	return bool(_training_stage_presentation.is_configured())
+
+
+func begin_training_strike() -> bool:
+	if _training_stage_presentation == null:
+		return false
+	return bool(_training_stage_presentation.start())
+
+
+func update_training_strike_wall_clock() -> bool:
+	if _training_stage_presentation == null:
+		return false
+	return bool(_training_stage_presentation.update_wall_clock())
+
+
+func has_active_training_strike() -> bool:
+	return (
+		_training_stage_presentation != null
+		and bool(_training_stage_presentation.is_active())
+	)
+
+
+func get_training_stage_presentation() -> Object:
+	return _training_stage_presentation
+
+
+func get_training_stage_debug_state() -> Dictionary:
+	if _training_stage_presentation == null:
+		return {
+			"configured": false,
+			"active": false,
+			"host_node_count": 0,
+			"dynamic_layer_count": 0,
+		}
+	return _training_stage_presentation.get_debug_state()
+
+
+func set_training_stage_clock_msec_for_tests(value: int) -> void:
+	if _training_stage_presentation != null:
+		_training_stage_presentation.set_clock_msec_for_tests(value)
+
+
+func get_training_stage_visual_model_for_tests() -> Dictionary:
+	if _training_stage_presentation == null:
+		return {}
+	return _training_stage_presentation.get_visual_model()
+
+
+func _clear_training_stage_presentation() -> void:
+	if _training_stage_presentation != null:
+		_training_stage_presentation.clear()
+	_training_stage_presentation = null
 
 
 func set_actions(actions: Array) -> void:

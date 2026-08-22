@@ -46,6 +46,28 @@ func get_node_modal_view_model(
 func get_node_modal_kind() -> String:
 	return _node_modal_kind
 
+func get_training_stage_presentation_debug_state() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_training_stage_debug_state()
+
+
+func set_training_stage_clock_msec_for_tests(value: int) -> void:
+	if _node_modal_state != null:
+		_node_modal_state.set_training_stage_clock_msec_for_tests(value)
+
+
+func set_node_modal_clock_msec_for_tests(value: int) -> void:
+	if _node_modal_state != null:
+		_node_modal_state.set_clock_msec_for_tests(value)
+
+
+func get_training_stage_visual_model_for_tests() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_training_stage_visual_model_for_tests()
+
+
 func get_node_modal_render_context() -> Dictionary:
 	var context := {
 		"card_renderer": _get_cached_node_modal_render_module(
@@ -71,6 +93,15 @@ func get_node_modal_render_context() -> Dictionary:
 			"owner": _active_owner,
 			"registry": _active_registry,
 		}
+	if _node_modal_kind == "training" and _node_modal_state != null:
+		var training_stage_presentation: Object = (
+			_node_modal_state.get_training_stage_presentation()
+		)
+		if training_stage_presentation != null:
+			# GRT-043: the retained RefCounted was configured once on modal
+			# entry. This adds no registry lookup, layout build, or Node layer to
+			# an unhovered frame.
+			context["training_stage_presentation"] = training_stage_presentation
 	return context
 
 
@@ -125,6 +156,7 @@ func _open_node_modal() -> void:
 		_run_state.export_economy(),
 		_build_node_modal_actions()
 	)
+	_configure_training_stage_presentation()
 	if _node_modal_kind == "shop" and _get_shop_inventory_entry().is_empty():
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
@@ -214,6 +246,15 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	)
 	if action.is_empty():
 		return
+	if (
+		not pointer_action.is_empty()
+		and _node_modal_kind == "training"
+		and str(action.get("id", "")).begins_with("training_")
+	):
+		# One completed press/release on a training card starts exactly one
+		# presentation. Keyboard confirmation and the end-work footer remain
+		# outside this pointer-only strike contract.
+		_node_modal_state.begin_training_strike()
 	action["_feedback_index"] = _node_modal_state.get_action_index_by_id(
 		str(action.get("id", ""))
 	)
@@ -234,6 +275,28 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	_node_modal_state.record_action_feedback(action, action_result)
 	if not bool(action_result.get("accepted", false)):
 		_node_modal_state.set_status_text(str(action_result.get("message", action_result.get("reason", ""))))
+
+
+func _configure_training_stage_presentation() -> void:
+	if _node_modal_kind != "training" or _node_modal_state == null:
+		return
+	var texture_cache: Dictionary = {}
+	var resources := _get_cached_node_modal_render_module("battle_resources")
+	if resources != null and resources.has_method("get_resource_cache"):
+		var cache_value: Variant = resources.get_resource_cache()
+		if cache_value is Dictionary:
+			texture_cache = cache_value as Dictionary
+	var selected_character_type := "smasher"
+	if _active_owner != null:
+		var character_value: Variant = _active_owner.get("selected_character_type")
+		if character_value != null:
+			selected_character_type = str(character_value)
+	var audio := _get_cached_node_modal_render_module("game_audio")
+	_node_modal_state.configure_training_stage_presentation(
+		selected_character_type,
+		texture_cache,
+		audio
+	)
 
 func _build_node_modal_actions() -> Array[Dictionary]:
 	if _node_modal_kind == "shop":

@@ -2780,7 +2780,7 @@ func _draw_node_modal(
 		else {}
 	)
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
-		_draw_training_stage_layout(canvas, model, content_scale)
+		_draw_training_stage_layout(canvas, model, content_scale, render_context)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var interaction_visuals: Array = model.get("interaction_visuals", [])
@@ -2871,20 +2871,34 @@ func _draw_node_modal(
 func _draw_training_stage_layout(
 	canvas: CanvasItem,
 	model: Dictionary,
-	content_scale: float
+	content_scale: float,
+	render_context: Dictionary = {}
 ) -> void:
 	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
 	if not stage_rect.has_area():
 		return
-	# S2 reserves a quiet production surface for the S3 character strike host and
-	# the approval-gated S5 dummy. It creates no nodes and performs no idle-time
-	# state lookup; only these retained draw commands exist before the first click.
-	canvas.draw_rect(stage_rect, Color(0.12, 0.075, 0.052, 0.94), true)
+	var presentation: Object = render_context.get("training_stage_presentation", null)
+	var visual_model: Dictionary = (
+		presentation.get_visual_model()
+		if presentation != null and presentation.has_method("get_visual_model")
+		else {}
+	)
+	var shake_offset: Vector2 = _vector2(
+		visual_model.get("stage_shake_offset", Vector2.ZERO)
+	) * content_scale
+	var shaken_stage_rect := Rect2(stage_rect.position + shake_offset, stage_rect.size)
+	# S3 remains inside the existing fullscreen renderer. There is no Node host,
+	# so GRT-039 cannot acquire a (0,0) spawn transform or physics interpolation;
+	# only the lower-stage coordinates below receive the bounded shake offset.
+	canvas.draw_rect(shaken_stage_rect, Color(0.12, 0.075, 0.052, 0.94), true)
 	for band_index in range(4):
 		var band_progress := float(band_index) / 3.0
 		var band_rect := Rect2(
-			stage_rect.position + Vector2(0.0, stage_rect.size.y * band_progress * 0.58),
-			Vector2(stage_rect.size.x, stage_rect.size.y * 0.20 + 1.0)
+			shaken_stage_rect.position + Vector2(
+				0.0,
+				shaken_stage_rect.size.y * band_progress * 0.58
+			),
+			Vector2(shaken_stage_rect.size.x, shaken_stage_rect.size.y * 0.20 + 1.0)
 		)
 		canvas.draw_rect(
 			band_rect,
@@ -2892,22 +2906,48 @@ func _draw_training_stage_layout(
 			true
 		)
 	var floor_rect := Rect2(
-		stage_rect.position + Vector2(0.0, stage_rect.size.y * 0.61),
-		Vector2(stage_rect.size.x, stage_rect.size.y * 0.39)
+		shaken_stage_rect.position + Vector2(0.0, shaken_stage_rect.size.y * 0.61),
+		Vector2(shaken_stage_rect.size.x, shaken_stage_rect.size.y * 0.39)
 	)
 	canvas.draw_rect(floor_rect, Color(0.23, 0.13, 0.075, 0.90), true)
+	var player_slot: Rect2 = model.get("training_player_slot_rect", Rect2())
+	player_slot.position += shake_offset
+	var dummy_slot: Rect2 = model.get("training_dummy_slot_rect", Rect2())
+	dummy_slot.position += shake_offset
 	_draw_training_slot_shadow(
 		canvas,
-		model.get("training_player_slot_rect", Rect2()),
-		stage_rect,
+		player_slot,
+		shaken_stage_rect,
 		content_scale
 	)
 	_draw_training_slot_shadow(
 		canvas,
-		model.get("training_dummy_slot_rect", Rect2()),
-		stage_rect,
+		dummy_slot,
+		shaken_stage_rect,
 		content_scale
 	)
+	_draw_training_character(
+		canvas,
+		player_slot,
+		shaken_stage_rect,
+		content_scale,
+		visual_model
+	)
+	var dummy_pivot := _draw_training_dummy_placeholder(
+		canvas,
+		dummy_slot,
+		shaken_stage_rect,
+		content_scale,
+		float(visual_model.get("dummy_rotation_radians", 0.0))
+	)
+	if bool(visual_model.get("impact_active", false)):
+		_draw_training_impact_effect(
+			canvas,
+			dummy_pivot,
+			content_scale,
+			float(visual_model.get("impact_progress", 0.0)),
+			float(visual_model.get("dummy_rotation_radians", 0.0))
+		)
 
 
 func _draw_training_slot_shadow(
@@ -2934,6 +2974,272 @@ func _draw_training_slot_shadow(
 		Color(0.72, 0.42, 0.18, 0.08),
 		7.0 * content_scale
 	)
+
+
+func _draw_training_character(
+	canvas: CanvasItem,
+	slot_rect: Rect2,
+	stage_rect: Rect2,
+	content_scale: float,
+	visual_model: Dictionary
+) -> void:
+	if not slot_rect.has_area():
+		return
+	var draw_size: Vector2 = _vector2(
+		visual_model.get("draw_size", Vector2(160.0, 160.0))
+	) * content_scale
+	var floor_y := stage_rect.end.y - 13.0 * content_scale
+	var center_x := (
+		slot_rect.get_center().x
+		+ float(visual_model.get("character_offset_x", 0.0)) * content_scale
+	)
+	var destination := Rect2(
+		Vector2(center_x - draw_size.x * 0.5, floor_y - draw_size.y),
+		draw_size
+	)
+	var sprite_value: Variant = visual_model.get("sprite", {})
+	if sprite_value is Dictionary:
+		var sprite := sprite_value as Dictionary
+		var texture_value: Variant = sprite.get("texture", null)
+		var source_rect: Rect2 = sprite.get("region", Rect2())
+		if texture_value is Texture2D and source_rect.has_area():
+			canvas.draw_texture_rect_region(
+				texture_value as Texture2D,
+				destination,
+				source_rect,
+				Color.WHITE,
+				false,
+				true
+			)
+			return
+	_draw_training_character_fallback(
+		canvas,
+		destination,
+		str(visual_model.get("character_type", "smasher")),
+		str(visual_model.get("weapon_kind", "paddle")),
+		bool(visual_model.get("active", false))
+	)
+
+
+func _draw_training_character_fallback(
+	canvas: CanvasItem,
+	destination: Rect2,
+	character_type: String,
+	weapon_kind: String,
+	strike_active: bool
+) -> void:
+	# A missing cache entry must remain visible. These are filled silhouettes,
+	# never a silent/empty draw, and the weapon mark remains character-specific.
+	var scale_value := destination.size.x / 160.0
+	var feet := Vector2(destination.get_center().x, destination.end.y - 9.0 * scale_value)
+	var body_color := Color(0.18, 0.24, 0.30, 0.96)
+	var light_color := Color(0.56, 0.82, 0.92, 0.88)
+	match character_type:
+		"viper":
+			body_color = Color(0.29, 0.11, 0.43, 0.96)
+			light_color = Color(0.44, 0.92, 0.94, 0.90)
+		"soldier":
+			body_color = Color(0.20, 0.31, 0.17, 0.96)
+			light_color = Color(0.72, 0.84, 0.40, 0.90)
+		"optimus":
+			body_color = Color(0.16, 0.35, 0.47, 0.98)
+			light_color = Color(0.56, 0.92, 1.0, 0.92)
+		"blacksmith":
+			body_color = Color(0.42, 0.25, 0.10, 0.98)
+			light_color = Color(1.0, 0.66, 0.24, 0.92)
+	canvas.draw_line(
+		feet,
+		feet + Vector2(0.0, -74.0 * scale_value),
+		body_color,
+		34.0 * scale_value
+	)
+	canvas.draw_circle(
+		feet + Vector2(0.0, -98.0 * scale_value),
+		22.0 * scale_value,
+		body_color
+	)
+	canvas.draw_line(
+		feet + Vector2(-22.0, -51.0) * scale_value,
+		feet + Vector2(25.0, -49.0) * scale_value,
+		light_color,
+		10.0 * scale_value
+	)
+	var weapon_origin := feet + Vector2(24.0, -52.0) * scale_value
+	var reach := 14.0 if strike_active else 0.0
+	match weapon_kind:
+		"firearm":
+			canvas.draw_line(
+				weapon_origin,
+				weapon_origin + Vector2(53.0 + reach, -10.0) * scale_value,
+				Color(0.12, 0.14, 0.12, 1.0),
+				13.0 * scale_value
+			)
+			canvas.draw_circle(
+				weapon_origin + Vector2(55.0 + reach, -10.0) * scale_value,
+				5.0 * scale_value,
+				light_color
+			)
+		"hammer":
+			canvas.draw_line(
+				weapon_origin,
+				weapon_origin + Vector2(39.0 + reach, -32.0) * scale_value,
+				Color(0.27, 0.16, 0.08, 1.0),
+				8.0 * scale_value
+			)
+			canvas.draw_line(
+				weapon_origin + Vector2(29.0 + reach, -39.0) * scale_value,
+				weapon_origin + Vector2(49.0 + reach, -23.0) * scale_value,
+				light_color,
+				18.0 * scale_value
+			)
+		"arm_blade":
+			canvas.draw_line(
+				weapon_origin,
+				weapon_origin + Vector2(50.0 + reach, -21.0) * scale_value,
+				light_color,
+				7.0 * scale_value
+			)
+		"energy_paddle":
+			canvas.draw_line(
+				weapon_origin,
+				weapon_origin + Vector2(52.0 + reach, -4.0) * scale_value,
+				Color(0.28, 0.86, 1.0, 0.84),
+				18.0 * scale_value
+			)
+		_:
+			canvas.draw_line(
+				weapon_origin,
+				weapon_origin + Vector2(54.0 + reach, -2.0) * scale_value,
+				light_color,
+				14.0 * scale_value
+			)
+
+
+func _draw_training_dummy_placeholder(
+	canvas: CanvasItem,
+	slot_rect: Rect2,
+	stage_rect: Rect2,
+	content_scale: float,
+	rotation_radians: float
+) -> Vector2:
+	if not slot_rect.has_area():
+		return Vector2.ZERO
+	var pivot := Vector2(slot_rect.get_center().x, stage_rect.end.y - 13.0 * content_scale)
+	var wood := Color(0.31, 0.17, 0.075, 1.0)
+	var straw := Color(0.78, 0.57, 0.24, 0.98)
+	var straw_light := Color(0.96, 0.77, 0.38, 0.90)
+	var tie := Color(0.48, 0.12, 0.08, 0.96)
+	canvas.draw_line(
+		_training_dummy_point(pivot, Vector2(-31.0, -3.0) * content_scale, rotation_radians),
+		_training_dummy_point(pivot, Vector2(31.0, -3.0) * content_scale, rotation_radians),
+		wood,
+		14.0 * content_scale
+	)
+	canvas.draw_line(
+		pivot,
+		_training_dummy_point(pivot, Vector2(0.0, -123.0) * content_scale, rotation_radians),
+		wood,
+		17.0 * content_scale
+	)
+	canvas.draw_line(
+		_training_dummy_point(pivot, Vector2(0.0, -35.0) * content_scale, rotation_radians),
+		_training_dummy_point(pivot, Vector2(0.0, -112.0) * content_scale, rotation_radians),
+		straw,
+		43.0 * content_scale
+	)
+	canvas.draw_line(
+		_training_dummy_point(pivot, Vector2(-52.0, -101.0) * content_scale, rotation_radians),
+		_training_dummy_point(pivot, Vector2(52.0, -101.0) * content_scale, rotation_radians),
+		straw,
+		15.0 * content_scale
+	)
+	canvas.draw_line(
+		_training_dummy_point(pivot, Vector2(-45.0, -101.0) * content_scale, rotation_radians),
+		_training_dummy_point(pivot, Vector2(45.0, -101.0) * content_scale, rotation_radians),
+		straw_light,
+		7.0 * content_scale
+	)
+	var head_center := _training_dummy_point(
+		pivot,
+		Vector2(0.0, -143.0) * content_scale,
+		rotation_radians
+	)
+	canvas.draw_circle(head_center, 23.0 * content_scale, straw)
+	canvas.draw_circle(
+		head_center + Vector2(-5.0, -5.0) * content_scale,
+		8.0 * content_scale,
+		Color(1.0, 0.84, 0.48, 0.22)
+	)
+	canvas.draw_line(
+		_training_dummy_point(pivot, Vector2(-23.0, -71.0) * content_scale, rotation_radians),
+		_training_dummy_point(pivot, Vector2(23.0, -71.0) * content_scale, rotation_radians),
+		tie,
+		9.0 * content_scale
+	)
+	return pivot
+
+
+func _draw_training_impact_effect(
+	canvas: CanvasItem,
+	dummy_pivot: Vector2,
+	content_scale: float,
+	progress: float,
+	rotation_radians: float
+) -> void:
+	var t := clampf(progress, 0.0, 1.0)
+	var impact := _training_dummy_point(
+		dummy_pivot,
+		Vector2(-34.0, -104.0) * content_scale,
+		rotation_radians
+	)
+	var spread := (18.0 + 40.0 * t) * content_scale
+	var broad_alpha := 0.02 * (1.0 - t)
+	canvas.draw_circle(
+		impact,
+		(23.0 + 38.0 * t) * content_scale,
+		Color(1.0, 0.58, 0.18, 0.075 * (1.0 - t))
+	)
+	canvas.draw_circle(
+		impact + Vector2(8.0, -4.0) * content_scale * t,
+		(11.0 + 17.0 * t) * content_scale,
+		Color(1.0, 0.88, 0.50, 0.12 * (1.0 - t))
+	)
+	for direction in [
+		Vector2(-1.0, -0.20),
+		Vector2(-0.72, -0.72),
+		Vector2(0.12, -1.0),
+		Vector2(0.72, -0.54),
+	]:
+		var unit_direction: Vector2 = (direction as Vector2).normalized()
+		var inner := impact + unit_direction * spread * 0.18
+		var outer := impact + unit_direction * spread
+		canvas.draw_line(
+			inner,
+			outer,
+			Color(1.0, 0.64, 0.22, broad_alpha),
+			22.0 * content_scale
+		)
+		canvas.draw_line(
+			inner,
+			outer,
+			Color(1.0, 0.83, 0.42, 0.16 * (1.0 - t)),
+			7.0 * content_scale
+		)
+	for point_offset in [Vector2(-19.0, -12.0), Vector2(15.0, -22.0), Vector2(24.0, 7.0)]:
+		var drift: Vector2 = point_offset as Vector2
+		canvas.draw_circle(
+			impact + drift * content_scale * (0.45 + t),
+			(2.8 - 1.2 * t) * content_scale,
+			Color(1.0, 0.92, 0.58, 0.72 * (1.0 - t))
+		)
+
+
+func _training_dummy_point(
+	pivot: Vector2,
+	local_point: Vector2,
+	rotation_radians: float
+) -> Vector2:
+	return pivot + local_point.rotated(rotation_radians)
 
 
 func build_balance_row_layout(

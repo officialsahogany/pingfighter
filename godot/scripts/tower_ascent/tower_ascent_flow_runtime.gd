@@ -325,6 +325,14 @@ func update_selective(delta: float, owner: Object = null) -> void:
 			_complete_map_transition()
 	elif _phase == PHASE_NODE_MODAL:
 		_transition_fade_state.update_node_modal_fade(maxf(0.0, delta))
+		# GRT-016 / GRT-043: modal physics is blocked, so the training strike
+		# advances from wall time in the existing selective-idle gate. The state
+		# update is never entered before a card click or after cleanup.
+		if (
+			_node_modal_kind == "training"
+			and _node_modal_state.has_active_training_strike()
+		):
+			_node_modal_state.update_training_strike_wall_clock()
 	_request_redraw(owner)
 
 
