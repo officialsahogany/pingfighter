@@ -13,15 +13,24 @@ const MODAL_RECT := Rect2(24.0, 28.0, 712.0, 694.0)
 const ACTION_LIST_RECT := Rect2(126.0, 301.0, 508.0, 302.0)
 const ACTION_ROW_HEIGHT := 38.0
 const ACTION_ROW_GAP := 5.0
-const SIX_CARD_NODE_KINDS := ["shop", "training", "fallen_monk"]
+const CARD_NODE_KINDS := ["shop", "training", "fallen_monk", "guardian_spring", "rest"]
+const PAGED_CARD_NODE_KINDS := ["guardian_spring"]
+const HERO_CARD_NODE_KINDS := ["rest"]
 const CARD_GRID_RECT := Rect2(43.0, 150.0, 674.0, 438.0)
 const CARD_GRID_COLUMNS := 3
 const CARD_GRID_ROWS := 2
+const CARD_PAGE_SIZE := CARD_GRID_COLUMNS * CARD_GRID_ROWS
 const GRID_COLUMN_GAP := 12.0
 const GRID_ROW_GAP := 14.0
+const HERO_CARD_RECT := Rect2(164.0, 150.0, 432.0, 438.0)
 const END_WORK_RECT := Rect2(246.0, 602.0, 268.0, 40.0)
+const PAGE_PREVIOUS_RECT := Rect2(156.0, 602.0, 68.0, 40.0)
+const PAGE_NEXT_RECT := Rect2(536.0, 602.0, 68.0, 40.0)
+const PAGE_LABEL_RECT := Rect2(208.0, 646.0, 344.0, 24.0)
 const STATUS_BASELINE := Vector2(126.0, 680.0)
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const LAYOUT_FLAG_HERO_CARD := "hero_card"
+const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
 const TRAINING_CARD_GRID_RECT := Rect2(43.0, 144.0, 674.0, 226.0)
 const TRAINING_STAGE_RECT := Rect2(43.0, 382.0, 674.0, 236.0)
 const TRAINING_PLAYER_SLOT_RECT := Rect2(190.0, 386.0, 168.0, 228.0)
@@ -39,6 +48,9 @@ var _actions: Array[Dictionary] = []
 var _keyboard_selected_index := 0
 var _hovered_index := -1
 var _pressed_index := -1
+var _visible_page := 0
+var _hovered_page_direction := 0
+var _pressed_page_direction := 0
 var _balances := {"gold": 0, "muhon": 0, "chance_gems": 0}
 var _status_text := ""
 var _hover_transitions: Dictionary = {}
@@ -63,6 +75,9 @@ func open(
 	_keyboard_selected_index = 0
 	_hovered_index = -1
 	_pressed_index = -1
+	_visible_page = 0
+	_hovered_page_direction = 0
+	_pressed_page_direction = 0
 	_hover_transitions.clear()
 	_interaction_receipt.clear()
 	_status_text = TowerAscentNodeModalLocalization.text(
@@ -77,6 +92,9 @@ func close() -> void:
 	_keyboard_selected_index = 0
 	_hovered_index = -1
 	_pressed_index = -1
+	_visible_page = 0
+	_hovered_page_direction = 0
+	_pressed_page_direction = 0
 	_status_text = ""
 	_hover_transitions.clear()
 	_interaction_receipt.clear()
@@ -158,6 +176,9 @@ func set_actions(actions: Array) -> void:
 		_keyboard_selected_index = clampi(previous_keyboard_index, 0, _actions.size() - 1)
 	_hovered_index = _find_action_index_by_id(hovered_action_id)
 	_pressed_index = -1
+	_pressed_page_direction = 0
+	_visible_page = clampi(_visible_page, 0, get_page_count() - 1)
+	_ensure_selection_visible()
 
 
 func set_balances(balances: Dictionary) -> void:
@@ -175,12 +196,14 @@ func move_selection(direction: int) -> void:
 		_keyboard_selected_index + signi(direction),
 		_actions.size()
 	)
+	_ensure_selection_visible()
 
 
 func select_index(index: int) -> bool:
 	if index < 0 or index >= _actions.size():
 		return false
 	_keyboard_selected_index = index
+	_ensure_selection_visible()
 	return true
 
 
@@ -196,13 +219,22 @@ func update_hover_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	var next_hovered_index := _action_index_at_position(position, view_size)
-	if next_hovered_index == _hovered_index:
+	var next_page_direction := (
+		_page_direction_at_position(position, view_size)
+		if next_hovered_index < 0
+		else 0
+	)
+	if (
+		next_hovered_index == _hovered_index
+		and next_page_direction == _hovered_page_direction
+	):
 		return false
 	var now_msec := _now_msec()
 	var previous_action_id := _action_id_at_index(_hovered_index)
 	if not previous_action_id.is_empty():
 		_set_hover_target(previous_action_id, 0.0, now_msec, HOVER_EXIT_MSEC)
 	_hovered_index = next_hovered_index
+	_hovered_page_direction = next_page_direction
 	var next_action_id := _action_id_at_index(_hovered_index)
 	if not next_action_id.is_empty():
 		_set_hover_target(next_action_id, 1.0, now_msec, HOVER_ENTER_MSEC)
@@ -214,7 +246,12 @@ func begin_pointer_press(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	_pressed_index = _action_index_at_position(position, view_size)
-	return _pressed_index >= 0
+	_pressed_page_direction = (
+		_page_direction_at_position(position, view_size)
+		if _pressed_index < 0
+		else 0
+	)
+	return _pressed_index >= 0 or _pressed_page_direction != 0
 
 
 func release_pointer_at_position(
@@ -222,7 +259,17 @@ func release_pointer_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> Dictionary:
 	var armed_index := _pressed_index
+	var armed_page_direction := _pressed_page_direction
 	_pressed_index = -1
+	_pressed_page_direction = 0
+	if armed_page_direction != 0:
+		if armed_page_direction != _page_direction_at_position(position, view_size):
+			return {}
+		return {
+			"_modal_control": "page",
+			"direction": armed_page_direction,
+			"changed": change_visible_page(armed_page_direction),
+		}
 	if armed_index < 0 or armed_index != _action_index_at_position(position, view_size):
 		return {}
 	return _action_at_index(armed_index)
@@ -230,6 +277,7 @@ func release_pointer_at_position(
 
 func cancel_pointer_press() -> void:
 	_pressed_index = -1
+	_pressed_page_direction = 0
 
 
 func record_action_feedback(action: Dictionary, result: Dictionary) -> void:
@@ -282,9 +330,55 @@ func get_pressed_index() -> int:
 	return _pressed_index
 
 
+func get_visible_page() -> int:
+	return _visible_page
+
+
+func get_page_count() -> int:
+	if not _uses_paged_cards():
+		return 1
+	return maxi(1, int(ceil(float(_card_action_count()) / float(CARD_PAGE_SIZE))))
+
+
+func change_visible_page(direction: int) -> bool:
+	if direction == 0 or get_page_count() <= 1:
+		return false
+	var next_page := clampi(_visible_page + signi(direction), 0, get_page_count() - 1)
+	if next_page == _visible_page:
+		return false
+	_visible_page = next_page
+	_hovered_index = -1
+	_hovered_page_direction = 0
+	_pressed_index = -1
+	_pressed_page_direction = 0
+	_select_first_action_on_visible_page()
+	return true
+
+
+func set_visible_page(page: int) -> bool:
+	var next_page := clampi(page, 0, get_page_count() - 1)
+	if next_page == _visible_page:
+		return false
+	_visible_page = next_page
+	_hovered_index = -1
+	_hovered_page_direction = 0
+	_pressed_index = -1
+	_pressed_page_direction = 0
+	_select_first_action_on_visible_page()
+	return true
+
+
+func get_hovered_page_direction() -> int:
+	return _hovered_page_direction
+
+
+func get_pressed_page_direction() -> int:
+	return _pressed_page_direction
+
+
 func has_hover_visuals() -> bool:
 	_prune_hover_transitions(_now_msec())
-	return not _hover_transitions.is_empty()
+	return not _hover_transitions.is_empty() or _hovered_page_direction != 0
 
 
 func get_action_index_by_id(action_id: String) -> int:
@@ -297,7 +391,22 @@ func get_action_rects(
 ) -> Array[Rect2]:
 	var result: Array[Rect2] = []
 	var layout := build_screen_layout(view_size, layout_flags)
-	if _node_kind in SIX_CARD_NODE_KINDS:
+	if _node_kind in CARD_NODE_KINDS:
+		var uses_hero_card := bool(layout.get("layout_flags", {}).get(
+			LAYOUT_FLAG_HERO_CARD,
+			false
+		))
+		if uses_hero_card:
+			var hero_card_used := false
+			for action in _actions:
+				if str(action.get("id", "")) == ACTION_END_WORK:
+					result.append(layout.get("end_work_rect", END_WORK_RECT))
+				elif not hero_card_used:
+					result.append(layout.get("hero_card_rect", HERO_CARD_RECT))
+					hero_card_used = true
+				else:
+					result.append(Rect2())
+			return result
 		var card_grid_rect: Rect2 = layout.get("card_grid_rect", CARD_GRID_RECT)
 		var column_gap := float(layout.get("grid_column_gap", GRID_COLUMN_GAP))
 		var row_gap := float(layout.get("grid_row_gap", GRID_ROW_GAP))
@@ -310,12 +419,19 @@ func get_action_rects(
 			card_grid_rect.size.y - row_gap * float(rows - 1)
 		) / float(rows)
 		var card_index := 0
+		var page_start := _visible_page * CARD_PAGE_SIZE if _uses_paged_cards() else 0
+		var page_end := page_start + CARD_PAGE_SIZE
 		for index in range(_actions.size()):
 			if str(_actions[index].get("id", "")) == ACTION_END_WORK:
 				result.append(layout.get("end_work_rect", END_WORK_RECT))
 				continue
-			var column := card_index % columns
-			var row := card_index / columns
+			if card_index < page_start or card_index >= page_end:
+				result.append(Rect2())
+				card_index += 1
+				continue
+			var visible_card_index := card_index - page_start
+			var column := visible_card_index % columns
+			var row := visible_card_index / columns
 			result.append(Rect2(
 				card_grid_rect.position + Vector2(
 					float(column) * (column_width + column_gap),
@@ -367,6 +483,10 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"keyboard_selected_index": _keyboard_selected_index,
 		"hovered_index": _hovered_index,
 		"pressed_index": _pressed_index,
+		"visible_page": _visible_page,
+		"page_count": get_page_count(),
+		"hovered_page_direction": _hovered_page_direction,
+		"pressed_page_direction": _pressed_page_direction,
 		"interaction_visuals": interaction_model.get("visuals", []),
 		"has_pointer_visuals": bool(interaction_model.get("has_pointer_visuals", false)),
 		"interaction_receipt": interaction_model.get("receipt", {}),
@@ -377,6 +497,10 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"content_offset": layout.get("content_offset", Vector2.ZERO),
 		"layout_flags": layout.get("layout_flags", {}).duplicate(true),
 		"card_grid_rect": layout.get("card_grid_rect", Rect2()),
+		"hero_card_rect": layout.get("hero_card_rect", Rect2()),
+		"page_previous_rect": layout.get("page_previous_rect", Rect2()),
+		"page_next_rect": layout.get("page_next_rect", Rect2()),
+		"page_label_rect": layout.get("page_label_rect", Rect2()),
 		"training_stage_rect": layout.get("training_stage_rect", Rect2()),
 		"training_player_slot_rect": layout.get("training_player_slot_rect", Rect2()),
 		"training_dummy_slot_rect": layout.get("training_dummy_slot_rect", Rect2()),
@@ -402,6 +526,8 @@ func build_screen_layout(
 		LAYOUT_FLAG_TRAINING_STAGE,
 		false
 	))
+	var uses_hero_card := bool(resolved_flags.get(LAYOUT_FLAG_HERO_CARD, false))
+	var uses_page_controls := bool(resolved_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false))
 	var card_grid_source := TRAINING_CARD_GRID_RECT if uses_training_stage else CARD_GRID_RECT
 	var end_work_source := TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
 	return {
@@ -410,11 +536,31 @@ func build_screen_layout(
 		"modal_rect": _scale_rect(MODAL_RECT, content_scale, content_offset),
 		"layout_flags": resolved_flags,
 		"card_grid_rect": _scale_rect(card_grid_source, content_scale, content_offset),
+		"hero_card_rect": (
+			_scale_rect(HERO_CARD_RECT, content_scale, content_offset)
+			if uses_hero_card
+			else Rect2()
+		),
 		"card_grid_columns": CARD_GRID_COLUMNS,
 		"card_grid_rows": CARD_GRID_ROWS,
 		"grid_column_gap": GRID_COLUMN_GAP * content_scale,
 		"grid_row_gap": GRID_ROW_GAP * content_scale,
 		"end_work_rect": _scale_rect(end_work_source, content_scale, content_offset),
+		"page_previous_rect": (
+			_scale_rect(PAGE_PREVIOUS_RECT, content_scale, content_offset)
+			if uses_page_controls
+			else Rect2()
+		),
+		"page_next_rect": (
+			_scale_rect(PAGE_NEXT_RECT, content_scale, content_offset)
+			if uses_page_controls
+			else Rect2()
+		),
+		"page_label_rect": (
+			_scale_rect(PAGE_LABEL_RECT, content_scale, content_offset)
+			if uses_page_controls
+			else Rect2()
+		),
 		"training_stage_rect": (
 			_scale_rect(TRAINING_STAGE_RECT, content_scale, content_offset)
 			if uses_training_stage
@@ -449,6 +595,8 @@ func _scale_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector
 func _build_layout_flags() -> Dictionary:
 	return {
 		LAYOUT_FLAG_TRAINING_STAGE: _node_kind == "training",
+		LAYOUT_FLAG_HERO_CARD: _node_kind in HERO_CARD_NODE_KINDS,
+		LAYOUT_FLAG_PAGE_CONTROLS: _uses_paged_cards() and get_page_count() > 1,
 	}
 
 
@@ -459,6 +607,9 @@ func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
 			LAYOUT_FLAG_TRAINING_STAGE,
 			false
 		))
+	for flag in [LAYOUT_FLAG_HERO_CARD, LAYOUT_FLAG_PAGE_CONTROLS]:
+		if layout_flags.has(flag):
+			result[flag] = bool(layout_flags.get(flag, false))
 	return result
 
 
@@ -474,6 +625,65 @@ func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
 		if (rects[index] as Rect2).has_point(position):
 			return index
 	return -1
+
+
+func _page_direction_at_position(position: Vector2, view_size: Vector2) -> int:
+	var layout_flags := _build_layout_flags()
+	if not bool(layout_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false)):
+		return 0
+	var layout := build_screen_layout(view_size, layout_flags)
+	var previous_rect: Rect2 = layout.get("page_previous_rect", Rect2())
+	var next_rect: Rect2 = layout.get("page_next_rect", Rect2())
+	if previous_rect.has_point(position):
+		return -1
+	if next_rect.has_point(position):
+		return 1
+	return 0
+
+
+func _uses_paged_cards() -> bool:
+	return _node_kind in PAGED_CARD_NODE_KINDS
+
+
+func _card_action_count() -> int:
+	var count := 0
+	for action in _actions:
+		if str(action.get("id", "")) != ACTION_END_WORK:
+			count += 1
+	return count
+
+
+func _ensure_selection_visible() -> void:
+	if not _uses_paged_cards() or _keyboard_selected_index < 0:
+		return
+	if _action_id_at_index(_keyboard_selected_index) == ACTION_END_WORK:
+		return
+	var card_ordinal := 0
+	for index in range(_actions.size()):
+		if str(_actions[index].get("id", "")) == ACTION_END_WORK:
+			continue
+		if index == _keyboard_selected_index:
+			_visible_page = clampi(
+				card_ordinal / CARD_PAGE_SIZE,
+				0,
+				get_page_count() - 1
+			)
+			return
+		card_ordinal += 1
+
+
+func _select_first_action_on_visible_page() -> void:
+	if not _uses_paged_cards():
+		return
+	var target_ordinal := _visible_page * CARD_PAGE_SIZE
+	var card_ordinal := 0
+	for index in range(_actions.size()):
+		if str(_actions[index].get("id", "")) == ACTION_END_WORK:
+			continue
+		if card_ordinal == target_ordinal:
+			_keyboard_selected_index = index
+			return
+		card_ordinal += 1
 
 
 func _action_at_index(index: int) -> Dictionary:
@@ -520,7 +730,9 @@ func _build_interaction_model() -> Dictionary:
 	if _hover_transitions.is_empty() and _pressed_index < 0 and receipt.is_empty():
 		return {
 			"visuals": [],
-			"has_pointer_visuals": false,
+			"has_pointer_visuals": (
+				_hovered_page_direction != 0 or _pressed_page_direction != 0
+			),
 			"receipt": {},
 			"balance_receipt_texts": {},
 		}

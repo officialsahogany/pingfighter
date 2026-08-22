@@ -671,6 +671,16 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		TOWER_NODE_DESCRIPTION_ROW_LIMIT
 	)
 	var description_rows: Array = description_wrap.get("lines", [])
+	var strict_text_budget := bool(choice.get("tower_node_strict_text_budget", false))
+	var description_hidden_by_budget := (
+		strict_text_budget
+		and int(description_wrap.get("discarded_line_count", 0)) > 0
+	)
+	if description_hidden_by_budget:
+		# GRT-021: Spring/Rest presentation sentences are semantic contracts.
+		# When the entire sentence cannot fit, omit it instead of drawing a clipped
+		# fragment that can be read as a different outcome.
+		description_rows = []
 	var bonus_badge_text := str(choice.get("bonus_badge_text", "")).strip_edges()
 	var bonus_badge_font_size := clampi(int(round(10.0 * compact_scale)), 9, 18)
 	var bonus_badge_rows: Array[String] = []
@@ -697,6 +707,8 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		# GRT-021: this is the count of rows actually appended by the same
 		# width-aware builder consumed by draw_tower_node_card below.
 		"appended_description_row_count": description_rows.size(),
+		"source_description_row_count": int(description_wrap.get("source_line_count", 0)),
+		"description_hidden_by_budget": description_hidden_by_budget,
 		"bonus_badge_text": bonus_badge_text,
 		"bonus_badge_font_size": bonus_badge_font_size,
 		"bonus_badge_rows": bonus_badge_rows,
@@ -765,24 +777,45 @@ func build_tower_node_hover_detail_layout(
 		))
 	var font_size := clampi(int(round(rect.size.x * 0.050)), 10, 12)
 	var rows: Array[String] = []
-	for source_row in source_rows:
-		var remaining := TOWER_NODE_HOVER_DETAIL_ROW_LIMIT - rows.size()
-		if remaining <= 0:
-			break
-		var wrapped := _wrap_text_px(
-			source_row,
-			font_size,
-			maxf(24.0, rect.size.x - 24.0),
-			remaining
-		)
-		for wrapped_row in wrapped:
-			rows.append(str(wrapped_row))
+	var strict_text_budget := bool(presentation.get("strict_text_budget", false))
+	var hidden_by_budget := false
+	if strict_text_budget:
+		var font := _get_font()
+		if font != null:
+			var complete_rows: Array[String] = []
+			for source_row in source_rows:
+				for wrapped_row in _wrap_text_px_all(
+					font,
+					source_row,
+					font_size,
+					maxf(24.0, rect.size.x - 24.0)
+				):
+					complete_rows.append(str(wrapped_row))
+			if complete_rows.size() <= TOWER_NODE_HOVER_DETAIL_ROW_LIMIT:
+				rows = complete_rows
+			else:
+				hidden_by_budget = true
+	else:
+		for source_row in source_rows:
+			var remaining := TOWER_NODE_HOVER_DETAIL_ROW_LIMIT - rows.size()
+			if remaining <= 0:
+				break
+			var wrapped := _wrap_text_px(
+				source_row,
+				font_size,
+				maxf(24.0, rect.size.x - 24.0),
+				remaining
+			)
+			for wrapped_row in wrapped:
+				rows.append(str(wrapped_row))
 	_tower_node_hover_layout_model = {
 		"rows": rows,
 		"font_size": font_size,
 		# GRT-021: this is the actual append count after all semantic rows have
 		# competed for the shared three-row budget.
 		"appended_hover_row_count": rows.size(),
+		"source_hover_semantic_row_count": source_rows.size(),
+		"hidden_by_budget": hidden_by_budget,
 		"preview": preview,
 	}
 	return _tower_node_hover_layout_model.duplicate(true)
@@ -804,6 +837,19 @@ func draw_tower_node_card(
 	_capture_draw_msec()
 	var text_layout := build_tower_node_card_text_layout(action, rect)
 	var choice: Dictionary = text_layout.get("choice", {})
+	if str(choice.get("presentation_mode", "")) == "hero":
+		return _draw_tower_node_hero_card(
+			canvas,
+			action,
+			rect,
+			selected,
+			icon_renderer,
+			paper_variant,
+			active_item_hud_visuals,
+			visual_state,
+			detail_context,
+			text_layout
+		)
 	var compact_card := bool(text_layout.get("compact_card", false))
 	var compact_scale := float(text_layout.get("compact_scale", 1.0))
 	var visual_plan := build_tower_node_card_visual_plan(visual_state)
@@ -989,7 +1035,12 @@ func draw_tower_node_card(
 
 	var reason := str(action.get("unavailable_reason", "")).strip_edges()
 	var detail_layout := {}
-	if hover_blend > 0.0:
+	var suppress_hover_detail := _tower_node_strict_receipt_owns_detail_area(
+		action,
+		success_progress,
+		rejection_progress
+	)
+	if hover_blend > 0.0 and not suppress_hover_detail:
 		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
 		var detail_rows: Array = detail_layout.get("rows", [])
 		var detail_font_size := int(detail_layout.get("font_size", 11))
@@ -1060,6 +1111,234 @@ func draw_tower_node_card(
 		_tower_node_feedback_dynamic_layer_draw_count += 1
 	text_layout["hover_detail_layout"] = detail_layout
 	return text_layout
+
+
+func _draw_tower_node_hero_card(
+	canvas: CanvasItem,
+	action: Dictionary,
+	rect: Rect2,
+	selected: bool,
+	icon_renderer: Object,
+	paper_variant: int,
+	active_item_hud_visuals: Object,
+	visual_state: Dictionary,
+	detail_context: Dictionary,
+	text_layout: Dictionary
+) -> Dictionary:
+	var choice: Dictionary = text_layout.get("choice", {})
+	var visual_plan := build_tower_node_card_visual_plan(visual_state)
+	var hover_blend := float(visual_plan.get("hover_blend", 0.0))
+	var pressed := bool(visual_state.get("pressed", false))
+	var rejection_progress := float(visual_state.get("rejection_progress", -1.0))
+	var success_progress := float(visual_state.get("success_progress", -1.0))
+	var content_offset: Vector2 = visual_plan.get("content_offset", Vector2.ZERO)
+	var enabled := bool(action.get("enabled", true))
+	var node_accent: Color = _get_color(visual_state.get(
+		"node_accent",
+		Color(0.24, 0.55, 0.76)
+	))
+	var paper_rect := RuntimePerkTraditionalChrome.draw_card_base(
+		canvas,
+		rect,
+		false,
+		false,
+		1.0,
+		0.5,
+		paper_variant,
+		_traditional_ornament_atlas_texture,
+		_traditional_card_paper_texture
+	)
+	if selected:
+		canvas.draw_rect(rect.grow(-1.0), Color(1.0, 0.86, 0.47, 0.96), false, 3.0)
+	if hover_blend > 0.0 or pressed:
+		var pointer_strength := maxf(hover_blend, 0.58 if pressed else 0.0)
+		var inner_rect := rect.grow(-float(visual_plan.get("border_inset", 4.0)))
+		canvas.draw_rect(
+			Rect2(inner_rect.position + Vector2(3.0, 4.0), inner_rect.size),
+			Color(0.03, 0.06, 0.10, 0.24 * pointer_strength),
+			false,
+			4.0
+		)
+		canvas.draw_rect(
+			inner_rect,
+			Color(node_accent, 0.94 * pointer_strength),
+			false,
+			1.0 + 1.6 * hover_blend
+		)
+		_tower_node_feedback_dynamic_layer_draw_count += 2
+
+	var icon_size := minf(rect.size.x * 0.31, rect.size.y * 0.29)
+	var icon_center := Vector2(
+		rect.get_center().x,
+		rect.position.y + rect.size.y * 0.25
+	) + content_offset
+	var icon_scale := float(visual_plan.get("icon_scale", 1.0))
+	var icon_rect := Rect2(
+		icon_center - Vector2.ONE * icon_size * 0.5 * icon_scale,
+		Vector2.ONE * icon_size * icon_scale
+	)
+	canvas.draw_circle(icon_center, icon_size * 0.58, Color(0.14, 0.11, 0.08, 0.96))
+	canvas.draw_circle(icon_center, icon_size * 0.52, Color(0.06, 0.10, 0.14, 0.97))
+	canvas.draw_arc(
+		icon_center,
+		icon_size * 0.52,
+		0.0,
+		TAU,
+		36,
+		Color(node_accent, 0.76),
+		2.0
+	)
+	_draw_tower_node_card_icon(
+		canvas,
+		choice,
+		icon_rect.grow(-icon_size * 0.10),
+		icon_renderer,
+		active_item_hud_visuals
+	)
+
+	var nameplate := Rect2(
+		Vector2(rect.position.x + rect.size.x * 0.12, rect.position.y + rect.size.y * 0.43)
+			+ content_offset,
+		Vector2(rect.size.x * 0.76, rect.size.y * 0.105)
+	)
+	RuntimePerkTraditionalChrome.draw_nameplate(canvas, nameplate, selected, false, 1.0)
+	if hover_blend > 0.0:
+		canvas.draw_rect(nameplate.grow(-2.0), Color(node_accent, 0.88 * hover_blend), false, 2.0)
+		_tower_node_feedback_dynamic_layer_draw_count += 1
+	_draw_text_centered_fitted(
+		canvas,
+		str(choice.get("name", action.get("label", ""))),
+		nameplate.get_center() + Vector2(0.0, 1.0),
+		clampi(int(round(rect.size.x * 0.047)), 16, 26),
+		Color(0.94, 0.87, 0.72).lerp(node_accent, 0.76 * hover_blend),
+		nameplate.size.x - 18.0,
+		13
+	)
+	_draw_text_centered_fitted(
+		canvas,
+		_level_text(choice),
+		Vector2(rect.get_center().x + content_offset.x, rect.position.y + rect.size.y * 0.59 + content_offset.y),
+		clampi(int(round(rect.size.x * 0.035)), 13, 20),
+		Color(0.16, 0.31, 0.40) if enabled else Color(0.35, 0.30, 0.26),
+		rect.size.x * 0.76,
+		11
+	)
+	canvas.draw_line(
+		Vector2(paper_rect.position.x + rect.size.x * 0.10, rect.position.y + rect.size.y * 0.63),
+		Vector2(paper_rect.end.x - rect.size.x * 0.10, rect.position.y + rect.size.y * 0.63),
+		Color(0.45, 0.34, 0.20, 0.48),
+		1.0
+	)
+	var description_rows: Array = text_layout.get("description_rows", [])
+	var description_font_size := clampi(int(text_layout.get("description_font_size", 13)) + 1, 12, 18)
+	for row_index in range(description_rows.size()):
+		_draw_text_centered_fitted(
+			canvas,
+			str(description_rows[row_index]),
+			Vector2(
+				rect.get_center().x + content_offset.x,
+				rect.position.y + rect.size.y * 0.69 + float(row_index) * 20.0 + content_offset.y
+			),
+			description_font_size,
+			Color(0.24, 0.19, 0.14, 0.96),
+			rect.size.x * 0.82,
+			10
+		)
+
+	var detail_layout := {}
+	var suppress_hover_detail := _tower_node_strict_receipt_owns_detail_area(
+		action,
+		success_progress,
+		rejection_progress
+	)
+	if hover_blend > 0.0 and not suppress_hover_detail:
+		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
+		var detail_rows: Array = detail_layout.get("rows", [])
+		var detail_font_size := int(detail_layout.get("font_size", 11))
+		for detail_index in range(detail_rows.size()):
+			var detail_color := Color(0.20, 0.26, 0.30).lerp(node_accent, 0.38)
+			detail_color.a = hover_blend
+			_draw_text_centered_fitted(
+				canvas,
+				str(detail_rows[detail_index]),
+				Vector2(
+					rect.get_center().x + content_offset.x,
+					rect.end.y - 74.0 + float(detail_index) * 18.0 + content_offset.y
+				),
+				detail_font_size,
+				detail_color,
+				rect.size.x - 32.0,
+				9
+			)
+		_tower_node_feedback_dynamic_layer_draw_count += detail_rows.size()
+	if not enabled and hover_blend <= 0.0:
+		canvas.draw_rect(rect.grow(-7.0), Color(0.07, 0.08, 0.10, 0.30), true)
+		_draw_text_centered_fitted(
+			canvas,
+			str(action.get("unavailable_reason", "")),
+			Vector2(rect.get_center().x, rect.end.y - 42.0),
+			13,
+			Color(0.49, 0.12, 0.10),
+			rect.size.x - 36.0,
+			10
+		)
+	if hover_blend <= 0.0:
+		_draw_text_centered_fitted(
+			canvas,
+			str(action.get("cost_text", "")),
+			Vector2(rect.get_center().x + content_offset.x, rect.end.y - 18.0 + content_offset.y),
+			13,
+			Color(0.23, 0.30, 0.36) if enabled else Color(0.35, 0.30, 0.26),
+			rect.size.x - 36.0,
+			10
+		)
+	var receipt_message := str(visual_state.get("receipt_message", "")).strip_edges()
+	if success_progress >= 0.0:
+		_draw_tower_node_success_receipt(
+			canvas,
+			rect,
+			receipt_message,
+			success_progress,
+			node_accent
+		)
+	if rejection_progress >= 0.0 and not receipt_message.is_empty():
+		canvas.draw_rect(rect.grow(-9.0), Color(0.62, 0.10, 0.08, 0.22), false, 3.0)
+		_draw_text_centered_fitted(
+			canvas,
+			receipt_message,
+			Vector2(rect.get_center().x + content_offset.x, rect.end.y - 31.0),
+			12,
+			Color(0.63, 0.08, 0.06),
+			rect.size.x - 36.0,
+			9
+		)
+		_tower_node_feedback_dynamic_layer_draw_count += 2
+	var other_dim_amount := clampf(float(visual_state.get("other_dim_amount", 0.0)), 0.0, 0.12)
+	if other_dim_amount > 0.0:
+		canvas.draw_rect(rect.grow(-2.0), Color(0.03, 0.025, 0.02, other_dim_amount), true)
+		_tower_node_feedback_dynamic_layer_draw_count += 1
+	text_layout["hover_detail_layout"] = detail_layout
+	return text_layout
+
+
+func _tower_node_strict_receipt_owns_detail_area(
+	action: Dictionary,
+	success_progress: float,
+	rejection_progress: float
+) -> bool:
+	if success_progress < 0.0 and rejection_progress < 0.0:
+		return false
+	var payload_value: Variant = action.get("payload", {})
+	if not (payload_value is Dictionary):
+		return false
+	var presentation_value: Variant = (payload_value as Dictionary).get(
+		"presentation",
+		{}
+	)
+	return (
+		presentation_value is Dictionary
+		and bool((presentation_value as Dictionary).get("strict_text_budget", false))
+	)
 
 
 func build_tower_node_card_visual_plan(visual_state: Dictionary) -> Dictionary:
@@ -1171,6 +1450,29 @@ func _draw_tower_node_card_icon(
 ) -> void:
 	var content_kind := str(choice.get("card_content_kind", ""))
 	var item_data_value: Variant = choice.get("item_data", {})
+	if content_kind == "guardian_portrait":
+		if (
+			icon_renderer != null
+			and icon_renderer.has_method("draw_guardian_portrait")
+			and bool(icon_renderer.call(
+				"draw_guardian_portrait",
+				canvas,
+				str(choice.get("guardian_pet_id", "")),
+				rect,
+				1.0,
+				true
+			))
+		):
+			return
+		_draw_perk_symbol(
+			canvas,
+			rect,
+			_get_color(choice.get("icon_color", Color(0.37, 0.72, 0.66))),
+			"guardian",
+			str(choice.get("guardian_pet_id", "")),
+			1.0
+		)
+		return
 	if (
 		content_kind == "active_item"
 		and item_data_value is Dictionary

@@ -187,6 +187,12 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 		if key_event.keycode in [KEY_DOWN, KEY_S]:
 			_node_modal_state.move_selection(1)
 			return
+		if key_event.keycode == KEY_PAGEUP:
+			_node_modal_state.change_visible_page(-1)
+			return
+		if key_event.keycode == KEY_PAGEDOWN:
+			_node_modal_state.change_visible_page(1)
+			return
 		if key_event.keycode == KEY_ESCAPE:
 			_enter_route_aim()
 			return
@@ -199,6 +205,12 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_node_modal_state.change_visible_page(-1)
+			return
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_node_modal_state.change_visible_page(1)
+			return
 		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
 			return
 		if mouse_event.pressed:
@@ -208,6 +220,8 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				mouse_event.position,
 				view_size
 			)
+			if str(released_action.get("_modal_control", "")) == "page":
+				return
 			if not released_action.is_empty():
 				_confirm_node_modal_action(released_action)
 		return
@@ -220,6 +234,8 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				touch_event.position,
 				view_size
 			)
+			if str(released_action.get("_modal_control", "")) == "page":
+				return
 			if not released_action.is_empty():
 				_confirm_node_modal_action(released_action)
 

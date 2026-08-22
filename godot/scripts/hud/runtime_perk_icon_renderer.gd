@@ -2,8 +2,10 @@ extends RefCounted
 
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 
 const PERK_ICON_PATHS := {
+	"guardian_spirit_egg": "res://assets/sprites/lingpet/guardian_spirit_egg_traditional_item_icon_v1.png",
 	# 신비의 주사위는 더 이상 무공/퍽 카드가 아니라 액티브 아이템이다.
 	# 능력치 원인표기처럼 이 호환 ID를 그리는 곳도 아이템 정본 아이콘을 쓴다.
 	"mystic_dice": "res://assets/sprites/items/mystic_dice_icon_hq_v1.png",
@@ -375,6 +377,46 @@ func has_icon(skill_id: String) -> bool:
 	return _get_icon_source(skill_id).get("texture", null) != null
 
 
+func get_guardian_portrait_path(pet_id: String) -> String:
+	var normalized := pet_id.strip_edges().to_lower()
+	if normalized.is_empty() or not LingpetCatalog.has_pet(normalized):
+		return ""
+	return LingpetCatalog.get_visual_path(normalized, "cutin_art")
+
+
+func draw_guardian_portrait(
+	canvas: CanvasItem,
+	pet_id: String,
+	rect: Rect2,
+	alpha: float = 1.0,
+	active: bool = true
+) -> bool:
+	if canvas == null or not rect.has_area():
+		return false
+	var path := get_guardian_portrait_path(pet_id)
+	if path.is_empty():
+		return false
+	# Draw is cache-only. Missing prewarm falls through to the card's procedural
+	# guardian symbol instead of synchronously loading a portrait in the hot path.
+	var texture: Texture2D = _texture_cache.get(path, null) as Texture2D
+	if texture == null:
+		return false
+	var source_size := Vector2(
+		maxf(1.0, float(texture.get_width())),
+		maxf(1.0, float(texture.get_height()))
+	)
+	var fit_scale := minf(rect.size.x / source_size.x, rect.size.y / source_size.y)
+	var draw_size := source_size * fit_scale
+	var draw_rect := Rect2(rect.get_center() - draw_size * 0.5, draw_size)
+	var tint := (
+		Color(1.0, 1.0, 1.0, alpha)
+		if active
+		else Color(0.52, 0.52, 0.52, 0.80 * alpha)
+	)
+	canvas.draw_texture_rect(texture, draw_rect, false, tint)
+	return true
+
+
 func _draw_guardian_enhance_placeholder_icon(
 	canvas: CanvasItem,
 	rect: Rect2,
@@ -628,6 +670,15 @@ func _build_prewarm_asset_jobs() -> Array:
 		jobs.append({"type": "sheet", "path": str(PERK_SHEET_PATHS[key])})
 	for skill_id in covered_ids():
 		jobs.append({"type": "source", "id": str(skill_id)})
+	var guardian_paths := {}
+	for pet_id in LingpetCatalog.get_debug_pet_ids():
+		var portrait_path := LingpetCatalog.get_visual_path(pet_id, "cutin_art")
+		if not portrait_path.is_empty():
+			guardian_paths[portrait_path] = true
+	var sorted_guardian_paths: Array = guardian_paths.keys()
+	sorted_guardian_paths.sort()
+	for portrait_path_value in sorted_guardian_paths:
+		jobs.append({"type": "guardian_portrait", "path": str(portrait_path_value)})
 	return jobs
 
 
@@ -643,6 +694,8 @@ func _run_prewarm_asset_job(job_value: Variant) -> void:
 		"source":
 			var source: Dictionary = _get_icon_source(str(job.get("id", "")))
 			_touch_texture(source.get("texture", null))
+		"guardian_portrait":
+			_touch_texture(_get_texture(str(job.get("path", ""))))
 
 
 func _get_icon_source(skill_id: String) -> Dictionary:

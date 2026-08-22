@@ -30,7 +30,13 @@ func get_history() -> Array[Dictionary]:
 func build_actions(node_id: String, run_state: Object) -> Array[Dictionary]:
 	var used := _has_node_commit(node_id)
 	var chance_gems := _chance_gems(run_state)
+	var restore_amount := TowerAscentTuning.TEMP_PHASE_C_REST_RESTORE_PER_NODE
 	var full := chance_gems >= TowerAscentRunState.MAX_CHANCE_GEMS
+	var projected_chance_gems := (
+		chance_gems
+		if used or full
+		else mini(TowerAscentRunState.MAX_CHANCE_GEMS, chance_gems + restore_amount)
+	)
 	var enabled := not used and not full
 	var disabled_reason := ""
 	var unavailable_reason := ""
@@ -49,7 +55,7 @@ func build_actions(node_id: String, run_state: Object) -> Array[Dictionary]:
 		"id": ACTION_RESTORE,
 		"label": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_REST_RESTORE_OPTION,
-			{"amount": TowerAscentTuning.TEMP_PHASE_C_REST_RESTORE_PER_NODE}
+			{"amount": restore_amount}
 		),
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_FREE
@@ -58,7 +64,39 @@ func build_actions(node_id: String, run_state: Object) -> Array[Dictionary]:
 		"disabled_reason": disabled_reason,
 		"unavailable_reason": unavailable_reason,
 		"payload": {
-			"chance_gems": TowerAscentTuning.TEMP_PHASE_C_REST_RESTORE_PER_NODE,
+			"chance_gems": restore_amount,
+			"choice": {
+				"id": "rest_chance_gem_restore",
+				"name": TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_REST_RESTORE_OPTION,
+					{"amount": restore_amount}
+				),
+				"description": TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_REST_CARD_DESCRIPTION,
+					{
+						"current": chance_gems,
+						"result": projected_chance_gems,
+					}
+				),
+				"level_text": TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_REST_CARD_COMPLETE_BADGE
+					if used or full
+					else TowerAscentNodeModalLocalization.KEY_REST_CARD_BADGE
+				),
+				"card_content_kind": "chance_gem",
+				"presentation_mode": "hero",
+				"icon_color": Color(0.33, 0.72, 1.0),
+				"tower_node_strict_text_budget": true,
+			},
+			"presentation": {
+				"current": str(chance_gems),
+				"result": str(projected_chance_gems),
+				"target": TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_REST_RESTORE_OPTION,
+					{"amount": restore_amount}
+				),
+				"strict_text_budget": true,
+			},
 		},
 	}]
 

@@ -112,6 +112,8 @@ const BALANCE_TEXT_GAP := 10.0
 const BALANCE_FONT_SIZE := 18.0
 const BALANCE_TEXT_OUTLINE_SIZE := 2.0
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const LAYOUT_FLAG_HERO_CARD := "hero_card"
+const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
 
 const INK := Color("30271f")
 const INK_SOFT := Color("665343")
@@ -2844,7 +2846,13 @@ func _draw_node_modal(
 		var card_renderer: Object = render_context.get("card_renderer", null)
 		var icon_renderer: Object = render_context.get("icon_renderer", null)
 		var draws_card := (
-			str(model.get("node_kind", "")) in ["shop", "training", "fallen_monk"]
+			str(model.get("node_kind", "")) in [
+				"shop",
+				"training",
+				"fallen_monk",
+				"guardian_spring",
+				"rest",
+			]
 			and str(action.get("id", "")) != "end_work"
 			and card_renderer != null
 			and card_renderer.has_method("draw_tower_node_card")
@@ -2882,6 +2890,8 @@ func _draw_node_modal(
 					render_context.get("active_item_hud_visuals", null)
 				)
 		else:
+			if not row_rect.has_area():
+				continue
 			_draw_modal_action_row(
 				canvas,
 				row_rect,
@@ -2889,6 +2899,8 @@ func _draw_node_modal(
 				index == selected_index,
 				content_scale
 			)
+	if bool(layout_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false)):
+		_draw_node_modal_page_controls(canvas, model, node_accent, content_scale)
 	var status_baseline: Vector2 = model.get(
 		"status_baseline",
 		_screen_point(Vector2(126.0, 680.0), content_scale, content_offset)
@@ -2904,6 +2916,72 @@ func _draw_node_modal(
 	)
 
 
+func _draw_node_modal_page_controls(
+	canvas: CanvasItem,
+	model: Dictionary,
+	node_accent: Color,
+	content_scale: float
+) -> void:
+	var page_count := maxi(1, int(model.get("page_count", 1)))
+	if page_count <= 1:
+		return
+	var visible_page := clampi(int(model.get("visible_page", 0)), 0, page_count - 1)
+	var hovered_direction := int(model.get("hovered_page_direction", 0))
+	var pressed_direction := int(model.get("pressed_page_direction", 0))
+	var font := ThemeDB.fallback_font
+	for spec in [
+		{
+			"direction": -1,
+			"rect": model.get("page_previous_rect", Rect2()),
+			"label": "‹",
+			"enabled": visible_page > 0,
+		},
+		{
+			"direction": 1,
+			"rect": model.get("page_next_rect", Rect2()),
+			"label": "›",
+			"enabled": visible_page < page_count - 1,
+		},
+	]:
+		var rect: Rect2 = spec.get("rect", Rect2())
+		if not rect.has_area():
+			continue
+		var direction := int(spec.get("direction", 0))
+		var enabled := bool(spec.get("enabled", false))
+		var hovered := direction == hovered_direction
+		var pressed := direction == pressed_direction
+		var fill := Color(0.95, 0.88, 0.70, 0.94) if enabled else Color(0.55, 0.50, 0.43, 0.32)
+		if hovered and enabled:
+			fill = fill.lerp(Color(node_accent, 0.90), 0.28)
+		if pressed and enabled:
+			fill = fill.darkened(0.12)
+		canvas.draw_rect(rect, fill, true)
+		canvas.draw_rect(
+			rect,
+			Color(node_accent, 0.94 if hovered or pressed else 0.68) if enabled else Color(0.30, 0.27, 0.24, 0.32),
+			false,
+			maxf(1.0, (2.4 if hovered or pressed else 1.5) * content_scale)
+		)
+		canvas.draw_string(
+			font,
+			rect.position + Vector2(0.0, rect.size.y * 0.73),
+			str(spec.get("label", "")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			rect.size.x,
+			maxi(12, int(round(24.0 * content_scale))),
+			INK if enabled else INK_SOFT
+		)
+	var label_rect: Rect2 = model.get("page_label_rect", Rect2())
+	if label_rect.has_area():
+		canvas.draw_string(
+			font,
+			label_rect.position + Vector2(0.0, label_rect.size.y * 0.70),
+			"%d / %d" % [visible_page + 1, page_count],
+			HORIZONTAL_ALIGNMENT_CENTER,
+			label_rect.size.x,
+			maxi(10, int(round(14.0 * content_scale))),
+			INK_SOFT
+		)
 func _draw_training_stage_layout(
 	canvas: CanvasItem,
 	model: Dictionary,

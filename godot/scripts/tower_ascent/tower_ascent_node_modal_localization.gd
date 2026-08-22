@@ -61,10 +61,25 @@ const KEY_SPRING_ENHANCE_COMPLETED := "tower_ascent.node_modal.guardian_spring.e
 const KEY_SPRING_SWAP_COMPLETED := "tower_ascent.node_modal.guardian_spring.swap_completed"
 const KEY_SPRING_ABSORB_COMPLETED := "tower_ascent.node_modal.guardian_spring.absorb_completed"
 const KEY_SPRING_ACTION_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.action_unavailable"
+const KEY_SPRING_CARD_BADGE_SOUL := "tower_ascent.node_modal.guardian_spring.card_badge.soul"
+const KEY_SPRING_CARD_BADGE_ENHANCE := "tower_ascent.node_modal.guardian_spring.card_badge.enhance"
+const KEY_SPRING_CARD_BADGE_SWAP := "tower_ascent.node_modal.guardian_spring.card_badge.swap"
+const KEY_SPRING_CARD_BADGE_ABSORB := "tower_ascent.node_modal.guardian_spring.card_badge.absorb"
+const KEY_SPRING_CARD_SOUL_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.soul"
+const KEY_SPRING_CARD_ENHANCE_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.enhance"
+const KEY_SPRING_CARD_SWAP_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.swap"
+const KEY_SPRING_CARD_ABSORB_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.absorb"
+const KEY_SPRING_STATE_ACTIVE := "tower_ascent.node_modal.guardian_spring.state.active"
+const KEY_SPRING_STATE_SEALED := "tower_ascent.node_modal.guardian_spring.state.sealed"
+const KEY_SPRING_STATE_ENHANCED := "tower_ascent.node_modal.guardian_spring.state.enhanced"
+const KEY_SPRING_STATE_ABSORBED := "tower_ascent.node_modal.guardian_spring.state.absorbed"
 const KEY_REST_RESTORE_OPTION := "tower_ascent.node_modal.rest.restore_option"
 const KEY_REST_ALREADY_USED := "tower_ascent.node_modal.rest.already_used"
 const KEY_REST_CHANCE_GEMS_FULL := "tower_ascent.node_modal.rest.chance_gems_full"
 const KEY_REST_COMPLETED := "tower_ascent.node_modal.rest.completed"
+const KEY_REST_CARD_BADGE := "tower_ascent.node_modal.rest.card_badge"
+const KEY_REST_CARD_COMPLETE_BADGE := "tower_ascent.node_modal.rest.card_complete_badge"
+const KEY_REST_CARD_DESCRIPTION := "tower_ascent.node_modal.rest.card_description"
 
 const NODE_TITLE_KEYS := {
 	"shop": "tower_ascent.node_modal.shop.title",
@@ -144,10 +159,25 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_SWAP_COMPLETED: "{name} 교체 완료",
 		KEY_SPRING_ABSORB_COMPLETED: "{name} 흡수 완료",
 		KEY_SPRING_ACTION_UNAVAILABLE: "샘터에서 처리할 수호령 업무가 없습니다.",
+		KEY_SPRING_CARD_BADGE_SOUL: "영혼소환술",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "활성 · 강화",
+		KEY_SPRING_CARD_BADGE_SWAP: "봉인 · 교체",
+		KEY_SPRING_CARD_BADGE_ABSORB: "봉인 · 흡수",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "영혼소환술을 익혀 첫 수호령을 맞이합니다.",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "활성 수호령에 다음 강화 결과를 적용합니다.",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "봉인 수호령을 활성 수호령과 교체합니다.",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "봉인 수호령의 힘을 활성 수호령에 흡수합니다.",
+		KEY_SPRING_STATE_ACTIVE: "활성",
+		KEY_SPRING_STATE_SEALED: "봉인",
+		KEY_SPRING_STATE_ENHANCED: "강화",
+		KEY_SPRING_STATE_ABSORBED: "흡수",
 		KEY_REST_RESTORE_OPTION: "기회의 보석 {amount}개 회복",
 		KEY_REST_ALREADY_USED: "이 휴식 노드의 회복을 이미 마쳤습니다.",
 		KEY_REST_CHANCE_GEMS_FULL: "기회의 보석이 최대 {maximum}개입니다.",
 		KEY_REST_COMPLETED: "기회의 보석 {amount}개 회복 완료",
+		KEY_REST_CARD_BADGE: "회복",
+		KEY_REST_CARD_COMPLETE_BADGE: "완료",
+		KEY_REST_CARD_DESCRIPTION: "기회의 보석 {current} → {result}",
 		"tower_ascent.node_modal.shop.title": "상점",
 		"tower_ascent.node_modal.shop.description": "탑 안에서 쓸 물자를 골라 준비합니다.",
 		"tower_ascent.node_modal.training.title": "수련장",
@@ -162,6 +192,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_SPRING_CARD_BADGE_SOUL: "Soul Summoning",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "Active · Enhance",
+		KEY_SPRING_CARD_BADGE_SWAP: "Sealed · Swap",
+		KEY_SPRING_CARD_BADGE_ABSORB: "Sealed · Absorb",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Learn Soul Summoning and welcome your first guardian.",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Apply the next enhancement to the active guardian.",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Swap this sealed guardian with the active guardian.",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorb this sealed guardian into the active guardian.",
+		KEY_SPRING_STATE_ACTIVE: "Active",
+		KEY_SPRING_STATE_SEALED: "Sealed",
+		KEY_SPRING_STATE_ENHANCED: "Enhanced",
+		KEY_SPRING_STATE_ABSORBED: "Absorbed",
+		KEY_REST_CARD_BADGE: "Restore",
+		KEY_REST_CARD_COMPLETE_BADGE: "Complete",
+		KEY_REST_CARD_DESCRIPTION: "Chance Gems {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "Mugong Soul {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "Gold {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "Now {current} → Result {result}",
@@ -177,6 +222,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_SPRING_CARD_BADGE_SOUL: "灵魂召唤术",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "出战 · 强化",
+		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交换",
+		KEY_SPRING_CARD_BADGE_ABSORB: "封印 · 吸收",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "习得灵魂召唤术，迎接首位守护灵。",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "为当前守护灵应用下一次强化。",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "将封印守护灵与当前守护灵交换。",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "将封印守护灵的力量融入当前守护灵。",
+		KEY_SPRING_STATE_ACTIVE: "出战",
+		KEY_SPRING_STATE_SEALED: "封印",
+		KEY_SPRING_STATE_ENHANCED: "强化",
+		KEY_SPRING_STATE_ABSORBED: "吸收",
+		KEY_REST_CARD_BADGE: "恢复",
+		KEY_REST_CARD_COMPLETE_BADGE: "完成",
+		KEY_REST_CARD_DESCRIPTION: "机会宝石 {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "武魂 {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "金币 {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "当前 {current} → 结果 {result}",
@@ -192,6 +252,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_SPRING_CARD_BADGE_SOUL: "魂召喚術",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "同行 · 強化",
+		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交代",
+		KEY_SPRING_CARD_BADGE_ABSORB: "封印 · 吸収",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "魂召喚術を学び、最初の守護霊を迎えます。",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "同行中の守護霊に次の強化を適用します。",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "封印した守護霊を同行中の守護霊と交代します。",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "封印した守護霊の力を同行中の守護霊へ吸収します。",
+		KEY_SPRING_STATE_ACTIVE: "同行",
+		KEY_SPRING_STATE_SEALED: "封印",
+		KEY_SPRING_STATE_ENHANCED: "強化",
+		KEY_SPRING_STATE_ABSORBED: "吸収",
+		KEY_REST_CARD_BADGE: "回復",
+		KEY_REST_CARD_COMPLETE_BADGE: "完了",
+		KEY_REST_CARD_DESCRIPTION: "機会の宝石 {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "武魂 {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "金貨 {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "現在 {current} → 結果 {result}",
@@ -207,6 +282,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_SPRING_CARD_BADGE_SOUL: "Invocación",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "Activo · Mejora",
+		KEY_SPRING_CARD_BADGE_SWAP: "Sellado · Cambio",
+		KEY_SPRING_CARD_BADGE_ABSORB: "Sellado · Absorción",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprende Invocación y recibe a tu primer guardián.",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Aplica la siguiente mejora al guardián activo.",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Cambia este guardián sellado por el guardián activo.",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorbe este guardián sellado en el guardián activo.",
+		KEY_SPRING_STATE_ACTIVE: "Activo",
+		KEY_SPRING_STATE_SEALED: "Sellado",
+		KEY_SPRING_STATE_ENHANCED: "Mejorado",
+		KEY_SPRING_STATE_ABSORBED: "Absorbido",
+		KEY_REST_CARD_BADGE: "Recuperar",
+		KEY_REST_CARD_COMPLETE_BADGE: "Completo",
+		KEY_REST_CARD_DESCRIPTION: "Gemas de oportunidad {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "Alma marcial {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "Oro {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "Ahora {current} → Resultado {result}",
@@ -222,6 +312,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_SPRING_CARD_BADGE_SOUL: "Invocação",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "Ativo · Reforço",
+		KEY_SPRING_CARD_BADGE_SWAP: "Selado · Troca",
+		KEY_SPRING_CARD_BADGE_ABSORB: "Selado · Absorção",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprenda Invocação e receba seu primeiro guardião.",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Aplique o próximo reforço ao guardião ativo.",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Troque este guardião selado pelo guardião ativo.",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorva este guardião selado no guardião ativo.",
+		KEY_SPRING_STATE_ACTIVE: "Ativo",
+		KEY_SPRING_STATE_SEALED: "Selado",
+		KEY_SPRING_STATE_ENHANCED: "Reforçado",
+		KEY_SPRING_STATE_ABSORBED: "Absorvido",
+		KEY_REST_CARD_BADGE: "Recuperar",
+		KEY_REST_CARD_COMPLETE_BADGE: "Concluído",
+		KEY_REST_CARD_DESCRIPTION: "Gemas de chance {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "Alma marcial {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "Ouro {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "Agora {current} → Resultado {result}",
@@ -237,6 +342,21 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_SPRING_CARD_BADGE_SOUL: "Призыв духа",
+		KEY_SPRING_CARD_BADGE_ENHANCE: "Активный · Усиление",
+		KEY_SPRING_CARD_BADGE_SWAP: "Печать · Замена",
+		KEY_SPRING_CARD_BADGE_ABSORB: "Печать · Поглощение",
+		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Изучите призыв и встретьте первого хранителя.",
+		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Примените следующее усиление к активному хранителю.",
+		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Замените активного хранителя этим запечатанным.",
+		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Поглотите силу этого хранителя активным хранителем.",
+		KEY_SPRING_STATE_ACTIVE: "Активный",
+		KEY_SPRING_STATE_SEALED: "Печать",
+		KEY_SPRING_STATE_ENHANCED: "Усилен",
+		KEY_SPRING_STATE_ABSORBED: "Поглощён",
+		KEY_REST_CARD_BADGE: "Восстановить",
+		KEY_REST_CARD_COMPLETE_BADGE: "Готово",
+		KEY_REST_CARD_DESCRIPTION: "Камни шанса {current} → {result}",
 		KEY_BALANCE_RECEIPT_MUHON: "Душа боя {before} → {after}, {delta}",
 		KEY_BALANCE_RECEIPT_GOLD: "Золото {before} → {after}, {delta}",
 		KEY_HOVER_CURRENT_RESULT: "Сейчас {current} → Итог {result}",

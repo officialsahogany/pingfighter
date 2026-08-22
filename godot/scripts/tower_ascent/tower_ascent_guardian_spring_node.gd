@@ -277,17 +277,38 @@ func execute_action(
 
 
 func _build_soul_summoning_action() -> Dictionary:
+	var label := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_SOUL_SUMMONING_OPTION
+	)
+	var badge := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_SOUL
+	)
 	return {
 		"id": "%s%s" % [ACTION_PREFIX, OP_SOUL_SUMMONING],
-		"label": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_SPRING_SOUL_SUMMONING_OPTION
-		),
+		"label": label,
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_FREE
 		),
 		"enabled": true,
 		"unavailable_reason": "",
-		"payload": {"operation": OP_SOUL_SUMMONING},
+		"payload": {
+			"operation": OP_SOUL_SUMMONING,
+			"choice": _build_guardian_card_choice(
+				"",
+				label,
+				badge,
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_SOUL_DESCRIPTION
+				)
+			),
+			"presentation": _build_guardian_presentation(
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_STATE_EMPTY
+				),
+				badge,
+				label
+			),
+		},
 	}
 
 
@@ -302,7 +323,26 @@ func _build_first_visit_complete_action() -> Dictionary:
 		"enabled": false,
 		"disabled_reason": "guardian_spring_first_visit_complete",
 		"unavailable_reason": message,
-		"payload": {},
+		"payload": {
+			"operation": "first_visit_complete",
+			"choice": _build_guardian_card_choice(
+				"",
+				message,
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+				),
+				message
+			),
+			"presentation": _build_guardian_presentation(
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+				),
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+				),
+				message
+			),
+		},
 	}
 
 
@@ -343,11 +383,20 @@ func _build_enhance_action(
 			}
 		)
 	var sequence := _operation_count(node_id, OP_ENHANCE)
+	var active_guardian := _dictionary(_state.get("active_guardian", {}))
+	var pet_id := str(active_guardian.get("pet_id", ""))
+	var display_name := str(active_guardian.get(
+		"display_name",
+		LingpetCatalog.get_display_name(pet_id)
+	))
+	var badge := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_ENHANCE
+	)
 	return {
 		"id": "%s%s:%d" % [ACTION_PREFIX, OP_ENHANCE, sequence],
 		"label": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_ENHANCE_OPTION,
-			{"name": str((_state.get("active_guardian", {}) as Dictionary).get("display_name", ""))}
+			{"name": display_name}
 		),
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
@@ -358,7 +407,25 @@ func _build_enhance_action(
 		"unavailable_reason": unavailable_reason,
 		"payload": {
 			"operation": OP_ENHANCE,
+			"pet_id": pet_id,
 			"rng_seed": absi(hash("%s:%d:%s:%d" % [RNG_VERSION, map_seed, node_id, sequence])),
+			"choice": _build_guardian_card_choice(
+				pet_id,
+				display_name,
+				badge,
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_ENHANCE_DESCRIPTION
+				)
+			),
+			"presentation": _build_guardian_presentation(
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ACTIVE
+				),
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ENHANCED
+				),
+				display_name
+			),
 		},
 	}
 
@@ -389,6 +456,21 @@ func _build_sealed_action(
 		if operation == OP_SWAP
 		else TowerAscentNodeModalLocalization.KEY_SPRING_ABSORB_OPTION
 	)
+	var badge_key := (
+		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_SWAP
+		if operation == OP_SWAP
+		else TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_ABSORB
+	)
+	var description_key := (
+		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_SWAP_DESCRIPTION
+		if operation == OP_SWAP
+		else TowerAscentNodeModalLocalization.KEY_SPRING_CARD_ABSORB_DESCRIPTION
+	)
+	var result_key := (
+		TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ACTIVE
+		if operation == OP_SWAP
+		else TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ABSORBED
+	)
 	return {
 		"id": "%s%s:%s" % [ACTION_PREFIX, operation, pet_id],
 		"label": TowerAscentNodeModalLocalization.text(label_key, {"name": display_name}),
@@ -398,7 +480,70 @@ func _build_sealed_action(
 		"enabled": enabled,
 		"disabled_reason": disabled_reason,
 		"unavailable_reason": unavailable_reason,
-		"payload": {"operation": operation, "pet_id": pet_id},
+		"payload": {
+			"operation": operation,
+			"pet_id": pet_id,
+			"choice": _build_guardian_card_choice(
+				pet_id,
+				display_name,
+				TowerAscentNodeModalLocalization.text(badge_key),
+				TowerAscentNodeModalLocalization.text(description_key)
+			),
+			"presentation": _build_guardian_presentation(
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_STATE_SEALED
+				),
+				TowerAscentNodeModalLocalization.text(result_key),
+				display_name
+			),
+		},
+	}
+
+
+func _build_guardian_card_choice(
+	pet_id: String,
+	display_name: String,
+	badge: String,
+	description: String
+) -> Dictionary:
+	var normalized_pet_id := pet_id.strip_edges().to_lower()
+	return {
+		"id": (
+			"guardian_spirit_egg"
+			if normalized_pet_id.is_empty()
+			else "guardian_portrait:%s" % normalized_pet_id
+		),
+		"icon_id": "guardian_spirit_egg" if normalized_pet_id.is_empty() else "",
+		"name": display_name,
+		"description": description,
+		"level_text": badge,
+		"tree": "guardian",
+		"icon_color": Color(0.37, 0.72, 0.66),
+		"card_content_kind": (
+			"guardian_egg" if normalized_pet_id.is_empty() else "guardian_portrait"
+		),
+		"guardian_pet_id": normalized_pet_id,
+		# The catalog path is presentation evidence only. The icon renderer resolves
+		# and prewarms the same live catalog key; the draw path never loads it.
+		"guardian_portrait_path": (
+			""
+			if normalized_pet_id.is_empty()
+			else LingpetCatalog.get_visual_path(normalized_pet_id, "cutin_art")
+		),
+		"tower_node_strict_text_budget": true,
+	}
+
+
+func _build_guardian_presentation(
+	current_text: String,
+	result_text: String,
+	target_text: String
+) -> Dictionary:
+	return {
+		"current": current_text,
+		"result": result_text,
+		"target": target_text,
+		"strict_text_budget": true,
 	}
 
 
