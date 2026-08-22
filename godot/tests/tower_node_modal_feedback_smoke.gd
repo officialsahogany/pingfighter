@@ -208,7 +208,11 @@ func _verify_shop_presentation_adapter() -> void:
 	var run_state: Object = flow.get("_run_state")
 	run_state.begin("shop-adapter", {"gold": 30, "muhon": 8})
 	flow.set("_current_node_id", "shop-node")
-	flow.set("_generated_shop_inventory", [{
+	# GRT-051 sibling: _generated_shop_inventory is a TYPED Array[Dictionary].
+	# set() with an untyped literal silently no-ops, so build the typed value
+	# first. The old fixture never actually injected its stock and only passed
+	# because the inventory builder happened to generate content.
+	var fixture_inventory: Array[Dictionary] = [{
 		"node_id": "shop-node",
 		"stock": [{
 			"stock_id": "shop-stock",
@@ -219,8 +223,17 @@ func _verify_shop_presentation_adapter() -> void:
 			"display_name": "검증 귀물",
 			"description": "상점 어댑터 검증",
 		}],
-	}])
+	}]
+	flow.set("_generated_shop_inventory", fixture_inventory)
+	var injected: Variant = flow.get("_generated_shop_inventory")
+	_expect(
+		injected is Array and (injected as Array).size() == 1,
+		"shop adapter fixture inventory must actually be injected"
+	)
 	var actions: Array = flow.call("_build_shop_actions")
+	_expect(not actions.is_empty(), "shop adapter must build at least one action from the injected stock")
+	if actions.is_empty():
+		return
 	var presentation: Dictionary = actions[0].get("payload", {}).get("presentation", {})
 	_expect(not str(presentation.get("current", "")).is_empty(), "shop adapter must expose current state")
 	_expect(not str(presentation.get("result", "")).is_empty(), "shop adapter must expose result state")

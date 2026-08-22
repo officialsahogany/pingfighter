@@ -1,8 +1,8 @@
 extends RefCounted
 
 # TEMP: 경기게임오디션 2026 제출 구성의 단일 롤백 지점이다. 이 값을 false로
-# 바꾸면 export feature가 남아 있어도 표준 9층/일반 보스 풀/환경변수 opt-in
-# 동작으로 돌아간다.
+# 바꾸면 export feature가 남아 있어도 표준 9층/일반 보스 풀로 돌아간다.
+# 탑 진행의 프로젝트 기본값은 tower_ascent_feature_flags.gd가 별도로 소유한다.
 const TEMP_AUDITION_BUILD_ENABLED := true
 const TEMP_AUDITION_EXPORT_FEATURE := "tower_audition"
 const TEMP_AUDITION_CLEAR_FLOOR := 7

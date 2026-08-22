@@ -3,10 +3,13 @@ extends SceneTree
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const BattleBootWarmupController := preload("res://scripts/core/battle_boot_warmup_controller.gd")
 const BattleBootWarmupPlan := preload("res://scripts/core/battle_boot_warmup_plan.gd")
-const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
+const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
+const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const ScriptInstanceCache := preload("res://scripts/resources/script_instance_cache.gd")
 
 
 class FakeOwner:
@@ -373,8 +376,19 @@ class FakeCharacterInfo:
 		return lingpet_panel_step_calls >= 2
 
 
+class FakeTowerFlowOwner:
+	extends RefCounted
+
+	var muhon_prewarm_calls := 0
+
+	func prewarm_muhon_collection(_owner: Object) -> Dictionary:
+		muhon_prewarm_calls += 1
+		return {"accepted": true, "reason": "fake_prewarmed"}
+
+
 class FakeRegistry:
 	var warmup_plan := BattleBootWarmupPlan.new()
+	var tower_ascent_flow_owner := FakeTowerFlowOwner.new()
 	var resource_prewarm := BattleBootResourcePrewarmController.new()
 	var battle_perf_logger := FakePerfLogger.new()
 	var battle_resources := FakeBattleResources.new()
@@ -516,6 +530,8 @@ class FakeRegistry:
 		match key:
 			"battle_boot_resource_prewarm_controller":
 				return resource_prewarm
+			"tower_ascent_flow_owner":
+				return tower_ascent_flow_owner
 			"battle_boot_warmup_plan":
 				return warmup_plan
 			"battle_perf_logger":
@@ -736,7 +752,6 @@ func _run() -> void:
 	_verify_viper_runtime_node_prewarm()
 	_verify_boot_warmup_detail_label_names_selected_character_module()
 	_verify_boot_warmup_uses_staged_runtime_prewarm()
-	_verify_lingpet_staged_prewarm_is_idempotent()
 	_verify_boot_warmup_result_step_uses_result_prewarm_signature()
 	_verify_full_boot_warmup_finishes_without_stalling()
 	_verify_budgeted_boot_warmup_batches_steps_per_frame()
@@ -745,9 +760,12 @@ func _run() -> void:
 	_verify_budgeted_boot_warmup_yields_on_pso_prewarmer_node()
 	_verify_budgeted_boot_warmup_respects_frame_budget()
 	_verify_budgeted_boot_warmup_bounds_non_advancing_spin()
+	_verify_module_group_scripts_are_requested_ahead_in_a_bounded_window()
 	_verify_shell_wires_budgeted_boot_warmup()
 	_verify_character_info_resolve_waits_for_threaded_script()
 	_verify_character_info_lingpet_prewarm_recomputes_for_stage_transition_slots()
+	_verify_runtime_perk_prewarm_completion_is_idempotent()
+	await _verify_finished_threaded_script_requests_release_frame_gate()
 
 	for _cleanup_frame in range(4):
 		_cleanup()
@@ -768,6 +786,38 @@ func _quit_with_code(exit_code: int) -> void:
 
 func _get_module(key: String) -> Object:
 	return _registry.get_instance(key)
+
+
+func _verify_runtime_perk_prewarm_completion_is_idempotent() -> void:
+	var icon_renderer: Object = RuntimePerkIconRenderer.new()
+	icon_renderer.set("_prewarm_asset_jobs", [{"type": "source", "id": ""}])
+	_expect(bool(icon_renderer.prewarm_assets_step()), "runtime perk icon prewarm should complete its final staged job")
+	_expect(bool(icon_renderer.get("_prewarm_assets_complete")), "runtime perk icon prewarm should retain completion after releasing its job list")
+	_expect(bool(icon_renderer.prewarm_assets_step()), "a later sibling yield must not restart all runtime perk icon jobs")
+
+	var overlay_renderer: Object = RuntimePerkOverlayRenderer.new()
+	overlay_renderer.set("_prewarm_assets_step_index", 10)
+	_expect(bool(overlay_renderer.prewarm_assets_step()), "runtime perk overlay prewarm should complete after its final staged step")
+	_expect(bool(overlay_renderer.get("_prewarm_assets_complete")), "runtime perk overlay prewarm should retain completion after resetting its cursor")
+	_expect(bool(overlay_renderer.prewarm_assets_step()), "a later parent-stage yield must not restart the runtime perk overlay")
+
+	var lingpet_runtime: Object = LingpetEggRuntime.new()
+	lingpet_runtime.set("_prewarm_assets_step_index", 6)
+	_expect(bool(lingpet_runtime.prewarm_assets_step()), "lingpet runtime prewarm should complete after its final staged step")
+	_expect(bool(lingpet_runtime.get("_prewarm_assets_complete")), "lingpet runtime prewarm should retain completion after resetting its cursor")
+	_expect(bool(lingpet_runtime.prewarm_assets_step()), "a later overflow-icon yield must not restart the lingpet runtime prewarm")
+
+
+func _verify_finished_threaded_script_requests_release_frame_gate() -> void:
+	var cache: Object = ScriptInstanceCache.new()
+	var path := "res://scripts/core/battle_scene_config.gd"
+	cache.request_threaded_script(path, "battle scene config smoke")
+	for _poll in range(600):
+		if not bool(cache.has_threaded_script_request_in_flight()):
+			break
+		await process_frame
+	_expect(not bool(cache.has_threaded_script_request_in_flight()), "a finished ahead-of-consumer script request must release the boot frame gate")
+	_expect(cache.get_cached_script(path, "battle scene config smoke") != null, "frame-gate harvesting should retain the completed script in the instance cache")
 
 
 func _verify_character_info_resolve_waits_for_threaded_script() -> void:
@@ -1198,14 +1248,6 @@ func _verify_boot_warmup_detail_label_names_selected_character_module() -> void:
 	)
 
 
-func _verify_lingpet_staged_prewarm_is_idempotent() -> void:
-	var lingpet_runtime: Object = LingpetEggRuntime.new()
-	lingpet_runtime.set("_prewarm_assets_step_index", 6)
-	_expect(bool(lingpet_runtime.prewarm_assets_step()), "lingpet runtime prewarm should complete after its final staged step")
-	_expect(bool(lingpet_runtime.get("_prewarm_assets_complete")), "lingpet runtime prewarm should retain completion after resetting its cursor")
-	_expect(bool(lingpet_runtime.prewarm_assets_step()), "a later overflow-icon yield must not restart the lingpet runtime prewarm")
-
-
 func _verify_boot_warmup_uses_staged_runtime_prewarm() -> void:
 	var source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
 	var resource_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
@@ -1542,9 +1584,52 @@ func _verify_budgeted_boot_warmup_bounds_non_advancing_spin() -> void:
 	)
 
 
+func _verify_module_group_scripts_are_requested_ahead_in_a_bounded_window() -> void:
+	_registry = FakeRegistry.new()
+	var module_owner := FakeShellModuleGetter.new(_registry)
+	var warmup := BattleBootWarmupController.new()
+	var owner := FakeOwner.new()
+	warmup.set("boot_warmup_step", 13)
+	var update_keys: Array = _registry.warmup_plan.get_module_group("update_runtime")
+	var current_key := str(update_keys[0])
+	_registry.threaded_script_ready[current_key] = false
+
+	warmup.run_boot_warmup_step(owner, Callable(module_owner, "get_module"), Callable(), Callable())
+	var requested_unique: Array[String] = []
+	for key_value in _registry.threaded_script_requests:
+		var key := str(key_value)
+		if not requested_unique.has(key):
+			requested_unique.append(key)
+	_expect(requested_unique.has(current_key), "module-group prewarm should request the current script before resolving its instance")
+	_expect(
+		requested_unique.has(str(update_keys[1])),
+		"module-group prewarm should compile upcoming dependency trees while the current script is still loading"
+	)
+	_expect(
+		requested_unique.size() == BattleBootWarmupController.MODULE_SCRIPT_REQUEST_AHEAD,
+		"module-group script lookahead must stay inside its bounded worker window"
+	)
+	_expect(
+		not requested_unique.has(str(update_keys[BattleBootWarmupController.MODULE_SCRIPT_REQUEST_AHEAD])),
+		"module-group script lookahead must not request beyond the bounded worker window"
+	)
+
+
 func _verify_shell_wires_budgeted_boot_warmup() -> void:
 	var shell_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_shell.gd")
 	var warmup_source := FileAccess.get_file_as_string("res://scripts/core/battle_boot_warmup_controller.gd")
+	var loading_renderer_source := FileAccess.get_file_as_string("res://scripts/core/battle_loading_screen_renderer.gd")
+	var audio_setup_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio_setup_controller.gd")
+	var perk_icon_renderer_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_icon_renderer.gd")
+	var perk_overlay_renderer_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
+	var result_loader_source := FileAccess.get_file_as_string("res://scripts/ui/stage_clear_result_asset_loader.gd")
+	var result_fx_source := FileAccess.get_file_as_string("res://scripts/effects/result_box_open_fx_host.gd")
+	var flare_cache_source := FileAccess.get_file_as_string("res://scripts/effects/impact_flare_texture_cache.gd")
+	var script_cache_source := FileAccess.get_file_as_string("res://scripts/resources/script_instance_cache.gd")
+	var active_item_source := FileAccess.get_file_as_string("res://scripts/items/active_item_runtime.gd")
+	var mythic_item_source := FileAccess.get_file_as_string("res://scripts/items/mythic_item_runtime.gd")
+	var update_prewarm_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_update_prewarm_driver.gd")
+	var update_key_sets_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_update_prewarm_key_sets.gd")
 	_expect(
 		shell_source.find("run_boot_warmup_steps_budgeted") >= 0,
 		"battle scene shell should drive boot warmup through the frame-budgeted batching path"
@@ -1558,8 +1643,84 @@ func _verify_shell_wires_budgeted_boot_warmup() -> void:
 		"budgeted boot warmup must gate batching on battle_resources' own threaded slots too"
 	)
 	_expect(
+		warmup_source.find("MODULE_SCRIPT_REQUEST_AHEAD := 12") >= 0
+			and warmup_source.find("for request_index in range(module_index, request_end)") >= 0
+			and warmup_source.find("_is_threaded_module_script_ready(module_getter, module_key)") >= 0
+			and script_cache_source.find("ResourceLoader.load_threaded_request(path, \"Script\", true)") >= 0,
+		"boot module groups should compile a bounded window of dependency trees off the loading animation thread"
+	)
+	_expect(
+		update_prewarm_source.find("_prewarm_instance_script_step(registry, key)") >= 0
+			and update_prewarm_source.find("registry.request_threaded_script(key)") >= 0,
+		"update dependency prewarm should wait for threaded scripts before creating module instances"
+	)
+	_expect(
+		update_key_sets_source.find("\"ball_intensity\"") >= 0
+			and update_key_sets_source.find("\"victory_highlight_playback_state\"") >= 0
+			and update_key_sets_source.find("\"victory_highlight_recorder\"") >= 0
+			and update_key_sets_source.find("\"victory_loot_phase_state\"") >= 0,
+		"match-flow finalization dependencies must be threaded before their first registry lookup"
+	)
+	_expect(
+		warmup_source.find("module.prewarm_initialization_step(true, true)") >= 0
+			and warmup_source.find("module_initialization_thread_in_flight") >= 0
+			and active_item_source.find("_prewarm_helper_threaded_step(member_name)") >= 0
+			and mythic_item_source.find("_prewarm_helper_threaded_step(member_name)") >= 0
+			and active_item_source.find("HELPER_SCRIPT_REQUEST_AHEAD := 12") >= 0
+			and mythic_item_source.find("HELPER_SCRIPT_REQUEST_AHEAD := 12") >= 0
+			and active_item_source.find("_request_helper_scripts_ahead()") >= 0
+			and mythic_item_source.find("_request_helper_scripts_ahead()") >= 0,
+		"active and mythic item helper trees should compile bounded script windows and yield while workers are active"
+	)
+	_expect(
 		warmup_source.find("BattlePsoPrewarmer") >= 0,
 		"budgeted boot warmup must gate batching on the frame-gated PSO prewarmer node"
+	)
+	_expect(
+		BattleBootWarmupController.BOOT_WARMUP_FRAME_BUDGET_USEC == 8000,
+		"visible battle loading work should leave enough frame time for continuous haze animation"
+	)
+	_expect(
+		warmup_source.find("logo_intro.prewarm_assets()") < 0,
+		"skipped or already-active battle logos must not synchronously reload the fullscreen sheet during warmup"
+	)
+	_expect(
+		warmup_source.find("loading_renderer.prewarm_assets_step()") >= 0
+			and loading_renderer_source.find("LoadingInkHazeHost.prewarm_assets_threaded_step") >= 0,
+		"loading-screen textures should use the staged threaded path instead of freezing step zero"
+	)
+	_expect(
+		audio_setup_source.find("ProjectResourceLoader.request_audio_stream_threaded_batch(path)") >= 0
+			and audio_setup_source.find("ProjectResourceLoader.poll_audio_stream_threaded_batch(path)") >= 0
+			and audio_setup_source.find("ProjectResourceLoader.load_audio_stream(path)") < 0,
+		"battle audio setup must use a bounded parallel decoder queue off the loading animation thread"
+	)
+	_expect(
+		perk_icon_renderer_source.find("var _prewarm_assets_complete := false") >= 0
+			and perk_icon_renderer_source.find("if _prewarm_assets_complete:") >= 0
+			and perk_overlay_renderer_source.find("var _prewarm_assets_complete := false") >= 0
+			and perk_overlay_renderer_source.find("if _prewarm_assets_complete:") >= 0,
+		"stage-runtime perk prewarm children must stay complete while a later sibling still yields"
+	)
+	_expect(
+		result_loader_source.find("ProjectResourceLoader.prewarm_audio_stream_threaded_step(voice_path)") >= 0
+			and result_loader_source.find("ResultBoxOpenFxHost.prewarm_assets_threaded_step()") >= 0,
+		"stage-clear voice and result-box FX should preserve the loading animation frame boundary"
+	)
+	_expect(
+		result_fx_source.find("static func prewarm_assets_threaded_step() -> bool:") >= 0
+			and result_fx_source.find("ProjectResourceLoader.prewarm_texture_threaded_step(BACKPLATE_COMMON_PATH)") >= 0,
+		"result-box FX textures should use a staged threaded prewarm path"
+	)
+	_expect(
+		flare_cache_source.find("var ray_idx := wrapi(") >= 0
+			and flare_cache_source.find("for ray_idx in range(BURST_RAY_COUNT)") < 0,
+		"the shared impact burst cache must not repeat an 18-ray search for every boot-time pixel"
+	)
+	_expect(
+		warmup_source.find("get_transition_texture_prewarm_debug_label") >= 0
+			and warmup_source.find("get_prewarm_assets_debug_label") >= 0,
+		"boot perf labels should identify the exact transition/result asset if a handoff still stalls"
 	)
 
 

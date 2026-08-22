@@ -46,21 +46,49 @@ func _init() -> void:
 
 func _verify_export_default_gate() -> void:
 	TowerAuditionBuildConfig.debug_clear_enabled_override()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	var had_environment_value := OS.has_environment(
+		TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY
+	)
+	var previous_environment_value := OS.get_environment(
+		TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY
+	)
+	OS.unset_environment(TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY)
+	_expect(
+		TowerAscentFeatureFlags.is_vertical_slice_enabled(),
+		"the production flag path must enable tower mode without a launcher environment"
+	)
+	OS.set_environment(TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY, "0")
+	_expect(
+		not TowerAscentFeatureFlags.is_vertical_slice_enabled(),
+		"the production flag path must retain an explicit legacy-campaign OFF route"
+	)
+	if had_environment_value:
+		OS.set_environment(
+			TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY,
+			previous_environment_value
+		)
+	else:
+		OS.unset_environment(TowerAscentFeatureFlags.VERTICAL_SLICE_ENV_KEY)
 	_expect(
 		TowerAscentFeatureFlags.resolve_vertical_slice_enabled("", true),
 		"audition-tagged export must default to tower mode"
 	)
 	_expect(
-		not TowerAscentFeatureFlags.resolve_vertical_slice_enabled("", false),
-		"development execution without the export tag must remain opt-in"
+		TowerAscentFeatureFlags.resolve_vertical_slice_enabled("", false),
+		"main Godot development execution must default to tower mode"
 	)
 	_expect(
 		not TowerAscentFeatureFlags.resolve_vertical_slice_enabled("0", true),
 		"explicit environment OFF must override the audition export default"
 	)
 	_expect(
+		not TowerAscentFeatureFlags.resolve_vertical_slice_enabled("off", false),
+		"explicit environment OFF must retain the legacy-campaign QA route"
+	)
+	_expect(
 		TowerAscentFeatureFlags.resolve_vertical_slice_enabled("1", false),
-		"the legacy environment opt-in must remain available"
+		"explicit environment ON must remain available"
 	)
 
 
