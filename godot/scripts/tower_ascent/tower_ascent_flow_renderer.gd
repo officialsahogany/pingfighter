@@ -681,6 +681,7 @@ func _build_static_fullscreen_map_model(
 		var band_y := float((position_by_id[str(gate_ids[0])] as Vector2).y)
 		floor_bands.append({
 			"floor": floor_number,
+			"segment_floor": floor_number,
 			"y": band_y,
 			"rect": Rect2(
 				world_rect.position.x,
@@ -1587,7 +1588,7 @@ func build_scroll_background_model(
 	var previous_asset_key := ""
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
-		var floor_number := int(band.get("floor", 0))
+		var floor_number := int(band.get("segment_floor", band.get("floor", 0)))
 		var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
 			realm_kind,
 			floor_number,
@@ -1631,6 +1632,41 @@ func build_scroll_background_model(
 		"realm_kind": realm_kind,
 		"tiles": tiles,
 	}
+
+
+func resolve_segment_floor_for_world_y(
+	floor_bands_value: Variant,
+	world_y: float
+) -> int:
+	var floor_bands: Array = (
+		floor_bands_value as Array
+		if floor_bands_value is Array
+		else []
+	)
+	var boundary_epsilon := 0.01
+	var maximum_bottom := -INF
+	for band_variant in floor_bands:
+		if band_variant is Dictionary:
+			var band_rect: Rect2 = (band_variant as Dictionary).get("rect", Rect2())
+			maximum_bottom = maxf(maximum_bottom, band_rect.end.y)
+	for band_variant in floor_bands:
+		if not (band_variant is Dictionary):
+			continue
+		var band := band_variant as Dictionary
+		var band_rect: Rect2 = band.get("rect", Rect2())
+		if not band_rect.has_area():
+			continue
+		var inside_half_open := (
+			world_y >= band_rect.position.y - boundary_epsilon
+			and world_y < band_rect.end.y - boundary_epsilon
+		)
+		var closes_outer_bottom := (
+			is_equal_approx(band_rect.end.y, maximum_bottom)
+			and is_equal_approx(world_y, band_rect.end.y)
+		)
+		if inside_half_open or closes_outer_bottom:
+			return int(band.get("segment_floor", band.get("floor", 0)))
+	return 0
 
 
 func _collect_map_scroll_asset_resolutions(flow: Object) -> Dictionary:

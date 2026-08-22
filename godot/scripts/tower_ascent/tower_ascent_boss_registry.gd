@@ -14,6 +14,24 @@ const STATUS_PORTED := "ported"
 const STATUS_UNPORTED := "unported"
 const STATUS_SHELL := "shell"
 const STATUS_NEW_DESIGN := "new_design"
+const CONTENT_GENERATED := "generated"
+const CONTENT_REGISTRY_ONLY := "registry_only"
+const FOUR_KINGS_GROUP_SLOT_ID := "floor_11_four_kings_group"
+const COMBAT_NODE_KINDS := ["boss", "combat", "enraged"]
+const NPC_FILL_KINDS: Array[String] = [
+	"rest",
+	"guardian_spring",
+	"fallen_monk",
+	"shop",
+	"training",
+]
+const NPC_FILL_LABELS := {
+	"rest": "휴식",
+	"guardian_spring": "샘터",
+	"fallen_monk": "파계승",
+	"shop": "상점",
+	"training": "수련장",
+}
 
 const FLOOR_BOSS_SLOTS := {
 	1: [
@@ -81,6 +99,7 @@ func get_floor_slots(floor_number: int) -> Array[Dictionary]:
 	for slot_variant in FLOOR_BOSS_SLOTS.get(floor_number, []):
 		if slot_variant is Dictionary:
 			var slot: Dictionary = (slot_variant as Dictionary).duplicate(true)
+			slot["slot_floor"] = floor_number
 			result.append(_with_canonical_display_name(slot))
 	return result
 
@@ -98,17 +117,7 @@ func _with_canonical_display_name(slot: Dictionary) -> Dictionary:
 
 
 func get_seeded_floor_slots(floor_number: int, map_seed: int) -> Array[Dictionary]:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = map_seed ^ 0x4D4150
-	var selected: Array[Dictionary] = []
-	for current_floor in range(1, floor_number + 1):
-		var slots := _get_generation_slots(current_floor)
-		if slots.is_empty():
-			continue
-		_shuffle_slots(slots, rng)
-		if current_floor == floor_number:
-			selected = slots
-	return selected
+	return _get_shuffled_generation_slots(floor_number, map_seed)
 
 
 func get_slot(slot_id: String) -> Dictionary:
@@ -154,6 +163,16 @@ func resolve_battle_encounter(slot_id: String) -> Dictionary:
 	}
 
 
+func canonical_encounter_key(route: Dictionary) -> String:
+	var stage_id := int(route.get("stage", 0))
+	var variant_id := str(route.get("variant", "")).strip_edges().to_lower()
+	var boss_id := str(route.get("boss_id", "")).strip_edges().to_lower()
+	var encounter_id := variant_id if not variant_id.is_empty() else boss_id
+	if stage_id <= 0 or encounter_id.is_empty():
+		return ""
+	return "%d:%s" % [stage_id, encounter_id]
+
+
 func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 	var result := graph.duplicate(true)
 	var phases_variant: Variant = result.get("phases", [])
@@ -161,8 +180,32 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 		return {}
 	var phase: Dictionary = (phases_variant as Array)[0]
 	var nodes: Array = phase.get("nodes", [])
-	var rng := RandomNumberGenerator.new()
-	rng.seed = map_seed ^ 0x4D4150
+	var active_clear_floor := _resolve_active_clear_floor(result)
+	var used_generated_encounter_keys: Dictionary = {}
+	var terminal_node_index := _find_generated_terminal_node_index(
+		nodes,
+		active_clear_floor
+	)
+	if terminal_node_index >= 0:
+		var terminal_slots := _get_shuffled_generation_slots(
+			active_clear_floor,
+			map_seed
+		)
+		if terminal_slots.is_empty():
+			return {}
+		var terminal_slot := terminal_slots[0]
+		var terminal_key := canonical_encounter_key(
+			get_standin(str(terminal_slot.get("slot_id", "")))
+		)
+		if terminal_key.is_empty():
+			return {}
+		_assign_boss_slot(
+			nodes[terminal_node_index] as Dictionary,
+			terminal_slot,
+			terminal_slots,
+			terminal_key
+		)
+		used_generated_encounter_keys[terminal_key] = true
 	for floor_number in range(1, 13):
 		var boss_node_indexes: Array[int] = []
 		for node_index in range(nodes.size()):
@@ -170,43 +213,66 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 			if not (node_variant is Dictionary):
 				continue
 			var node := node_variant as Dictionary
-			if int(node.get("floor", 0)) == floor_number and str(node.get("kind", "")) in ["boss", "combat", "enraged"]:
+			if (
+				int(node.get("segment_floor", node.get("floor", 0))) == floor_number
+				and str(node.get("kind", "")) in COMBAT_NODE_KINDS
+			):
 				boss_node_indexes.append(node_index)
-		var slots := _get_generation_slots(floor_number)
-		if boss_node_indexes.is_empty() or slots.is_empty():
+		var slots := _get_shuffled_generation_slots(floor_number, map_seed)
+		if boss_node_indexes.is_empty():
 			continue
-		_shuffle_slots(slots, rng)
 		if floor_number == 11:
-			var group_slot_ids: Array[String] = []
-			var group_standins: Array[Dictionary] = []
+			_assign_four_kings_group(nodes[boss_node_indexes[0]] as Dictionary, slots)
+			for extra_index in range(1, boss_node_indexes.size()):
+				_assign_deterministic_npc_fill(
+					nodes[boss_node_indexes[extra_index]] as Dictionary,
+					nodes,
+					map_seed,
+					_slot_ids(slots)
+				)
+			continue
+		var used_floor_registry_keys: Dictionary = {}
+		for node_index in boss_node_indexes:
+			var node := nodes[node_index] as Dictionary
+			if str(node.get("boss_assignment_state", "")) == "assigned":
+				continue
+			var generated := (
+				str(node.get("content_state", "")) == CONTENT_GENERATED
+				and floor_number <= active_clear_floor
+			)
+			var assigned := false
 			for slot in slots:
 				var slot_id := str(slot.get("slot_id", ""))
-				group_slot_ids.append(slot_id)
-				group_standins.append(get_standin(slot_id))
-			var group_node: Dictionary = nodes[boss_node_indexes[0]]
-			group_node["boss_slot_id"] = "floor_11_four_kings_group"
-			group_node["boss_sequence_slot_ids"] = group_slot_ids
-			group_node["standin_sequence"] = group_standins
-			group_node["label"] = "4천왕"
-			group_node["encounter_locked"] = true
-			continue
-		for assignment_index in range(boss_node_indexes.size()):
-			var slot: Dictionary = slots[assignment_index % slots.size()]
-			var slot_id := str(slot.get("slot_id", ""))
-			var node: Dictionary = nodes[boss_node_indexes[assignment_index]]
-			node["boss_slot_id"] = slot_id
-			node["boss_pool_slot_ids"] = _slot_ids(slots)
-			node["boss_port_status"] = str(slot.get("status", ""))
-			node["standin"] = get_standin(slot_id)
-			node["label"] = str(slot.get("display_name", node.get("label", "보스")))
-			if str(slot.get("status", "")) != STATUS_PORTED:
-				node["encounter_locked"] = true
+				var encounter_key := canonical_encounter_key(get_standin(slot_id))
+				if encounter_key.is_empty():
+					continue
+				var used_keys := (
+					used_generated_encounter_keys
+					if generated
+					else used_floor_registry_keys
+				)
+				if used_keys.has(encounter_key):
+					continue
+				_assign_boss_slot(node, slot, slots, encounter_key)
+				used_keys[encounter_key] = true
+				assigned = true
+				break
+			if not assigned:
+				_assign_deterministic_npc_fill(
+					node,
+					nodes,
+					map_seed,
+					_slot_ids(slots)
+				)
 	phase["nodes"] = nodes
 	result["phases"] = [phase]
+	var contract := analyze_visible_boss_contract(result, active_clear_floor)
+	if not bool(contract.get("valid", false)):
+		return {}
 	return result
 
 
-func _get_generation_slots(floor_number: int) -> Array[Dictionary]:
+func get_generation_slots(floor_number: int) -> Array[Dictionary]:
 	var slots := get_floor_slots(floor_number)
 	if not TowerAuditionBuildConfig.is_linear_floor(floor_number):
 		return slots
@@ -215,6 +281,229 @@ func _get_generation_slots(floor_number: int) -> Array[Dictionary]:
 		if str(slot.get("status", "")) == STATUS_PORTED:
 			ported_slots.append(slot)
 	return ported_slots
+
+
+func analyze_visible_boss_contract(
+	graph: Dictionary,
+	active_clear_floor: int = -1
+) -> Dictionary:
+	var resolved_clear_floor := (
+		active_clear_floor
+		if active_clear_floor > 0
+		else _resolve_active_clear_floor(graph)
+	)
+	var issues: Array[String] = []
+	var used_encounter_keys: Dictionary = {}
+	var visible_encounter_count := 0
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var segment_floor := int(node.get("segment_floor", node.get("floor", 0)))
+			if (
+				str(node.get("content_state", "")) != CONTENT_GENERATED
+				or segment_floor > resolved_clear_floor
+				or str(node.get("kind", "")) not in COMBAT_NODE_KINDS
+			):
+				continue
+			if str(node.get("boss_slot_id", "")) == FOUR_KINGS_GROUP_SLOT_ID:
+				var sequence_ids: Array = node.get("boss_sequence_slot_ids", [])
+				for sequence_slot_variant in sequence_ids:
+					_register_visible_encounter(
+						str(sequence_slot_variant),
+						segment_floor,
+						str(node.get("id", "")),
+						used_encounter_keys,
+						issues
+					)
+					visible_encounter_count += 1
+				continue
+			var slot_id := str(node.get("boss_slot_id", ""))
+			if slot_id.is_empty():
+				issues.append("visible_boss_missing_slot=%s" % str(node.get("id", "")))
+				continue
+			_register_visible_encounter(
+				slot_id,
+				segment_floor,
+				str(node.get("id", "")),
+				used_encounter_keys,
+				issues
+			)
+			visible_encounter_count += 1
+	return {
+		"valid": issues.is_empty(),
+		"issues": issues,
+		"active_clear_floor": resolved_clear_floor,
+		"visible_encounter_count": visible_encounter_count,
+		"unique_encounter_count": used_encounter_keys.size(),
+	}
+
+
+func _register_visible_encounter(
+	slot_id: String,
+	segment_floor: int,
+	node_id: String,
+	used_encounter_keys: Dictionary,
+	issues: Array[String]
+) -> void:
+	var slot := get_slot(slot_id)
+	if slot.is_empty():
+		issues.append("unknown_boss_slot=%s:%s" % [node_id, slot_id])
+		return
+	var slot_floor := int(slot.get("slot_floor", 0))
+	if slot_floor != segment_floor:
+		issues.append(
+			"slot_floor_mismatch=%s:segment_%d:slot_%d"
+			% [node_id, segment_floor, slot_floor]
+		)
+	var encounter_key := canonical_encounter_key(get_standin(slot_id))
+	if encounter_key.is_empty():
+		issues.append("missing_encounter_key=%s:%s" % [node_id, slot_id])
+		return
+	if segment_floor == 1 and int(get_standin(slot_id).get("stage", 0)) != 1:
+		issues.append("floor_1_forbidden_encounter=%s:%s" % [node_id, encounter_key])
+	if used_encounter_keys.has(encounter_key):
+		issues.append(
+			"duplicate_encounter_key=%s:first_%s:again_%s"
+			% [encounter_key, str(used_encounter_keys[encounter_key]), node_id]
+		)
+		return
+	used_encounter_keys[encounter_key] = node_id
+
+
+func _resolve_active_clear_floor(graph: Dictionary) -> int:
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		var clear_floor := int((phase_variant as Dictionary).get("standard_clear_floor", 0))
+		if clear_floor > 0:
+			return clear_floor
+	return TowerAuditionBuildConfig.get_clear_floor()
+
+
+func _find_generated_terminal_node_index(nodes: Array, active_clear_floor: int) -> int:
+	for node_index in range(nodes.size()):
+		if not (nodes[node_index] is Dictionary):
+			continue
+		var node := nodes[node_index] as Dictionary
+		if (
+			int(node.get("segment_floor", node.get("floor", 0))) == active_clear_floor
+			and str(node.get("content_state", "")) == CONTENT_GENERATED
+			and bool(node.get("gatekeeper", false))
+			and bool(node.get("floor_boundary", false))
+			and str(node.get("kind", "")) == "boss"
+		):
+			return node_index
+	return -1
+
+
+func _get_shuffled_generation_slots(
+	floor_number: int,
+	map_seed: int
+) -> Array[Dictionary]:
+	var slots := get_generation_slots(floor_number)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = map_seed ^ 0x4D4150 ^ (floor_number * 0x45D9F3B)
+	_shuffle_slots(slots, rng)
+	return slots
+
+
+func _assign_boss_slot(
+	node: Dictionary,
+	slot: Dictionary,
+	pool_slots: Array[Dictionary],
+	encounter_key: String
+) -> void:
+	var slot_id := str(slot.get("slot_id", ""))
+	node["boss_slot_id"] = slot_id
+	node["boss_pool_slot_ids"] = _slot_ids(pool_slots)
+	node["boss_port_status"] = str(slot.get("status", ""))
+	node["boss_encounter_key"] = encounter_key
+	node["boss_assignment_state"] = "assigned"
+	node["standin"] = get_standin(slot_id)
+	node["label"] = str(slot.get("display_name", node.get("label", "보스")))
+	if str(slot.get("status", "")) != STATUS_PORTED:
+		node["encounter_locked"] = true
+
+
+func _assign_four_kings_group(node: Dictionary, slots: Array[Dictionary]) -> void:
+	var group_slot_ids: Array[String] = []
+	var group_standins: Array[Dictionary] = []
+	var group_encounter_keys: Array[String] = []
+	for slot in slots:
+		var slot_id := str(slot.get("slot_id", ""))
+		group_slot_ids.append(slot_id)
+		var standin := get_standin(slot_id)
+		group_standins.append(standin)
+		group_encounter_keys.append(canonical_encounter_key(standin))
+	node["boss_slot_id"] = FOUR_KINGS_GROUP_SLOT_ID
+	node["boss_sequence_slot_ids"] = group_slot_ids
+	node["standin_sequence"] = group_standins
+	node["boss_encounter_keys"] = group_encounter_keys
+	node["boss_assignment_state"] = "assigned"
+	node["label"] = "4천왕"
+	node["encounter_locked"] = true
+	# These stand-ins intentionally consume no visible-run uniqueness while their
+	# content_state is registry_only. If active_clear_floor reaches 11 or 12, the
+	# contract seal must fail until real, unique boss content replaces them.
+
+
+func _assign_deterministic_npc_fill(
+	node: Dictionary,
+	nodes: Array,
+	map_seed: int,
+	pool_slot_ids: Array[String]
+) -> void:
+	var row_kinds: Dictionary = {}
+	var global_row := int(node.get("global_row", -1))
+	for peer_variant in nodes:
+		if not (peer_variant is Dictionary):
+			continue
+		var peer := peer_variant as Dictionary
+		if int(peer.get("global_row", -2)) != global_row:
+			continue
+		var peer_kind := str(peer.get("kind", ""))
+		if peer_kind in NPC_FILL_KINDS:
+			row_kinds[peer_kind] = true
+	var start_index := _stable_npc_fill_index(
+		map_seed,
+		str(node.get("id", "")),
+		NPC_FILL_KINDS.size()
+	)
+	var chosen_kind := NPC_FILL_KINDS[start_index]
+	for offset in range(NPC_FILL_KINDS.size()):
+		var candidate := NPC_FILL_KINDS[(start_index + offset) % NPC_FILL_KINDS.size()]
+		if not row_kinds.has(candidate):
+			chosen_kind = candidate
+			break
+	for metadata_key in [
+		"boss_slot_id",
+		"boss_sequence_slot_ids",
+		"standin",
+		"standin_sequence",
+		"boss_port_status",
+		"boss_encounter_key",
+		"boss_encounter_keys",
+		"encounter_locked",
+	]:
+		node.erase(metadata_key)
+	node["kind"] = chosen_kind
+	node["label"] = str(NPC_FILL_LABELS.get(chosen_kind, "노드"))
+	node["boss_pool_slot_ids"] = pool_slot_ids.duplicate()
+	node["boss_assignment_state"] = "npc_fill"
+	node["boss_assignment_reason"] = "unique_visible_pool_exhausted"
+
+
+func _stable_npc_fill_index(map_seed: int, node_id: String, modulo: int) -> int:
+	if modulo <= 0:
+		return 0
+	var accumulator := (map_seed ^ 0x4E5043) & 0x7FFFFFFF
+	for byte_value in node_id.to_utf8_buffer():
+		accumulator = ((accumulator * 33) + int(byte_value)) & 0x7FFFFFFF
+	return accumulator % modulo
 
 
 func _slot_ids(slots: Array[Dictionary]) -> Array[String]:

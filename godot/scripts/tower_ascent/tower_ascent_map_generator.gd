@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v7_branching_lanes"
+const GENERATOR_VERSION := "tower_map_v8_segment_floor_unique_bosses"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -76,6 +76,10 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 			global_row_index += 1
 		if floor_number > 1 or floor_one_audition_route:
 			for optional_index in range(TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR):
+				var segment_floor := _segment_floor_for_optional_row(
+					floor_number,
+					active_clear_floor
+				)
 				var previous_lane_count := _last_row_lane_count(floor_specs, rows)
 				var lane_count := _choose_route_lane_count(
 					rng,
@@ -95,6 +99,7 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 				var row_id := "floor_%02d_route_%02d" % [floor_number, optional_index + 1]
 				rows.append({
 					"id": row_id,
+					"segment_floor": segment_floor,
 					"candidate_count": lane_count,
 					"node_ids": _lane_node_ids(row_id, lane_count),
 					"kinds": node_kinds,
@@ -183,7 +188,17 @@ func analyze_standard_combat_budget(graph: Dictionary) -> Dictionary:
 			var counts: Array[int] = []
 			for node_id_variant in (row_variant as Dictionary).get("node_ids", []):
 				var node: Dictionary = node_by_id.get(str(node_id_variant), {})
-				counts.append(1 if COMBAT_NODE_KINDS.has(str(node.get("kind", ""))) else 0)
+				var preserves_pre_s3_combat_tier := str(
+					node.get("boss_assignment_state", "")
+				) in ["assigned", "npc_fill"]
+				counts.append(
+					1
+					if (
+						COMBAT_NODE_KINDS.has(str(node.get("kind", "")))
+						or preserves_pre_s3_combat_tier
+					)
+					else 0
+				)
 			if not counts.is_empty():
 				minimum += counts.min()
 				maximum += counts.max()
@@ -257,6 +272,7 @@ func _generate_candidate(
 				"id": str(row_spec.get("id", "floor_%02d_row_%02d" % [floor_number, floor_row_index + 1])),
 				"node_ids": current_row_ids.duplicate(),
 				"gatekeeper": bool(row_spec.get("gatekeeper", false)),
+				"segment_floor": int(row_spec.get("segment_floor", floor_number)),
 			})
 			previous_row_ids = current_row_ids
 			floor_row_index += 1
@@ -290,6 +306,7 @@ func _build_gatekeeper_row(
 		labels.append("%d층 수문장" % floor_number)
 	return {
 		"id": row_id,
+		"segment_floor": floor_number,
 		"candidate_count": candidate_count,
 		"node_ids": _gatekeeper_node_ids(floor_number, candidate_count),
 		"kinds": kinds,
@@ -785,6 +802,7 @@ func _build_row_nodes(
 		result.append({
 			"id": node_id,
 			"floor": floor_number,
+			"segment_floor": int(row_spec.get("segment_floor", floor_number)),
 			"row": floor_row_index + 1,
 			"global_row": global_row_index,
 			"lane": lane,
@@ -859,20 +877,31 @@ func _choose_gatekeeper_lane_count(
 	previous_lane_count: int,
 	active_clear_floor: int
 ) -> int:
-	var slot_count := TowerAscentBossRegistry.new().get_floor_slots(floor_number).size()
-	var maximum_lane_count := mini(MAP_LANE_COUNT_MIN, slot_count)
 	if (
 		floor_number == 1
 		or floor_number == active_clear_floor
 		or floor_number in [11, TOWER_FLOOR_COUNT]
-		or maximum_lane_count <= 1
 	):
 		return 1
 	if previous_lane_count <= 1:
-		return mini(ROUTE_CANDIDATE_COUNT, maximum_lane_count)
-	if maximum_lane_count <= ROUTE_CANDIDATE_COUNT:
-		return maximum_lane_count
-	return maximum_lane_count if rng.randf() < 0.72 else ROUTE_CANDIDATE_COUNT
+		return ROUTE_CANDIDATE_COUNT
+	# Lane width belongs to graph topology. Boss availability is normalized later
+	# by the registry with deterministic NPC fills, so audition filtering and
+	# sparse content pools can never collapse a route into a one-lane chain.
+	return MAP_LANE_COUNT_MIN if rng.randf() < 0.72 else ROUTE_CANDIDATE_COUNT
+
+
+func _segment_floor_for_optional_row(
+	floor_number: int,
+	active_clear_floor: int
+) -> int:
+	# Floor bands are half-open at the route row between adjacent gate markers:
+	# that boundary belongs to the lower, already-entered segment. The first row
+	# of a newly activated realm is the sole exception because the prior band is
+	# not part of that phase's render surface.
+	if floor_number == active_clear_floor + 1:
+		return floor_number
+	return maxi(1, floor_number - 1)
 
 
 func _lane_node_ids(row_id: String, lane_count: int) -> Array[String]:

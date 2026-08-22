@@ -16,7 +16,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v7_branching_lanes"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v8_segment_floor_unique_bosses"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536

@@ -61,7 +61,12 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 		)
 		for gate_node_id_variant in gate_row.node_ids:
 			var gate_node: Dictionary = node_by_id.get(str(gate_node_id_variant), {})
-			_expect(gate_node.kind == "boss" and bool(gate_node.floor_boundary), "floor boundary nodes must be boss slots")
+			_expect(bool(gate_node.floor_boundary), "floor boundary metadata must survive boss-pool normalization")
+			_expect(
+				str(gate_node.get("kind", "")) == "boss"
+				or str(gate_node.get("boss_assignment_state", "")) == "npc_fill",
+				"floor boundary lanes must be a unique boss or deterministic NPC fill"
+			)
 		if floor_index > 0:
 			var route_row: Dictionary = floor_data.rows[0]
 			var route_width: int = (route_row.get("node_ids", []) as Array).size()
@@ -77,7 +82,7 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 					_expect(str(node.get("label", "")) == _label_for_kind(str(node.get("kind", "")), int(floor_data.floor)), "generated node labels must stay paired with their node kind")
 				if int(floor_data.floor) > 9:
 					_expect(bool(node.get("route_locked", false)), "10-12 floor metadata must remain unreachable before the true-ending gate")
-	for required_kind in ["boss", "combat", "enraged", "shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+	for required_kind in ["boss", "shop", "training", "fallen_monk", "guardian_spring", "rest"]:
 		_expect(seen_kinds.has(required_kind), "generated slots must include node kind: %s" % required_kind)
 
 
