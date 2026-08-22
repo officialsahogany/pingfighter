@@ -8,8 +8,9 @@ const MAX_RECORD_SEC := 2.0
 const VISUAL_CAPACITY := 248
 const EVENT_CAPACITY := 512
 const MIN_CLIP_SEC := 0.75
-const MAX_CLIP_SEC := 1.10
-const GOAL_HOLD_SEC := 0.25
+const MAX_ACTION_SEC := 1.50
+const GOAL_HOLD_SEC := 0.50
+const MAX_CLIP_SEC := MAX_ACTION_SEC + GOAL_HOLD_SEC
 const LONG_RALLY_MIN := 6
 const CLUTCH_SCORE_MIN := 2.0
 
@@ -21,6 +22,11 @@ const EVENT_GOAL := 4
 const LABEL_FINISHER := "victory_highlight_finisher"
 const LABEL_LONG_RALLY := "victory_highlight_long_rally"
 const LABEL_CLUTCH := "victory_highlight_clutch"
+# Opt-in B-slice live measurement. Enable before the battle process starts via
+# the environment variable or an untracked project-root flag; selected clips
+# emit one JSON line when the victory presentation asks for them.
+const POSE_COVERAGE_LOG_ENV := "PINGFIGHTER_VICTORY_HIGHLIGHT_POSE_COVERAGE"
+const POSE_COVERAGE_LOG_FLAG_PATH := "res://victory_highlight_pose_coverage.flag"
 
 var _visual_slots: Array[Dictionary] = []
 var _visual_head := 0
@@ -41,9 +47,13 @@ var _latest_ball_pos := Vector2.ZERO
 var _latest_ball_speed := 0.0
 var _recording_enabled := true
 var _next_clip_id := 1
+var _pose_coverage_log_enabled := false
+var _pose_coverage_report_emitted := false
+var _frame_capture_state: Object = null
 
 
 func _init() -> void:
+	_pose_coverage_log_enabled = _is_pose_coverage_logging_requested()
 	_visual_slots.resize(VISUAL_CAPACITY)
 	for index in range(VISUAL_CAPACITY):
 		_visual_slots[index] = _make_visual_slot()
@@ -80,7 +90,13 @@ func capture_visual(
 	_update_near_boss_distance(ball_pos, actor_context)
 	_commit_visual_write()
 	_last_capture_sec = capture_sec
+	if _frame_capture_state != null and _frame_capture_state.has_method("capture_visual"):
+		_frame_capture_state.capture_visual(capture_sec)
 	return true
+
+
+func set_frame_capture_state(frame_capture_state: Object) -> void:
+	_frame_capture_state = frame_capture_state
 
 
 func record_contact(
@@ -176,7 +192,14 @@ func get_selected_victory_clips() -> Array[Dictionary]:
 	selected.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return float(a.get("capture_time_sec", 0.0)) < float(b.get("capture_time_sec", 0.0))
 	)
+	if _frame_capture_state != null and _frame_capture_state.has_method("attach_frame_payloads"):
+		_frame_capture_state.attach_frame_payloads(selected)
+	_maybe_emit_pose_coverage(selected)
 	return selected
+
+
+func get_selected_pose_coverage_report() -> Dictionary:
+	return _build_pose_coverage_report(get_selected_victory_clips())
 
 
 func has_victory_clips() -> bool:
@@ -187,6 +210,8 @@ func release_match_clips() -> void:
 	_promoted_clips.clear()
 	_recording_enabled = false
 	_clear_ring_texture_refs()
+	if _frame_capture_state != null and _frame_capture_state.has_method("release_match_clips"):
+		_frame_capture_state.release_match_clips()
 
 
 func reset() -> void:
@@ -205,7 +230,10 @@ func reset() -> void:
 	_latest_ball_speed = 0.0
 	_recording_enabled = true
 	_next_clip_id = 1
+	_pose_coverage_report_emitted = false
 	_clear_ring_texture_refs()
+	if _frame_capture_state != null and _frame_capture_state.has_method("reset"):
+		_frame_capture_state.reset()
 
 
 func get_debug_snapshot() -> Dictionary:
@@ -218,6 +246,8 @@ func get_debug_snapshot() -> Dictionary:
 		"event_count": _event_count,
 		"clip_count": _promoted_clips.size(),
 		"recording_enabled": _recording_enabled,
+		"pose_coverage_log_enabled": _pose_coverage_log_enabled,
+		"frame_lane_attached": _frame_capture_state != null,
 	}
 
 
@@ -248,9 +278,7 @@ func _promote_player_goal(
 ) -> bool:
 	if _visual_count <= 0:
 		return false
-	var desired_start: float = _last_player_hit_sec - 0.2 if is_finite(_last_player_hit_sec) else goal_sec - 0.5
-	var clip_start: float = clampf(desired_start, goal_sec - (MAX_CLIP_SEC - GOAL_HOLD_SEC), goal_sec - (MIN_CLIP_SEC - GOAL_HOLD_SEC))
-	clip_start = maxf(clip_start, _oldest_visual_time())
+	var clip_start: float = maxf(goal_sec - MAX_ACTION_SEC, _oldest_visual_time())
 	var samples: Array[Dictionary] = []
 	for offset in range(_visual_count):
 		var slot: Dictionary = _visual_slots[(_visual_head + offset) % VISUAL_CAPACITY]
@@ -262,7 +290,7 @@ func _promote_player_goal(
 		samples.append(copy)
 	if samples.is_empty():
 		return false
-	var goal_t_sec: float = clampf(goal_sec - clip_start, 0.0, MAX_CLIP_SEC - GOAL_HOLD_SEC)
+	var goal_t_sec: float = clampf(goal_sec - clip_start, 0.0, MAX_ACTION_SEC)
 	var hold_sample: Dictionary = samples[-1].duplicate()
 	hold_sample["capture_time_sec"] = goal_sec + GOAL_HOLD_SEC
 	hold_sample["t_sec"] = goal_t_sec + GOAL_HOLD_SEC
@@ -292,13 +320,20 @@ func _promote_player_goal(
 	if player_score <= boss_score + 1:
 		clutch_score += 1.0
 
-	_promoted_clips.append({
+	var promoted_clip := {
 		"id": _next_clip_id,
 		"capture_time_sec": goal_sec,
 		"samples": samples,
 		"events": events,
 		"duration_sec": clampf(goal_t_sec + GOAL_HOLD_SEC, MIN_CLIP_SEC, MAX_CLIP_SEC),
 		"goal_t_sec": goal_t_sec,
+		"last_player_hit_t_sec": (
+			_last_player_hit_sec - clip_start
+			if is_finite(_last_player_hit_sec)
+			and _last_player_hit_sec >= clip_start
+			and _last_player_hit_sec <= goal_sec + 0.0001
+			else -1.0
+		),
 		"rally_count": rally_count,
 		"last_hit_by": last_hit_by,
 		"skill_tag": skill_tag,
@@ -308,7 +343,10 @@ func _promote_player_goal(
 		"player_score": player_score,
 		"boss_score": boss_score,
 		"is_final": bool(score_result.get("match_finished", false)),
-	})
+	}
+	_promoted_clips.append(promoted_clip)
+	if _frame_capture_state != null and _frame_capture_state.has_method("request_goal_capture"):
+		_frame_capture_state.request_goal_capture(promoted_clip, _get_provisional_selected_clip_ids())
 	_next_clip_id += 1
 	return true
 
@@ -317,6 +355,37 @@ func _copy_selected_clip(clip: Dictionary, label_key: String) -> Dictionary:
 	var copy: Dictionary = clip.duplicate()
 	copy["label_key"] = label_key
 	return copy
+
+
+func _get_provisional_selected_clip_ids() -> Array[int]:
+	var result: Array[int] = []
+	if _promoted_clips.is_empty():
+		return result
+	var finisher_index := _promoted_clips.size() - 1
+	result.append(int(_promoted_clips[finisher_index].get("id", -1)))
+	var long_index := -1
+	var longest_rally := LONG_RALLY_MIN - 1
+	for index in range(_promoted_clips.size()):
+		if index == finisher_index:
+			continue
+		var rally_count := int(_promoted_clips[index].get("rally_count", 0))
+		if rally_count > longest_rally:
+			longest_rally = rally_count
+			long_index = index
+	if long_index >= 0:
+		result.append(int(_promoted_clips[long_index].get("id", -1)))
+	var clutch_index := -1
+	var clutch_score := CLUTCH_SCORE_MIN - 0.001
+	for index in range(_promoted_clips.size()):
+		if index == finisher_index or index == long_index:
+			continue
+		var candidate_score := float(_promoted_clips[index].get("clutch_score", 0.0))
+		if candidate_score > clutch_score:
+			clutch_score = candidate_score
+			clutch_index = index
+	if clutch_index >= 0:
+		result.append(int(_promoted_clips[clutch_index].get("id", -1)))
+	return result
 
 
 func _write_event(kind: int, pos: Vector2, skill_tag: String, capture_sec: float) -> void:
@@ -402,6 +471,12 @@ func _make_visual_slot() -> Dictionary:
 		"boss_dest": Rect2(),
 		"boss_flip": false,
 		"boss_modulate": Color.WHITE,
+		"stage_id": 0,
+		"stage1_boss_variant": "",
+		"boss_pose": VictoryHighlightActorResolver.BOSS_POSE_IDLE_OR_INTERNAL,
+		"boss_pose_source": VictoryHighlightActorResolver.BOSS_POSE_SOURCE_AMBIGUOUS,
+		"boss_pose_observable": false,
+		"boss_resolution": VictoryHighlightActorResolver.BOSS_RESOLUTION_SILHOUETTE_UNSUPPORTED_POSE,
 	}
 
 
@@ -418,6 +493,112 @@ func _resolve_time(value: float) -> float:
 	if value >= 0.0:
 		return value
 	return float(Time.get_ticks_usec()) / 1000000.0
+
+
+func _build_pose_coverage_report(selected_clips: Array[Dictionary]) -> Dictionary:
+	var buckets_by_key: Dictionary = {}
+	var total_sample_count := 0
+	var total_weight_sec := 0.0
+	var sheet_weight_sec := 0.0
+	var silhouette_weight_sec := 0.0
+	var mismatch_weight_sec := 0.0
+	var ambiguous_weight_sec := 0.0
+	for clip in selected_clips:
+		var samples: Array = clip.get("samples", [])
+		var duration_sec: float = maxf(0.0, float(clip.get("duration_sec", 0.0)))
+		for index in range(samples.size()):
+			var sample_value: Variant = samples[index]
+			if not (sample_value is Dictionary):
+				continue
+			var sample: Dictionary = sample_value as Dictionary
+			var sample_sec: float = clampf(float(sample.get("t_sec", 0.0)), 0.0, duration_sec)
+			var next_sec := duration_sec
+			if index + 1 < samples.size() and samples[index + 1] is Dictionary:
+				var next_sample: Dictionary = samples[index + 1] as Dictionary
+				next_sec = clampf(float(next_sample.get("t_sec", duration_sec)), sample_sec, duration_sec)
+			var weight_sec: float = maxf(0.0, next_sec - sample_sec)
+			var stage_id: int = int(sample.get("stage_id", 0))
+			var stage1_variant: String = str(sample.get("stage1_boss_variant", "")) if stage_id == 1 else ""
+			var pose: String = str(sample.get("boss_pose", VictoryHighlightActorResolver.BOSS_POSE_IDLE_OR_INTERNAL))
+			var pose_source: String = str(sample.get("boss_pose_source", VictoryHighlightActorResolver.BOSS_POSE_SOURCE_AMBIGUOUS))
+			var pose_observable: bool = bool(sample.get("boss_pose_observable", false))
+			var resolution: String = str(sample.get(
+				"boss_resolution",
+				VictoryHighlightActorResolver.BOSS_RESOLUTION_SILHOUETTE_UNSUPPORTED_POSE
+			))
+			var bucket_key := "%02d|%s|%s|%s|%s" % [
+				stage_id,
+				stage1_variant,
+				pose,
+				pose_source,
+				resolution,
+			]
+			var bucket: Dictionary = buckets_by_key.get(bucket_key, {})
+			if bucket.is_empty():
+				bucket = {
+					"stage_id": stage_id,
+					"stage1_boss_variant": stage1_variant,
+					"pose": pose,
+					"pose_source": pose_source,
+					"pose_observable": pose_observable,
+					"resolution": resolution,
+					"sample_count": 0,
+					"weighted_sec": 0.0,
+				}
+				buckets_by_key[bucket_key] = bucket
+			bucket["sample_count"] = int(bucket.get("sample_count", 0)) + 1
+			bucket["weighted_sec"] = float(bucket.get("weighted_sec", 0.0)) + weight_sec
+			total_sample_count += 1
+			total_weight_sec += weight_sec
+			if resolution == str(VictoryHighlightActorResolver.BOSS_RESOLUTION_SHEET):
+				sheet_weight_sec += weight_sec
+			elif resolution == str(VictoryHighlightActorResolver.BOSS_RESOLUTION_SHEET_POSE_MISMATCH):
+				mismatch_weight_sec += weight_sec
+			elif resolution.begins_with("silhouette_"):
+				silhouette_weight_sec += weight_sec
+			if not pose_observable:
+				ambiguous_weight_sec += weight_sec
+
+	var bucket_keys: Array = buckets_by_key.keys()
+	bucket_keys.sort()
+	var buckets: Array[Dictionary] = []
+	for key_value in bucket_keys:
+		var bucket: Dictionary = (buckets_by_key[key_value] as Dictionary).duplicate()
+		bucket["weighted_ratio"] = _ratio(float(bucket.get("weighted_sec", 0.0)), total_weight_sec)
+		buckets.append(bucket)
+	return {
+		"contract": "selected_clip_pose_coverage_v1",
+		"selected_clip_count": selected_clips.size(),
+		"sample_count": total_sample_count,
+		"weighted_sec": total_weight_sec,
+		"sheet_weight_sec": sheet_weight_sec,
+		"sheet_ratio": _ratio(sheet_weight_sec, total_weight_sec),
+		"silhouette_weight_sec": silhouette_weight_sec,
+		"silhouette_ratio": _ratio(silhouette_weight_sec, total_weight_sec),
+		"sheet_pose_mismatch_weight_sec": mismatch_weight_sec,
+		"sheet_pose_mismatch_ratio": _ratio(mismatch_weight_sec, total_weight_sec),
+		"ambiguous_weight_sec": ambiguous_weight_sec,
+		"ambiguous_ratio": _ratio(ambiguous_weight_sec, total_weight_sec),
+		"buckets": buckets,
+	}
+
+
+func _maybe_emit_pose_coverage(selected_clips: Array[Dictionary]) -> void:
+	if not _pose_coverage_log_enabled or _pose_coverage_report_emitted or selected_clips.is_empty():
+		return
+	_pose_coverage_report_emitted = true
+	print("victory_highlight_pose_coverage: %s" % JSON.stringify(_build_pose_coverage_report(selected_clips)))
+
+
+func _is_pose_coverage_logging_requested() -> bool:
+	if not OS.is_debug_build():
+		return false
+	var env_value := OS.get_environment(POSE_COVERAGE_LOG_ENV).strip_edges().to_lower()
+	return env_value in ["1", "true", "yes", "on"] or FileAccess.file_exists(POSE_COVERAGE_LOG_FLAG_PATH)
+
+
+func _ratio(value: float, total: float) -> float:
+	return value / total if total > 0.000001 else 0.0
 
 
 func _get_vector2(source: Dictionary, key: String, fallback: Vector2) -> Vector2:

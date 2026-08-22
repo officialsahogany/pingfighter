@@ -15,6 +15,7 @@ const TITLE_KEY := "victory_highlight_title"
 const SKIP_HINT_KEY := "victory_highlight_skip_hint"
 const BALL_COLOR := Color(1.0, 0.93, 0.68, 1.0)
 const SILHOUETTE_COLOR := Color(0.34, 0.28, 0.24, 1.0)
+const SKIP_HOLD_GAUGE_RECT := Rect2(270.0, GAME_SIZE.y - 27.0, 220.0, 7.0)
 
 
 func draw(canvas: CanvasItem, playback: Object) -> void:
@@ -59,20 +60,60 @@ func draw_overlay(canvas: CanvasItem, playback: Object) -> void:
 	var alpha: float = clampf(float(playback.get_content_alpha()), 0.0, 1.0)
 	var previous_clip: Dictionary = playback.get_previous_clip()
 	if not previous_clip.is_empty():
-		_draw_clip_overlay(
+		draw_state_clip_overlay_for_replay(
 			canvas,
 			previous_clip,
 			1.0 - alpha,
 			int(playback.get_previous_clip_index()),
 			int(playback.get_clip_count())
 		)
-	_draw_clip_overlay(
+	draw_state_clip_overlay_for_replay(
 		canvas,
 		clip,
 		alpha,
 		int(playback.get_current_clip_index()),
 		int(playback.get_clip_count())
 	)
+	_draw_skip_hold_progress(canvas, playback)
+
+
+func draw_clip_content_for_replay(
+	canvas: CanvasItem,
+	clip: Dictionary,
+	local_time: float,
+	alpha: float
+) -> void:
+	_draw_clip_content(canvas, clip, local_time, alpha)
+
+
+func draw_state_clip_overlay_for_replay(
+	canvas: CanvasItem,
+	clip: Dictionary,
+	alpha: float,
+	clip_index: int,
+	clip_count: int
+) -> void:
+	_draw_clip_overlay(canvas, clip, alpha, clip_index, clip_count)
+
+
+func draw_frame_clip_overlay_for_replay(
+	canvas: CanvasItem,
+	clip: Dictionary,
+	alpha: float,
+	title_alpha: float,
+	subtitle_alpha: float,
+	clip_index: int,
+	clip_count: int
+) -> void:
+	if alpha <= 0.001:
+		return
+	_draw_title(canvas, alpha * clampf(title_alpha, 0.0, 1.0))
+	_draw_subtitle(canvas, clip, alpha * clampf(subtitle_alpha, 0.0, 1.0))
+	_draw_persistent_copy(canvas, alpha, clip_index, clip_count)
+
+
+func draw_skip_hold_progress_for_replay(canvas: CanvasItem, playback: Object) -> void:
+	_draw_skip_hold_progress(canvas, playback)
 
 
 func _draw_clip(
@@ -230,12 +271,37 @@ func _draw_copy(
 	clip_index: int,
 	clip_count: int
 ) -> void:
+	_draw_title(canvas, alpha)
+	_draw_subtitle(canvas, clip, alpha)
+	_draw_persistent_copy(canvas, alpha, clip_index, clip_count)
+
+
+func _draw_title(canvas: CanvasItem, alpha: float) -> void:
+	if alpha <= 0.001:
+		return
 	var font: Font = ThemeDB.fallback_font
 	var title := LanguageSettings.translate(TITLE_KEY, "승리의 순간")
 	_draw_centered_text(canvas, font, title, 54.0, 28, _with_alpha(TraditionalChrome.BRASS_LIGHT, alpha))
+
+
+func _draw_subtitle(canvas: CanvasItem, clip: Dictionary, alpha: float) -> void:
+	if alpha <= 0.001:
+		return
+	var font: Font = ThemeDB.fallback_font
 	var label_key: String = str(clip.get("label_key", "victory_highlight_finisher"))
 	var label := LanguageSettings.translate(label_key, "결정타")
 	_draw_centered_text(canvas, font, label, 96.0, 18, _with_alpha(Color.WHITE, 0.90 * alpha))
+
+
+func _draw_persistent_copy(
+	canvas: CanvasItem,
+	alpha: float,
+	clip_index: int,
+	clip_count: int
+) -> void:
+	if alpha <= 0.001:
+		return
+	var font: Font = ThemeDB.fallback_font
 	clip_count = maxi(1, clip_count)
 	var dot_y := GAME_SIZE.y - 94.0
 	var dot_start := GAME_SIZE.x * 0.5 - float(clip_count - 1) * 10.0
@@ -243,8 +309,20 @@ func _draw_copy(
 		var dot_color := TraditionalChrome.SEAL_RED if index == clip_index else TraditionalChrome.BRASS_LIGHT
 		var dot_alpha := 0.95 if index == clip_index else 0.34
 		canvas.draw_circle(Vector2(dot_start + float(index) * 20.0, dot_y), 4.0, _with_alpha(dot_color, dot_alpha * alpha))
-	var hint := LanguageSettings.translate(SKIP_HINT_KEY, "클릭 또는 아무 키로 건너뛰기")
+	var hint := LanguageSettings.translate(SKIP_HINT_KEY, "길게 눌러 건너뛰기")
 	_draw_centered_text(canvas, font, hint, GAME_SIZE.y - 42.0, 14, _with_alpha(Color.WHITE, 0.64 * alpha))
+
+
+func _draw_skip_hold_progress(canvas: CanvasItem, playback: Object) -> void:
+	if playback == null or not playback.has_method("get_skip_hold_progress"):
+		return
+	var progress: float = clampf(float(playback.get_skip_hold_progress()), 0.0, 1.0)
+	if progress <= 0.001:
+		return
+	var fill_rect := get_skip_hold_fill_rect_for_tests(progress)
+	canvas.draw_rect(SKIP_HOLD_GAUGE_RECT.grow(3.0), _with_alpha(TraditionalChrome.LACQUER_BLACK, 0.72), true)
+	canvas.draw_rect(fill_rect.grow(2.0), _with_alpha(TraditionalChrome.BRASS_LIGHT, 0.22), true)
+	canvas.draw_rect(fill_rect, _with_alpha(TraditionalChrome.BRASS_LIGHT, 0.92), true)
 
 
 func _draw_centered_text(canvas: CanvasItem, font: Font, text: String, baseline_y: float, size: int, color: Color) -> void:
@@ -258,6 +336,17 @@ func get_content_transform_for_tests() -> Dictionary:
 		"source_rect": Rect2(Vector2.ZERO, GAME_SIZE),
 		"content_rect": Rect2(CONTENT_OFFSET, GAME_SIZE * CONTENT_SCALE),
 	}
+
+
+func get_skip_hold_gauge_rect_for_tests() -> Rect2:
+	return SKIP_HOLD_GAUGE_RECT
+
+
+func get_skip_hold_fill_rect_for_tests(progress: float) -> Rect2:
+	return Rect2(
+		SKIP_HOLD_GAUGE_RECT.position,
+		Vector2(SKIP_HOLD_GAUGE_RECT.size.x * clampf(progress, 0.0, 1.0), SKIP_HOLD_GAUGE_RECT.size.y)
+	)
 
 
 func transform_content_point_for_tests(point: Vector2) -> Vector2:

@@ -217,6 +217,8 @@ func _run() -> void:
 	_test_final_actor_context_capture(actor_context)
 	_test_rate_invariance_and_time_eviction(actor_context)
 	_test_selection_stream_merge_and_hold(actor_context)
+	_test_goal_lookback_anchor_and_early_oldest(actor_context)
+	_test_selected_clip_pose_coverage()
 	_test_release(actor_context, texture)
 	_test_host_skip_f9_and_reset()
 	_test_two_victory_intercepts_and_fallback()
@@ -255,6 +257,15 @@ func _test_localization_lockstep() -> void:
 		"victory_highlight_clutch",
 		"victory_highlight_skip_hint",
 	]
+	var expected_skip_hints := {
+		LanguageSettingsData.LANGUAGE_KOREAN: "길게 눌러 건너뛰기",
+		LanguageSettingsData.LANGUAGE_ENGLISH: "Hold to skip",
+		LanguageSettingsData.LANGUAGE_CHINESE: "长按跳过",
+		LanguageSettingsData.LANGUAGE_JAPANESE: "長押しでスキップ",
+		LanguageSettingsData.LANGUAGE_SPANISH: "Mantén pulsado para omitir",
+		LanguageSettingsData.LANGUAGE_PORTUGUESE_BRAZIL: "Segure para pular",
+		LanguageSettingsData.LANGUAGE_RUSSIAN: "Удерживайте, чтобы пропустить",
+	}
 	for language in [
 		LanguageSettingsData.LANGUAGE_KOREAN,
 		LanguageSettingsData.LANGUAGE_ENGLISH,
@@ -267,6 +278,9 @@ func _test_localization_lockstep() -> void:
 		var table: Dictionary = LanguageSettingsData.TEXT.get(language, {})
 		for key in keys:
 			_expect(table.has(key) and not str(table.get(key, "")).is_empty(), "highlight copy key %s must stay in 7-language lockstep (%s)" % [key, language])
+		_expect(str(table.get("victory_highlight_skip_hint", "")) == str(expected_skip_hints.get(language, "")), "hold-skip hint must use the approved copy in %s" % language)
+	var korean_hint := str((LanguageSettingsData.TEXT.get(LanguageSettingsData.LANGUAGE_KOREAN, {}) as Dictionary).get("victory_highlight_skip_hint", ""))
+	_expect(not korean_hint.contains("—"), "Korean hold-skip copy must not contain an em dash")
 
 
 func _test_fail_closed_actor_contracts() -> void:
@@ -281,6 +295,8 @@ func _test_fail_closed_actor_contracts() -> void:
 	_expect(slot.get("boss_texture", null) == null, "4x2 non-walk boss sheet must fail closed to silhouette without a pose grid contract")
 	_expect((slot.get("boss_src", Rect2()) as Rect2).size == Vector2.ZERO, "non-walk silhouette must not retain a guessed 4x4 source cell")
 	_expect((slot.get("boss_dest", Rect2()) as Rect2).size.length() > 0.0, "non-walk fail-closed path must retain boss geometry for silhouette rendering")
+	_expect(str(slot.get("boss_pose", "")) == "dash", "coverage metadata must identify a shared dash pose")
+	_expect(str(slot.get("boss_resolution", "")) == "silhouette_unsupported_pose", "dash without a pose contract must be measured as an unsupported-pose silhouette")
 
 	var missing_walk_sheet := _resolver_actor_context()
 	missing_walk_sheet["boss_is_walking"] = true
@@ -290,6 +306,7 @@ func _test_fail_closed_actor_contracts() -> void:
 	missing_walk_sheet["boss_sprite_sheet"] = foreign_texture
 	VictoryHighlightActorResolver.resolve_into(missing_walk_sheet, slot)
 	_expect(slot.get("boss_texture", null) == null, "missing selected walk sheet must not leak through boss_sprite_sheet")
+	_expect(str(slot.get("boss_resolution", "")) == "silhouette_missing_texture", "walk with an explicit grid but no owned directional sheet must report missing texture")
 
 	var valid_walk := _resolver_actor_context()
 	valid_walk["boss_is_walking"] = true
@@ -300,6 +317,15 @@ func _test_fail_closed_actor_contracts() -> void:
 	VictoryHighlightActorResolver.resolve_into(valid_walk, slot)
 	_expect(slot.get("boss_texture", null) == foreign_texture, "walk sheet with explicit frame/grid metadata must remain eligible for real-sheet replay")
 	_expect((slot.get("boss_src", Rect2()) as Rect2).size == Vector2(16.0, 16.0), "valid 4x2 walk contract must resolve its real 16x16 cell")
+	_expect(str(slot.get("boss_pose", "")) == "walk" and str(slot.get("boss_resolution", "")) == "sheet", "valid walk metadata must report an exact sheet resolution")
+
+	var private_attack_walk := valid_walk.duplicate()
+	private_attack_walk["current_stage"] = 7
+	private_attack_walk["stage7_akamu_boss_attack_active"] = true
+	VictoryHighlightActorResolver.resolve_into(private_attack_walk, slot)
+	_expect(slot.get("boss_texture", null) == foreign_texture, "measurement metadata must not change the existing slice-1 walk rendering decision")
+	_expect(str(slot.get("boss_pose", "")) == "attack" and str(slot.get("boss_pose_source", "")) == "stage_hint", "Stage 7 public attack state must be measured as an attack hint")
+	_expect(str(slot.get("boss_resolution", "")) == "sheet_pose_mismatch", "a walk sheet drawn during a public attack pose must not count as successful sheet coverage")
 
 	var player_without_grid := _resolver_actor_context()
 	player_without_grid["commando_weapon_fire_active"] = true
@@ -327,6 +353,7 @@ func _test_fail_closed_actor_contracts() -> void:
 	stage5_foreign_fallback["boss_sprite_sheet"] = foreign_texture
 	VictoryHighlightActorResolver.resolve_into(stage5_foreign_fallback, slot)
 	_expect(slot.get("boss_texture", null) == null, "Stage 5 foreign idle/generic fixture must render a silhouette instead of another stage boss")
+	_expect(not bool(slot.get("boss_pose_observable", true)) and str(slot.get("boss_pose", "")) == "idle_or_renderer_internal", "context-free idle/turn timers must stay explicitly ambiguous instead of being guessed as idle")
 
 	foreign_texture = null
 
@@ -373,6 +400,10 @@ func _test_uniform_content_transform() -> void:
 	var visible_bottom: float = maxf(mapped_player.end.y, bottom_ball_y)
 	_expect(visible_top > 102.0, "replay geometry must stay below the title/subtitle glyph band")
 	_expect(visible_bottom < 696.0, "replay geometry must stay above the skip-hint glyph band")
+	var hold_gauge: Rect2 = renderer.get_skip_hold_gauge_rect_for_tests()
+	var half_fill: Rect2 = renderer.get_skip_hold_fill_rect_for_tests(0.5)
+	_expect(hold_gauge.size.y >= 6.0, "hold progress must use a filled bar instead of a thin outline stroke")
+	_expect(half_fill.position == hold_gauge.position and is_equal_approx(half_fill.size.x, hold_gauge.size.x * 0.5), "hold progress geometry must fill from 0 to 1 without moving its origin")
 
 
 func _test_final_actor_context_capture(actor_context: Dictionary) -> void:
@@ -433,7 +464,78 @@ func _test_selection_stream_merge_and_hold(actor_context: Dictionary) -> void:
 	if not merged.is_empty():
 		var samples: Array = merged[0].get("samples", [])
 		var last_sample: Dictionary = samples[-1]
-		_expect(is_equal_approx(float(last_sample.get("t_sec", 0.0)), float(merged[0].get("goal_t_sec", 0.0)) + VictoryHighlightRecorder.GOAL_HOLD_SEC), "clip must synthesize the +0.25s goal hold without future live samples")
+		_expect(is_equal_approx(float(last_sample.get("t_sec", 0.0)), float(merged[0].get("goal_t_sec", 0.0)) + VictoryHighlightRecorder.GOAL_HOLD_SEC), "clip must synthesize the +0.5s goal hold without future live samples")
+
+
+func _test_goal_lookback_anchor_and_early_oldest(actor_context: Dictionary) -> void:
+	var full_lookback := VictoryHighlightRecorder.new()
+	_capture_range(full_lookback, actor_context, 0.0, 1.50, 72.0)
+	full_lookback.record_player_hit(Vector2(370.0, 700.0), "late_hit", 1.40)
+	full_lookback.record_score_event("player", _score_result(7, 5, true), 7, "player", "late_hit", 1.50)
+	var full_clips: Array[Dictionary] = full_lookback.get_selected_victory_clips()
+	_expect(full_clips.size() == 1, "full-lookback fixture must promote one finisher")
+	if full_clips.size() == 1:
+		var clip: Dictionary = full_clips[0]
+		var samples: Array = clip.get("samples", [])
+		_expect(not samples.is_empty() and is_zero_approx(float((samples[0] as Dictionary).get("t_sec", -1.0))), "goal lookback must begin 1.5 seconds before the goal instead of at the late player hit")
+		_expect(is_equal_approx(float(clip.get("goal_t_sec", -1.0)), VictoryHighlightRecorder.MAX_ACTION_SEC), "full ring history must preserve exactly 1.5 seconds of real action")
+		_expect(is_equal_approx(float(clip.get("duration_sec", -1.0)), VictoryHighlightRecorder.MAX_CLIP_SEC), "full lookback plus synthetic goal hold must total exactly 2.0 seconds")
+		_expect(is_equal_approx(float(clip.get("last_player_hit_t_sec", -1.0)), 1.40), "last player hit must remain metadata without controlling the clip start anchor")
+		var found_player_hit := false
+		for event_value in clip.get("events", []):
+			if event_value is Dictionary and int((event_value as Dictionary).get("kind", 0)) == VictoryHighlightRecorder.EVENT_PLAYER_HIT:
+				found_player_hit = true
+				break
+		_expect(found_player_hit, "last player hit must remain an in-clip event marker after anchor decoupling")
+
+	var early_goal := VictoryHighlightRecorder.new()
+	_capture_range(early_goal, actor_context, 0.20, 0.60, 72.0)
+	early_goal.record_player_hit(Vector2(370.0, 700.0), "early_hit", 0.55)
+	early_goal.record_score_event("player", _score_result(7, 5, true), 3, "player", "early_hit", 0.60)
+	var early_clips: Array[Dictionary] = early_goal.get_selected_victory_clips()
+	_expect(early_clips.size() == 1, "an early goal with less than 1.5 seconds of ring history must still promote")
+	if early_clips.size() == 1:
+		var clip: Dictionary = early_clips[0]
+		var samples: Array = clip.get("samples", [])
+		_expect(not samples.is_empty() and is_zero_approx(float((samples[0] as Dictionary).get("t_sec", -1.0))), "short-history goal must start at the ring oldest sample")
+		_expect(is_equal_approx(float(clip.get("goal_t_sec", -1.0)), 0.40), "short-history goal must preserve only the available real-action span")
+		_expect(is_equal_approx(float(clip.get("duration_sec", -1.0)), 0.90), "short-history goal must append the exact 0.5-second synthetic hold")
+
+
+func _test_selected_clip_pose_coverage() -> void:
+	var recorder := VictoryHighlightRecorder.new()
+	var pre_clip_idle := _resolver_actor_context()
+	pre_clip_idle["current_stage"] = 5
+	_capture_range(recorder, pre_clip_idle, 0.0, 0.60, 10.0)
+
+	var clip_attack := pre_clip_idle.duplicate()
+	clip_attack["boss_hit_active"] = true
+	recorder.record_player_hit(Vector2(370.0, 700.0), "", 1.0)
+	_capture_range(recorder, clip_attack, 0.80, 1.50, 10.0)
+	recorder.record_score_event("player", _score_result(7, 5, true), 5, "player", "", 1.50)
+	var selected: Array[Dictionary] = recorder.get_selected_victory_clips()
+	var report: Dictionary = recorder.get_selected_pose_coverage_report()
+	_expect(selected.size() == 1 and int(report.get("selected_clip_count", 0)) == 1, "pose coverage must aggregate only the selected finisher clip")
+	if not selected.is_empty():
+		_expect(is_equal_approx(float(report.get("weighted_sec", 0.0)), float(selected[0].get("duration_sec", -1.0))), "pose coverage weights must span the selected clip duration, including the synthetic goal hold")
+	_expect(is_equal_approx(float(report.get("silhouette_ratio", 0.0)), 1.0), "attack-only selected clip must report full silhouette coverage while attack grids are unsupported")
+	_expect(float(report.get("ambiguous_ratio", 0.0)) > 0.0, "goal-relative lookback must retain the earlier ambiguous idle/internal action context")
+	var buckets: Array = report.get("buckets", [])
+	_expect(buckets.size() == 2, "selected-clip pose coverage must include both early context and the goal attack pose")
+	var found_ambiguous := false
+	var found_attack := false
+	for bucket_value in buckets:
+		if not (bucket_value is Dictionary):
+			continue
+		var bucket: Dictionary = bucket_value as Dictionary
+		if int(bucket.get("stage_id", 0)) != 5:
+			continue
+		if str(bucket.get("pose", "")) == "idle_or_renderer_internal":
+			found_ambiguous = true
+		elif str(bucket.get("pose", "")) == "attack":
+			found_attack = str(bucket.get("resolution", "")) == "silhouette_unsupported_pose"
+	_expect(found_ambiguous, "coverage buckets must preserve the earlier ambiguous renderer-internal context")
+	_expect(found_attack, "coverage buckets must preserve the observed unsupported attack pose and failure reason")
 
 
 func _test_release(actor_context: Dictionary, texture: Texture2D) -> void:
@@ -462,8 +564,12 @@ func _test_host_skip_f9_and_reset() -> void:
 	}
 	var playback := VictoryHighlightPlaybackState.new()
 	registry.values["victory_highlight_playback_state"] = playback
+	var skip_clip := _fixture_clip()
+	skip_clip["duration_sec"] = 4.0
+	skip_clip["goal_t_sec"] = 3.5
+	var skip_clips: Array[Dictionary] = [skip_clip]
 	var clips: Array[Dictionary] = [_fixture_clip()]
-	_expect(playback.start(owner, registry, clips, Callable(self, "_on_finish")), "playback must start with a valid clipped host")
+	_expect(playback.start(owner, registry, skip_clips, Callable(self, "_on_finish")), "playback must start with a valid clipped host")
 	_expect(replay_audio.stop_calls == 1 and replay_audio.transition_calls == 1, "replay entry must stop gameplay loops and emit only its dedicated transition cue")
 	playback.sync_host_layout({"game_offset": Vector2(91.0, 37.0), "render_scale": 0.8})
 	var host: Dictionary = playback.get_host_debug_snapshot()
@@ -471,6 +577,7 @@ func _test_host_skip_f9_and_reset() -> void:
 	_expect(host.get("clip_position", Vector2.ONE) == Vector2.ZERO and host.get("clip_size", Vector2.ZERO) == Vector2(760.0, 750.0), "clip rect must cover the full Godot playfield, including x=0..80 and x=680..760")
 	_expect(bool(host.get("content_clip_exists", false)) and bool(host.get("content_clip_contents", false)), "host must clip every transformed replay primitive through one shared content Control")
 	_expect(host.get("content_clip_position", Vector2.ONE) == Vector2(0.0, 118.0) and host.get("content_clip_size", Vector2.ZERO) == Vector2(760.0, 560.0), "shared content clip must preserve the 118..678 copy-safe band")
+	_expect(str(host.get("current_content_mode", "")) == "state_band", "state-only replay must keep the established band presentation mode")
 	_expect(not bool(host.get("host_process_enabled", true)), "controller-owned replay host must keep its own process disabled")
 	_expect(owner.victory_highlight_active, "playback start must mirror the owner schema flag")
 
@@ -483,9 +590,41 @@ func _test_host_skip_f9_and_reset() -> void:
 	f9.keycode = KEY_F9
 	_expect(not playback.handle_input(f9) and playback.is_active(), "F9 must pass through the replay input layer")
 	playback.update(0.16)
-	_expect(playback.handle_input(early_key) and not playback.is_active(), "one post-guard key must skip the entire presentation")
-	_expect(_finish_calls == 1 and not owner.victory_highlight_active, "normal skip must finish once and clear the owner flag")
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_LEFT
+	mouse_down.pressed = true
+	var mouse_up := InputEventMouseButton.new()
+	mouse_up.button_index = MOUSE_BUTTON_LEFT
+	mouse_up.pressed = false
+	_expect(playback.handle_input(mouse_down), "post-guard mouse press must begin the shared hold timer")
+	playback.update(0.10)
+	_expect(playback.is_active() and playback.get_skip_hold_progress() > 0.0, "a short mouse hold must show progress without skipping")
+	_expect(playback.handle_input(mouse_up) and playback.is_active(), "a single click release before 0.6s must not skip")
+	_expect(is_zero_approx(playback.get_skip_hold_progress()), "early mouse release must reset hold progress")
+
+	_expect(playback.handle_input(early_key), "post-guard key press must begin the shared hold timer")
+	playback.update(VictoryHighlightPlaybackState.SKIP_HOLD_SEC - 0.01)
+	_expect(playback.is_active() and playback.get_skip_hold_progress() > 0.98, "a 0.59s key hold must remain below the skip threshold")
+	var key_up := InputEventKey.new()
+	key_up.pressed = false
+	key_up.keycode = KEY_A
+	_expect(playback.handle_input(key_up) and playback.is_active(), "release below 0.6s must cancel the key hold")
+	_expect(is_zero_approx(playback.get_skip_hold_progress()), "early key release must reset hold progress")
+
+	_expect(playback.handle_input(early_key), "second key press must restart hold progress from zero")
+	playback.update(VictoryHighlightPlaybackState.SKIP_HOLD_SEC)
+	_expect(not playback.is_active(), "a 0.6s key hold must skip the entire presentation")
+	_expect(_finish_calls == 1 and not owner.victory_highlight_active, "hold skip must finish once, invoke the continuation callback, and clear the owner flag")
 	_expect(not bool(playback.get_host_debug_snapshot().get("host_exists", true)), "normal finish must detach the fx host")
+
+	var boundary_clips: Array[Dictionary] = [_fixture_clip(), _fixture_clip()]
+	_expect(playback.start(owner, registry, boundary_clips, Callable()), "playback must restart for cross-clip hold coverage")
+	playback.update(1.35)
+	_expect(playback.handle_input(early_key), "hold must begin before a clip boundary")
+	playback.update(0.10)
+	_expect(playback.get_current_clip_index() == 1 and playback.get_skip_hold_progress() > 0.16, "hold progress must continue across clip boundaries on the global playback clock")
+	_expect(playback.handle_input(key_up) and is_zero_approx(playback.get_skip_hold_progress()), "cross-clip release must reset the same global hold timer")
+	playback.reset()
 
 	_expect(playback.start(owner, registry, clips, Callable()), "playback must be restartable for reset coverage")
 	MatchResetController.new().reset_game({
@@ -506,6 +645,22 @@ func _test_host_skip_f9_and_reset() -> void:
 	_expect(playback.get_content_alpha() > 0.45 and playback.get_content_alpha() < 0.55, "crossfade must use 0.12s wall-clock timing")
 	playback.update(0.07)
 	_expect(playback.get_previous_clip().is_empty(), "outgoing clip must release after the 0.12s crossfade")
+	playback.reset()
+	var frame_clip := _fixture_clip()
+	frame_clip["frame_frames"] = [PackedByteArray([1, 2, 3, 4])]
+	var frame_clips: Array[Dictionary] = [frame_clip]
+	_expect(playback.start(owner, registry, frame_clips, Callable()), "frame-backed playback must start through the real playback state")
+	_expect(
+		is_equal_approx(float(playback.get_host_debug_snapshot().get("timeline_speed", 0.0)), 1.0),
+		"any frame-backed playback must preserve its natural capture timeline"
+	)
+	playback.reset()
+	var mixed_clips: Array[Dictionary] = [frame_clip, _fixture_clip()]
+	_expect(playback.start(owner, registry, mixed_clips, Callable()), "mixed frame/state playback must start through one shared timeline")
+	_expect(
+		is_equal_approx(float(playback.get_host_debug_snapshot().get("timeline_speed", 0.0)), 1.0),
+		"one frame payload must select natural pacing for the entire mixed playback"
+	)
 	playback.reset()
 
 	var result_screen := FakeResultScreen.new()

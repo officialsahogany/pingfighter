@@ -123,6 +123,21 @@ func _run() -> void:
 		draw_bridge.queue_redraw()
 	await _wait_render_frames(4)
 	var replay_image: Image = _capture(viewport, "replay interior")
+	var hold_down := InputEventMouseButton.new()
+	hold_down.button_index = MOUSE_BUTTON_LEFT
+	hold_down.pressed = true
+	var hold_up := InputEventMouseButton.new()
+	hold_up.button_index = MOUSE_BUTTON_LEFT
+	hold_up.pressed = false
+	_expect(playback.handle_input(hold_down), "state-lane pixel fixture must begin hold progress after the entry guard")
+	playback.update(0.30)
+	await _wait_render_frames(4)
+	var hold_image: Image = _capture(viewport, "state-lane hold progress")
+	_expect(playback.handle_input(hold_up), "state-lane hold release must be consumed")
+	_expect(is_zero_approx(playback.get_skip_hold_progress()), "state-lane hold release must reset progress")
+	playback.update(0.0)
+	await _wait_render_frames(4)
+	var released_image: Image = _capture(viewport, "state-lane released progress")
 	var band_probe := SideBandProbe.new()
 	band_probe.position = Vector2.ZERO
 	band_probe.size = GAME_SIZE
@@ -132,7 +147,7 @@ func _run() -> void:
 	band_probe.queue_redraw()
 	await _wait_render_frames(4)
 	var band_image: Image = _capture(viewport, "full-playfield side bands")
-	if off_image != null and on_image != null and replay_image != null and band_image != null:
+	if off_image != null and on_image != null and replay_image != null and hold_image != null and released_image != null and band_image != null:
 		var game_rect := _screen_game_rect()
 		var left_letterbox := Rect2i(0, 0, int(game_rect.position.x), VIEW_SIZE.y)
 		var right_start := int(ceil(game_rect.end.x))
@@ -153,6 +168,13 @@ func _run() -> void:
 		_expect(_count_actor_probe(replay_image, top_copy_band) == 0, "replay actors must not enter the title/subtitle copy band")
 		_expect(_count_actor_probe(replay_image, bottom_copy_band) == 0, "replay actors must not enter the skip-hint copy band")
 		var renderer := VictoryHighlightRenderer.new()
+		var hold_gauge: Rect2 = renderer.get_skip_hold_gauge_rect_for_tests().grow(3.0)
+		var hold_gauge_band := _game_sample_rect(hold_gauge.position.x, hold_gauge.position.y, hold_gauge.size.x, hold_gauge.size.y)
+		var idle_brass: int = _count_hold_brass(replay_image, hold_gauge_band)
+		var active_brass: int = _count_hold_brass(hold_image, hold_gauge_band)
+		var released_brass: int = _count_hold_brass(released_image, hold_gauge_band)
+		_expect(active_brass > idle_brass + 20, "state-lane hold progress must render a visible brass fill near the skip hint")
+		_expect(released_brass < active_brass, "state-lane hold progress pixels must disappear after release")
 		var flipped_player_rect: Rect2 = renderer.transform_content_rect_for_tests(FLIPPED_PLAYER_SOURCE_DEST)
 		var half_width: float = flipped_player_rect.size.x * 0.5
 		var flip_probe_height: float = minf(48.0, flipped_player_rect.size.y - 18.0)
@@ -183,6 +205,8 @@ func _run() -> void:
 	off_image = null
 	on_image = null
 	replay_image = null
+	hold_image = null
+	released_image = null
 	band_image = null
 	_cleanup(viewport, playback)
 	_finish_later()
@@ -338,6 +362,17 @@ func _count_ball_probe(image: Image, rect: Rect2i) -> int:
 		for x in range(bounded.position.x, bounded.end.x):
 			var color: Color = image.get_pixel(x, y)
 			if color.r > 0.82 and color.g > 0.74 and color.b > 0.48 and color.b < 0.82:
+				count += 1
+	return count
+
+
+func _count_hold_brass(image: Image, rect: Rect2i) -> int:
+	var count := 0
+	var bounded := rect.intersection(Rect2i(Vector2i.ZERO, image.get_size()))
+	for y in range(bounded.position.y, bounded.end.y):
+		for x in range(bounded.position.x, bounded.end.x):
+			var color: Color = image.get_pixel(x, y)
+			if absf(color.r - 0.827) < 0.14 and absf(color.g - 0.674) < 0.14 and absf(color.b - 0.349) < 0.14:
 				count += 1
 	return count
 

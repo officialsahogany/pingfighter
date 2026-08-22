@@ -209,6 +209,10 @@ const MODULES := {
 		"path": "res://scripts/core/victory_highlight_recorder.gd",
 		"label": "victory highlight recorder",
 	},
+	"victory_highlight_frame_capture_state": {
+		"path": "res://scripts/core/victory_highlight_frame_capture_state.gd",
+		"label": "victory highlight frame capture state",
+	},
 	"victory_highlight_actor_resolver": {
 		"path": "res://scripts/core/victory_highlight_actor_resolver.gd",
 		"label": "victory highlight actor resolver",
@@ -220,6 +224,10 @@ const MODULES := {
 	"victory_highlight_renderer": {
 		"path": "res://scripts/core/victory_highlight_renderer.gd",
 		"label": "victory highlight renderer",
+	},
+	"victory_highlight_frame_renderer": {
+		"path": "res://scripts/core/victory_highlight_frame_renderer.gd",
+		"label": "victory highlight frame renderer",
 	},
 	"battle_frame_flow_deps_builder": {
 		"path": "res://scripts/core/battle_frame_flow_deps_builder.gd",
