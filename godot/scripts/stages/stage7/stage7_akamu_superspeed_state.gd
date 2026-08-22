@@ -275,6 +275,8 @@ func build_hud_skill(
 		"progress": progress,
 		"cooldown_remaining": cooldown_remaining_sec,
 		"cooldown_total": COOLDOWN_SEC,
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"duration_remaining": remaining_sec,
 		"duration_total": DURATION_SEC,
 		"next_activation_remaining": maxf(

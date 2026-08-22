@@ -20,7 +20,8 @@ const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 
 const BOSS_HIT_GAUGE_GAIN := 80.0
-const AWAKEN_SCORE_THRESHOLD := 3
+# 2026-07-31 7점제 재보정: 3/5(60%) -> 4/7(57%).
+const AWAKEN_SCORE_THRESHOLD := 4
 const AWAKEN_FREEZE_SEC := 3.0
 const COMMON_BOSS_DASH_GAUGE_COST := 50.0
 
@@ -290,6 +291,8 @@ func _placeholder_hud_skill(skill_id: String, skill_name: String, color: Color, 
 		"progress": clampf(boss_special_gauge / maxf(1.0, cost), 0.0, 1.0),
 		"cooldown_remaining": 0.0,
 		"cooldown_total": 1.0,
+		"cooldown_contract": "placeholder",
+		"initial_ready_allowed": false,
 		"next_activation_remaining": maxf(0.0, cost - boss_special_gauge),
 		"ready": false,
 		"active": false,

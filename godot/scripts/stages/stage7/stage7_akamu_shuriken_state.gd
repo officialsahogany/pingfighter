@@ -124,6 +124,10 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		"progress": cooldown_progress,
 		"cooldown_remaining": cooldown_remaining_sec,
 		"cooldown_total": cooldown_total,
+		# The scheduler arms its 8-25 second total on the first live update; the
+		# explicit unarmed state intentionally renders empty rather than ready.
+		"cooldown_contract": "deferred_time",
+		"initial_ready_allowed": false,
 		"next_activation_remaining": maxf(
 			cooldown_remaining_sec,
 			maxf(0.0, GAUGE_COST - boss_gauge)

@@ -5,6 +5,8 @@ const Stage2BossSkillHudRenderer := preload("res://scripts/stages/stage2/stage2_
 const Stage2BossVariantSkillState := preload("res://scripts/stages/stage2/stage2_boss_variant_skill_state.gd")
 const Stage3BossSkillHudRenderer := preload("res://scripts/stages/stage3/stage3_boss_skill_hud_renderer.gd")
 const Stage3BossVariantSkillState := preload("res://scripts/stages/stage3/stage3_boss_variant_skill_state.gd")
+const Stage7AkamuBossSkillHudRenderer := preload("res://scripts/stages/stage7/stage7_akamu_boss_skill_hud_renderer.gd")
+const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_state.gd")
 
 const VIEW_SIZE := Vector2i(2020, 1246)
 const LOGICAL_GAME_SIZE := Vector2(760.0, 750.0)
@@ -13,6 +15,7 @@ const VARIANT_SPECS := [
 	{"id": "arachne", "stage": 2},
 	{"id": "teddy_bear", "stage": 3},
 	{"id": "alice", "stage": 3},
+	{"id": "akamu", "stage": 7},
 ]
 const CAPTURE_COUNT := 5
 const SAMPLE_STEP_SEC := 1.0
@@ -59,7 +62,7 @@ func _run() -> void:
 	if failures.is_empty():
 		for path in saved_paths:
 			print("[BossSkillCardCooldownMotionQA] evidence=%s" % path)
-		print("[BossSkillCardCooldownMotionQA] BOSSES=4 STRIPS=4 FRAMES_PER_STRIP=%d VULKAN=true" % CAPTURE_COUNT)
+		print("[BossSkillCardCooldownMotionQA] BOSSES=5 STRIPS=5 FRAMES_PER_STRIP=%d VULKAN=true" % CAPTURE_COUNT)
 		print("boss_skill_card_cooldown_motion_visual_qa: ok")
 		quit(0)
 		return
@@ -71,13 +74,27 @@ func _run() -> void:
 func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 	var variant_id := str(spec.get("id", ""))
 	var stage := int(spec.get("stage", 0))
-	var state: Object = Stage2BossVariantSkillState.new() if stage == 2 else Stage3BossVariantSkillState.new()
-	var renderer: Object = Stage2BossSkillHudRenderer.new() if stage == 2 else Stage3BossSkillHudRenderer.new()
+	var state: Object
+	var renderer: Object
+	match stage:
+		2:
+			state = Stage2BossVariantSkillState.new()
+			renderer = Stage2BossSkillHudRenderer.new()
+		3:
+			state = Stage3BossVariantSkillState.new()
+			renderer = Stage3BossSkillHudRenderer.new()
+		7:
+			state = Stage7AkamuState.new()
+			renderer = Stage7AkamuBossSkillHudRenderer.new()
+		_:
+			_fail("unsupported visual QA stage: %d" % stage)
+			return
 	renderer.prewarm_assets()
 	state.reset()
 	var live_context := _build_live_context(stage, variant_id)
 	var _selection_result: Dictionary = state.update(0.0, live_context, {})
-	_expect(str(state.active_variant) == variant_id, "%s visual QA must select its production variant state" % variant_id)
+	if stage in [2, 3]:
+		_expect(str(state.active_variant) == variant_id, "%s visual QA must select its production variant state" % variant_id)
 
 	var images: Array[Image] = []
 	var progress_samples: Array[Dictionary] = []
@@ -155,7 +172,7 @@ func _build_screen_hud_context(state: Object, live_context: Dictionary, stage: i
 
 
 func _time_progress_map(context: Dictionary, stage: int) -> Dictionary:
-	var key := "stage2_boss_skill_hud_skills" if stage == 2 else "stage3_boss_skill_hud_skills"
+	var key := _skills_key(stage)
 	var result := {}
 	for value in _as_array(context.get(key, [])):
 		if value is Dictionary and str(value.get("cooldown_contract", "")) == "time":
@@ -170,7 +187,7 @@ func _advance_live_state(state: Object, live_context: Dictionary, duration_sec: 
 
 
 func _build_rail_crop_rect(renderer: Object, context: Dictionary, stage: int) -> Rect2i:
-	var key := "stage2_boss_skill_hud_skills" if stage == 2 else "stage3_boss_skill_hud_skills"
+	var key := _skills_key(stage)
 	var entries := _as_array(context.get(key, [])).duplicate(false)
 	entries.sort_custom(Callable(renderer, "_sort_entries"))
 	if entries.is_empty():
@@ -226,6 +243,17 @@ func _capture_frame(renderer: Object, context: Dictionary, crop_rect: Rect2i) ->
 	viewport.queue_free()
 	await process_frame
 	return cropped
+
+
+func _skills_key(stage: int) -> String:
+	match stage:
+		2:
+			return "stage2_boss_skill_hud_skills"
+		3:
+			return "stage3_boss_skill_hud_skills"
+		7:
+			return "stage7_boss_skill_hud_skills"
+	return ""
 
 
 func _compose_strip(images: Array[Image]) -> Image:

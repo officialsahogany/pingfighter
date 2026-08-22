@@ -537,8 +537,9 @@ static func legacy_motion_step(pixels_per_frame: float, delta: float) -> float:
 func reset() -> void:
 	clear_round_transients()
 	_geometry_state.reset()
-	# 스킬 쿨타임은 라운드 간 유지되지만(clear_round_transients), 완전 리셋
-	# (새 게임 0-0 / 스테이지 이탈 / result)에서는 0으로 초기화한다.
+	# 스킬 쿨타임은 라운드 간 유지된다(clear_round_transients). 완전 리셋
+	# (새 게임 0-0 / 스테이지 이탈 / result)은 각 owner의 명시적 초기 대기로
+	# 되돌린다. 분신/구름은 즉시-ready가 아니며 수리검은 첫 live tick에 arm된다.
 	_shuriken_state.reset_full()
 	_clone_state.reset_full()
 	_cloud_state.reset_full()
@@ -1069,7 +1070,9 @@ func debug_get_superspeed_snapshot() -> Dictionary:
 func debug_start_clone_cast(
 	context: Dictionary,
 	free_cast: bool = false,
-	bypass_cooldown: bool = false
+	# Behavior fixtures should not inherit the production reset rail by
+	# accident. Cooldown-specific tests pass this argument explicitly.
+	bypass_cooldown: bool = true
 ) -> bool:
 	return _try_start_clone_cast(context, true, free_cast, "debug", bypass_cooldown)
 

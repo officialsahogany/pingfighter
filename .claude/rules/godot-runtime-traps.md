@@ -637,4 +637,4 @@ Full rule: `docs/godot_runtime_traps.md`.
 - 필수: 스킬별 양수 initial 상수, 양수 total, 명시적 cooldown contract를 함께 게시한다.
 - 필수: 감소 owner는 정확히 하나이고, 성공한 시전은 양수 cooldown을 다시 적재해야 한다.
 - 예외: 즉시 ready 디자인은 `initial_ready_allowed=true`로 선언하고 문서와 전수 씰에 등재한다.
-- 검증: catalog의 전 보스·전 스킬 reset/진행/시전/재충전과 0-초기화 RED 픽스처를 봉인한다.
+- 검증: 1~8층 런타임 HUD producer 자동 발견으로 전 보스·전 스킬 reset/진행/시전/재충전과 0-초기화 RED 픽스처를 봉인한다.

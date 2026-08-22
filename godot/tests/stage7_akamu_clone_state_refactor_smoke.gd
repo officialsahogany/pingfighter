@@ -87,6 +87,10 @@ func _verify_public_facade_routes_to_owner() -> void:
 	_expect(helper != null, "Stage7AkamuState should expose its focused clone owner for diagnostics")
 	if helper == null:
 		return
+	_expect(
+		is_equal_approx(float(helper.get_snapshot().get("cooldown_remaining_sec", 0.0)), 8.0),
+		"fresh clone owner should begin on the production eight-second initial cooldown"
+	)
 	state._clone_casting = true
 	_expect(bool(helper.casting), "legacy clone casting property should forward writes to the focused owner")
 	state._clone_casting = false

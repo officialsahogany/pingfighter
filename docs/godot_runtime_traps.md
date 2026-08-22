@@ -4004,7 +4004,8 @@ horizontal` 의 `draw_rect(rect.grow(6.0), Color(CHROME_GLOW…, 0.10))` 선택 
 **사건 (2026-08-22).** 2~3층 신규 보스 지굴왕·거미각시·포웅귀·옥토선자의
 reset 직후 좌측 필러 카드가 처음부터 가득 차고 그림자가 움직이지 않았다. 네
 보스가 같은 결함을 반복했으므로 개별 초기화 실수가 아니라 신규 보스 계약 공백으로
-판정했다. 1층 각시탈·포도대장의 별도 cooldown state도 같은 기준으로 함께 감사했다.
+판정했다. 최초 씰은 catalog의 1~3층만 열거해 전수라는 설명보다 좁았고, 후속 감사에서
+Stage 7 아카무 그림자분신·구름장막의 같은 결함과 Stage 4~8 누락을 확인했다.
 
 **메커니즘.** 카드 채움은 `progress = 1.0 - cooldown_remaining /
 cooldown_total`이다. 기본 청린귀/연묘는 reset에서 양수 초기 대기를 적재하지만 신규
@@ -4025,9 +4026,11 @@ update 한 경로뿐이어야 한다. ball/effects 양쪽이 같은 state를 갱
 tick부터 한 번씩 줄여야 한다. 0 레일과 끝점 비교는 epsilon 밴드를 사용해 GRT-037의
 float 잔여 영구 정지를 피한다.
 
-**봉인.** `boss_skill_card_cooldown_contract_smoke.gd`가 catalog의 9보스·25스킬을
-전수 순회해 required keys, 양수 total, reset 비-ready, 여러 tick의 progress 변화,
-실제 시전 owner, 양수 재충전, production controller의 정확히 한 번 감소를 단언한다.
-계약 분포도 `TIME=23 EVENT_CYCLE=1 SCORE_LATCHED=1`로 출력한다. 환경 변수
-`BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 지굴왕 tunnel 초기값을 0으로 되돌려
-즉시-ready와 progress 정지를 둘 다 RED로 만드는 반증 레그다.
+**봉인.** `boss_skill_card_cooldown_contract_smoke.gd`는 catalog를 전수 원천으로
+사용하지 않는다. `scripts/stages/stage*/`의 실제 HUD producer를 자동 발견하므로 새
+보스가 payload를 게시하는 즉시 대상에 들어온다. 현재 1~8층 14보스·39스킬의 required
+keys, 양수 total, reset 비-ready, 여러 tick/event의 progress 변화, 실제 시전 owner,
+양수 재충전, production controller의 정확히 한 번 감소를 단언한다. 계약 분포도
+`TIME=32 DEFERRED_TIME=1 EVENT_CYCLE=1 SCORE_LATCHED=2 RESOURCE_GAUGE=2 PLACEHOLDER=1`로
+출력한다. 환경 변수 `BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 새 전수 범위인 아카무
+그림자분신 초기값을 0으로 되돌려 즉시-ready와 progress 정지를 모두 RED로 만든다.

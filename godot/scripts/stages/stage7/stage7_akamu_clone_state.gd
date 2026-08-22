@@ -8,6 +8,7 @@ const CAST_SEC := 0.50
 const EMERGE_SEC := 0.60
 const DURATION_SEC := 10.0
 const COOLDOWN_SEC := 8.0
+const INITIAL_COOLDOWN_SEC := COOLDOWN_SEC
 const INVULN_BUFFER_SEC := 0.60
 const DEATH_SEC := 0.70
 const FADE_SEC := 1.50
@@ -23,7 +24,7 @@ const TEMP_GOLDEN_MUHON_DROPS := 1
 
 var casting := false
 var cast_elapsed_sec := 0.0
-var cooldown_remaining_sec := 0.0
+var cooldown_remaining_sec := INITIAL_COOLDOWN_SEC
 var invuln_buffer_remaining_sec := 0.0
 var cast_boss_pos := Vector2.ZERO
 var cast_boss_center := Vector2.ZERO
@@ -35,7 +36,7 @@ var entities: Array = []
 
 func reset_full() -> void:
 	clear_round_transients()
-	cooldown_remaining_sec = 0.0
+	cooldown_remaining_sec = INITIAL_COOLDOWN_SEC
 
 
 func clear_round_transients() -> void:
@@ -137,6 +138,8 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		"progress": clampf(1.0 - cooldown_remaining_sec / COOLDOWN_SEC, 0.0, 1.0),
 		"cooldown_remaining": cooldown_remaining_sec,
 		"cooldown_total": COOLDOWN_SEC,
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"next_activation_remaining": next_activation_remaining,
 		"ready": ready,
 		"active": live_count > 0 or (casting and not skill_paused),

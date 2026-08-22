@@ -62,6 +62,12 @@ func _verify_public_facade_routes_to_owner() -> void:
 	_expect(helper != null, "Stage7AkamuState should expose its focused Cloud Veil owner for diagnostics")
 	if helper == null:
 		return
+	var initial_snapshot: Dictionary = helper.get_snapshot()
+	_expect(
+		is_equal_approx(float(initial_snapshot.get("cooldown_remaining_sec", 0.0)), 15.0)
+			and is_equal_approx(float(initial_snapshot.get("cooldown_total_sec", 0.0)), 15.0),
+		"fresh Cloud Veil owner should publish the deterministic 15-second initial rail"
+	)
 	state.debug_set_cloud_cooldown_remaining(3.5, 7.0)
 	_expect(
 		state.debug_get_cloud_snapshot() == helper.get_snapshot(),

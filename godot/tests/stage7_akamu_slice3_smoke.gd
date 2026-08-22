@@ -143,7 +143,7 @@ func _verify_normal_and_awakened_cast_contract() -> void:
 	state.debug_seed_rng(73001)
 	state.debug_set_gauge(100.0)
 	var context: Dictionary = _base_context()
-	_expect(state.debug_start_clone_cast(context), "paid shadow clone cast should start with 100 gauge")
+	_expect(state.debug_start_clone_cast(context, false, true), "paid shadow clone cast should start with 100 gauge")
 	_expect(state.is_boss_ball_intangible(), "boss should become ball-intangible immediately when clone cast starts")
 	_expect(bool(state.get_boss_ai_context().get("stage7_akamu_scripted_motion_active", false)), "clone cast should authoritatively hold the boss")
 	_expect_vector(
@@ -176,7 +176,7 @@ func _verify_normal_and_awakened_cast_contract() -> void:
 	awakened_state.debug_seed_rng(73002)
 	awakened_state.debug_set_awakened(true)
 	awakened_state.debug_set_gauge(100.0)
-	_expect(awakened_state.debug_start_clone_cast(context), "awakened paid clone cast should start")
+	_expect(awakened_state.debug_start_clone_cast(context, false, true), "awakened paid clone cast should start")
 	_advance(awakened_state, 0.5, context)
 	_expect(int(awakened_state.debug_get_clone_snapshot().get("live_count", 0)) == 4, "awakened clone cast should spawn four clones")
 	_advance(awakened_state, 0.5, context)
@@ -186,6 +186,7 @@ func _verify_normal_and_awakened_cast_contract() -> void:
 func _verify_paid_cast_cancels_if_external_drain_breaks_commit() -> void:
 	var state: Object = Stage7AkamuState.new()
 	state.debug_set_gauge(100.0)
+	state.debug_set_clone_cooldown_remaining(0.0)
 	var context: Dictionary = _base_context()
 	_expect(state.debug_start_clone_cast(context), "drain regression precondition should start a paid cast")
 	state.drain_boss_special_gauge(60.0)
@@ -202,6 +203,7 @@ func _verify_clone_trigger_roll_and_cast_arbitration() -> void:
 	var state: Object = Stage7AkamuState.new()
 	state.debug_seed_rng(73003)
 	state.debug_set_gauge(500.0)
+	state.debug_set_clone_cooldown_remaining(0.0)
 	var context: Dictionary = _base_context()
 	var scene := {"ball_pos": Vector2(380.0, 80.0), "ball_vel": Vector2(0.0, 12.0)}
 	for _attempt in range(128):
@@ -216,7 +218,7 @@ func _verify_clone_trigger_roll_and_cast_arbitration() -> void:
 	shuriken_state.debug_set_shuriken_cooldown_remaining(0.0, 8.0)
 	shuriken_state.update(1.0 / 60.0, context)
 	_expect(bool(shuriken_state.debug_get_shuriken_snapshot().get("casting", false)), "precondition should start shuriken cast")
-	_expect(not shuriken_state.debug_start_clone_cast(context), "clone cast should not overlap the shuriken scripted-position owner")
+	_expect(not shuriken_state.debug_start_clone_cast(context, false, true), "clone cast should not overlap the shuriken scripted-position owner")
 
 	var live_clone_state: Object = Stage7AkamuState.new()
 	live_clone_state.debug_set_gauge(200.0)
@@ -252,7 +254,7 @@ func _verify_pause_freezes_cast_and_cooldown_but_not_live_clone() -> void:
 	runtime.paused = true
 	var context: Dictionary = _base_context()
 	state.debug_set_gauge(100.0)
-	_expect(state.debug_start_clone_cast(context), "pause regression precondition should start clone cast")
+	_expect(state.debug_start_clone_cast(context, false, true), "pause regression precondition should start clone cast")
 	state.update(0.1, context, {"active_item_runtime": runtime})
 	_expect_close(float(state.debug_get_clone_snapshot().get("cast_elapsed_sec", -1.0)), 0.0, "boss-skill pause should freeze the 500ms clone cast")
 	_expect(state.is_boss_ball_intangible(), "paused clone cast should retain its intangibility")
@@ -274,7 +276,7 @@ func _verify_composite_intangibility_window() -> void:
 	var context: Dictionary = _base_context()
 	state.debug_set_gauge(100.0)
 	state.set_boss_ball_intangible_source("cloud", true)
-	_expect(state.debug_start_clone_cast(context), "composite intangibility precondition should start clone cast")
+	_expect(state.debug_start_clone_cast(context, false, true), "composite intangibility precondition should start clone cast")
 	_advance(state, 0.5, context)
 	_advance(state, 0.6, context)
 	_expect(state.is_boss_ball_intangible(), "external cloud contributor should keep boss intangible after shadow buffer ends")
@@ -284,7 +286,7 @@ func _verify_composite_intangibility_window() -> void:
 	var cancel_state: Object = Stage7AkamuState.new()
 	cancel_state.debug_set_gauge(100.0)
 	cancel_state.set_boss_ball_intangible_source("escape", true)
-	_expect(cancel_state.debug_start_clone_cast(context), "external-source cancel precondition should start clone cast")
+	_expect(cancel_state.debug_start_clone_cast(context, false, true), "external-source cancel precondition should start clone cast")
 	cancel_state.drain_boss_special_gauge(100.0)
 	_advance(cancel_state, 0.5, context)
 	_expect(cancel_state.is_boss_ball_intangible(), "cancelled shadow cast must preserve an independent escape contributor")
@@ -302,7 +304,7 @@ func _verify_real_cast_intangibility_reaches_pre_detector() -> void:
 	var state: Object = Stage7AkamuState.new()
 	state.debug_set_gauge(100.0)
 	var state_context: Dictionary = _base_context()
-	_expect(state.debug_start_clone_cast(state_context), "pre-detector integration precondition should start clone cast")
+	_expect(state.debug_start_clone_cast(state_context, false, true), "pre-detector integration precondition should start clone cast")
 	var processor: Object = BallMotionEventProcessor.new()
 	var bounce := FakeNormalBossBounceController.new()
 	processor.step_motion(
@@ -579,7 +581,7 @@ func _verify_hud_pause_states_match_runtime() -> void:
 
 	var clone_cast_state: Object = Stage7AkamuState.new()
 	clone_cast_state.debug_set_gauge(100.0)
-	_expect(clone_cast_state.debug_start_clone_cast(context), "clone HUD pause precondition should start a cast")
+	_expect(clone_cast_state.debug_start_clone_cast(context, false, true), "clone HUD pause precondition should start a cast")
 	clone_cast_state.update(0.1, context, {"active_item_runtime": runtime})
 	var clone_card: Dictionary = _find_skill(clone_cast_state.get_hud_context().get("stage7_boss_skill_hud_skills", []), "stage7_clone")
 	_expect(str(clone_card.get("status", "")) == "paused", "paused clone cast should render as paused")
@@ -640,8 +642,8 @@ func _verify_hud_render_payload_and_cleanup() -> void:
 	_expect(not state.debug_is_awakened(), "result reset should clear awakening")
 	_expect_close(
 		float(state.debug_get_clone_snapshot().get("cooldown_remaining_sec", -1.0)),
-		0.0,
-		"full result reset SHOULD clear the skill cooldown (fresh match)"
+		8.0,
+		"full result reset should restore the explicit fresh-match initial cooldown"
 	)
 
 	var actor_source := FileAccess.get_file_as_string("res://scripts/stages/stage7/stage7_akamu_boss_actor_renderer.gd")

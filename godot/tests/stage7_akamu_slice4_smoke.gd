@@ -303,7 +303,7 @@ func _verify_cloud_composite_intangibility_and_writer_gates() -> void:
 	_expect(not puppet_state.debug_start_cloud(puppet_context, {}, true), "puppet grab should own scripted motion ahead of cloud")
 
 	var clone_state: Object = Stage7AkamuState.new()
-	_expect(clone_state.debug_start_clone_cast(context, true), "clone writer-gate precondition should start")
+	_expect(clone_state.debug_start_clone_cast(context, true, true), "clone writer-gate precondition should start")
 	_expect(not clone_state.debug_start_cloud(context, {}, true), "active clone cast should reject cloud scripted ownership")
 
 	var shuriken_state: Object = Stage7AkamuState.new()
@@ -316,7 +316,7 @@ func _verify_cloud_composite_intangibility_and_writer_gates() -> void:
 	var cloud_state: Object = Stage7AkamuState.new()
 	cloud_state.debug_set_gauge(100.0)
 	_expect(cloud_state.debug_start_cloud(context, {}, true), "reverse writer-gate precondition should start cloud")
-	_expect(not cloud_state.debug_start_clone_cast(context, true), "active cloud should reject clone scripted ownership")
+	_expect(not cloud_state.debug_start_clone_cast(context, true, true), "active cloud should reject clone scripted ownership")
 	cloud_state.debug_set_shuriken_cooldown_remaining(0.0, 8.0)
 	cloud_state.update(0.0, context)
 	_expect(not bool(cloud_state.debug_get_shuriken_snapshot().get("casting", false)), "shuriken scheduler should wait for active cloud motion")
@@ -611,7 +611,9 @@ func _verify_slice4_cleanup() -> void:
 	_expect_close(state.debug_get_gauge(), 80.0, "transient cleanup should preserve post-cost Stage 7 gauge")
 	_expect(state.debug_is_awakened(), "transient cleanup should preserve awakening")
 	state.reset()
-	_expect_close(float(state.debug_get_cloud_snapshot().get("cooldown_remaining_sec", -1.0)), 0.0, "full reset SHOULD clear the cloud cooldown")
+	var reset_cloud: Dictionary = state.debug_get_cloud_snapshot()
+	_expect_close(float(reset_cloud.get("cooldown_remaining_sec", -1.0)), 15.0, "full reset should restore the midpoint initial cloud cooldown")
+	_expect_close(float(reset_cloud.get("cooldown_total_sec", -1.0)), 15.0, "full reset should publish a positive initial cloud total")
 
 	var escape_state: Object = Stage7AkamuState.new()
 	_expect(escape_state.debug_start_escape(context, {}, 1.0), "cleanup escape precondition should start")

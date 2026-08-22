@@ -15,6 +15,9 @@ const TOTAL_SEC := EXPAND_SEC + VISIBLE_SEC + FINAL_FADE_SEC
 const SEMI_ALPHA := 100.0 / 255.0
 const COOLDOWN_MIN_SEC := 10.0
 const COOLDOWN_MAX_SEC := 20.0
+# A deterministic midpoint preserves the existing 10-20 second recharge
+# envelope without consuming the authoritative combat RNG during reset.
+const INITIAL_COOLDOWN_SEC := (COOLDOWN_MIN_SEC + COOLDOWN_MAX_SEC) * 0.5
 const INVULN_BUFFER_SEC := 0.180
 const LOGICAL_SIZE := Vector2(235.0, 56.0)
 const SPAWN_Y_OFFSET := 80.0
@@ -27,8 +30,8 @@ var origin_boss_pos := Vector2.ZERO
 var target_boss_pos := Vector2.ZERO
 var home_boss_pos := Vector2.ZERO
 var boss_size := Vector2(100.0, 40.0)
-var cooldown_remaining_sec := 0.0
-var cooldown_total_sec := 0.0
+var cooldown_remaining_sec := INITIAL_COOLDOWN_SEC
+var cooldown_total_sec := INITIAL_COOLDOWN_SEC
 var invuln_buffer_remaining_sec := 0.0
 var field_active := false
 var field_elapsed_sec := 0.0
@@ -39,8 +42,8 @@ var aura_draw_context: Dictionary = {}
 
 func reset_full() -> void:
 	clear_round_transients()
-	cooldown_remaining_sec = 0.0
-	cooldown_total_sec = 0.0
+	cooldown_remaining_sec = INITIAL_COOLDOWN_SEC
+	cooldown_total_sec = INITIAL_COOLDOWN_SEC
 
 
 func clear_round_transients() -> void:
@@ -129,6 +132,8 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		"progress": clampf(1.0 - cooldown_remaining_sec / cooldown_total, 0.0, 1.0),
 		"cooldown_remaining": cooldown_remaining_sec,
 		"cooldown_total": cooldown_total,
+		"cooldown_contract": "time",
+		"initial_ready_allowed": false,
 		"next_activation_remaining": maxf(
 			cooldown_remaining_sec,
 			maxf(field_remaining, maxf(0.0, GAUGE_COST - boss_gauge))
