@@ -200,13 +200,16 @@ func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 	_expect(is_equal_approx(lane_scale, viewport_scale_ratio), "asset-world lane spacing must use the same uniform M-key scale")
 	var live_content: Rect2 = live_model.get("content_rect", Rect2())
 	var live_world: Rect2 = live_model.get("world_rect", Rect2())
+	var live_camera_view: Rect2 = live_model.get("camera_view_rect", Rect2())
+	var live_camera: Dictionary = live_model.get("camera", {})
+	var live_zoom := float(live_camera.get("render_zoom_multiplier", 0.0))
 	var visible_world: Rect2 = (live_model.get("camera", {}) as Dictionary).get(
 		"visible_world_rect",
 		Rect2()
 	)
-	_expect(float(live_model.get("zoom_scale", 0.0)) >= 2.0, "the tracked map zoom must stay at or above 2x")
+	_expect(live_zoom >= float(live_model.get("minimum_cover_zoom", INF)), "the tracked map zoom must stay at or above its screen-derived cover floor")
 	_expect(live_world.size.y >= live_content.size.y * 2.0, "the map world must be cropped vertically instead of fitted into one screen")
-	_expect(is_equal_approx(visible_world.size.y, live_content.size.y), "the camera window must match the live map content height")
+	_expect(is_equal_approx(visible_world.size.y, live_camera_view.size.y / live_zoom), "the camera window must be the full live viewport divided by effective zoom")
 	var visible_node_count := 0
 	for node_variant in live_model.get("nodes", []):
 		if node_variant is Dictionary:
@@ -239,12 +242,12 @@ func _verify_tracked_camera_boundaries() -> void:
 	var viewport_rect := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 	var lower_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 	var lower_camera: Dictionary = lower_model.get("camera", {})
-	var lower_content: Rect2 = lower_model.get("content_rect", Rect2())
-	var lower_world: Rect2 = lower_model.get("world_rect", Rect2())
-	var lower_padding := float(lower_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO
+	var lower_content: Rect2 = lower_model.get("camera_view_rect", Rect2())
+	var lower_world: Rect2 = lower_model.get("camera_world_rect", Rect2())
+	var lower_zoom := float(lower_camera.get("render_zoom_multiplier", 1.0))
 	var lower_offset := float((lower_camera.get("offset", Vector2.ZERO) as Vector2).y)
 	_expect(bool(lower_camera.get("at_lower_boundary", false)), "floor 1 must clamp at the lower camera boundary")
-	_expect(is_equal_approx(lower_world.end.y + lower_padding + lower_offset, lower_content.end.y), "the lower clamp must expose no empty space below the map world")
+	_expect(is_equal_approx(lower_world.end.y * lower_zoom + lower_offset, lower_content.end.y), "the lower clamp must expose no empty space below the map world")
 	var middle_node_id := ""
 	for node_variant in flow.get_graph_nodes():
 		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == 5:
@@ -253,30 +256,28 @@ func _verify_tracked_camera_boundaries() -> void:
 	flow.set("_current_node_id", middle_node_id)
 	var middle_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 	var middle_camera: Dictionary = middle_model.get("camera", {})
-	var middle_content: Rect2 = middle_model.get("content_rect", Rect2())
+	var middle_content: Rect2 = middle_model.get("camera_view_rect", Rect2())
 	var middle_focus: Vector2 = middle_camera.get("focus_screen_position", Vector2.ZERO)
 	_expect(not bool(middle_camera.get("at_lower_boundary", true)) and not bool(middle_camera.get("at_upper_boundary", true)), "a middle floor must use free camera tracking")
 	_expect(absf(middle_focus.y - middle_content.get_center().y) <= 0.1, "a middle-floor character must stay vertically centered")
 
-	var top_node_id := ""
 	var top_floor := -1
 	for node_variant in flow.get_graph_nodes():
 		if not (node_variant is Dictionary):
 			continue
 		var node := node_variant as Dictionary
 		var floor_number := int(node.get("floor", 0))
-		if floor_number > top_floor:
-			top_floor = floor_number
-			top_node_id = str(node.get("id", ""))
+		top_floor = maxi(top_floor, floor_number)
+	var top_node_id := _topmost_node_id_for_floor(flow, top_floor)
 	flow.set("_current_node_id", top_node_id)
 	var upper_model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 	var upper_camera: Dictionary = upper_model.get("camera", {})
-	var upper_content: Rect2 = upper_model.get("content_rect", Rect2())
-	var upper_world: Rect2 = upper_model.get("world_rect", Rect2())
-	var upper_padding := float(upper_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO
+	var upper_content: Rect2 = upper_model.get("camera_view_rect", Rect2())
+	var upper_world: Rect2 = upper_model.get("camera_world_rect", Rect2())
+	var upper_zoom := float(upper_camera.get("render_zoom_multiplier", 1.0))
 	var upper_offset := float((upper_camera.get("offset", Vector2.ZERO) as Vector2).y)
 	_expect(bool(upper_camera.get("at_upper_boundary", false)), "the final floor must clamp at the upper camera boundary")
-	_expect(is_equal_approx(upper_world.position.y - upper_padding + upper_offset, upper_content.position.y), "the upper clamp must expose no empty space above the map world")
+	_expect(is_equal_approx(upper_world.position.y * upper_zoom + upper_offset, upper_content.position.y), "the upper clamp must expose no empty space above the map world")
 
 
 func _verify_seeded_curve_geometry_preserves_connections() -> void:
@@ -378,7 +379,7 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 		var moving_camera: Dictionary = moving_model.get("camera", {})
 		_expect(float(moving_marker.get("progress", 0.0)) > 0.0 and float(moving_marker.get("progress", 0.0)) < 1.0, "mid-transition marker must use the eased travel window")
 		_expect((moving_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(moving_camera.get("focus_world_position", Vector2.ONE)), "the tracked camera must consume the walker's curve position from the same physics-clock progress")
-		_expect((moving_model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(moving_camera.get("focus_screen_position", Vector2.ZERO)), "the tracked transition walker must remain inside the visible map crop")
+		_expect((moving_model.get("camera_view_rect", Rect2()) as Rect2).grow(-1.0).has_point(moving_camera.get("focus_screen_position", Vector2.ZERO)), "the tracked transition walker must remain inside the visible map crop")
 		var straight_midpoint := (moving_marker.get("from_position", Vector2.ZERO) as Vector2).lerp(
 			moving_marker.get("to_position", Vector2.ZERO),
 			float(moving_marker.get("progress", 0.0))
@@ -436,6 +437,29 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	_expect(is_zero_approx(timeline.get_node_modal_fade_progress()), "noncombat arrival surface must begin fully covered")
 	timeline.update_node_modal_fade(TowerAscentTuning.TEMP_NODE_MODAL_FADE_IN_SEC)
 	_expect(is_equal_approx(timeline.get_node_modal_fade_progress(), 1.0), "noncombat node fade must complete on its tuning duration")
+
+
+func _topmost_node_id_for_floor(flow: Object, floor_number: int) -> String:
+	var result := ""
+	var topmost_y := INF
+	for node_variant in flow.get_graph_nodes():
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if int(node.get("floor", 0)) != floor_number:
+			continue
+		var source_position: Variant = node.get("position", Vector2.ZERO)
+		var source_y := (
+			float(source_position.y)
+			if source_position is Vector2
+			else float(source_position[1])
+			if source_position is Array and source_position.size() >= 2
+			else 0.0
+		)
+		if source_y < topmost_y:
+			topmost_y = source_y
+			result = str(node.get("id", ""))
+	return result
 
 
 func _model_edge_count(

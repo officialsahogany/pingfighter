@@ -25,8 +25,8 @@ const TowerMapScrollAssetCatalog := preload(
 const GAME_SIZE := Vector2i(2020, 1246)
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_scroll_route_refine"
-const GAMEPLAY_ZOOM_NAME := "01_live_gameplay_zoom_2_15.png"
-const GAMEPLAY_COMPARE_NAME := "02_approved_human_vs_gameplay_zoom_2_15.png"
+const GAMEPLAY_ZOOM_NAME := "01_live_gameplay_cover_zoom.png"
+const GAMEPLAY_COMPARE_NAME := "02_approved_human_vs_gameplay_cover_zoom.png"
 const HUMAN_LOWER_NAME := "03_live_m_key_overlay_floor01.png"
 const HUMAN_STATES_NAME := "04_live_m_key_overlay_three_route_states.png"
 const BOUNDARY_NAME := "05_live_m_key_overlay_realm_boundary.png"
@@ -88,14 +88,18 @@ func _run() -> void:
 		VIEWPORT_RECT
 	)
 	var gameplay_camera: Dictionary = gameplay_model.get("camera", {})
+	var expected_gameplay_zoom := maxf(
+		float(gameplay_model.get("minimum_cover_zoom", 0.0)),
+		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
+	)
 	if (
 		gameplay_flow.get_phase_name() != "MAP_TRANSITION"
 		or not is_equal_approx(
 			float(gameplay_camera.get("render_zoom_multiplier", 0.0)),
-			TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
+			expected_gameplay_zoom
 		)
 	):
-		_fail("Primary capture did not reach the production 2.15x gameplay camera")
+		_fail("Primary capture did not reach the viewport-derived cover-safe gameplay zoom")
 		return
 	var gameplay_world_rect: Rect2 = gameplay_model.get("world_rect", Rect2())
 	if not is_equal_approx(gameplay_world_rect.size.x, 692.0):
@@ -106,14 +110,14 @@ func _run() -> void:
 		gameplay_fixture["viewport"]
 	)
 	if not _save(gameplay_image, output_dir.path_join(GAMEPLAY_ZOOM_NAME)):
-		_fail("Primary 2.15x gameplay capture failed")
+		_fail("Primary cover-safe gameplay capture failed")
 		return
 	if not _save_candidate_live_compare(
 		HUMAN_BAND_PATHS,
 		gameplay_image,
 		output_dir.path_join(GAMEPLAY_COMPARE_NAME)
 	):
-		_fail("Approved-versus-gameplay 2.15x comparison could not be saved")
+		_fail("Approved-versus-gameplay cover comparison could not be saved")
 		return
 	await _dispose_fixture(gameplay_fixture)
 

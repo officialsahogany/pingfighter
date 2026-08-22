@@ -1,6 +1,17 @@
 extends RefCounted
 
 
+static func minimum_cover_zoom(view_rect: Rect2, world_rect: Rect2) -> float:
+	if view_rect.size.x <= 0.0 or view_rect.size.y <= 0.0:
+		return 1.0
+	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
+		return 1.0
+	return maxf(
+		view_rect.size.x / world_rect.size.x,
+		view_rect.size.y / world_rect.size.y
+	)
+
+
 static func build(
 	content_rect: Rect2,
 	world_rect: Rect2,

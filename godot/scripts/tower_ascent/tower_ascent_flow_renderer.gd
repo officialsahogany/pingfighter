@@ -455,9 +455,9 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		float(transition_marker.get("camera_zoom_multiplier", 1.0))
 	)
 	var camera_base_multiplier := (
-		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
+		float(model.get("preferred_camera_zoom", 1.0))
 		if not transition_marker.is_empty()
-		else 1.0
+		else float(model.get("minimum_cover_zoom", 1.0))
 	)
 	var camera_render_multiplier := camera_base_multiplier * camera_intro_multiplier
 	var camera_focus_x_blend := clampf(
@@ -470,11 +470,10 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		1.0
 	)
 	var camera_model := TowerAscentMapCameraModel.build(
-		model.get("content_rect", Rect2()),
-		model.get("world_rect", Rect2()),
+		model.get("camera_view_rect", Rect2()),
+		model.get("camera_world_rect", Rect2()),
 		focus_world_position,
-		float(model.get("art_size", 0.0))
-			* TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
+		0.0,
 		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
 		camera_render_multiplier,
 		camera_focus_x_blend
@@ -511,7 +510,6 @@ func _build_static_fullscreen_map_model(
 	)
 	var scaled_tile_size := MAP_SCROLL_TILE_SIZE * map_scale
 	var scaled_row_pitch := MAP_SCROLL_ROW_PITCH * map_scale
-	var zoom_scale := maxf(2.0, TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM)
 	var nodes: Array = base.get("nodes", [])
 	var source_min_x := INF
 	var source_max_x := -INF
@@ -658,15 +656,38 @@ func _build_static_fullscreen_map_model(
 		base.get("map_scroll_assets", {}),
 		scaled_tile_size
 	)
+	# The node layout keeps the established safe gutters, while the camera and
+	# scroll artwork own the whole screen. `tile_world_rect` is the exact opaque
+	# map-art extent, so clamping against it cannot reveal the paper panel when a
+	# cover crop tracks near an edge.
+	var camera_view_rect := viewport_rect
+	var camera_world_rect: Rect2 = scroll_background.get(
+		"tile_world_rect",
+		Rect2(
+			Vector2(world_rect.position.x, world_rect.position.y - scaled_tile_size.y * 0.5),
+			Vector2(world_rect.size.x, world_rect.size.y + scaled_tile_size.y)
+		)
+	)
+	var minimum_cover_zoom := TowerAscentMapCameraModel.minimum_cover_zoom(
+		camera_view_rect,
+		camera_world_rect
+	)
+	var preferred_camera_zoom := maxf(
+		minimum_cover_zoom,
+		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM if not fit_content_width else 1.0
+	)
 	return {
 		"viewport_rect": viewport_rect,
 		"panel_rect": panel_rect,
 		"safe_content_bounds": safe_content_bounds,
 		"content_rect": content_rect,
 		"world_rect": world_rect,
+		"camera_view_rect": camera_view_rect,
+		"camera_world_rect": camera_world_rect,
+		"minimum_cover_zoom": minimum_cover_zoom,
+		"preferred_camera_zoom": preferred_camera_zoom,
 		"map_scale": map_scale,
 		"plaque_size": MAP_SCROLL_PLAQUE_SIZE * map_scale,
-		"zoom_scale": zoom_scale,
 		"nodes": projected_nodes,
 		"edges": projected_edges,
 		"floor_bands": floor_bands,
@@ -781,6 +802,7 @@ func _draw_fullscreen_map_model(
 	var viewport_rect: Rect2 = model.get("viewport_rect", Rect2())
 	var panel_rect: Rect2 = model.get("panel_rect", Rect2())
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
+	var camera_view_rect: Rect2 = model.get("camera_view_rect", viewport_rect)
 	var world_rect: Rect2 = model.get("world_rect", content_rect)
 	var camera_model: Dictionary = model.get("camera", {})
 	var realm_kind := str(model.get("realm_kind", "human_realm"))
@@ -801,13 +823,13 @@ func _draw_fullscreen_map_model(
 	)
 	var scroll_background_ready := bool(scroll_background.get("ready", false))
 	if scroll_background_ready:
-		_draw_scroll_background_model(canvas, scroll_background, content_rect, camera_model)
+		_draw_scroll_background_model(canvas, scroll_background, camera_view_rect, camera_model)
 	else:
 		if immortal_realm:
-			_draw_immortal_realm_backdrop(canvas, content_rect)
+			_draw_immortal_realm_backdrop(canvas, camera_view_rect)
 		_draw_fullscreen_castle(
 			canvas,
-			content_rect,
+			camera_view_rect,
 			world_rect,
 			model.get("floor_bands", []),
 			realm_kind,
@@ -826,7 +848,7 @@ func _draw_fullscreen_map_model(
 		if not should_draw_route_edge_in_view(
 			edge,
 			brush_asset_key,
-			content_rect,
+			camera_view_rect,
 			camera_model
 		):
 			continue
@@ -839,21 +861,21 @@ func _draw_fullscreen_map_model(
 				canvas,
 				_route_brush_quads_for_asset(edge, brush_asset_key),
 				brush_texture,
-				content_rect,
+				camera_view_rect,
 				camera_model
 			)
 		else:
 			_draw_fullscreen_procedural_dotted_edge(
 				canvas,
 				edge,
-				content_rect,
+				camera_view_rect,
 				camera_model,
 				float(model.get("art_size", 0.0))
 			)
 	if scroll_background_ready:
 		_draw_fullscreen_floor_guides(
 			canvas,
-			content_rect,
+			camera_view_rect,
 			model.get("floor_bands", []),
 			camera_model,
 			model.get("map_scroll_assets", {}),
@@ -870,7 +892,7 @@ func _draw_fullscreen_map_model(
 				active_candidate_ids,
 				current_node_id,
 				selected_target_id,
-				content_rect,
+				camera_view_rect,
 				camera_model
 			)
 	_draw_fullscreen_transition_marker(

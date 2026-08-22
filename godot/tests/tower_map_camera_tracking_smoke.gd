@@ -115,7 +115,7 @@ func _verify_camera_boundaries_and_static_path_cache() -> void:
 	var middle_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var middle_camera: Dictionary = middle_model.get("camera", {})
 	_expect(not bool(middle_camera.get("at_lower_boundary", true)) and not bool(middle_camera.get("at_upper_boundary", true)), "middle floor must leave both clamps")
-	_expect(absf((middle_camera.get("focus_screen_position", Vector2.ZERO) as Vector2).y - (middle_model.get("content_rect", Rect2()) as Rect2).get_center().y) <= 0.1, "middle-floor focus must stay vertically centered")
+	_expect(absf((middle_camera.get("focus_screen_position", Vector2.ZERO) as Vector2).y - (middle_model.get("camera_view_rect", Rect2()) as Rect2).get_center().y) <= 0.1, "middle-floor focus must stay vertically centered")
 	var top_id := _node_id_for_floor(flow, 9)
 	flow.set("_current_node_id", top_id)
 	var upper_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
@@ -145,7 +145,7 @@ func _verify_transition_camera_uses_physics_clock_curve() -> void:
 		var focus_world: Vector2 = camera.get("focus_world_position", Vector2.ZERO)
 		var marker_world: Vector2 = marker.get("world_position", Vector2.ONE)
 		_expect(focus_world.is_equal_approx(marker_world), "camera and walker must consume the same eased transition position")
-		_expect((model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(camera.get("focus_screen_position", Vector2.ZERO)), "walker focus must stay inside the tracked crop")
+		_expect((model.get("camera_view_rect", Rect2()) as Rect2).grow(-1.0).has_point(camera.get("focus_screen_position", Vector2.ZERO)), "walker focus must stay inside the tracked crop")
 		focus_positions.append(focus_world)
 		var current_build_count := int(renderer.get_render_cache_debug_state().get("path_build_count", 0))
 		if transition_path_build_count < 0:
@@ -232,16 +232,17 @@ func _verify_intro_zoom_handoff_and_boundaries() -> void:
 	var top_model: Dictionary = top_renderer.build_fullscreen_map_model(top_flow, VIEWPORT_RECT)
 	var top_focus: Vector2 = (top_model.get("position_by_id", {}) as Dictionary).get(top_id, Vector2.ZERO)
 	var top_camera := TowerAscentMapCameraModel.build(
-		top_model.get("content_rect", Rect2()),
-		top_model.get("world_rect", Rect2()),
+		top_model.get("camera_view_rect", Rect2()),
+		top_model.get("camera_world_rect", Rect2()),
 		top_focus,
-		float(top_model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO,
+		0.0,
 		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
-		TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
+		float(top_model.get("preferred_camera_zoom", 1.0))
+			* TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
 		1.0
 	)
 	_expect(bool(top_camera.get("at_upper_boundary", false)), "final intro crop must retain the top-floor boundary clamp")
-	_expect((top_model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(top_camera.get("focus_screen_position", Vector2.ZERO)), "top-floor focus must remain inside the final intro crop")
+	_expect((top_model.get("camera_view_rect", Rect2()) as Rect2).grow(-1.0).has_point(top_camera.get("focus_screen_position", Vector2.ZERO)), "top-floor focus must remain inside the final intro crop")
 
 
 func _model_at_elapsed(
@@ -275,16 +276,16 @@ func _verify_polygon_dot_contract() -> void:
 
 func _verify_boundary(model: Dictionary, boundary: String) -> void:
 	var camera: Dictionary = model.get("camera", {})
-	var content: Rect2 = model.get("content_rect", Rect2())
-	var world: Rect2 = model.get("world_rect", Rect2())
+	var content: Rect2 = model.get("camera_view_rect", Rect2())
+	var world: Rect2 = model.get("camera_world_rect", Rect2())
+	var zoom := float(camera.get("render_zoom_multiplier", 1.0))
 	var offset := float((camera.get("offset", Vector2.ZERO) as Vector2).y)
-	var padding := float(model.get("art_size", 0.0)) * TowerAscentTuning.TEMP_MAP_CAMERA_BOUNDARY_ART_PADDING_RATIO
 	if boundary == "lower":
 		_expect(bool(camera.get("at_lower_boundary", false)), "floor 1 must own the lower clamp")
-		_expect(is_equal_approx(world.end.y + padding + offset, content.end.y), "lower clamp must reveal no empty world")
+		_expect(is_equal_approx(world.end.y * zoom + offset, content.end.y), "lower clamp must reveal no empty world")
 		return
 	_expect(bool(camera.get("at_upper_boundary", false)), "top floor must own the upper clamp")
-	_expect(is_equal_approx(world.position.y - padding + offset, content.position.y), "upper clamp must reveal no empty world")
+	_expect(is_equal_approx(world.position.y * zoom + offset, content.position.y), "upper clamp must reveal no empty world")
 
 
 func _new_flow(run_id: String, map_seed: int) -> Object:
@@ -297,10 +298,26 @@ func _new_flow(run_id: String, map_seed: int) -> Object:
 
 
 func _node_id_for_floor(flow: Object, floor_number: int) -> String:
+	var result := ""
+	var topmost_y := INF
 	for node_variant in flow.get_graph_nodes():
-		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == floor_number:
-			return str((node_variant as Dictionary).get("id", ""))
-	return ""
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if int(node.get("floor", 0)) != floor_number:
+			continue
+		var source_position: Variant = node.get("position", Vector2.ZERO)
+		var source_y := (
+			float(source_position.y)
+			if source_position is Vector2
+			else float(source_position[1])
+			if source_position is Array and source_position.size() >= 2
+			else 0.0
+		)
+		if source_y < topmost_y:
+			topmost_y = source_y
+			result = str(node.get("id", ""))
+	return result
 
 
 func _expect(condition: bool, message: String) -> void:

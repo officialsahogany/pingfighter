@@ -147,13 +147,26 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var tile_world_rect: Rect2 = background.get("world_rect", Rect2())
 	var camera: Dictionary = model.get("camera", {})
 	var camera_offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var camera_view_rect: Rect2 = model.get("camera_view_rect", Rect2())
+	var camera_world_rect: Rect2 = model.get("camera_world_rect", Rect2())
+	var camera_render_zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var projected_camera_world := Rect2(
+		camera_world_rect.position * camera_render_zoom + camera_offset,
+		camera_world_rect.size * camera_render_zoom
+	)
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
 	var map_scale := float(model.get("map_scale", 0.0))
 	var previous_key := ""
 	var previous_end_y := tile_world_rect.position.y
 	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "the M-key scroll world must fit the live content width")
-	_expect(not bool(camera.get("horizontal_world_fits", true)), "the M-key camera must account for scaled edge padding around the content-width scroll")
-	_expect(is_equal_approx(world_rect.get_center().x + camera_offset.x, content_rect.get_center().x), "the M-key overlay must keep the scaled scroll centered in its content rect")
+	_expect(camera_render_zoom >= float(model.get("minimum_cover_zoom", INF)), "the M-key camera must use its viewport-derived cover floor")
+	_expect(
+		projected_camera_world.position.x <= camera_view_rect.position.x + 0.01
+			and projected_camera_world.end.x >= camera_view_rect.end.x - 0.01
+			and projected_camera_world.position.y <= camera_view_rect.position.y + 0.01
+			and projected_camera_world.end.y >= camera_view_rect.end.y - 0.01,
+		"the scaled M-key scroll art must cover every fullscreen edge without relying on padding"
+	)
 	for index in range(tiles.size()):
 		var tile := tiles[index] as Dictionary
 		var tile_rect: Rect2 = tile.get("rect", Rect2())
@@ -405,8 +418,10 @@ func _verify_fullscreen_medal_node_contract() -> void:
 			Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 		)
 		var gameplay_camera: Dictionary = gameplay_model.get("camera", {})
-		_expect(is_equal_approx(float(gameplay_camera.get("render_zoom_multiplier", 0.0)), 2.15), "the production transition must render the approved band at the actual 2.15x gameplay zoom")
-		_expect(is_equal_approx(float(gameplay_camera.get("zoom_multiplier", 0.0)), 1.0), "the existing 1.0 to 1.18 walker intro multiplier must remain separate from the base 2.15x art scale")
+		var gameplay_base_zoom := float(gameplay_camera.get("base_zoom_multiplier", 0.0))
+		_expect(is_equal_approx(gameplay_base_zoom, float(gameplay_model.get("preferred_camera_zoom", -1.0))), "the walking transition must use the cached viewport-derived preferred zoom")
+		_expect(gameplay_base_zoom >= TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM, "the walking transition must preserve 2.15x as a preference without letting it undercut fullscreen cover")
+		_expect(is_equal_approx(float(gameplay_camera.get("zoom_multiplier", 0.0)), 1.0), "the existing 1.0 to 1.18 walker intro multiplier must remain separate from the cover-aware base zoom")
 	_leg_count += 1
 
 

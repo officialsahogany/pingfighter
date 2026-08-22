@@ -30,8 +30,16 @@ const LOWER_NAME := "map_camera_floor01_lower.png"
 const MIDDLE_NAME := "map_camera_floor05_middle.png"
 const UPPER_NAME := "map_camera_floor09_upper.png"
 const PATH_DETAIL_NAME := "map_camera_curve_detail_zoom4.png"
+const WALKING_MIN_NAME := "map_camera_walking_cover_min.png"
+const WALKING_MAX_NAME := "map_camera_walking_cover_closeup.png"
 const STRIP_NAME := "map_camera_walker_zoom_full_transition_strip.png"
 const ZOOM_STRIP_NAME := "map_camera_walker_zoom_intro_dense_strip.png"
+const PANEL_BLANK_COLORS := [
+	Color("f1dfb8"),
+	Color("63241f"),
+	Color("bd8c35"),
+]
+const PANEL_BLANK_COLOR_EPSILON := 0.002
 
 var _failure := ""
 
@@ -84,6 +92,10 @@ func _run() -> void:
 	if not fullscreen_extent_failure.is_empty():
 		_fail(fullscreen_extent_failure)
 		return
+	var m_key_edge_failure := _cover_edge_failure(lower_image, "m_key_minimum")
+	if not m_key_edge_failure.is_empty():
+		_fail(m_key_edge_failure)
+		return
 	if not _save(lower_image, output_dir.path_join(LOWER_NAME)):
 		_fail("lower-boundary capture failed")
 		return
@@ -119,6 +131,37 @@ func _run() -> void:
 		_fail("six-beat fixture has no route target")
 		return
 	flow.call("_resolve_route_target", transition_target)
+	flow.set_transition_progress_for_qa(
+		_zoom_start_elapsed_sec() / _transition_duration_sec()
+	)
+	var walking_min_image := await _capture(canvas, viewport)
+	var walking_min_edge_failure := _cover_edge_failure(
+		walking_min_image,
+		"walking_minimum"
+	)
+	if not walking_min_edge_failure.is_empty():
+		_fail(walking_min_edge_failure)
+		return
+	if not _save(walking_min_image, output_dir.path_join(WALKING_MIN_NAME)):
+		_fail("walking minimum cover capture failed")
+		return
+	flow.set_transition_progress_for_qa(
+		(
+			_zoom_start_elapsed_sec()
+			+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+		) / _transition_duration_sec()
+	)
+	var walking_max_image := await _capture(canvas, viewport)
+	var walking_max_edge_failure := _cover_edge_failure(
+		walking_max_image,
+		"walking_closeup"
+	)
+	if not walking_max_edge_failure.is_empty():
+		_fail(walking_max_edge_failure)
+		return
+	if not _save(walking_max_image, output_dir.path_join(WALKING_MAX_NAME)):
+		_fail("walking closeup cover capture failed")
+		return
 	var strip_frames: Array[Image] = []
 	for overall_progress in _full_transition_sample_progresses():
 		flow.set_transition_progress_for_qa(overall_progress)
@@ -153,7 +196,7 @@ func _run() -> void:
 	if not bool(live_result.get("accepted", false)):
 		_fail("live traversal failed: %s" % str(live_result.get("reason", "unknown")))
 		return
-	print("[TowerMapCameraTrackingVisualQA] captures=6 overview_frames=%d zoom_frames=%d live_transitions=%d physics_ticks=%d zoom_ticks=%d max_boundary_scale_delta=%0.6f max_boundary_center_delta_px=%0.3f" % [
+	print("[TowerMapCameraTrackingVisualQA] captures=8 overview_frames=%d zoom_frames=%d live_transitions=%d physics_ticks=%d zoom_ticks=%d max_boundary_scale_delta=%0.6f max_boundary_center_delta_px=%0.3f" % [
 		strip_frames.size(),
 		zoom_frames.size(),
 		int(live_result.get("transitions", 0)),
@@ -200,12 +243,13 @@ func _fullscreen_extent_failure(flow: Object, image: Image) -> String:
 	var safe_content_bounds: Rect2 = model.get("safe_content_bounds", Rect2())
 	if not safe_content_bounds.encloses(model.get("content_rect", Rect2())):
 		return "fullscreen paper expansion displaced the established map content bounds"
-	if not is_equal_approx(float((model.get("world_rect", Rect2()) as Rect2).size.x), 692.0):
+	var map_scale := float(model.get("map_scale", 0.0))
+	if not is_equal_approx(float((model.get("world_rect", Rect2()) as Rect2).size.x), 692.0 * map_scale):
 		return "fullscreen paper expansion stretched the approved 692px map band"
 	for floor_variant in model.get("floor_bands", []):
 		if (
 			floor_variant is Dictionary
-			and not ((floor_variant as Dictionary).get("rect", Rect2()) as Rect2).size.is_equal_approx(Vector2(692.0, 320.0))
+			and not ((floor_variant as Dictionary).get("rect", Rect2()) as Rect2).size.is_equal_approx(Vector2(692.0, 320.0) * map_scale)
 		):
 			return "fullscreen paper expansion stretched an approved 692x320 floor band"
 	var samples: Array[Vector2i] = [
@@ -220,11 +264,77 @@ func _fullscreen_extent_failure(flow: Object, image: Image) -> String:
 	return ""
 
 
-func _node_id_for_floor(flow: Object, floor_number: int) -> String:
-	for node_variant in flow.get_graph_nodes():
-		if node_variant is Dictionary and int((node_variant as Dictionary).get("floor", 0)) == floor_number:
-			return str((node_variant as Dictionary).get("id", ""))
+func _cover_edge_failure(image: Image, label: String) -> String:
+	if image == null or image.is_empty() or image.get_size() != GAME_SIZE:
+		return "%s cover edge image is invalid" % label
+	var counts := {
+		"top": 0,
+		"bottom": 0,
+		"left": 0,
+		"right": 0,
+	}
+	for x in range(GAME_SIZE.x):
+		if _is_panel_blank(image.get_pixel(x, 0)):
+			counts["top"] = int(counts["top"]) + 1
+		if _is_panel_blank(image.get_pixel(x, GAME_SIZE.y - 1)):
+			counts["bottom"] = int(counts["bottom"]) + 1
+	for y in range(GAME_SIZE.y):
+		if _is_panel_blank(image.get_pixel(0, y)):
+			counts["left"] = int(counts["left"]) + 1
+		if _is_panel_blank(image.get_pixel(GAME_SIZE.x - 1, y)):
+			counts["right"] = int(counts["right"]) + 1
+	print(
+		"[TowerMapCameraTrackingVisualQA] cover_edges label=%s blank_top=%d blank_bottom=%d blank_left=%d blank_right=%d"
+		% [
+			label,
+			int(counts["top"]),
+			int(counts["bottom"]),
+			int(counts["left"]),
+			int(counts["right"]),
+		]
+	)
+	if (
+		int(counts["top"]) > 0
+		or int(counts["bottom"]) > 0
+		or int(counts["left"]) > 0
+		or int(counts["right"]) > 0
+	):
+		return "%s exposes panel background on a viewport edge: %s" % [label, counts]
 	return ""
+
+
+func _is_panel_blank(pixel: Color) -> bool:
+	for blank_color in PANEL_BLANK_COLORS:
+		if (
+			absf(pixel.r - blank_color.r) <= PANEL_BLANK_COLOR_EPSILON
+			and absf(pixel.g - blank_color.g) <= PANEL_BLANK_COLOR_EPSILON
+			and absf(pixel.b - blank_color.b) <= PANEL_BLANK_COLOR_EPSILON
+		):
+			return true
+	return false
+
+
+func _node_id_for_floor(flow: Object, floor_number: int) -> String:
+	var result := ""
+	var topmost_y := INF
+	for node_variant in flow.get_graph_nodes():
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if int(node.get("floor", 0)) != floor_number:
+			continue
+		var source_position: Variant = node.get("position", Vector2.ZERO)
+		var source_y := (
+			float(source_position.y)
+			if source_position is Vector2
+			else float(source_position[1])
+			if source_position is Array and source_position.size() >= 2
+			else 0.0
+		)
+		if source_y < topmost_y:
+			topmost_y = source_y
+			result = str(node.get("id", ""))
+	return result
 
 
 func _choose_noncombat_target(flow: Object) -> String:
@@ -445,7 +555,7 @@ func _run_live_traversal(registry: Object, canvas: CanvasItem) -> Dictionary:
 							previous_camera.get("focus_screen_position", Vector2.ZERO)
 						)
 					)
-				if not (model.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(
+				if not (model.get("camera_view_rect", Rect2()) as Rect2).grow(-1.0).has_point(
 					camera.get("focus_screen_position", Vector2(-1.0, -1.0))
 				):
 					return {"accepted": false, "reason": "walker_left_crop"}
