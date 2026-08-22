@@ -28,6 +28,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_approved_asset_catalog_and_dimensions()
+	_verify_x4_manifest_and_import_policy()
 	_verify_negative_cache_and_missing_asset_fallback()
 	_verify_deterministic_nonrepeating_floor_variants()
 	_verify_production_prewarm_order_and_draw_peek_contract()
@@ -43,7 +44,54 @@ func _run() -> void:
 		return
 	for failure in _failures:
 		push_error(failure)
-	quit(1)
+		quit(1)
+
+
+func _verify_x4_manifest_and_import_policy() -> void:
+	var manifest_path := (
+		"res://assets/sprites/tower/map_scroll/tower_map_scroll_x4_manifest.json"
+	)
+	var manifest_value: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(manifest_path)
+	)
+	_expect(manifest_value is Dictionary, "S5 must retain its reproducible x4 asset manifest")
+	if not (manifest_value is Dictionary):
+		return
+	var manifest := manifest_value as Dictionary
+	_expect(str(manifest.get("model", "")) == "realesrgan-x4plus", "S5 must pin the conservative Real-ESRGAN model selected by the art gate")
+	_expect(int(manifest.get("scale", 0)) == 4, "S5 must pin the approved x4 scale")
+	var records: Array = manifest.get("assets", [])
+	_expect(records.size() == EXPECTED_ASSET_COUNT, "the manifest must account for every promoted bitmap")
+	var alpha_asset_count := 0
+	for record_value in records:
+		var record := record_value as Dictionary
+		var source_name := str(record.get("source", ""))
+		var output_name := str(record.get("output", ""))
+		var root := "res://assets/sprites/tower/map_scroll/"
+		var source_path := root + source_name
+		var output_path := root + output_name
+		_expect(FileAccess.file_exists(source_path), "%s source must remain preserved" % source_name)
+		_expect(FileAccess.file_exists(output_path), "%s x4 output must remain tracked" % output_name)
+		_expect(
+			FileAccess.get_sha256(source_path) == str(record.get("source_sha256", "")),
+			"%s reviewed source hash must remain unchanged" % source_name
+		)
+		_expect(
+			FileAccess.get_sha256(output_path) == str(record.get("output_sha256", "")),
+			"%s generated x4 hash must match the manifest" % output_name
+		)
+		var alpha: Dictionary = record.get("alpha", {})
+		if bool(alpha.get("present", false)):
+			alpha_asset_count += 1
+			_expect(str(record.get("output_mode", "")) == "RGBA", "%s must retain recombined source alpha" % output_name)
+		else:
+			_expect(str(record.get("output_mode", "")) == "RGB", "%s must remain an opaque RGB bitmap" % output_name)
+		var import_source := FileAccess.get_file_as_string(output_path + ".import")
+		_expect(import_source.find("compress/mode=2") >= 0, "%s must use offline VRAM compression" % output_name)
+		_expect(import_source.find("compress/high_quality=true") >= 0, "%s must use high-quality VRAM compression" % output_name)
+		_expect(import_source.find("mipmaps/generate=true") >= 0, "%s must generate mipmaps for overview downscaling" % output_name)
+	_expect(alpha_asset_count == 4, "only the three brushes and plaque may own source alpha")
+	_leg_count += 1
 
 
 func _verify_approved_asset_catalog_and_dimensions() -> void:
@@ -54,6 +102,7 @@ func _verify_approved_asset_catalog_and_dimensions() -> void:
 	for asset_key in keys:
 		var path := catalog.resolve_declared_path(asset_key)
 		_expect(path.begins_with("res://assets/sprites/tower/map_scroll/"), "%s must remain inside the canonical map-scroll root" % asset_key)
+		_expect(path.ends_with("_x4.png"), "%s must use the versioned Real-ESRGAN x4 candidate" % asset_key)
 		_expect(path.find("_candidate") < 0, "%s runtime path must not retain candidate naming" % asset_key)
 		_expect(not declared_paths.has(path), "%s must own a distinct bitmap" % asset_key)
 		declared_paths[path] = true
@@ -69,7 +118,26 @@ func _verify_approved_asset_catalog_and_dimensions() -> void:
 		_expect(bool(resolution.get("ready", false)), "%s must pass its explicit dimension contract" % asset_key)
 		_expect(texture != null, "%s must resolve as Texture2D" % asset_key)
 		if texture != null:
-			_expect(Vector2i(texture.get_size()) == catalog.get_expected_size(asset_key), "%s must retain approved pixel dimensions" % asset_key)
+			_expect(
+				Vector2i(texture.get_size()) == catalog.get_expected_texture_size(asset_key),
+				"%s must use its declared x4 texture density" % asset_key
+			)
+			var world_size := catalog.get_expected_size(asset_key)
+			var expected_world_size := (
+				Vector2i(620, 48)
+				if asset_key == TowerMapScrollAssetCatalog.FLOOR_GATE_PLAQUE
+				else Vector2i(72, 320)
+				if asset_key in [
+					TowerMapScrollAssetCatalog.ROUTE_BRUSH_UNSELECTED,
+					TowerMapScrollAssetCatalog.ROUTE_BRUSH_AVAILABLE,
+					TowerMapScrollAssetCatalog.ROUTE_BRUSH_COMPLETED_GOLD,
+				]
+				else Vector2i(692, 320)
+			)
+			_expect(
+				world_size == expected_world_size,
+				"%s x4 density must not change authored world geometry" % asset_key
+			)
 	var first_key := str(keys[0])
 	var mutable_copy := catalog.get_cached_resolution(first_key)
 	mutable_copy["ready"] = false
@@ -430,10 +498,10 @@ func _verify_floor_gate_plaque_three_slice_contract() -> void:
 	var target_rect := renderer.build_floor_plaque_target_rect(Vector2(346.0, 320.0))
 	_expect(target_rect.size.is_equal_approx(Vector2(184.0, 24.0)), "the runtime plaque must read as a compact floor marker rather than a shelf")
 	var slices := renderer.build_horizontal_three_slice_model(
-		Vector2(620.0, 48.0),
+		Vector2(2480.0, 192.0),
 		target_rect
 	)
-	_expect(slices.size() == 3, "the 620x48 plaque must render as left, stretchable middle, and right slices")
+	_expect(slices.size() == 3, "the x4 plaque must render as left, stretchable middle, and right slices")
 	if slices.size() == 3:
 		var left := slices[0] as Dictionary
 		var middle := slices[1] as Dictionary
@@ -444,18 +512,18 @@ func _verify_floor_gate_plaque_three_slice_contract() -> void:
 		var left_target: Rect2 = left.get("target_rect", Rect2())
 		var middle_target: Rect2 = middle.get("target_rect", Rect2())
 		var right_target: Rect2 = right.get("target_rect", Rect2())
-		_expect(is_equal_approx(left_source.size.x, 48.0) and is_equal_approx(right_source.size.x, 48.0), "the plaque endcaps must retain their approved square source geometry")
+		_expect(is_equal_approx(left_source.size.x, 192.0) and is_equal_approx(right_source.size.x, 192.0), "the plaque endcaps must retain their approved square source geometry at x4 density")
 		_expect(is_equal_approx(left_target.size.x, target_rect.size.y) and is_equal_approx(right_target.size.x, target_rect.size.y), "horizontal stretching must preserve both endcap aspect ratios")
 		_expect(is_equal_approx(left_target.end.x, middle_target.position.x) and is_equal_approx(middle_target.end.x, right_target.position.x), "plaque slices must meet without gaps")
 		_expect(is_equal_approx(left_source.end.x, middle_source.position.x) and is_equal_approx(middle_source.end.x, right_source.position.x), "three-slice source regions must cover the approved texture continuously")
-		_expect(is_equal_approx(right_source.end.x, 620.0) and is_equal_approx(right_target.end.x, target_rect.end.x), "three-slice rendering must cover both full source and target widths")
+		_expect(is_equal_approx(right_source.end.x, 2480.0) and is_equal_approx(right_target.end.x, target_rect.end.x), "three-slice rendering must cover both full source and target widths")
 	var catalog := TowerMapScrollAssetCatalog.new()
 	catalog.prewarm_all()
 	var plaque_resolution := catalog.get_cached_resolution(
 		TowerMapScrollAssetCatalog.FLOOR_GATE_PLAQUE
 	)
 	var plaque_texture := plaque_resolution.get("texture", null) as Texture2D
-	_expect(plaque_texture != null and Vector2i(plaque_texture.get_size()) == Vector2i(620, 48), "S5 must retain the approved plaque pixels")
+	_expect(plaque_texture != null and Vector2i(plaque_texture.get_size()) == Vector2i(2480, 192), "S5 must use the x4 plaque texture without changing its world rect")
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)

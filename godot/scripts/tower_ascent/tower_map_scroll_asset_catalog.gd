@@ -24,48 +24,59 @@ const IMMORTAL_BAND_ASSET_KEYS: Array[String] = [
 
 const ASSET_SPECS := {
 	COMMON_HANJI_PAPER: {
-		"path": MAP_SCROLL_ROOT + "/common_hanji_paper.png",
+		"path": MAP_SCROLL_ROOT + "/common_hanji_paper_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	FLOOR_GATE_PLAQUE: {
-		"path": MAP_SCROLL_ROOT + "/floor_gate_plaque.png",
+		"path": MAP_SCROLL_ROOT + "/floor_gate_plaque_x4.png",
 		"size": Vector2i(620, 48),
+		"texture_size": Vector2i(2480, 192),
 	},
 	ROUTE_BRUSH_UNSELECTED: {
-		"path": MAP_SCROLL_ROOT + "/route_brush_unselected.png",
+		"path": MAP_SCROLL_ROOT + "/route_brush_unselected_x4.png",
 		"size": Vector2i(72, 320),
+		"texture_size": Vector2i(288, 1280),
 	},
 	ROUTE_BRUSH_AVAILABLE: {
-		"path": MAP_SCROLL_ROOT + "/route_brush_available.png",
+		"path": MAP_SCROLL_ROOT + "/route_brush_available_x4.png",
 		"size": Vector2i(72, 320),
+		"texture_size": Vector2i(288, 1280),
 	},
 	ROUTE_BRUSH_COMPLETED_GOLD: {
-		"path": MAP_SCROLL_ROOT + "/route_brush_completed_gold.png",
+		"path": MAP_SCROLL_ROOT + "/route_brush_completed_gold_x4.png",
 		"size": Vector2i(72, 320),
+		"texture_size": Vector2i(288, 1280),
 	},
 	"human_realm_01_mountain_rev2": {
-		"path": MAP_SCROLL_ROOT + "/human_realm_01_mountain_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/human_realm_01_mountain_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	"human_realm_02_village_rev2": {
-		"path": MAP_SCROLL_ROOT + "/human_realm_02_village_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/human_realm_02_village_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	"human_realm_03_river_rev2": {
-		"path": MAP_SCROLL_ROOT + "/human_realm_03_river_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/human_realm_03_river_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	"immortal_realm_01_islands_rev2": {
-		"path": MAP_SCROLL_ROOT + "/immortal_realm_01_islands_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/immortal_realm_01_islands_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	"immortal_realm_02_cloud_cranes_rev2": {
-		"path": MAP_SCROLL_ROOT + "/immortal_realm_02_cloud_cranes_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/immortal_realm_02_cloud_cranes_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 	"immortal_realm_03_pavilions_rev2": {
-		"path": MAP_SCROLL_ROOT + "/immortal_realm_03_pavilions_rev2.png",
+		"path": MAP_SCROLL_ROOT + "/immortal_realm_03_pavilions_rev2_x4.png",
 		"size": Vector2i(692, 320),
+		"texture_size": Vector2i(2768, 1280),
 	},
 }
 
@@ -96,8 +107,15 @@ func resolve_declared_path(asset_key: String) -> String:
 
 
 func get_expected_size(asset_key: String) -> Vector2i:
+	# Authored map-world geometry. Higher-density replacements must never change
+	# this contract or move a tile, route strip, plaque anchor, or camera bound.
 	var spec: Dictionary = ASSET_SPECS.get(asset_key, {})
 	return spec.get("size", Vector2i.ZERO)
+
+
+func get_expected_texture_size(asset_key: String) -> Vector2i:
+	var spec: Dictionary = ASSET_SPECS.get(asset_key, {})
+	return spec.get("texture_size", spec.get("size", Vector2i.ZERO))
 
 
 static func resolve_band_asset_key(
@@ -139,12 +157,18 @@ func prewarm_asset(asset_key: String) -> Dictionary:
 
 	var spec: Dictionary = ASSET_SPECS.get(asset_key, {})
 	var path := str(spec.get("path", ""))
-	var expected_size: Vector2i = spec.get("size", Vector2i.ZERO)
+	var world_size: Vector2i = spec.get("size", Vector2i.ZERO)
+	var expected_texture_size: Vector2i = spec.get(
+		"texture_size",
+		world_size
+	)
 	var resolution := {
 		"asset_key": asset_key,
 		"source": SOURCE_BITMAP,
 		"path": path,
-		"expected_size": expected_size,
+		"world_size": world_size,
+		"expected_size": expected_texture_size,
+		"expected_texture_size": expected_texture_size,
 		"texture": null,
 		"cached": true,
 		"cache_hit": false,
@@ -157,8 +181,12 @@ func prewarm_asset(asset_key: String) -> Dictionary:
 		if texture != null:
 			var actual_size := Vector2i(texture.get_size())
 			resolution["actual_size"] = actual_size
-			resolution["ready"] = actual_size == expected_size
-			resolution["reason"] = "texture_ready" if actual_size == expected_size else "size_mismatch"
+			resolution["ready"] = actual_size == expected_texture_size
+			resolution["reason"] = (
+				"texture_ready"
+				if actual_size == expected_texture_size
+				else "size_mismatch"
+			)
 	_resolution_by_key[asset_key] = resolution
 	return resolution.duplicate(false)
 
@@ -170,7 +198,9 @@ func get_cached_resolution(asset_key: String) -> Dictionary:
 		"asset_key": asset_key,
 		"source": SOURCE_BITMAP,
 		"path": resolve_declared_path(asset_key),
-		"expected_size": get_expected_size(asset_key),
+		"world_size": get_expected_size(asset_key),
+		"expected_size": get_expected_texture_size(asset_key),
+		"expected_texture_size": get_expected_texture_size(asset_key),
 		"texture": null,
 		"cached": false,
 		"cache_hit": false,
