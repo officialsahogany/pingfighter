@@ -320,6 +320,7 @@ func _build_ammo_box() -> Dictionary:
 		"icon_path": AMMO_BOX_ICON_PATH,
 		"color": Color(0.72, 0.46, 0.24),
 		"consumable": true,
+		"character_restriction": "soldier",
 		"supply_drop_only": true,
 	}
 
@@ -346,6 +347,7 @@ func _build_doping_potion() -> Dictionary:
 		"ak47_fire_interval_frames": 3,
 		"bazooka_cooldown_frames": 60,
 		"bazooka_control_lock_frames": 15,
+		"character_restriction": "soldier",
 		"supply_drop_only": true,
 	}
 

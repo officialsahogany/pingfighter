@@ -148,11 +148,12 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var camera: Dictionary = model.get("camera", {})
 	var camera_offset: Vector2 = camera.get("offset", Vector2.ZERO)
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
+	var map_scale := float(model.get("map_scale", 0.0))
 	var previous_key := ""
 	var previous_end_y := tile_world_rect.position.y
-	_expect(is_equal_approx(world_rect.size.x, 692.0), "the scroll world must retain the approved 692px band width")
-	_expect(bool(camera.get("horizontal_world_fits", false)), "the M-key overlay must recognize that the 692px scroll fits inside the wide panel")
-	_expect(is_equal_approx(world_rect.get_center().x + camera_offset.x, content_rect.get_center().x), "the M-key overlay must center the approved-width scroll and leave paper margins")
+	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "the M-key scroll world must fit the live content width")
+	_expect(not bool(camera.get("horizontal_world_fits", true)), "the M-key camera must account for scaled edge padding around the content-width scroll")
+	_expect(is_equal_approx(world_rect.get_center().x + camera_offset.x, content_rect.get_center().x), "the M-key overlay must keep the scaled scroll centered in its content rect")
 	for index in range(tiles.size()):
 		var tile := tiles[index] as Dictionary
 		var tile_rect: Rect2 = tile.get("rect", Rect2())
@@ -161,7 +162,7 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		_expect(tile.get("paper_texture", null) is Texture2D, "the approved common paper must sit below every opaque band")
 		_expect(asset_key != previous_key, "adjacent rendered floors must not repeat one variant")
 		_expect(is_equal_approx(tile_rect.position.x, tile_world_rect.position.x) and is_equal_approx(tile_rect.size.x, tile_world_rect.size.x), "every band must span the scroll width")
-		_expect(tile_rect.size.is_equal_approx(Vector2(692.0, 320.0)), "each opaque band must render at its approved 692x320 world size without stretching: floor=%d size=%s" % [int(tile.get("floor", 0)), str(tile_rect.size)])
+		_expect(tile_rect.size.is_equal_approx(Vector2(692.0, 320.0) * map_scale), "each opaque band must preserve its approved aspect ratio at M-key content scale: floor=%d size=%s" % [int(tile.get("floor", 0)), str(tile_rect.size)])
 		_expect(is_equal_approx(tile_rect.position.y, previous_end_y), "opaque floor tiles must meet without overlap or alpha gaps")
 		previous_end_y = tile_rect.end.y
 		previous_key = asset_key
@@ -370,7 +371,7 @@ func _verify_fullscreen_medal_node_contract() -> void:
 		flow,
 		Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 	)
-	_expect(is_equal_approx(float(model.get("art_size", 0.0)), 32.0), "node medals must keep the approved 32px world footprint before the 2.15x camera")
+	_expect(is_equal_approx(float(model.get("art_size", 0.0)), 32.0 * float(model.get("map_scale", 0.0))), "M-key node medals must follow the same content scale as the scroll")
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)

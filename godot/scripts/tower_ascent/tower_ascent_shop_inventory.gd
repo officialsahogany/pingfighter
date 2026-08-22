@@ -7,6 +7,9 @@ const ActiveItemRaritySchema := preload(
 const LingpetItemOfferPolicy := preload(
 	"res://scripts/lingpet/lingpet_item_offer_policy.gd"
 )
+const TowerAscentActiveItemAcquisitionPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
+)
 const TowerAscentShopShelfBuilder := preload(
 	"res://scripts/tower_ascent/tower_ascent_shop_shelf_builder.gd"
 )
@@ -34,7 +37,7 @@ func build_inventory(
 	var normalized_node_id := node_id.strip_edges()
 	if normalized_node_id.is_empty():
 		return {"accepted": false, "reason": "invalid_node_id", "stock": []}
-	var shelves: Dictionary = _shelf_builder.build_candidate_shelves(registry)
+	var shelves: Dictionary = _shelf_builder.build_candidate_shelves(registry, owner)
 	var regular_candidates := _dictionary_array(shelves.get("regular", []))
 	var premium_candidates := _dictionary_array(shelves.get("premium", []))
 	var capsule_candidates := _build_capsule_candidates(owner, registry)
@@ -105,6 +108,8 @@ func _build_capsule_candidates(owner: Object, registry: Object) -> Array[Diction
 			continue
 		var item_data: Dictionary = _catalog.build_item_by_name(item_name)
 		if item_data.is_empty() or str(item_data.get("type", "")) != "active":
+			continue
+		if not TowerAscentActiveItemAcquisitionPolicy.is_character_allowed(item_data, owner):
 			continue
 		if not LingpetItemOfferPolicy.can_offer_item(item_name, owner, registry):
 			continue

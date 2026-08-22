@@ -1,5 +1,11 @@
 extends RefCounted
 
+const CommonSkillCatalog := preload(
+	"res://scripts/characters/common_skill_catalog.gd"
+)
+const RuntimePerkCharacterContext := preload(
+	"res://scripts/characters/runtime_perk_character_context.gd"
+)
 const GuardianCodexDiscoveryRecorder := preload(
 	"res://scripts/lingpet/guardian_codex_discovery_recorder.gd"
 )
@@ -23,6 +29,7 @@ const RNG_VERSION := "tower_guardian_spring_v1"
 var _state: Dictionary = {}
 var _pending_rollback: Dictionary = {}
 var _last_effect_result: Dictionary = {}
+var _character_context: Object = RuntimePerkCharacterContext.new()
 
 
 func _init() -> void:
@@ -37,6 +44,8 @@ func reset() -> void:
 		"sealed_guardians": [],
 		"history": [],
 		"runtime_snapshot": {},
+		"perk_runtime_snapshot": {},
+		"skill_config_snapshot": {},
 	}
 	_pending_rollback.clear()
 	_last_effect_result.clear()
@@ -53,6 +62,8 @@ func restore_state(value: Variant) -> void:
 	_state["sealed_guardians"] = _normalize_sealed_guardians(source.get("sealed_guardians", []))
 	_state["history"] = _dictionary_array(source.get("history", []))
 	_state["runtime_snapshot"] = _dictionary(source.get("runtime_snapshot", {}))
+	_state["perk_runtime_snapshot"] = _dictionary(source.get("perk_runtime_snapshot", {}))
+	_state["skill_config_snapshot"] = _dictionary(source.get("skill_config_snapshot", {}))
 
 
 func export_state() -> Dictionary:
@@ -123,13 +134,24 @@ func record_identity_reveal(pet_id: String, registry: Object) -> Dictionary:
 
 func restore_runtime(owner: Object, registry: Object) -> bool:
 	var runtime_snapshot := _dictionary(_state.get("runtime_snapshot", {}))
-	if runtime_snapshot.is_empty():
-		return _dictionary(_state.get("active_guardian", {})).is_empty()
-	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
-	if runtime == null or not runtime.has_method("apply_save_snapshot"):
-		return false
-	var result_value: Variant = runtime.call("apply_save_snapshot", runtime_snapshot, owner, registry)
-	return result_value is Dictionary and bool((result_value as Dictionary).get("restored", false))
+	var guardian_restored := _dictionary(_state.get("active_guardian", {})).is_empty()
+	if not runtime_snapshot.is_empty():
+		var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
+		if runtime == null or not runtime.has_method("apply_save_snapshot"):
+			return false
+		var result_value: Variant = runtime.call(
+			"apply_save_snapshot",
+			runtime_snapshot,
+			owner,
+			registry
+		)
+		guardian_restored = (
+			result_value is Dictionary
+			and bool((result_value as Dictionary).get("restored", false))
+		)
+	if not guardian_restored or not has_soul_summoning():
+		return guardian_restored
+	return _restore_soul_unlock_runtime(owner, registry)
 
 
 func build_actions(
@@ -140,12 +162,14 @@ func build_actions(
 	registry: Object
 ) -> Array[Dictionary]:
 	if not has_soul_summoning():
-		# The free acquisition is only actionable when the two production owners
-		# needed by the resulting egg flow are registered. Missing wiring keeps
-		# the modal on its ordinary end-work action and fails closed.
+		# The free acquisition shares the campaign unlock bridge, then deploys
+		# through the existing Lingpet owner. Missing wiring fails closed.
 		if (
 			_get_registry_instance(registry, "lingpet_egg_runtime") == null
 			or _get_registry_instance(registry, "guardian_codex_store") == null
+			or _get_registry_instance(registry, "runtime_perk_state") == null
+			or _get_registry_instance(registry, "runtime_perk_catalog") == null
+			or _get_skill_config(owner, registry) == null
 		):
 			return []
 		return [_build_soul_summoning_action()]
@@ -379,15 +403,23 @@ func _build_sealed_action(
 
 
 func _apply_operation(context: Dictionary) -> bool:
-	_capture_rollback(context.get("registry", null))
+	_capture_rollback(context.get("owner", null), context.get("registry", null))
 	_last_effect_result.clear()
 	var operation := str(context.get("operation", ""))
 	var accepted := false
 	if operation == OP_SOUL_SUMMONING:
-		_state["soul_summoning_owned"] = true
-		_state["soul_summoning_node_id"] = str(context.get("node_id", ""))
-		_last_effect_result = {"accepted": true, "soul_summoning_owned": true}
-		accepted = true
+		accepted = _apply_soul_summoning_unlock(
+			context.get("owner", null),
+			context.get("registry", null)
+		)
+		if accepted:
+			_state["soul_summoning_owned"] = true
+			_state["soul_summoning_node_id"] = str(context.get("node_id", ""))
+			_last_effect_result = {"accepted": true, "soul_summoning_owned": true}
+			accepted = _capture_committed_soul_unlock_snapshots(
+				context.get("owner", null),
+				context.get("registry", null)
+			)
 	else:
 		var runtime := _get_registry_instance(context.get("registry", null), "lingpet_egg_runtime")
 		if runtime != null:
@@ -406,6 +438,30 @@ func _apply_operation(context: Dictionary) -> bool:
 		_rollback_operation(context.get("owner", null), context.get("registry", null))
 		_pending_rollback.clear()
 	return accepted
+
+
+func _apply_soul_summoning_unlock(owner: Object, registry: Object) -> bool:
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	var catalog := _get_registry_instance(registry, "runtime_perk_catalog")
+	var skill_config := _get_skill_config(owner, registry)
+	if (
+		runtime_state == null
+		or catalog == null
+		or skill_config == null
+		or not runtime_state.has_method("apply_choice")
+		or not catalog.has_method("get_perk_data")
+	):
+		return false
+	var choice_value: Variant = catalog.call(
+		"get_perk_data",
+		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
+	)
+	if not (choice_value is Dictionary):
+		return false
+	var choice := (choice_value as Dictionary).duplicate(true)
+	if str(choice.get("unlocks_skill", "")) != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return false
+	return bool(runtime_state.call("apply_choice", choice, owner, registry))
 
 
 func _apply_enhance(runtime: Object, context: Dictionary) -> bool:
@@ -499,10 +555,14 @@ func _apply_absorb(runtime: Object, context: Dictionary) -> bool:
 	return true
 
 
-func _capture_rollback(registry: Object) -> void:
+func _capture_rollback(owner: Object, registry: Object) -> void:
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	var skill_config := _get_skill_config(owner, registry)
 	_pending_rollback = {
 		"state": _state.duplicate(true),
 		"runtime_snapshot": _capture_runtime_snapshot(registry),
+		"perk_runtime_snapshot": _capture_perk_runtime_snapshot(runtime_state),
+		"equipped_skills": _equipped_skills(skill_config),
 	}
 
 
@@ -510,11 +570,24 @@ func _rollback_operation(owner: Object, registry: Object) -> void:
 	if _pending_rollback.is_empty():
 		return
 	_state = _dictionary(_pending_rollback.get("state", {}))
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if runtime_state != null and runtime_state.has_method("cancel_pending_unlock_swap"):
+		runtime_state.call("cancel_pending_unlock_swap", owner)
+	var skill_config := _get_skill_config(owner, registry)
+	if skill_config != null:
+		_restore_equipped_skills(skill_config, _pending_rollback.get("equipped_skills", []))
+	var perk_runtime_snapshot := _dictionary(
+		_pending_rollback.get("perk_runtime_snapshot", {})
+	)
+	if (
+		runtime_state != null
+		and not perk_runtime_snapshot.is_empty()
+		and runtime_state.has_method("apply_unlock_save_snapshot")
+	):
+		runtime_state.call("apply_unlock_save_snapshot", perk_runtime_snapshot, owner, registry)
 	var runtime_snapshot := _dictionary(_pending_rollback.get("runtime_snapshot", {}))
-	if runtime_snapshot.is_empty():
-		return
 	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
-	if runtime != null and runtime.has_method("apply_save_snapshot"):
+	if not runtime_snapshot.is_empty() and runtime != null and runtime.has_method("apply_save_snapshot"):
 		runtime.call("apply_save_snapshot", runtime_snapshot, owner, registry)
 
 
@@ -532,6 +605,51 @@ func _capture_committed_runtime_snapshot(owner: Object, registry: Object) -> voi
 			"guardian_run_state": _dictionary(runtime_snapshot.get("guardian_run_state", {})),
 		}
 	_sync_sealed_owner_projection(owner)
+
+
+func _capture_committed_soul_unlock_snapshots(owner: Object, registry: Object) -> bool:
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	var skill_config := _get_skill_config(owner, registry)
+	var perk_runtime_snapshot := _capture_perk_runtime_snapshot(runtime_state)
+	var equipped_skills := _equipped_skills(skill_config)
+	if (
+		perk_runtime_snapshot.is_empty()
+		or not equipped_skills.has(CommonSkillCatalog.SOUL_SUMMON_ART_ID)
+	):
+		return false
+	_state["perk_runtime_snapshot"] = perk_runtime_snapshot
+	_state["skill_config_snapshot"] = {
+		"character_type": _character_type(owner),
+		"equipped_skills": equipped_skills,
+	}
+	return true
+
+
+func _restore_soul_unlock_runtime(owner: Object, registry: Object) -> bool:
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	var skill_config := _get_skill_config(owner, registry)
+	if runtime_state == null or skill_config == null:
+		return false
+	var perk_runtime_snapshot := _dictionary(_state.get("perk_runtime_snapshot", {}))
+	var skill_config_snapshot := _dictionary(_state.get("skill_config_snapshot", {}))
+	if perk_runtime_snapshot.is_empty() or skill_config_snapshot.is_empty():
+		if not _apply_soul_summoning_unlock(owner, registry):
+			return false
+		return _capture_committed_soul_unlock_snapshots(owner, registry)
+	if not _restore_equipped_skills(
+		skill_config,
+		skill_config_snapshot.get("equipped_skills", [])
+	):
+		return false
+	if not runtime_state.has_method("apply_unlock_save_snapshot"):
+		return false
+	var result_value: Variant = runtime_state.call(
+		"apply_unlock_save_snapshot",
+		perk_runtime_snapshot,
+		owner,
+		registry
+	)
+	return result_value is Dictionary and bool((result_value as Dictionary).get("restored", false))
 
 
 func _sync_active_guardian_from_runtime(owner: Object, registry: Object) -> void:
@@ -561,6 +679,66 @@ func _capture_runtime_snapshot(registry: Object) -> Dictionary:
 		return {}
 	var value: Variant = runtime.call("build_save_snapshot")
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _capture_perk_runtime_snapshot(runtime_state: Object) -> Dictionary:
+	if runtime_state == null or not runtime_state.has_method("build_unlock_save_snapshot"):
+		return {}
+	var value: Variant = runtime_state.call("build_unlock_save_snapshot")
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _restore_equipped_skills(skill_config: Object, original_value: Variant) -> bool:
+	if skill_config == null or not (original_value is Array):
+		return false
+	var original := (original_value as Array).duplicate()
+	var current := _equipped_skills(skill_config)
+	for skill_value in current:
+		var skill_id := str(skill_value)
+		if not original.has(skill_id):
+			if (
+				not skill_config.has_method("unequip_skill")
+				or not bool(skill_config.call("unequip_skill", skill_id))
+			):
+				return false
+	current = _equipped_skills(skill_config)
+	for skill_value in original:
+		var skill_id := str(skill_value)
+		if not current.has(skill_id):
+			if (
+				not skill_config.has_method("unlock_and_equip_skill")
+				or not bool(skill_config.call("unlock_and_equip_skill", skill_id))
+			):
+				return false
+	return _equipped_skills(skill_config) == original
+
+
+func _equipped_skills(skill_config: Object) -> Array:
+	if skill_config == null:
+		return []
+	if skill_config.has_method("get_snapshot"):
+		var snapshot_value: Variant = skill_config.call("get_snapshot")
+		if snapshot_value is Dictionary:
+			var equipped_value: Variant = (snapshot_value as Dictionary).get(
+				"equipped_skills",
+				[]
+			)
+			if equipped_value is Array:
+				return (equipped_value as Array).duplicate()
+	if skill_config.has_method("get_equipped_skills"):
+		var equipped_value: Variant = skill_config.call("get_equipped_skills")
+		if equipped_value is Array:
+			return (equipped_value as Array).duplicate()
+	return []
+
+
+func _character_type(owner: Object) -> String:
+	return _character_context.get_owner_character_type(owner)
+
+
+func _get_skill_config(owner: Object, registry: Object) -> Object:
+	var key: String = str(_character_context.get_skill_config_key(_character_type(owner)))
+	return _get_registry_instance(registry, key)
 
 
 func _operation_count(node_id: String, operation: String) -> int:

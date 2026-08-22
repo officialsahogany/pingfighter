@@ -13,7 +13,7 @@ const TowerAscentUnlockFilter := preload(
 var _catalog: Object = ActiveItemCatalog.new()
 
 
-func build_candidate_shelves(registry: Object = null) -> Dictionary:
+func build_candidate_shelves(registry: Object = null, owner: Object = null) -> Dictionary:
 	var all_candidates: Array[Dictionary] = []
 	for item_name_value in ActiveItemCatalog.CATALOG_ORDER:
 		var item_name := str(item_name_value)
@@ -29,10 +29,12 @@ func build_candidate_shelves(registry: Object = null) -> Dictionary:
 	return {
 		"regular": TowerAscentActiveItemAcquisitionPolicy.filter_candidates(
 			all_candidates,
-			TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_REGULAR
+			TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_REGULAR,
+			owner
 		),
 		"premium": TowerAscentActiveItemAcquisitionPolicy.filter_candidates(
 			all_candidates,
-			TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_PREMIUM
+			TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_PREMIUM,
+			owner
 		),
 	}

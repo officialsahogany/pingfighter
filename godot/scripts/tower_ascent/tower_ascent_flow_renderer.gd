@@ -411,14 +411,20 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	var base := build_render_model(flow)
 	if base.is_empty() or viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
 		return {}
-	var fullscreen_key := "%s:%0.3f:%0.3f" % [
+	var fit_content_width := str(flow.get_phase_name()) != "MAP_TRANSITION"
+	var fullscreen_key := "%s:%0.3f:%0.3f:%s" % [
 		_cached_graph_key,
 		viewport_rect.size.x,
 		viewport_rect.size.y,
+		"overview_fit" if fit_content_width else "walking_source",
 	]
 	if fullscreen_key != _cached_fullscreen_key:
 		_cached_fullscreen_key = fullscreen_key
-		_cached_fullscreen_model = _build_static_fullscreen_map_model(base, viewport_rect)
+		_cached_fullscreen_model = _build_static_fullscreen_map_model(
+			base,
+			viewport_rect,
+			fit_content_width
+		)
 		_fullscreen_cache_build_count += 1
 	if _cached_fullscreen_model.is_empty():
 		return {}
@@ -479,7 +485,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	return model
 
 
-func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) -> Dictionary:
+func _build_static_fullscreen_map_model(
+	base: Dictionary,
+	viewport_rect: Rect2,
+	fit_content_width: bool = true
+) -> Dictionary:
 	var outer_margin := minf(viewport_rect.size.x, viewport_rect.size.y) * TowerAscentTuning.TEMP_MAP_OUTER_MARGIN_RATIO
 	var safe_content_bounds := viewport_rect.grow(-outer_margin)
 	var panel_rect := viewport_rect
@@ -493,6 +503,13 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 			maxf(1.0, safe_content_bounds.size.y - top_inset - bottom_inset)
 		)
 	)
+	var map_scale := (
+		maxf(0.001, content_rect.size.x / MAP_SCROLL_TILE_SIZE.x)
+		if fit_content_width
+		else 1.0
+	)
+	var scaled_tile_size := MAP_SCROLL_TILE_SIZE * map_scale
+	var scaled_row_pitch := MAP_SCROLL_ROW_PITCH * map_scale
 	var zoom_scale := maxf(2.0, TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM)
 	var nodes: Array = base.get("nodes", [])
 	var source_min_x := INF
@@ -518,18 +535,18 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		row_index_by_source_y[int(sorted_source_rows[row_index])] = row_index
 	var world_rect := Rect2(
 		Vector2(
-			content_rect.get_center().x - MAP_SCROLL_TILE_SIZE.x * 0.5,
+			content_rect.get_center().x - scaled_tile_size.x * 0.5,
 			content_rect.position.y
 		),
 		Vector2(
-			MAP_SCROLL_TILE_SIZE.x,
+			scaled_tile_size.x,
 			maxf(
-				MAP_SCROLL_ROW_PITCH,
-				float(maxi(0, sorted_source_rows.size() - 1)) * MAP_SCROLL_ROW_PITCH
+				scaled_row_pitch,
+				float(maxi(0, sorted_source_rows.size() - 1)) * scaled_row_pitch
 			)
 		)
 	)
-	var art_size := MAP_SCROLL_NODE_ART_SIZE
+	var art_size := MAP_SCROLL_NODE_ART_SIZE * map_scale
 	var lane_span := world_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
 	var center_x := world_rect.get_center().x
 	var position_by_id: Dictionary = {}
@@ -548,7 +565,7 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		var screen_position := Vector2(
 			center_x + source_x_ratio * lane_span,
 			world_rect.position.y
-				+ float(source_row_index) * MAP_SCROLL_ROW_PITCH
+				+ float(source_row_index) * scaled_row_pitch
 		)
 		var node_kind := str(node.get("kind", ""))
 		node["world_position"] = screen_position
@@ -592,7 +609,7 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO,
 		TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
 	)
-	var projected_edges := _attach_route_brush_strips(dotted_edges)
+	var projected_edges := _attach_route_brush_strips(dotted_edges, map_scale)
 	_path_cache_build_count += 1
 	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
 	_path_cached_brush_segment_count = _route_brush_segment_count(projected_edges)
@@ -614,16 +631,17 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 			"y": band_y,
 			"rect": Rect2(
 				world_rect.position.x,
-				band_y - MAP_SCROLL_TILE_SIZE.y * 0.5,
-				MAP_SCROLL_TILE_SIZE.x,
-				MAP_SCROLL_TILE_SIZE.y
+				band_y - scaled_tile_size.y * 0.5,
+				scaled_tile_size.x,
+				scaled_tile_size.y
 			),
 		})
 	var scroll_background := build_scroll_background_model(
 		floor_bands,
 		world_rect,
 		str(base.get("realm_kind", "human_realm")),
-		base.get("map_scroll_assets", {})
+		base.get("map_scroll_assets", {}),
+		scaled_tile_size
 	)
 	return {
 		"viewport_rect": viewport_rect,
@@ -631,6 +649,8 @@ func _build_static_fullscreen_map_model(base: Dictionary, viewport_rect: Rect2) 
 		"safe_content_bounds": safe_content_bounds,
 		"content_rect": content_rect,
 		"world_rect": world_rect,
+		"map_scale": map_scale,
+		"plaque_size": MAP_SCROLL_PLAQUE_SIZE * map_scale,
 		"zoom_scale": zoom_scale,
 		"nodes": projected_nodes,
 		"edges": projected_edges,
@@ -821,7 +841,8 @@ func _draw_fullscreen_map_model(
 			content_rect,
 			model.get("floor_bands", []),
 			camera_model,
-			model.get("map_scroll_assets", {})
+			model.get("map_scroll_assets", {}),
+			float(model.get("map_scale", 1.0))
 		)
 	var active_candidate_ids: Array = model.get("active_candidate_ids", [])
 	var current_node_id := str(model.get("current_node_id", ""))
@@ -992,7 +1013,8 @@ func _draw_fullscreen_floor_guides(
 	content_rect: Rect2,
 	floor_bands_value: Variant,
 	camera_model: Dictionary,
-	resolution_by_key_value: Variant
+	resolution_by_key_value: Variant,
+	map_scale: float = 1.0
 ) -> void:
 	var floor_bands: Array = floor_bands_value if floor_bands_value is Array else []
 	var plaque_texture := _cached_map_scroll_texture(
@@ -1015,7 +1037,8 @@ func _draw_fullscreen_floor_guides(
 				Vector2(
 					band_rect.get_center().x,
 					float(band.get("y", band_rect.get_center().y))
-				)
+				),
+				map_scale
 			)
 			var plaque_rect := _camera_world_rect_to_screen(camera_model, plaque_world_rect)
 			_draw_floor_plaque(
@@ -1387,7 +1410,8 @@ func build_scroll_background_model(
 	floor_bands_value: Variant,
 	world_rect: Rect2,
 	realm_kind: String,
-	resolution_by_key_value: Variant
+	resolution_by_key_value: Variant,
+	tile_size: Vector2 = MAP_SCROLL_TILE_SIZE
 ) -> Dictionary:
 	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
 		return {"ready": false, "reason": "invalid_world_rect", "tiles": []}
@@ -1436,9 +1460,9 @@ func build_scroll_background_model(
 			"rect": Rect2(
 				Vector2(
 					world_rect.position.x,
-					center_y - MAP_SCROLL_TILE_SIZE.y * 0.5
+					center_y - tile_size.y * 0.5
 				),
-				MAP_SCROLL_TILE_SIZE
+				tile_size
 			),
 			"paper_texture": paper_texture,
 			"texture": texture,
@@ -1448,7 +1472,7 @@ func build_scroll_background_model(
 	var last_tile_rect: Rect2 = (tiles[-1] as Dictionary).get("rect", Rect2())
 	var tile_world_rect := Rect2(
 		Vector2(world_rect.position.x, first_tile_rect.position.y),
-		Vector2(MAP_SCROLL_TILE_SIZE.x, last_tile_rect.end.y - first_tile_rect.position.y)
+		Vector2(tile_size.x, last_tile_rect.end.y - first_tile_rect.position.y)
 	)
 	return {
 		"ready": true,
@@ -1552,7 +1576,10 @@ func should_draw_route_edge_in_view(
 	return clip_rect.has_point(from_screen) and clip_rect.has_point(to_screen)
 
 
-func build_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
+func build_route_brush_strip(
+	points: PackedVector2Array,
+	map_scale: float = 1.0
+) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if points.size() < 2:
 		return result
@@ -1563,12 +1590,16 @@ func build_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
 		cumulative_distances.append(total_distance)
 	if total_distance <= 0.001:
 		return result
-	var half_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * 0.5
+	var safe_scale := maxf(0.001, map_scale)
+	var target_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * safe_scale
+	var tile_length := MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH * safe_scale
+	var tile_stride := MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE * safe_scale
+	var half_width := target_width * 0.5
 	var tile_start_distance := 0.0
 	var tile_index := 0
 	while tile_start_distance < total_distance - 0.001:
 		var tile_end_distance := minf(
-			tile_start_distance + MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			tile_start_distance + tile_length,
 			total_distance
 		)
 		var start_point := _sample_polyline_at_distance(
@@ -1592,7 +1623,7 @@ func build_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
 			])
 			var end_v := clampf(
 				(tile_end_distance - tile_start_distance)
-					/ MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+					/ tile_length,
 				0.0,
 				1.0
 			)
@@ -1606,18 +1637,21 @@ func build_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
 				]),
 				"bounds": _packed_points_bounds(quad),
 				"world_length": tile_end_distance - tile_start_distance,
-				"target_width": MAP_SCROLL_ROUTE_BRUSH_WIDTH,
+				"target_width": target_width,
 				"tile_index": tile_index,
 				"tile_start_distance": tile_start_distance,
-				"tile_stride": MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE,
+				"tile_stride": tile_stride,
 				"path_direction": path_direction,
 			})
-		tile_start_distance += MAP_SCROLL_ROUTE_BRUSH_TILE_STRIDE
+		tile_start_distance += tile_stride
 		tile_index += 1
 	return result
 
 
-func build_completed_route_brush_strip(points: PackedVector2Array) -> Array[Dictionary]:
+func build_completed_route_brush_strip(
+	points: PackedVector2Array,
+	map_scale: float = 1.0
+) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if points.size() < 2:
 		return result
@@ -1631,13 +1665,16 @@ func build_completed_route_brush_strip(points: PackedVector2Array) -> Array[Dict
 	var break_distances := PackedFloat32Array([0.0])
 	for index in range(1, cumulative_distances.size() - 1):
 		break_distances.append(cumulative_distances[index])
-	var tile_boundary := MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+	var safe_scale := maxf(0.001, map_scale)
+	var target_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * safe_scale
+	var tile_length := MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH * safe_scale
+	var tile_boundary := tile_length
 	while tile_boundary < total_distance - 0.001:
 		break_distances.append(tile_boundary)
-		tile_boundary += MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+		tile_boundary += tile_length
 	break_distances.append(total_distance)
 	break_distances.sort()
-	var half_width := MAP_SCROLL_ROUTE_BRUSH_WIDTH * 0.5
+	var half_width := target_width * 0.5
 	for index in range(1, break_distances.size()):
 		var start_distance := float(break_distances[index - 1])
 		var end_distance := float(break_distances[index])
@@ -1664,19 +1701,19 @@ func build_completed_route_brush_strip(points: PackedVector2Array) -> Array[Dict
 			end_distance
 		)
 		var tile_start_distance := floorf(
-			(start_distance + 0.001) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
-		) * MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH
+			(start_distance + 0.001) / tile_length
+		) * tile_length
 		var start_v := clampf(
-			(start_distance - tile_start_distance) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			(start_distance - tile_start_distance) / tile_length,
 			0.0,
 			1.0
 		)
 		var end_v := clampf(
-			(end_distance - tile_start_distance) / MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH,
+			(end_distance - tile_start_distance) / tile_length,
 			0.0,
 			1.0
 		)
-		if is_zero_approx(end_v) or end_distance >= tile_start_distance + MAP_SCROLL_ROUTE_BRUSH_TILE_LENGTH - 0.001:
+		if is_zero_approx(end_v) or end_distance >= tile_start_distance + tile_length - 0.001:
 			end_v = 1.0
 		var quad := PackedVector2Array([
 			start_point - start_normal * half_width,
@@ -1694,7 +1731,7 @@ func build_completed_route_brush_strip(points: PackedVector2Array) -> Array[Dict
 			]),
 			"bounds": _packed_points_bounds(quad),
 			"world_length": end_distance - start_distance,
-			"target_width": MAP_SCROLL_ROUTE_BRUSH_WIDTH,
+			"target_width": target_width,
 		})
 	return result
 
@@ -1741,7 +1778,10 @@ func _polyline_normal_at_distance(
 	return Vector2(-tangent.y, tangent.x)
 
 
-func _attach_route_brush_strips(edges_value: Variant) -> Array[Dictionary]:
+func _attach_route_brush_strips(
+	edges_value: Variant,
+	map_scale: float = 1.0
+) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var edges: Array = edges_value if edges_value is Array else []
 	for edge_variant in edges:
@@ -1749,8 +1789,11 @@ func _attach_route_brush_strips(edges_value: Variant) -> Array[Dictionary]:
 			continue
 		var edge := (edge_variant as Dictionary).duplicate(true)
 		var points: PackedVector2Array = edge.get("path_points", PackedVector2Array())
-		edge["brush_quads"] = build_route_brush_strip(points)
-		edge["completed_brush_quads"] = build_completed_route_brush_strip(points)
+		edge["brush_quads"] = build_route_brush_strip(points, map_scale)
+		edge["completed_brush_quads"] = build_completed_route_brush_strip(
+			points,
+			map_scale
+		)
 		result.append(edge)
 	return result
 
@@ -2076,8 +2119,9 @@ func _draw_floor_plaque(
 	)
 
 
-func build_floor_plaque_target_rect(center: Vector2) -> Rect2:
-	return Rect2(center - MAP_SCROLL_PLAQUE_SIZE * 0.5, MAP_SCROLL_PLAQUE_SIZE)
+func build_floor_plaque_target_rect(center: Vector2, map_scale: float = 1.0) -> Rect2:
+	var target_size := MAP_SCROLL_PLAQUE_SIZE * maxf(0.001, map_scale)
+	return Rect2(center - target_size * 0.5, target_size)
 
 
 func build_horizontal_three_slice_model(

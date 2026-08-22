@@ -297,7 +297,8 @@ func _build_candidates_for_group(reward_group: String, owner: Object, registry: 
 			var item_data: Dictionary = _active_catalog.build_item_by_name(item_name)
 			if TowerAscentActiveItemAcquisitionPolicy.is_allowed(
 				item_data,
-				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_NORMAL_CHEST
+				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_NORMAL_CHEST,
+				owner
 			):
 				candidates.append(item_data.duplicate(true))
 		return candidates
@@ -310,11 +311,15 @@ func _build_candidates_for_group(reward_group: String, owner: Object, registry: 
 		if _get_item_group(item_data) == reward_group:
 			candidates.append(item_data.duplicate(true))
 	if reward_group == REWARD_ACTIVE:
-		_append_extra_active_reward_candidates(candidates, registry)
+		_append_extra_active_reward_candidates(candidates, owner, registry)
 	return candidates
 
 
-func _append_extra_active_reward_candidates(candidates: Array, registry: Object) -> void:
+func _append_extra_active_reward_candidates(
+	candidates: Array,
+	owner: Object,
+	registry: Object
+) -> void:
 	for item_name in EXTRA_ACTIVE_REWARD_ITEM_NAMES:
 		if not TowerAscentUnlockFilter.is_content_unlocked(
 			registry,
@@ -325,7 +330,15 @@ func _append_extra_active_reward_candidates(candidates: Array, registry: Object)
 		if _candidate_list_has_item(candidates, str(item_name)):
 			continue
 		var item_data: Dictionary = _active_catalog.build_item_by_name(str(item_name))
-		if not item_data.is_empty() and _get_item_group(item_data) == REWARD_ACTIVE:
+		if (
+			not item_data.is_empty()
+			and _get_item_group(item_data) == REWARD_ACTIVE
+			and TowerAscentActiveItemAcquisitionPolicy.is_allowed(
+				item_data,
+				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_NORMAL_CHEST,
+				owner
+			)
+		):
 			candidates.append(item_data.duplicate(true))
 
 

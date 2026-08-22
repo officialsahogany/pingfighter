@@ -181,6 +181,9 @@ func _verify_production_zoom_handoff() -> void:
 func _verify_zoomed_top_boundary() -> void:
 	var flow := _new_flow("walker-zoom-top", 83521)
 	var top_id := _node_id_for_floor(flow, 9)
+	var route_targets: Array[String] = flow.get_route_target_ids()
+	if not route_targets.is_empty():
+		flow.call("_resolve_route_target", route_targets[0])
 	flow.set("_current_node_id", top_id)
 	var renderer := TowerAscentFlowRenderer.new()
 	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)

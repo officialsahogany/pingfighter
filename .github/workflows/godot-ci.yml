@@ -75,6 +75,9 @@ env:
     res://tests/tower_route_serve_wind_target_smoke.gd
     res://tests/active_item_effect_controller_reset_smoke.gd
     res://tests/tower_map_camera_tracking_smoke.gd
+    res://tests/tower_fullscreen_map_content_scale_smoke.gd
+    res://tests/tower_character_exclusive_item_acquisition_smoke.gd
+    res://tests/tower_guardian_spring_chosik_bridge_smoke.gd
     res://tests/tower_map_walker_zoom_intro_smoke.gd
     res://tests/tower_noncombat_node_background_retention_smoke.gd
     res://tests/runtime_perk_choice_stats_band_smoke.gd

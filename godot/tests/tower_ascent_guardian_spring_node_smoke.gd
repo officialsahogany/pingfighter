@@ -12,6 +12,15 @@ const GuardianEggAccessPolicy := preload(
 const LingpetEggRuntime := preload(
 	"res://scripts/lingpet/lingpet_egg_runtime.gd"
 )
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
+const RuntimePerkState := preload(
+	"res://scripts/characters/runtime_perk_state.gd"
+)
+const SmasherSkillConfig := preload(
+	"res://scripts/characters/smasher_skill_config.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -34,6 +43,7 @@ class FakeOwner:
 	extends RefCounted
 
 	var current_stage := 4
+	var selected_character_type := "smasher"
 	var redraw_requests := 0
 	var tower_ascent_soul_summoning_owned := false
 	var tower_ascent_sealed_guardians: Array = []
@@ -95,6 +105,9 @@ class FakeLingpetRuntime:
 		if str(snapshot.get("state", "")) != "companion":
 			return []
 		return [{"type": "duration", "label": "지속시간 강화", "weight": 1.0}]
+
+	func deploy_soul_summon_egg(_owner: Object, _registry: Object = null) -> Dictionary:
+		return {"dropped": false, "skipped_reason": "sealed_fixture_has_no_field_drop"}
 
 	func apply_guardian_enhance_random_roll(
 		candidates: Array,
@@ -166,22 +179,6 @@ class FakeRegistry:
 
 	func get_cached_instance(key: String) -> Object:
 		return get_instance(key)
-
-
-class FakeModalRuntime:
-	extends RefCounted
-
-	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
-		pass
-
-	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
-		pass
-
-	func _resume_skill_cooldowns_for_choice() -> void:
-		pass
-
-	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
-		pass
 
 
 class FakeTowerRevealFlow:
@@ -408,7 +405,9 @@ func _build_fixture() -> Dictionary:
 	registry.instances = {
 		"guardian_codex_store": codex,
 		"lingpet_egg_runtime": runtime,
-		"runtime_perk_state": FakeModalRuntime.new(),
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+		"runtime_perk_state": RuntimePerkState.new(),
+		"smasher_skill_config": SmasherSkillConfig.new(),
 	}
 	return {"codex": codex, "runtime": runtime, "registry": registry}
 

@@ -58,10 +58,11 @@ func _verify_fullscreen_pillar_extent_and_approved_band() -> void:
 	_expect(panel_rect == VIEWPORT_RECT, "fullscreen map paper must reach every edge of the actual screen viewport")
 	_expect(safe_content_bounds == VIEWPORT_RECT.grow(-expected_outer_margin), "fullscreen expansion must preserve the established safe content bounds")
 	_expect(safe_content_bounds.encloses(content_rect), "map paths, nodes, plaques, and camera crop must stay inside the established content bounds")
-	_expect(is_equal_approx(world_rect.size.x, 692.0), "fullscreen expansion must not stretch the approved 692px scroll band")
+	var map_scale := float(model.get("map_scale", 0.0))
+	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "M-key fullscreen expansion must fit the scroll band to the content width")
 	for floor_variant in model.get("floor_bands", []):
 		if floor_variant is Dictionary:
-			_expect(((floor_variant as Dictionary).get("rect", Rect2()) as Rect2).size.is_equal_approx(Vector2(692.0, 320.0)), "every approved floor band must remain 692x320")
+			_expect(((floor_variant as Dictionary).get("rect", Rect2()) as Rect2).size.is_equal_approx(Vector2(692.0, 320.0) * map_scale), "every M-key floor band must preserve the source aspect ratio at content scale")
 	var camera: Dictionary = model.get("camera", {})
 	var visible_world_rect: Rect2 = camera.get("visible_world_rect", Rect2())
 	for target_id in flow.get_route_target_ids():
@@ -70,7 +71,7 @@ func _verify_fullscreen_pillar_extent_and_approved_band() -> void:
 	var playfield_rect := Rect2(Vector2.ZERO, Vector2(760.0, 750.0))
 	var playfield_model: Dictionary = TowerAscentFlowRenderer.new().build_fullscreen_map_model(flow, playfield_rect)
 	_expect(playfield_model.get("panel_rect", Rect2()) == playfield_rect, "reverse viewport leg must follow its supplied viewport instead of a hard-coded screen size")
-	_expect(is_equal_approx(float((playfield_model.get("world_rect", Rect2()) as Rect2).size.x), 692.0), "reverse viewport leg must also preserve the approved band width")
+	_expect(is_equal_approx(float((playfield_model.get("world_rect", Rect2()) as Rect2).size.x), float((playfield_model.get("content_rect", Rect2()) as Rect2).size.x)), "reverse viewport leg must fit its own content width without hard-coded pixels")
 
 
 func _verify_seeded_curves_and_connection_identity() -> void:
@@ -223,6 +224,9 @@ func _verify_intro_zoom_handoff_and_boundaries() -> void:
 	_expect(bool(boundary_camera.get("at_lower_boundary", false)), "floor 1 intro zoom must retain the lower boundary clamp")
 	var top_flow := _new_flow("camera-intro-top-boundary", 83521)
 	var top_id := _node_id_for_floor(top_flow, 9)
+	var top_route_targets: Array[String] = top_flow.get_route_target_ids()
+	if not top_route_targets.is_empty():
+		top_flow.call("_resolve_route_target", top_route_targets[0])
 	top_flow.set("_current_node_id", top_id)
 	var top_renderer := TowerAscentFlowRenderer.new()
 	var top_model: Dictionary = top_renderer.build_fullscreen_map_model(top_flow, VIEWPORT_RECT)

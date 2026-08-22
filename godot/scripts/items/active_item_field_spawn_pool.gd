@@ -311,7 +311,8 @@ func build_spawn_candidates(
 			TowerAscentFeatureFlags.is_vertical_slice_enabled()
 			and not TowerAscentActiveItemAcquisitionPolicy.is_allowed(
 				active_template,
-				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_FIELD_SPAWN
+				TowerAscentActiveItemAcquisitionPolicy.CHANNEL_FIELD_SPAWN,
+				owner
 			)
 		):
 			continue
