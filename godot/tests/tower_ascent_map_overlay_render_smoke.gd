@@ -55,6 +55,13 @@ func _verify_graph_state_model_survives_camera_crop() -> void:
 		"map_seed": 83521,
 	}), "map-overlay render fixture must begin")
 	var nodes := flow.get_graph_nodes()
+	var serialized_node_count := 0
+	for floor_variant in flow.get_graph_floors():
+		if not (floor_variant is Dictionary):
+			continue
+		for row_variant in (floor_variant as Dictionary).get("rows", []):
+			if row_variant is Dictionary:
+				serialized_node_count += ((row_variant as Dictionary).get("node_ids", []) as Array).size()
 	var skipped_slot_id := ""
 	for node in nodes:
 		if str(node.get("boss_slot_id", "")).is_empty():
@@ -67,7 +74,7 @@ func _verify_graph_state_model_survives_camera_crop() -> void:
 	flow.handle_input(_key_event(KEY_M))
 	_expect(flow.get_phase_name() == "MAP_OVERLAY", "M must project the dedicated map-overlay phase")
 	nodes = flow.get_graph_nodes()
-	_expect(nodes.size() == 25, "the camera map must retain the complete generated graph model")
+	_expect(nodes.size() == serialized_node_count and nodes.size() > 25, "the camera map must retain every widened generated node")
 	var visible_kinds: Dictionary = {}
 	var has_current := false
 	var has_completed := false

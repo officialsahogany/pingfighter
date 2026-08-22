@@ -22,8 +22,8 @@ const TEMP_REGULAR_SPAWN_BUDGET_MIN := 0
 const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
 
 # TEMP: Phase B establishes generated floor/row ownership. Product tuning may
-# change only these values while the 12-floor, floor-gate, and two-candidate
-# contracts remain fixed.
+# change only these values while the 12-floor and floor-gate contracts remain
+# fixed; map row width now belongs to the seeded v7 graph generator.
 const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
 const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MIN := 1
 const TEMP_STANDARD_EXTRA_COMBAT_ROWS_MAX := 3
@@ -124,6 +124,9 @@ const TEMP_MAP_PATH_DOT_GAP_ART_RATIO := 0.32
 const TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO := 0.072
 const TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO := 0.030
 const TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS := 10
+# Each dot is two polygon draws. Dense v7 lane graphs keep every edge and
+# adapt dot spacing once during cached projection instead of dropping paths.
+const TEMP_MAP_PATH_DRAW_CALL_BUDGET := 1536
 
 # TEMP: v1.12 keeps the exhausted reward board visible briefly before the
 # route flow resumes. Final presentation timing remains product-tuning work.

@@ -43,6 +43,7 @@ func restore_snapshot(
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	_graph_nodes.assign((nodes_variant as Array).duplicate(true))
 	_graph_edges.assign((edges_variant as Array).duplicate(true))
+	_rebuild_graph_indices()
 	_map_render_revision += 1
 	_current_node_id = str(snapshot.get("current_node_id", ""))
 	_completed_nodes.assign(_dictionary_array(snapshot.get("completed_nodes", [])))

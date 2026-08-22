@@ -220,7 +220,7 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-contract",
-		"map_seed": 77151,
+		"map_seed": 1,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 20, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,

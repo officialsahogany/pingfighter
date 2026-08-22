@@ -140,7 +140,7 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "shop-contract",
-		"map_seed": 7331,
+		"map_seed": 1,
 		"node_modal_kind": "shop",
 		"run_state": {"gold": 1000, "muhon": 0, "chance_gems": 2},
 		"registry": registry,
@@ -220,7 +220,7 @@ func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 	var poor_flow := TowerAscentFlowOwner.new()
 	_expect(poor_flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "shop-poor",
-		"map_seed": 7331,
+		"map_seed": 1,
 		"node_modal_kind": "shop",
 		"run_state": {"gold": 59, "chance_gems": 0},
 		"registry": registry,
@@ -243,7 +243,7 @@ func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 	var full_flow := TowerAscentFlowOwner.new()
 	_expect(full_flow.begin_vertical_slice(full_owner, Callable(), {
 		"run_id": "shop-full",
-		"map_seed": 7331,
+		"map_seed": 1,
 		"node_modal_kind": "shop",
 		"run_state": {"gold": 1000, "chance_gems": 0},
 		"registry": full_registry,
@@ -264,7 +264,7 @@ func _verify_chance_gem_cap_blocks_payment() -> void:
 	var registry := _build_registry(FakeActiveItemRuntime.new())
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "shop-gem-cap",
-		"map_seed": 7331,
+		"map_seed": 1,
 		"node_modal_kind": "shop",
 		"run_state": {"gold": 1000, "chance_gems": 3},
 		"registry": registry,

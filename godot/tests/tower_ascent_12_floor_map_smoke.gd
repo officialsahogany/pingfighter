@@ -53,12 +53,20 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 		_expect(floor_data.rows.size() == expected_rows, "floor %d must keep its temporary row allocation" % int(floor_data.floor))
 		var gate_row: Dictionary = floor_data.rows[floor_data.rows.size() - 1]
 		_expect(bool(gate_row.gatekeeper), "each floor must end at an unavoidable gatekeeper row")
-		_expect(gate_row.node_ids.size() == 1, "gatekeeper boundary rows must converge to one unavoidable node")
-		var gate_node: Dictionary = node_by_id.get(str(gate_row.node_ids[0]), {})
-		_expect(gate_node.kind == "boss" and bool(gate_node.floor_boundary), "floor boundary node must be a boss slot")
+		var floor_number := int(floor_data.floor)
+		var expected_singleton_gate := floor_number in [1, 9, 11, 12]
+		_expect(
+			gate_row.node_ids.size() == 1 if expected_singleton_gate else gate_row.node_ids.size() in [2, 3],
+			"floor %d gate width must preserve branches except at true realm/group endpoints" % floor_number
+		)
+		for gate_node_id_variant in gate_row.node_ids:
+			var gate_node: Dictionary = node_by_id.get(str(gate_node_id_variant), {})
+			_expect(gate_node.kind == "boss" and bool(gate_node.floor_boundary), "floor boundary nodes must be boss slots")
 		if floor_index > 0:
 			var route_row: Dictionary = floor_data.rows[0]
-			_expect(route_row.node_ids.size() == 2, "non-boundary rows must retain exactly two candidates")
+			var route_width: int = (route_row.get("node_ids", []) as Array).size()
+			var expected_route_widths: Array = [1] if floor_number == 10 else ([2] if floor_number in [2, 12] else [3, 4])
+			_expect(route_width in expected_route_widths, "floor %d route width must follow the seeded narrow/wide rhythm" % floor_number)
 		for row_variant in floor_data.rows:
 			for node_id_variant in (row_variant as Dictionary).node_ids:
 				var node: Dictionary = node_by_id.get(str(node_id_variant), {})

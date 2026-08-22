@@ -52,7 +52,7 @@ func _verify_free_once_per_node_restore_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "rest-once",
-		"map_seed": 7162,
+		"map_seed": 4,
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 2, "gold": 0, "muhon": 0},
 	}), "rest fixture must enter through the real tower flow")
@@ -103,7 +103,7 @@ func _verify_full_and_zero_balance_legs() -> void:
 	var full_flow := TowerAscentFlowOwner.new()
 	_expect(full_flow.begin_vertical_slice(full_owner, Callable(), {
 		"run_id": "rest-full",
-		"map_seed": 1,
+		"map_seed": 4,
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 3},
 	}), "full rest fixture must begin")
@@ -119,7 +119,7 @@ func _verify_full_and_zero_balance_legs() -> void:
 	var zero_flow := TowerAscentFlowOwner.new()
 	_expect(zero_flow.begin_vertical_slice(zero_owner, Callable(), {
 		"run_id": "rest-zero",
-		"map_seed": 7164,
+		"map_seed": 4,
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 0},
 	}), "zero-balance rest fixture must begin")

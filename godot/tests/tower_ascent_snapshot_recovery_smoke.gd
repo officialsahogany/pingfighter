@@ -116,6 +116,9 @@ func _verify_invalid_snapshot_contracts_fail_closed() -> void:
 	var missing_seed := snapshot.duplicate(true)
 	missing_seed.erase("map_seed")
 	_expect(not TowerAscentFlowOwner.new().restore_snapshot(missing_seed), "snapshot without a map seed must fail closed")
+	var stale_v6 := snapshot.duplicate(true)
+	stale_v6["map_generator_version"] = "tower_map_v6_two_realms"
+	_expect(not TowerAscentFlowOwner.new().restore_snapshot(stale_v6), "v6 full-graph snapshots must not be reinterpreted under v7 topology")
 	var legacy_single_phase := snapshot.duplicate(true)
 	legacy_single_phase["schema_version"] = TowerAscentRunState.LEGACY_SINGLE_PHASE_SCHEMA_VERSION
 	legacy_single_phase["map_generator_version"] = "tower_map_v5_enraged_marking"

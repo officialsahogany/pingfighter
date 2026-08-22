@@ -20,6 +20,23 @@ func filter_available(
 	return result
 
 
+func filter_available_indexed(
+	node_by_id: Dictionary,
+	candidate_ids: Array,
+	skipped_boss_ids: Array
+) -> Array[String]:
+	var result: Array[String] = []
+	for candidate_variant in candidate_ids:
+		var candidate_id := str(candidate_variant)
+		var node_variant: Variant = node_by_id.get(candidate_id, {})
+		if not (node_variant is Dictionary):
+			continue
+		if is_node_blocked_by_skipped_boss(node_variant as Dictionary, skipped_boss_ids):
+			continue
+		result.append(candidate_id)
+	return result
+
+
 func is_node_blocked_by_skipped_boss(node: Dictionary, skipped_boss_ids: Array) -> bool:
 	if str(node.get("kind", "")) not in COMBAT_NODE_KINDS:
 		return false

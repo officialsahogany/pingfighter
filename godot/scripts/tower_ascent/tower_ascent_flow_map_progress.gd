@@ -214,10 +214,9 @@ func _restore_reentry_progress(progress: Dictionary) -> bool:
 
 
 func _mark_node_completed(node_id: String) -> void:
-	for node in _graph_nodes:
-		if str(node.get("id", "")) == node_id:
-			node["completed"] = true
-			return
+	var node := _get_node(node_id)
+	if not node.is_empty():
+		node["completed"] = true
 
 
 func _add_history_resolution_ids(entries: Array) -> void:
@@ -354,6 +353,16 @@ func get_map_seed() -> int:
 
 func get_graph_edges() -> Array[Dictionary]:
 	return _graph_edges
+
+
+func get_graph_index_debug_state() -> Dictionary:
+	return {
+		"build_count": _graph_index_build_count,
+		"node_count": _graph_node_by_id.size(),
+		"all_phase_node_count": _graph_all_phase_node_by_id.size(),
+		"outgoing_source_count": _graph_outgoing_target_ids_by_id.size(),
+	}
+
 
 func get_selected_target_id() -> String:
 	return _selected_target_id
@@ -577,12 +586,10 @@ func _resolve_route_target(target_id: String) -> void:
 
 func _outgoing_target_ids(node_id: String) -> Array[String]:
 	var result: Array[String] = []
-	for edge in _graph_edges:
-		if str(edge.get("from", "")) != node_id:
-			continue
-		var target_id := str(edge.get("to", ""))
-		if not target_id.is_empty() and not result.has(target_id):
-			result.append(target_id)
+	var cached_variant: Variant = _graph_outgoing_target_ids_by_id.get(node_id, [])
+	if cached_variant is Array:
+		for target_id_variant in cached_variant as Array:
+			result.append(str(target_id_variant))
 	return result
 
 func _commit_node_resolution(
@@ -603,11 +610,10 @@ func _commit_node_resolution(
 		"resolution_kind": resolution_kind,
 		"payload": payload.duplicate(true),
 	})
-	for node in _graph_nodes:
-		if str(node.get("id", "")) == node_id:
-			node["completed"] = true
-			_map_render_revision += 1
-			break
+	var node := _get_node(node_id)
+	if not node.is_empty():
+		node["completed"] = true
+		_map_render_revision += 1
 	return true
 
 func _complete_prepared_combat_resolution() -> bool:
@@ -688,22 +694,12 @@ func _node_position(node_id: String) -> Vector2:
 	return Vector2.ZERO
 
 func _get_node(node_id: String) -> Dictionary:
-	for node in _graph_nodes:
-		if str(node.get("id", "")) == node_id:
-			return node
-	return {}
+	var node_variant: Variant = _graph_node_by_id.get(node_id, {})
+	return node_variant as Dictionary if node_variant is Dictionary else {}
 
 func _get_node_in_all_phases(node_id: String) -> Dictionary:
-	for phase_variant in _graph_phases:
-		if not (phase_variant is Dictionary):
-			continue
-		for node_variant in (phase_variant as Dictionary).get("nodes", []):
-			if (
-				node_variant is Dictionary
-				and str((node_variant as Dictionary).get("id", "")) == node_id
-			):
-				return (node_variant as Dictionary).duplicate(true)
-	return {}
+	var node_variant: Variant = _graph_all_phase_node_by_id.get(node_id, {})
+	return (node_variant as Dictionary).duplicate(true) if node_variant is Dictionary else {}
 
 func _route_target_aim_position(target_index: int, target_count: int = 2) -> Vector2:
 	if target_count <= 1:
@@ -738,8 +734,8 @@ func _mark_boss_slot_skipped_in_graph(boss_slot_id: String) -> void:
 	_refresh_route_target_cache()
 
 func _refresh_route_target_cache() -> void:
-	_available_route_target_ids.assign(_route_candidate_policy.filter_available(
-		_graph_nodes,
+	_available_route_target_ids.assign(_route_candidate_policy.filter_available_indexed(
+		_graph_node_by_id,
 		_route_target_ids,
 		_run_state.get_skipped_boss_ids()
 	))
@@ -799,7 +795,38 @@ func _activate_graph_phase(phase_index: int, sync_current: bool = true) -> bool:
 	_active_graph_phase_index = phase_index
 	_graph_nodes.assign(nodes)
 	_graph_edges.assign(edges)
+	_rebuild_graph_indices()
 	_map_render_revision += 1
 	_run_state.set_phases(_graph_phases)
 	_run_state.set_active_phase_index(_active_graph_phase_index)
 	return true
+
+
+func _rebuild_graph_indices() -> void:
+	_graph_node_by_id.clear()
+	_graph_all_phase_node_by_id.clear()
+	_graph_outgoing_target_ids_by_id.clear()
+	for node in _graph_nodes:
+		var node_id := str(node.get("id", ""))
+		if not node_id.is_empty():
+			_graph_node_by_id[node_id] = node
+	for edge in _graph_edges:
+		var from_id := str(edge.get("from", ""))
+		var to_id := str(edge.get("to", ""))
+		if from_id.is_empty() or to_id.is_empty():
+			continue
+		var targets: Array = _graph_outgoing_target_ids_by_id.get(from_id, [])
+		if not targets.has(to_id):
+			targets.append(to_id)
+		_graph_outgoing_target_ids_by_id[from_id] = targets
+	for phase_variant in _graph_phases:
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var node_id := str(node.get("id", ""))
+			if not node_id.is_empty():
+				_graph_all_phase_node_by_id[node_id] = node
+	_graph_index_build_count += 1

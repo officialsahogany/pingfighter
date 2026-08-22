@@ -104,6 +104,10 @@ var _graph_phases: Array[Dictionary] = []
 var _active_graph_phase_index := 0
 var _graph_nodes: Array[Dictionary] = []
 var _graph_edges: Array[Dictionary] = []
+var _graph_node_by_id: Dictionary = {}
+var _graph_all_phase_node_by_id: Dictionary = {}
+var _graph_outgoing_target_ids_by_id: Dictionary = {}
+var _graph_index_build_count := 0
 var _current_node_id := ""
 var _completed_nodes: Array[Dictionary] = []
 var _resolution_ids: Dictionary = {}
@@ -215,6 +219,10 @@ func _reset_runtime_state() -> void:
 	_active_graph_phase_index = 0
 	_graph_nodes.clear()
 	_graph_edges.clear()
+	_graph_node_by_id.clear()
+	_graph_all_phase_node_by_id.clear()
+	_graph_outgoing_target_ids_by_id.clear()
+	_graph_index_build_count = 0
 	_map_render_revision += 1
 	_current_node_id = ""
 	_completed_nodes.clear()

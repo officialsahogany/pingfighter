@@ -37,7 +37,12 @@ func _verify_full_graph_and_two_active_candidates() -> void:
 	_expect(flow.begin_vertical_slice(null, Callable(), {"run_id": "renderer-map", "map_seed": 83521}), "renderer fixture must begin")
 	var model := TowerAscentFlowRenderer.new().build_render_model(flow)
 	_expect(model.floors.size() == 9, "ordinary renderer model must expose the complete human-realm map")
-	_expect(model.nodes.size() == 25 and model.edges.size() > 30, "renderer model must consume the complete active-phase graph, not the four-node fixture")
+	_expect(
+		model.nodes.size() == flow.get_graph_nodes().size()
+		and model.edges.size() == flow.get_graph_edges().size()
+		and model.nodes.size() > 25,
+		"renderer model must consume the complete widened active-phase graph"
+	)
 	_expect(str(model.realm_kind) == "human_realm", "ordinary renderer model must identify the human realm")
 	_expect((model.locked_phase_hints as Array).size() == 1, "human-realm model must hint at the locked immortal realm")
 	_expect(model.active_candidate_ids.size() == 2, "only the next generated row may be active")

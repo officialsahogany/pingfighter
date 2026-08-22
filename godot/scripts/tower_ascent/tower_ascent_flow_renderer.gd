@@ -129,6 +129,7 @@ var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
 var _path_cache_build_count := 0
 var _path_cached_dot_count := 0
+var _path_cached_dot_gap := 0.0
 var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
@@ -602,16 +603,30 @@ func _build_static_fullscreen_map_model(
 		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MIN,
 		TowerAscentTuning.TEMP_MAP_PATH_SAMPLE_MAX
 	)
-	var dotted_edges := TowerAscentMapPathGeometry.attach_dots(
-		curved_edges,
-		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO,
-		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO,
-		art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO,
-		TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
-	)
+	var dot_gap := art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO
+	var dotted_edges: Array[Dictionary] = []
+	# This loop runs only while rebuilding the cached graph projection. If a
+	# wider v7 graph exceeds the draw budget, it keeps every route and expresses
+	# the same paths with wider dot spacing instead of clipping connections.
+	for _budget_attempt in range(4):
+		dotted_edges = TowerAscentMapPathGeometry.attach_dots(
+			curved_edges,
+			dot_gap,
+			art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO,
+			art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO,
+			TowerAscentTuning.TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS
+		)
+		var draw_call_count := TowerAscentMapPathGeometry.dot_count(dotted_edges) * 2
+		if draw_call_count <= TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET:
+			break
+		dot_gap *= maxf(
+			1.05,
+			float(draw_call_count) / float(TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET)
+		)
 	var projected_edges := _attach_route_brush_strips(dotted_edges, map_scale)
 	_path_cache_build_count += 1
 	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
+	_path_cached_dot_gap = dot_gap
 	_path_cached_brush_segment_count = _route_brush_segment_count(projected_edges)
 	var floor_bands: Array[Dictionary] = []
 	for floor_variant in base.get("floors", []):
@@ -1956,6 +1971,7 @@ func get_render_cache_debug_state() -> Dictionary:
 		"fullscreen_build_count": _fullscreen_cache_build_count,
 		"path_build_count": _path_cache_build_count,
 		"path_dot_count": _path_cached_dot_count,
+		"path_dot_gap": _path_cached_dot_gap,
 		"path_draw_call_budget": _path_cached_dot_count * 2,
 		"path_brush_segment_count": _path_cached_brush_segment_count,
 		"path_brush_draw_call_budget": _path_cached_brush_segment_count,
