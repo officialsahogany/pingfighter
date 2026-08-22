@@ -437,6 +437,7 @@ func _build_generated_graph(_current_stage: int) -> bool:
 
 func _enter_route_aim() -> bool:
 	_node_modal_state.close()
+	_map_drag_state.reset_surface()
 	_phase = PHASE_ROUTE_AIM
 	_reset_selector()
 	var wind_roll: Dictionary = TowerAscentRouteWindPolicy.roll_from_gameplay_state(
@@ -553,6 +554,7 @@ func _collect_route_pickup_contacts(pickup_ids: Variant) -> void:
 func _resolve_route_target(target_id: String) -> void:
 	if not get_route_target_ids().has(target_id):
 		return
+	_map_drag_state.reset_surface()
 	var target_node := _get_node(target_id)
 	var target_kind := str(target_node.get("kind", ""))
 	if target_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:

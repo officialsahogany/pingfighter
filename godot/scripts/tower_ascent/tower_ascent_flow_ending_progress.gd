@@ -321,6 +321,7 @@ func choose_ending_route(choice: String) -> Dictionary:
 func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 	var callback := _finish_callback
 	_finish_callback = Callable()
+	_map_drag_state.reset_surface()
 	_route_serve_runtime.cancel()
 	_modal_lifecycle.leave()
 	_node_modal_state.close()
@@ -346,6 +347,7 @@ func _finish_vertical_slice(encounter: Dictionary = {}) -> void:
 			)
 
 func _complete_map_transition() -> void:
+	_map_drag_state.reset_surface()
 	var arrived_node := _get_node(_selected_target_id)
 	if arrived_node.is_empty():
 		_finish_vertical_slice()

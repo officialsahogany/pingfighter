@@ -88,6 +88,7 @@ func open_map_overlay(
 	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
 	if not bool(lifecycle_result.get("accepted", false)):
 		return false
+	_map_drag_state.reset_surface()
 	_map_overlay_active = true
 	_map_overlay_closing = false
 	_map_overlay_lifecycle_owned = bool(lifecycle_result.get("changed", false))
@@ -101,6 +102,7 @@ func open_map_overlay(
 func close_map_overlay() -> bool:
 	if not _map_overlay_active:
 		return false
+	_map_drag_state.reset_surface()
 	_map_overlay_active = false
 	_map_overlay_closing = true
 	_transition_fade_state.begin_map_overlay_close()
@@ -206,6 +208,8 @@ func handle_input(event: InputEvent) -> bool:
 	if _map_overlay_active:
 		if _is_map_close_event(event):
 			close_map_overlay()
+		else:
+			_handle_fullscreen_map_pointer_input(event, true)
 		return true
 	if _map_overlay_closing:
 		if _is_map_toggle_event(event):
@@ -218,6 +222,9 @@ func handle_input(event: InputEvent) -> bool:
 		return false
 	if _is_map_toggle_event(event) and can_open_map_overlay():
 		return open_map_overlay(_active_owner, _active_registry)
+	if _phase == PHASE_MAP_TRANSITION:
+		_handle_fullscreen_map_pointer_input(event, false)
+		return true
 	if _phase == PHASE_FAKE_ENDING_TEASER:
 		if _is_confirm_event(event):
 			_dismiss_fake_ending_teaser()
@@ -239,6 +246,61 @@ func handle_input(event: InputEvent) -> bool:
 	if _phase != PHASE_ROUTE_AIM:
 		return true
 	return true
+
+
+func _handle_fullscreen_map_pointer_input(
+	event: InputEvent,
+	allow_node_selection: bool
+) -> bool:
+	if event is InputEventMouseMotion:
+		if _map_drag_state.is_press_active():
+			_map_drag_state.update_pointer((event as InputEventMouseMotion).position)
+		return true
+	if not (event is InputEventMouseButton):
+		return false
+	var mouse_event := event as InputEventMouseButton
+	if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+		return false
+	if mouse_event.pressed:
+		_map_drag_state.begin_press(
+			mouse_event.position,
+			_renderer.get_last_fullscreen_camera_offset()
+		)
+		return true
+	var release_kind := int(_map_drag_state.release(mouse_event.position))
+	if (
+		allow_node_selection
+		and release_kind == TowerAscentMapDragState.RELEASE_CLICK
+	):
+		# Pointer selection is presentation-only focus. Route commitment remains
+		# owned by the selector-ball collision path, so an M-key inspection click
+		# cannot advance authoritative run state.
+		_map_drag_state.select_node(
+			_renderer.resolve_fullscreen_node_id_at_screen_position(
+				mouse_event.position
+			)
+		)
+	return release_kind != TowerAscentMapDragState.RELEASE_NONE
+
+
+func get_map_drag_threshold_screen_px() -> float:
+	return float(_map_drag_state.get_threshold_screen_px())
+
+
+func is_map_camera_dragging() -> bool:
+	return bool(_map_drag_state.is_dragging())
+
+
+func has_map_camera_manual_override() -> bool:
+	return bool(_map_drag_state.has_manual_camera_override())
+
+
+func get_map_camera_manual_offset() -> Vector2:
+	return _map_drag_state.get_manual_camera_offset()
+
+
+func get_map_pointer_selected_node_id() -> String:
+	return str(_map_drag_state.get_selected_node_id())
 
 
 func update_selective(delta: float, owner: Object = null) -> void:

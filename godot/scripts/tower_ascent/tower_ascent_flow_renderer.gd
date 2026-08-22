@@ -125,6 +125,7 @@ var _cached_graph_key := ""
 var _cached_render_model: Dictionary = {}
 var _cached_fullscreen_key := ""
 var _cached_fullscreen_model: Dictionary = {}
+var _last_fullscreen_model: Dictionary = {}
 var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
 var _path_cache_build_count := 0
@@ -411,6 +412,7 @@ func _texture_cover_source_rect(texture: Texture2D, target_rect: Rect2) -> Rect2
 func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionary:
 	var base := build_render_model(flow)
 	if base.is_empty() or viewport_rect.size.x <= 0.0 or viewport_rect.size.y <= 0.0:
+		_last_fullscreen_model = {}
 		return {}
 	var fit_content_width := str(flow.get_phase_name()) != "MAP_TRANSITION"
 	var fullscreen_key := "%s:%0.3f:%0.3f:%s" % [
@@ -433,6 +435,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	model["active_candidate_ids"] = base.get("active_candidate_ids", [])
 	model["current_node_id"] = str(base.get("current_node_id", ""))
 	model["selected_target_id"] = str(base.get("selected_target_id", ""))
+	model["pointer_selected_node_id"] = (
+		str(flow.get_map_pointer_selected_node_id())
+		if flow.has_method("get_map_pointer_selected_node_id")
+		else ""
+	)
 	model["route_history"] = base.get("route_history", [])
 	model["transition_marker"] = _build_fullscreen_transition_marker(
 		flow,
@@ -478,10 +485,20 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		camera_render_multiplier,
 		camera_focus_x_blend
 	)
+	if (
+		flow.has_method("has_map_camera_manual_override")
+		and bool(flow.has_map_camera_manual_override())
+		and flow.has_method("get_map_camera_manual_offset")
+	):
+		TowerAscentMapCameraModel.apply_offset_override(
+			camera_model,
+			flow.get_map_camera_manual_offset()
+		)
 	camera_model["base_zoom_multiplier"] = camera_base_multiplier
 	camera_model["render_zoom_multiplier"] = camera_render_multiplier
 	camera_model["zoom_multiplier"] = camera_intro_multiplier
 	model["camera"] = camera_model
+	_last_fullscreen_model = model
 	return model
 
 
@@ -549,6 +566,7 @@ func _build_static_fullscreen_map_model(
 	var lane_span := world_rect.size.x * TowerAscentTuning.TEMP_MAP_LANE_SPAN_RATIO
 	var center_x := world_rect.get_center().x
 	var position_by_id: Dictionary = {}
+	var projected_node_by_id: Dictionary = {}
 	var projected_nodes: Array[Dictionary] = []
 	for node_variant in nodes:
 		if not (node_variant is Dictionary):
@@ -573,8 +591,29 @@ func _build_static_fullscreen_map_model(
 			Vector2.ONE * art_size
 		)
 		node["art_path"] = str(NODE_ART_PATHS.get(node_kind, NODE_ART_PATHS["combat"]))
-		position_by_id[str(node.get("id", ""))] = screen_position
+		var node_id := str(node.get("id", ""))
+		position_by_id[node_id] = screen_position
+		projected_node_by_id[node_id] = node
 		projected_nodes.append(node)
+	var node_hit_cell_size := maxf(1.0, art_size)
+	var node_hit_ids_by_cell: Dictionary = {}
+	for node in projected_nodes:
+		var hit_node_id := str(node.get("id", ""))
+		var hit_rect: Rect2 = node.get("world_art_rect", Rect2())
+		var minimum_cell := Vector2i(
+			floori(hit_rect.position.x / node_hit_cell_size),
+			floori(hit_rect.position.y / node_hit_cell_size)
+		)
+		var maximum_cell := Vector2i(
+			floori((hit_rect.end.x - 0.001) / node_hit_cell_size),
+			floori((hit_rect.end.y - 0.001) / node_hit_cell_size)
+		)
+		for cell_y in range(minimum_cell.y, maximum_cell.y + 1):
+			for cell_x in range(minimum_cell.x, maximum_cell.x + 1):
+				var cell := Vector2i(cell_x, cell_y)
+				if not node_hit_ids_by_cell.has(cell):
+					node_hit_ids_by_cell[cell] = []
+				(node_hit_ids_by_cell[cell] as Array).append(hit_node_id)
 	var straight_edges: Array[Dictionary] = []
 	for edge_variant in base.get("edges", []):
 		if not (edge_variant is Dictionary):
@@ -694,6 +733,9 @@ func _build_static_fullscreen_map_model(
 		"scroll_background": scroll_background,
 		"map_scroll_assets": base.get("map_scroll_assets", {}),
 		"position_by_id": position_by_id,
+		"node_by_id": projected_node_by_id,
+		"node_hit_cell_size": node_hit_cell_size,
+		"node_hit_ids_by_cell": node_hit_ids_by_cell,
 		"art_size": art_size,
 		"map_seed": int(base.get("map_seed", 0)),
 		"phase": base.get("phase", {}),
@@ -793,6 +835,61 @@ func get_map_icon_cache_debug_state() -> Dictionary:
 	return _map_iconography.get_debug_state()
 
 
+func get_last_fullscreen_camera_offset() -> Vector2:
+	if _last_fullscreen_model.is_empty():
+		return Vector2.ZERO
+	var camera: Dictionary = _last_fullscreen_model.get("camera", {})
+	return camera.get("offset", Vector2.ZERO)
+
+
+func resolve_fullscreen_node_id_at_screen_position(
+	screen_position: Vector2
+) -> String:
+	if _last_fullscreen_model.is_empty():
+		return ""
+	var view_rect: Rect2 = _last_fullscreen_model.get("camera_view_rect", Rect2())
+	if not view_rect.has_point(screen_position):
+		return ""
+	var camera: Dictionary = _last_fullscreen_model.get("camera", {})
+	var zoom := _camera_render_zoom(camera)
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var world_position := (screen_position - offset) / zoom
+	var cell_size := float(_last_fullscreen_model.get("node_hit_cell_size", 0.0))
+	if cell_size <= 0.0:
+		return ""
+	var cell := Vector2i(
+		floori(world_position.x / cell_size),
+		floori(world_position.y / cell_size)
+	)
+	var hit_index: Dictionary = _last_fullscreen_model.get(
+		"node_hit_ids_by_cell",
+		{}
+	)
+	if not hit_index.has(cell):
+		return ""
+	var node_by_id: Dictionary = _last_fullscreen_model.get("node_by_id", {})
+	var nearest_node_id := ""
+	var nearest_distance_squared := INF
+	for node_id_value in hit_index[cell] as Array:
+		var node_id := str(node_id_value)
+		var node_value: Variant = node_by_id.get(node_id, null)
+		if not (node_value is Dictionary):
+			continue
+		var world_art_rect: Rect2 = (node_value as Dictionary).get(
+			"world_art_rect",
+			Rect2()
+		)
+		if not world_art_rect.has_point(world_position):
+			continue
+		var distance_squared := world_art_rect.get_center().distance_squared_to(
+			world_position
+		)
+		if distance_squared < nearest_distance_squared:
+			nearest_distance_squared = distance_squared
+			nearest_node_id = node_id
+	return nearest_node_id
+
+
 func _draw_fullscreen_map_model(
 	canvas: CanvasItem,
 	flow: Object,
@@ -884,6 +981,7 @@ func _draw_fullscreen_map_model(
 	var active_candidate_ids: Array = model.get("active_candidate_ids", [])
 	var current_node_id := str(model.get("current_node_id", ""))
 	var selected_target_id := str(model.get("selected_target_id", ""))
+	var pointer_selected_node_id := str(model.get("pointer_selected_node_id", ""))
 	for node_variant in model.get("nodes", []):
 		if node_variant is Dictionary:
 			_draw_fullscreen_map_node(
@@ -892,6 +990,7 @@ func _draw_fullscreen_map_model(
 				active_candidate_ids,
 				current_node_id,
 				selected_target_id,
+				pointer_selected_node_id,
 				camera_view_rect,
 				camera_model
 			)
@@ -1271,6 +1370,7 @@ func _draw_fullscreen_map_node(
 	active_candidate_ids: Array,
 	current_node_id: String,
 	selected_target_id: String,
+	pointer_selected_node_id: String,
 	content_rect: Rect2,
 	camera_model: Dictionary = {}
 ) -> void:
@@ -1286,6 +1386,10 @@ func _draw_fullscreen_map_node(
 	var current := node_id == current_node_id
 	var active := active_candidate_ids.has(node_id)
 	var selected := not selected_target_id.is_empty() and node_id == selected_target_id
+	var pointer_selected := (
+		not pointer_selected_node_id.is_empty()
+		and node_id == pointer_selected_node_id
+	)
 	var completed := bool(node.get("completed", false))
 	var skipped := bool(node.get("skipped", false))
 	var route_locked := bool(node.get("route_locked", false))
@@ -1313,6 +1417,14 @@ func _draw_fullscreen_map_node(
 		false,
 		2.0 if current or active or selected else 1.0
 	)
+	if pointer_selected:
+		canvas.draw_circle(
+			screen_position,
+			medal_radius + maxf(3.0, art_rect.size.x * 0.08),
+			GOLD,
+			false,
+			3.0
+		)
 	var icon_presentation := build_map_icon_presentation(node)
 	var icon_texture_value: Variant = icon_presentation.get("icon_texture", null)
 	if icon_texture_value is Texture2D:

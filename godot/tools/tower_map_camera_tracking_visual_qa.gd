@@ -29,11 +29,17 @@ const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_camera_tracking"
 const LOWER_NAME := "map_camera_floor01_lower.png"
 const MIDDLE_NAME := "map_camera_floor05_middle.png"
 const UPPER_NAME := "map_camera_floor09_upper.png"
+const M_KEY_DRAG_NAME := "map_camera_m_key_dragged.png"
 const PATH_DETAIL_NAME := "map_camera_curve_detail_zoom4.png"
 const WALKING_MIN_NAME := "map_camera_walking_cover_min.png"
 const WALKING_MAX_NAME := "map_camera_walking_cover_closeup.png"
 const STRIP_NAME := "map_camera_walker_zoom_full_transition_strip.png"
 const ZOOM_STRIP_NAME := "map_camera_walker_zoom_intro_dense_strip.png"
+const DRAG_LEFT_NAME := "map_camera_drag_left_end.png"
+const DRAG_RIGHT_NAME := "map_camera_drag_right_end.png"
+const DRAG_UP_NAME := "map_camera_drag_up_end.png"
+const DRAG_DOWN_NAME := "map_camera_drag_down_end.png"
+const DRAG_STRIP_NAME := "map_camera_drag_continuous_strip.png"
 const PANEL_BLANK_COLORS := [
 	Color("f1dfb8"),
 	Color("63241f"),
@@ -72,11 +78,19 @@ func _run() -> void:
 	get_root().add_child(viewport)
 	var canvas := TowerMapOverlayVisualQa.ProductionScreenCanvas.new(registry)
 	viewport.add_child(canvas)
-	if not flow.open_map_overlay(canvas, registry, {
+	var flow_context := {
 		"run_id": "map-camera-visual-evidence",
 		"current_stage": 4,
 		"map_seed": 83521,
-	}):
+		"registry": registry,
+	}
+	var begin_context := flow_context.duplicate(false)
+	begin_context.erase("registry")
+	begin_context.erase("current_stage")
+	if not flow.begin_vertical_slice(null, Callable(), begin_context):
+		_fail("camera tracking visual fixture could not begin the production flow")
+		return
+	if not flow.open_map_overlay(canvas, registry, flow_context):
 		_fail("camera tracking visual fixture could not open the production map surface")
 		return
 	flow.set_map_overlay_fade_progress_for_qa(1.0)
@@ -118,6 +132,22 @@ func _run() -> void:
 	var upper_image := await _capture(canvas, viewport)
 	if not _save(upper_image, output_dir.path_join(UPPER_NAME)):
 		_fail("upper-boundary capture failed")
+		return
+	var m_key_drag_press := VIEWPORT_RECT.get_center()
+	var m_key_drag_release := m_key_drag_press + Vector2(0.0, 240.0)
+	flow.handle_input(_mouse_button(m_key_drag_press, true))
+	flow.handle_input(_mouse_motion(m_key_drag_release))
+	var m_key_drag_image := await _capture(canvas, viewport)
+	flow.handle_input(_mouse_button(m_key_drag_release, false))
+	var m_key_drag_edge_failure := _cover_edge_failure(
+		m_key_drag_image,
+		"m_key_dragged"
+	)
+	if not m_key_drag_edge_failure.is_empty():
+		_fail(m_key_drag_edge_failure)
+		return
+	if not _save(m_key_drag_image, output_dir.path_join(M_KEY_DRAG_NAME)):
+		_fail("M-key dragged capture failed")
 		return
 	var transition_source_id := _node_id_for_floor(flow, 4)
 	flow.set("_current_node_id", transition_source_id)
@@ -173,6 +203,88 @@ func _run() -> void:
 				/ _transition_duration_sec()
 		)
 		zoom_frames.append(await _capture(canvas, viewport))
+	var drag_press_position := VIEWPORT_RECT.get_center()
+	var drag_specs := [
+		{
+			"delta": Vector2(100000.0, 0.0),
+			"boundary": "at_left_boundary",
+			"label": "drag_left_end",
+			"name": DRAG_LEFT_NAME,
+		},
+		{
+			"delta": Vector2(-100000.0, 0.0),
+			"boundary": "at_right_boundary",
+			"label": "drag_right_end",
+			"name": DRAG_RIGHT_NAME,
+		},
+		{
+			"delta": Vector2(0.0, 100000.0),
+			"boundary": "at_upper_boundary",
+			"label": "drag_up_end",
+			"name": DRAG_UP_NAME,
+		},
+		{
+			"delta": Vector2(0.0, -100000.0),
+			"boundary": "at_lower_boundary",
+			"label": "drag_down_end",
+			"name": DRAG_DOWN_NAME,
+		},
+	]
+	var flow_renderer: Object = flow.get("_renderer")
+	flow.handle_input(_mouse_button(drag_press_position, true))
+	var last_drag_position := drag_press_position
+	for drag_spec in drag_specs:
+		last_drag_position = drag_press_position + (drag_spec["delta"] as Vector2)
+		flow.handle_input(_mouse_motion(last_drag_position))
+		var drag_image := await _capture(canvas, viewport)
+		var drag_model: Dictionary = flow_renderer.build_fullscreen_map_model(
+			flow,
+			VIEWPORT_RECT
+		)
+		var drag_camera: Dictionary = drag_model.get("camera", {})
+		if not bool(drag_camera.get(str(drag_spec["boundary"]), false)):
+			_fail(
+				"%s did not reach its shared S2 camera boundary: offset=%s x=[%0.3f,%0.3f] y=[%0.3f,%0.3f]" % [
+					str(drag_spec["label"]),
+					str(drag_camera.get("offset", Vector2.ZERO)),
+					float(drag_camera.get("minimum_offset_x", 0.0)),
+					float(drag_camera.get("maximum_offset_x", 0.0)),
+					float(drag_camera.get("minimum_offset_y", 0.0)),
+					float(drag_camera.get("maximum_offset_y", 0.0)),
+				]
+			)
+			return
+		var drag_edge_failure := _cover_edge_failure(
+			drag_image,
+			str(drag_spec["label"])
+		)
+		if not drag_edge_failure.is_empty():
+			_fail(drag_edge_failure)
+			return
+		if not _save(drag_image, output_dir.path_join(str(drag_spec["name"]))):
+			_fail("%s capture failed" % str(drag_spec["label"]))
+			return
+	flow.handle_input(_mouse_button(last_drag_position, false))
+
+	var drag_frames: Array[Image] = []
+	flow.handle_input(_mouse_button(drag_press_position, true))
+	var strip_end_position := drag_press_position
+	for drag_frame_index in range(9):
+		strip_end_position = drag_press_position + Vector2(
+			0.0,
+			240.0 * float(drag_frame_index) / 8.0
+		)
+		flow.handle_input(_mouse_motion(strip_end_position))
+		drag_frames.append(await _capture(canvas, viewport))
+	flow.handle_input(_mouse_button(strip_end_position, false))
+	if not _save_grid_strip(
+		drag_frames,
+		3,
+		Vector2i(505, 312),
+		output_dir.path_join(DRAG_STRIP_NAME)
+	):
+		_fail("continuous held-drag strip could not be saved")
+		return
 	flow.call("_complete_map_transition")
 	strip_frames.append(await _capture(canvas, viewport))
 	if not _save_grid_strip(
@@ -196,9 +308,10 @@ func _run() -> void:
 	if not bool(live_result.get("accepted", false)):
 		_fail("live traversal failed: %s" % str(live_result.get("reason", "unknown")))
 		return
-	print("[TowerMapCameraTrackingVisualQA] captures=8 overview_frames=%d zoom_frames=%d live_transitions=%d physics_ticks=%d zoom_ticks=%d max_boundary_scale_delta=%0.6f max_boundary_center_delta_px=%0.3f" % [
+	print("[TowerMapCameraTrackingVisualQA] captures=14 overview_frames=%d zoom_frames=%d drag_frames=%d live_transitions=%d physics_ticks=%d zoom_ticks=%d max_boundary_scale_delta=%0.6f max_boundary_center_delta_px=%0.3f" % [
 		strip_frames.size(),
 		zoom_frames.size(),
+		drag_frames.size(),
 		int(live_result.get("transitions", 0)),
 		int(live_result.get("physics_ticks", 0)),
 		int(live_result.get("zoom_ticks", 0)),
@@ -224,6 +337,20 @@ func _capture(canvas: CanvasItem, viewport: SubViewport) -> Image:
 	for _frame_index in range(4):
 		await process_frame
 	return viewport.get_texture().get_image()
+
+
+func _mouse_button(position: Vector2, pressed: bool) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = position
+	return event
+
+
+func _mouse_motion(position: Vector2) -> InputEventMouseMotion:
+	var event := InputEventMouseMotion.new()
+	event.position = position
+	return event
 
 
 func _save(image: Image, path: String) -> bool:

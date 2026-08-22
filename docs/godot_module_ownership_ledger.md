@@ -11339,8 +11339,15 @@ active-item entry above. Design note: `docs/void_phantom_smasher_skill.md`.
   economy plus shop/training transactions; `tower_ascent_flow_map_progress.gd`
   owns graph consumption, route candidates, selector-ball simulation, movement,
   and idempotent node resolution; `tower_ascent_flow_state.gd` eagerly owns the
-  shared state/dependencies and reset utilities. The chain must not lazy-create
-  modules from `update_selective()` or `draw()`.
+  shared state/dependencies and reset utilities;
+  `tower_ascent_map_drag_state.gd` owns screen-space click slop, manual camera
+  offset retention, and release classification for the fullscreen map. The
+  sealed slop is 8 logical pixels: enough for ordinary hand jitter while still
+  responding to a short deliberate pull. Manual offset outranks walker tracking
+  and remains parked after release until that fullscreen surface ends; M-key
+  click selection is pointer focus only because selector-ball collision remains
+  the authoritative route-commit owner. The chain must not lazy-create modules
+  from `update_selective()` or `draw()`.
 - `scripts/tower_ascent/tower_ascent_feature_flags.gd`,
   `tower_ascent_map_generator.gd`, `tower_ascent_boss_registry.gd`,
   `tower_ascent_route_candidate_policy.gd`, `tower_ascent_enraged_policy.gd`,

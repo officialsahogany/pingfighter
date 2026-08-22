@@ -66,6 +66,8 @@ static func build(
 	var screen_offset := Vector2(offset_x, offset_y)
 	var focus_screen_position := focus_world_position * safe_zoom + screen_offset
 	return {
+		"view_rect": content_rect,
+		"world_rect": world_rect,
 		"offset": screen_offset,
 		"zoom_multiplier": safe_zoom,
 		"focus_world_position": focus_world_position,
@@ -85,3 +87,49 @@ static func build(
 		"at_lower_boundary": not vertical_world_fits and is_equal_approx(offset_y, minimum_offset_y),
 		"at_upper_boundary": not vertical_world_fits and is_equal_approx(offset_y, maximum_offset_y),
 	}
+
+
+static func apply_offset_override(
+	camera_model: Dictionary,
+	requested_offset: Vector2
+) -> void:
+	if camera_model.is_empty():
+		return
+	var minimum_offset_x := float(camera_model.get("minimum_offset_x", 0.0))
+	var maximum_offset_x := float(camera_model.get("maximum_offset_x", 0.0))
+	var minimum_offset_y := float(camera_model.get("minimum_offset_y", 0.0))
+	var maximum_offset_y := float(camera_model.get("maximum_offset_y", 0.0))
+	var offset := Vector2(
+		clampf(requested_offset.x, minimum_offset_x, maximum_offset_x),
+		clampf(requested_offset.y, minimum_offset_y, maximum_offset_y)
+	)
+	var zoom := float(camera_model.get("zoom_multiplier", 1.0))
+	var view_rect: Rect2 = camera_model.get("view_rect", Rect2())
+	var focus_world_position: Vector2 = camera_model.get(
+		"focus_world_position",
+		Vector2.ZERO
+	)
+	var horizontal_world_fits := bool(camera_model.get("horizontal_world_fits", false))
+	var vertical_world_fits := bool(camera_model.get("vertical_world_fits", false))
+	camera_model["offset"] = offset
+	camera_model["focus_screen_position"] = focus_world_position * zoom + offset
+	camera_model["visible_world_rect"] = Rect2(
+		(view_rect.position - offset) / zoom,
+		view_rect.size / zoom
+	)
+	camera_model["at_left_boundary"] = (
+		not horizontal_world_fits
+		and is_equal_approx(offset.x, maximum_offset_x)
+	)
+	camera_model["at_right_boundary"] = (
+		not horizontal_world_fits
+		and is_equal_approx(offset.x, minimum_offset_x)
+	)
+	camera_model["at_lower_boundary"] = (
+		not vertical_world_fits
+		and is_equal_approx(offset.y, minimum_offset_y)
+	)
+	camera_model["at_upper_boundary"] = (
+		not vertical_world_fits
+		and is_equal_approx(offset.y, maximum_offset_y)
+	)

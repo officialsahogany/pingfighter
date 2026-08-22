@@ -1568,8 +1568,33 @@ func _verify_production_source_uses_serve_contract_without_aim_input() -> void:
 		"res://scripts/core/serve_flow_controller.gd"
 	)
 	_expect(legacy_serve_source.find("PLAYER_AUTO_SERVE_DELAY") >= 0, "ordinary combat auto-serve timing must remain intact")
-	for retired_aim_input in ["KEY_LEFT", "KEY_RIGHT", "InputEventMouseMotion", "_launch_selector"]:
+	for retired_aim_input in ["KEY_LEFT", "KEY_RIGHT", "_launch_selector"]:
 		_expect(flow_source.find(retired_aim_input) < 0, "ROUTE_AIM must not retain deterministic aim input: %s" % retired_aim_input)
+	var map_pointer_start := flow_source.find(
+		"func _handle_fullscreen_map_pointer_input"
+	)
+	var map_pointer_end := flow_source.find("\nfunc ", map_pointer_start + 1)
+	_expect(
+		map_pointer_start >= 0 and map_pointer_end > map_pointer_start,
+		"fullscreen map pointer input must remain isolated from ROUTE_AIM"
+	)
+	if map_pointer_start >= 0 and map_pointer_end > map_pointer_start:
+		var map_pointer_source := flow_source.substr(
+			map_pointer_start,
+			map_pointer_end - map_pointer_start
+		)
+		var non_map_pointer_source := (
+			flow_source.substr(0, map_pointer_start)
+			+ flow_source.substr(map_pointer_end)
+		)
+		_expect(
+			map_pointer_source.find("InputEventMouseMotion") >= 0,
+			"S3 fullscreen map drag must own routed mouse motion"
+		)
+		_expect(
+			non_map_pointer_source.find("InputEventMouseMotion") < 0,
+			"ROUTE_AIM must not regain deterministic mouse-motion aim input"
+		)
 	_expect(route_source.find("RandomNumberGenerator") < 0, "route flow must consume the serve producer's randomness instead of owning another RNG")
 	_expect(
 		route_source.find("BattleSceneOwnerReader.get_value") >= 0,
