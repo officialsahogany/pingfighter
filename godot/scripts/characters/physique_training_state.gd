@@ -6,9 +6,11 @@ extends RefCounted
 # ⚠ 이 모듈의 천장 게이트는 **수련 누적치만** 본다. 기보유 이관 무공과 합성되는 호환
 # 런의 조기 포화는 `RuntimePerkState.is_physique_training_saturated`(최종 소비자 값
 # 비교)가 정본이고, 여기 게이트는 프로브 없는 호출용 하위 폴백이다.
-const SNAPSHOT_VERSION := 1
+const SNAPSHOT_VERSION := 2
+const MAX_EFFECT_MULTIPLIER := 1.5
 
 var acquired_counts: Dictionary = {}
+var applied_counts: Dictionary = {}
 var total_acquired_count := 0
 var eligible_screen_count_before_dice_exhaustion := 0
 var eligible_screen_count_after_dice_exhaustion := 0
@@ -17,6 +19,7 @@ var revision := 0
 
 func reset() -> void:
 	acquired_counts.clear()
+	applied_counts.clear()
 	total_acquired_count = 0
 	eligible_screen_count_before_dice_exhaustion = 0
 	eligible_screen_count_after_dice_exhaustion = 0
@@ -34,7 +37,7 @@ func can_acquire(training_id: String, catalog: Object) -> bool:
 	if catalog.has_method("get_effective_ceiling"):
 		var ceiling := float(catalog.get_effective_ceiling(clean_id))
 		if ceiling > 0.0:
-			var accumulated := float(catalog.get_amount(clean_id)) * float(get_count(clean_id))
+			var accumulated := float(catalog.get_amount(clean_id)) * get_applied_count(clean_id)
 			if accumulated >= ceiling - 0.0001:
 				return false
 	var max_count := int(catalog.get_max_count(clean_id))
@@ -52,18 +55,36 @@ func can_acquire_any(catalog: Object) -> bool:
 	return false
 
 
-func commit(training_id: String, catalog: Object) -> Dictionary:
+func commit(
+	training_id: String,
+	catalog: Object,
+	effect_multiplier: float = 1.0
+) -> Dictionary:
 	var clean_id := training_id.strip_edges()
 	if not can_acquire(clean_id, catalog):
 		return _build_result(false, clean_id, "cap_or_invalid")
+	var applied_multiplier := clampf(effect_multiplier, 1.0, MAX_EFFECT_MULTIPLIER)
+	if clean_id == "physique_storage":
+		# 수납술은 정수 구조값이다. 1.5칸은 슬롯으로 적용할 수 없고 반올림하면
+		# +2칸이 되어 행운의 1.5배 계약을 깨므로, 이 한 항목은 언제나 +1칸이다.
+		applied_multiplier = 1.0
+	var previous_applied_count := get_applied_count(clean_id)
 	acquired_counts[clean_id] = get_count(clean_id) + 1
+	applied_counts[clean_id] = previous_applied_count + applied_multiplier
 	total_acquired_count += 1
 	revision += 1
-	return _build_result(true, clean_id, "committed")
+	var result := _build_result(true, clean_id, "committed")
+	result["effect_multiplier"] = applied_multiplier
+	return result
 
 
 func get_count(training_id: String) -> int:
 	return maxi(0, int(acquired_counts.get(training_id.strip_edges(), 0)))
+
+
+func get_applied_count(training_id: String) -> float:
+	var clean_id := training_id.strip_edges()
+	return maxf(0.0, float(applied_counts.get(clean_id, get_count(clean_id))))
 
 
 func get_total_count() -> int:
@@ -91,7 +112,7 @@ func get_bonus(stat_key: String, catalog: Object) -> float:
 		var data: Dictionary = data_value as Dictionary
 		if str(data.get("stat_key", "")) != stat_key.strip_edges():
 			continue
-		var entry_total := float(data.get("amount", 0.0)) * float(get_count(str(data.get("id", ""))))
+		var entry_total := float(data.get("amount", 0.0)) * get_applied_count(str(data.get("id", "")))
 		# 실효 천장을 넘는 누적은 게임플레이·카드·능력치 패널이 서로 다른 값을 말하지
 		# 않도록 여기서 한 번에 깎는다(소비자 하한/clamp 와 같은 결과).
 		var ceiling := float(data.get("effective_ceiling", 0.0))
@@ -109,6 +130,7 @@ func get_snapshot() -> Dictionary:
 	return {
 		"version": SNAPSHOT_VERSION,
 		"acquired_counts": acquired_counts.duplicate(true),
+		"applied_counts": applied_counts.duplicate(true),
 		"total_acquired_count": total_acquired_count,
 		"eligible_screen_count_before_dice_exhaustion": eligible_screen_count_before_dice_exhaustion,
 		"eligible_screen_count_after_dice_exhaustion": eligible_screen_count_after_dice_exhaustion,
@@ -118,8 +140,15 @@ func get_snapshot() -> Dictionary:
 
 func restore(snapshot: Dictionary, catalog: Object) -> Dictionary:
 	var restored_counts: Dictionary = {}
+	var restored_applied_counts: Dictionary = {}
 	var restored_total := 0
 	var incoming: Dictionary = snapshot.get("acquired_counts", {}) as Dictionary
+	var incoming_applied_value: Variant = snapshot.get("applied_counts", {})
+	var incoming_applied: Dictionary = (
+		incoming_applied_value as Dictionary
+		if incoming_applied_value is Dictionary
+		else {}
+	)
 	if catalog != null and catalog.has_method("get_all_training_data"):
 		for data_value: Variant in catalog.get_all_training_data():
 			if not data_value is Dictionary:
@@ -133,8 +162,18 @@ func restore(snapshot: Dictionary, catalog: Object) -> Dictionary:
 				count = mini(count, max_count)
 			if count > 0:
 				restored_counts[training_id] = count
+				var applied_count := clampf(
+					float(incoming_applied.get(training_id, count)),
+					float(count),
+					float(count) * MAX_EFFECT_MULTIPLIER
+				)
+				# 수납술은 선택 횟수와 적용 슬롯 수가 항상 같은 정수여야 한다.
+				if training_id == "physique_storage":
+					applied_count = float(count)
+				restored_applied_counts[training_id] = applied_count
 				restored_total += count
 	acquired_counts = restored_counts
+	applied_counts = restored_applied_counts
 	total_acquired_count = restored_total
 	eligible_screen_count_before_dice_exhaustion = maxi(
 		0,
@@ -154,6 +193,7 @@ func _build_result(accepted: bool, training_id: String, reason: String) -> Dicti
 		"training_id": training_id,
 		"reason": reason,
 		"count": get_count(training_id),
+		"applied_count": get_applied_count(training_id),
 		"total_acquired_count": total_acquired_count,
 		"revision": revision,
 	}

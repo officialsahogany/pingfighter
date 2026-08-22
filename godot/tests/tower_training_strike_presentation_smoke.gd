@@ -344,7 +344,11 @@ func _verify_source_and_host_contracts() -> void:
 	)
 	_expect(state_source.begins_with("extends RefCounted"), "training strike state must stay RefCounted")
 	_expect(not state_source.contains("Node.new") and not state_source.contains("add_child"), "GRT-039/GRT-058 strike state must create no Node host")
-	_expect(not state_source.contains("RandomNumberGenerator") and not state_source.contains("randf") and not state_source.contains("randi"), "S3 strike timing must introduce no presentation or gameplay RNG coupling")
+	_expect(
+		state_source.contains("RandomNumberGenerator")
+		and not state_source.contains("_gameplay_rng_state"),
+		"S4 strike presentation RNG must remain structurally separate from Tower gameplay RNG"
+	)
 	_expect(flow_source.count("_node_modal_state.begin_training_strike()") == 1, "production pointer release must contain exactly one strike start site")
 	_expect(flow_source.contains("not pointer_action.is_empty()"), "keyboard confirmation must stay outside the card-click strike site")
 	var impact_start := renderer_source.find("func _draw_training_impact_effect")

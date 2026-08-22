@@ -121,7 +121,8 @@ func build_live_choice_projection(
 		var stat_choice: Dictionary = _physique_catalog.build_card(
 			choice_id,
 			count,
-			multiplier
+			multiplier,
+			_get_applied_training_count(runtime_state, choice_id, count)
 		)
 		if stat_choice.is_empty():
 			return offered_choice.duplicate(true)
@@ -132,7 +133,7 @@ func build_live_choice_projection(
 		stat_choice["level_text"] = (
 			"Lv.%d" % count
 			if stat_max < 0
-			else "%d / %d" % [count, stat_max]
+			else "%d/%d" % [count, stat_max]
 		)
 		return stat_choice
 	var projected := offered_choice.duplicate(true)
@@ -281,7 +282,12 @@ func _append_stat_choices(
 		var card: Dictionary = _physique_catalog.build_card(
 			picked_id,
 			int(runtime_state.call("get_physique_training_count", picked_id)),
-			multiplier
+			multiplier,
+			_get_applied_training_count(
+				runtime_state,
+				picked_id,
+				int(runtime_state.call("get_physique_training_count", picked_id))
+			)
 		)
 		if not card.is_empty():
 			result.append(card)
@@ -379,6 +385,19 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 			if value is Object and value != null:
 				return value as Object
 	return null
+
+
+func _get_applied_training_count(
+	runtime_state: Object,
+	training_id: String,
+	fallback_count: int
+) -> float:
+	if runtime_state.has_method("get_physique_training_applied_count"):
+		return maxf(
+			float(fallback_count),
+			float(runtime_state.call("get_physique_training_applied_count", training_id))
+		)
+	return float(fallback_count)
 
 
 func _get_object_value(owner: Object, key: String, fallback: Variant) -> Variant:

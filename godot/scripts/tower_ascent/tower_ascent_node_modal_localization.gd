@@ -36,6 +36,10 @@ const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
 const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
 const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
+const KEY_TRAINING_BONUS_BADGE := "tower_ascent.node_modal.training.bonus_badge"
+const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
+const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
+const KEY_TRAINING_LUCKY_RECEIPT := "tower_ascent.node_modal.training.lucky_receipt"
 const KEY_TRAINING_OFFER_UNAVAILABLE := "tower_ascent.node_modal.training.offer_unavailable"
 const KEY_MONK_ACQUIRE_OPTION := "tower_ascent.node_modal.fallen_monk.acquire_option"
 const KEY_MONK_SWAP_OPTION := "tower_ascent.node_modal.fallen_monk.swap_option"
@@ -132,8 +136,12 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_MUHON: "{amount} 무혼",
 		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
 		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
-		KEY_TRAINING_MAXIMUM: "최대 단계에 도달했습니다.",
+		KEY_TRAINING_MAXIMUM: "효과 한계",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
+		KEY_TRAINING_BONUS_BADGE: "행운 20% · 효과 +50%",
+		KEY_TRAINING_STORAGE_BADGE: "고정 +1칸",
+		KEY_TRAINING_BASE_RECEIPT: "{applied} 적용",
+		KEY_TRAINING_LUCKY_RECEIPT: "행운 발동! 기본 {base} -> {applied} 적용",
 		KEY_TRAINING_OFFER_UNAVAILABLE: "수련 선택지를 준비할 수 없습니다.",
 		KEY_MONK_ACQUIRE_OPTION: "초식 습득: {name}",
 		KEY_MONK_SWAP_OPTION: "초식 교환: {old_name} 대신 {new_name}",
@@ -218,7 +226,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "Gold {amount}",
 		KEY_COST_GOLD: "{amount} Gold",
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
-		KEY_TRAINING_MAXIMUM: "Maximum level reached.",
+		KEY_TRAINING_MAXIMUM: "Effect limit",
+		KEY_TRAINING_BONUS_BADGE: "Luck 20% · Effect +50%",
+		KEY_TRAINING_STORAGE_BADGE: "Fixed +1 slot",
+		KEY_TRAINING_BASE_RECEIPT: "Applied {applied}",
+		KEY_TRAINING_LUCKY_RECEIPT: "Lucky! Base {base} -> {applied} applied",
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
@@ -248,7 +260,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "金币 {amount}",
 		KEY_COST_GOLD: "{amount} 金币",
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
-		KEY_TRAINING_MAXIMUM: "已达到最高等级。",
+		KEY_TRAINING_MAXIMUM: "效果上限",
+		KEY_TRAINING_BONUS_BADGE: "幸运 20% · 效果 +50%",
+		KEY_TRAINING_STORAGE_BADGE: "固定 +1 格",
+		KEY_TRAINING_BASE_RECEIPT: "已应用 {applied}",
+		KEY_TRAINING_LUCKY_RECEIPT: "幸运触发！基础 {base} -> 应用 {applied}",
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
@@ -278,7 +294,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "金貨 {amount}",
 		KEY_COST_GOLD: "{amount} 金貨",
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
-		KEY_TRAINING_MAXIMUM: "最大レベルに達しました。",
+		KEY_TRAINING_MAXIMUM: "効果上限",
+		KEY_TRAINING_BONUS_BADGE: "幸運 20% · 効果 +50%",
+		KEY_TRAINING_STORAGE_BADGE: "固定 +1枠",
+		KEY_TRAINING_BASE_RECEIPT: "{applied} 適用",
+		KEY_TRAINING_LUCKY_RECEIPT: "幸運発動！基本 {base} -> {applied} 適用",
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
@@ -308,7 +328,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "Oro {amount}",
 		KEY_COST_GOLD: "{amount} de oro",
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
-		KEY_TRAINING_MAXIMUM: "Se alcanzó el nivel máximo.",
+		KEY_TRAINING_MAXIMUM: "Límite de efecto",
+		KEY_TRAINING_BONUS_BADGE: "Suerte 20% · Efecto +50%",
+		KEY_TRAINING_STORAGE_BADGE: "+1 espacio fijo",
+		KEY_TRAINING_BASE_RECEIPT: "Se aplicó {applied}",
+		KEY_TRAINING_LUCKY_RECEIPT: "¡Suerte! Base {base} -> aplicado {applied}",
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
@@ -338,7 +362,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "Ouro {amount}",
 		KEY_COST_GOLD: "{amount} de ouro",
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
-		KEY_TRAINING_MAXIMUM: "Nível máximo alcançado.",
+		KEY_TRAINING_MAXIMUM: "Limite do efeito",
+		KEY_TRAINING_BONUS_BADGE: "Sorte 20% · Efeito +50%",
+		KEY_TRAINING_STORAGE_BADGE: "+1 espaço fixo",
+		KEY_TRAINING_BASE_RECEIPT: "{applied} aplicado",
+		KEY_TRAINING_LUCKY_RECEIPT: "Sorte ativada! Base {base} -> {applied} aplicado",
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
@@ -368,7 +396,11 @@ const TEXT_BY_LOCALE := {
 		KEY_BALANCE_GOLD: "Золото: {amount}",
 		KEY_COST_GOLD: "{amount} золота",
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
-		KEY_TRAINING_MAXIMUM: "Достигнут максимальный уровень.",
+		KEY_TRAINING_MAXIMUM: "Предел эффекта",
+		KEY_TRAINING_BONUS_BADGE: "Удача 20% · Эффект +50%",
+		KEY_TRAINING_STORAGE_BADGE: "Фикс. +1 ячейка",
+		KEY_TRAINING_BASE_RECEIPT: "Применено: {applied}",
+		KEY_TRAINING_LUCKY_RECEIPT: "Удача! База {base} -> применено {applied}",
 		"tower_ascent.node_modal.training.description": "Закаляйте тело упорными тренировками.",
 	},
 }

@@ -3060,7 +3060,9 @@ func _draw_training_stage_layout(
 			dummy_pivot,
 			content_scale,
 			float(visual_model.get("impact_progress", 0.0)),
-			float(visual_model.get("dummy_rotation_radians", 0.0))
+			float(visual_model.get("dummy_rotation_radians", 0.0)),
+			visual_model.get("impact_directions", []),
+			visual_model.get("impact_point_offsets", [])
 		)
 
 
@@ -3298,7 +3300,9 @@ func _draw_training_impact_effect(
 	dummy_pivot: Vector2,
 	content_scale: float,
 	progress: float,
-	rotation_radians: float
+	rotation_radians: float,
+	impact_directions: Array,
+	impact_point_offsets: Array
 ) -> void:
 	var t := clampf(progress, 0.0, 1.0)
 	var impact := _training_dummy_point(
@@ -3318,12 +3322,15 @@ func _draw_training_impact_effect(
 		(11.0 + 17.0 * t) * content_scale,
 		Color(1.0, 0.88, 0.50, 0.12 * (1.0 - t))
 	)
-	for direction in [
-		Vector2(-1.0, -0.20),
-		Vector2(-0.72, -0.72),
-		Vector2(0.12, -1.0),
-		Vector2(0.72, -0.54),
-	]:
+	var resolved_directions: Array = impact_directions
+	if resolved_directions.is_empty():
+		resolved_directions = [
+			Vector2(-1.0, -0.20),
+			Vector2(-0.72, -0.72),
+			Vector2(0.12, -1.0),
+			Vector2(0.72, -0.54),
+		]
+	for direction in resolved_directions:
 		var unit_direction: Vector2 = (direction as Vector2).normalized()
 		var inner := impact + unit_direction * spread * 0.18
 		var outer := impact + unit_direction * spread
@@ -3339,7 +3346,14 @@ func _draw_training_impact_effect(
 			Color(1.0, 0.83, 0.42, 0.16 * (1.0 - t)),
 			7.0 * content_scale
 		)
-	for point_offset in [Vector2(-19.0, -12.0), Vector2(15.0, -22.0), Vector2(24.0, 7.0)]:
+	var resolved_point_offsets: Array = impact_point_offsets
+	if resolved_point_offsets.is_empty():
+		resolved_point_offsets = [
+			Vector2(-19.0, -12.0),
+			Vector2(15.0, -22.0),
+			Vector2(24.0, 7.0),
+		]
+	for point_offset in resolved_point_offsets:
 		var drift: Vector2 = point_offset as Vector2
 		canvas.draw_circle(
 			impact + drift * content_scale * (0.45 + t),

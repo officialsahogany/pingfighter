@@ -43,6 +43,12 @@ var _active_update_count := 0
 var _active_model_build_count := 0
 var _contact_event_count := 0
 var _cleanup_count := 0
+var _presentation_rng: RandomNumberGenerator = null
+var _presentation_rng_seed_override := 0
+var _presentation_rng_preconsume_for_tests := 0
+var _presentation_rng_roll_count := 0
+var _impact_directions: Array[Vector2] = []
+var _impact_point_offsets: Array[Vector2] = []
 
 
 func configure(
@@ -73,6 +79,7 @@ func clear() -> void:
 	_idle_model.clear()
 	_visual_model.clear()
 	_contact_audio_emitted = false
+	_clear_presentation_rolls()
 
 
 func start() -> bool:
@@ -86,6 +93,7 @@ func start() -> bool:
 	_audio_active = false
 	_started_msec = _now_msec()
 	_start_count += 1
+	_prepare_presentation_rolls()
 	_visual_model = _build_visual_model(0, true)
 	_active_model_build_count += 1
 	return true
@@ -97,6 +105,7 @@ func cancel() -> void:
 	_active = false
 	_stop_audio()
 	_contact_audio_emitted = false
+	_clear_presentation_rolls()
 	_visual_model = _idle_model
 
 
@@ -111,6 +120,7 @@ func update_wall_clock() -> bool:
 		_active = false
 		_stop_audio()
 		_contact_audio_emitted = false
+		_clear_presentation_rolls()
 		_visual_model = _idle_model
 		return false
 	_active_update_count += 1
@@ -159,6 +169,10 @@ func get_debug_state() -> Dictionary:
 		"audio_active": _audio_active,
 		"host_node_count": 0,
 		"dynamic_layer_count": 0,
+		"presentation_rng_roll_count": _presentation_rng_roll_count,
+		"presentation_rng_seed": (
+			int(_presentation_rng.seed) if _presentation_rng != null else 0
+		),
 	}
 
 
@@ -203,6 +217,8 @@ func _build_visual_model(elapsed_msec: int, strike_active: bool) -> Dictionary:
 			0.0,
 			1.0
 		),
+		"impact_directions": _impact_directions,
+		"impact_point_offsets": _impact_point_offsets,
 		"hitstop_active": (
 			strike_active
 			and elapsed_msec >= contact_msec
@@ -470,6 +486,55 @@ func _stop_audio() -> void:
 		elif _audio.has_method("stop_paddle_hit"):
 			_audio.call("stop_paddle_hit")
 	_audio_active = false
+
+
+func set_presentation_rng_for_tests(seed_value: int, preconsume_count: int = 0) -> void:
+	_presentation_rng_seed_override = seed_value
+	_presentation_rng_preconsume_for_tests = maxi(0, preconsume_count)
+
+
+func _prepare_presentation_rolls() -> void:
+	# Presentation randomness is click-owned and retained for the whole strike.
+	# It never reads or writes Tower's authoritative gameplay RNG state.
+	_presentation_rng = RandomNumberGenerator.new()
+	var seed_value := _presentation_rng_seed_override
+	if seed_value == 0:
+		seed_value = absi(hash("%s:%d:%d" % [
+			_character_type,
+			_started_msec,
+			_start_count,
+		]))
+	if seed_value == 0:
+		seed_value = 140913
+	_presentation_rng.seed = seed_value
+	_presentation_rng_roll_count = 0
+	for _index in range(_presentation_rng_preconsume_for_tests):
+		_presentation_rng.randf()
+		_presentation_rng_roll_count += 1
+	_impact_directions.clear()
+	for base_angle in [-2.94, -2.35, -1.45, -0.65]:
+		var angle := float(base_angle) + _presentation_rng.randf_range(-0.14, 0.14)
+		_presentation_rng_roll_count += 1
+		_impact_directions.append(Vector2.from_angle(angle))
+	_impact_point_offsets.clear()
+	for base_offset in [
+		Vector2(-19.0, -12.0),
+		Vector2(15.0, -22.0),
+		Vector2(24.0, 7.0),
+	]:
+		var jitter := Vector2(
+			_presentation_rng.randf_range(-3.0, 3.0),
+			_presentation_rng.randf_range(-3.0, 3.0)
+		)
+		_presentation_rng_roll_count += 2
+		_impact_point_offsets.append((base_offset as Vector2) + jitter)
+
+
+func _clear_presentation_rolls() -> void:
+	_presentation_rng = null
+	_presentation_rng_roll_count = 0
+	_impact_directions.clear()
+	_impact_point_offsets.clear()
 
 
 func _now_msec() -> int:

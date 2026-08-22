@@ -465,6 +465,10 @@ func get_physique_training_count(training_id: String) -> int:
 	return _physique_training_runtime_state.get_count(training_id)
 
 
+func get_physique_training_applied_count(training_id: String) -> float:
+	return _physique_training_runtime_state.get_applied_count(training_id)
+
+
 func get_physique_training_bonus(stat_key: String) -> float:
 	return _physique_training_runtime_state.get_bonus(
 		stat_key,

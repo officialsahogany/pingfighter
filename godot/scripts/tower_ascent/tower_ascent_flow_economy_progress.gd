@@ -1,5 +1,10 @@
 extends "res://scripts/tower_ascent/tower_ascent_flow_map_progress.gd"
 
+const TowerTrainingLuckyBonusPolicy := preload(
+	"res://scripts/tower_ascent/tower_training_lucky_bonus_policy.gd"
+)
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+
 func get_run_state_snapshot() -> Dictionary:
 	return _run_state.export_economy()
 
@@ -479,13 +484,16 @@ func _build_training_action(
 		_active_registry
 	))
 	var enabled: bool = not at_maximum and affordable
+	live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_BONUS_BADGE
+		if TowerTrainingLuckyBonusPolicy.is_lucky_eligible(choice_id)
+		else TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
+	)
 	var unavailable_reason := ""
 	var disabled_reason := ""
 	if at_maximum:
 		disabled_reason = "training_maximum_reached"
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
-		)
+		unavailable_reason = _training_maximum_message(live_choice)
 	elif not affordable:
 		disabled_reason = "insufficient_muhon"
 		unavailable_reason = TowerAscentNodeModalLocalization.text(
@@ -514,8 +522,8 @@ func _build_training_action(
 			"choice_id": choice_id,
 			"choice": live_choice,
 			"presentation": {
-				"current": "Lv.%d" % int(live_choice.get("current_level", 0)),
-				"result": "Lv.%d" % int(live_choice.get("next_level", 1)),
+				"current": _training_projection_value_text(live_choice, false),
+				"result": _training_projection_value_text(live_choice, true),
 				"target": display_name,
 			},
 		},
@@ -545,9 +553,7 @@ func _execute_training_action(
 		runtime_state,
 		_active_registry
 	):
-		var maximum_message := TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
-		)
+		var maximum_message := _training_maximum_message(live_choice)
 		_refresh_training_modal(maximum_message)
 		return {
 			"accepted": false,
@@ -573,14 +579,16 @@ func _execute_training_action(
 			_current_node_id,
 			"%s:%d" % [action_id, _training_history.size()]
 		)
+	var effect_receipt: Dictionary = {}
+	var gameplay_rng_before := _gameplay_rng_state.duplicate(true)
 	var transaction_result: Dictionary = _node_action_transaction.apply_once(
 		resolution_id,
 		{"muhon": cost},
 		{},
 		_run_state,
 		_resolution_ids,
-		Callable(self, "_grant_training_choice").bind(live_choice),
-		Callable(self, "_rollback_training_choice")
+		Callable(self, "_grant_training_choice").bind(live_choice, effect_receipt),
+		Callable(self, "_rollback_training_choice").bind(gameplay_rng_before)
 	)
 	_pending_runtime_perk_rollback_snapshot.clear()
 	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
@@ -596,16 +604,16 @@ func _execute_training_action(
 		"choice_id": choice_id,
 		"display_name": display_name,
 		"cost": cost,
+		"lucky_triggered": bool(effect_receipt.get("triggered", false)),
+		"lucky_roll_count": int(effect_receipt.get("roll_count", 0)),
+		"effect_multiplier": float(effect_receipt.get("effect_multiplier", 1.0)),
 	}
 	_training_history.append(record)
 	_capture_runtime_perk_build_state()
 	var build_entries: Array = _build_state.get("training", [])
 	build_entries.append(record.duplicate(true))
 	_build_state["training"] = build_entries
-	var success_message := TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_COMPLETED,
-		{"name": display_name}
-	)
+	var success_message := _build_training_receipt_message(live_choice, effect_receipt)
 	_refresh_training_modal(success_message)
 	transaction_result["training"] = record.duplicate(true)
 	transaction_result["message"] = success_message
@@ -656,18 +664,63 @@ func _parse_training_action_id(action_id: String) -> Dictionary:
 			return {"choice_kind": "stat", "choice_id": choice_id}
 	return {}
 
-func _grant_training_choice(choice: Dictionary) -> bool:
+func _grant_training_choice(choice: Dictionary, effect_receipt: Dictionary) -> bool:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	if runtime_state == null or not runtime_state.has_method("apply_choice"):
+		return false
+	var training_id := str(choice.get("id", "")).strip_edges()
+	# Recheck the production final-consumer gate inside the transaction callback.
+	# A stale card cannot consume the authoritative roll before commit.
+	if (
+		runtime_state.has_method("is_physique_training_saturated")
+		and bool(runtime_state.call(
+			"is_physique_training_saturated",
+			training_id,
+			_active_registry
+		))
+	):
 		return false
 	_pending_runtime_perk_rollback_snapshot.clear()
 	if runtime_state.has_method("build_unlock_save_snapshot"):
 		var snapshot_value: Variant = runtime_state.call("build_unlock_save_snapshot")
 		if snapshot_value is Dictionary:
 			_pending_runtime_perk_rollback_snapshot = (snapshot_value as Dictionary).duplicate(true)
-	return bool(runtime_state.call("apply_choice", choice, _active_owner, _active_registry))
+	var gameplay_rng_before := _gameplay_rng_state.duplicate(true)
+	var applied_choice := choice.duplicate(true)
+	var triggered := false
+	var roll_count := 0
+	var effect_multiplier := 1.0
+	if TowerTrainingLuckyBonusPolicy.is_lucky_eligible(training_id):
+		var roll := TowerTrainingLuckyBonusPolicy.roll_from_gameplay_state(
+			_gameplay_rng_state
+		)
+		_gameplay_rng_state = _dictionary_copy(roll.get("gameplay_rng_state", {}))
+		triggered = bool(roll.get("triggered", false))
+		roll_count = int(roll.get("roll_count", 0))
+		if triggered:
+			effect_multiplier = TowerTrainingLuckyBonusPolicy.EFFECT_MULTIPLIER
+	applied_choice["training_effect_multiplier"] = effect_multiplier
+	if not bool(runtime_state.call(
+		"apply_choice",
+		applied_choice,
+		_active_owner,
+		_active_registry
+	)):
+		_gameplay_rng_state = gameplay_rng_before
+		_rollback_training_choice()
+		return false
+	effect_receipt["triggered"] = triggered
+	effect_receipt["roll_count"] = roll_count
+	effect_receipt["effect_multiplier"] = effect_multiplier
+	effect_receipt["base_value"] = _training_base_increment(choice)
+	effect_receipt["applied_value"] = (
+		float(effect_receipt.get("base_value", 0.0)) * effect_multiplier
+	)
+	return true
 
-func _rollback_training_choice() -> void:
+func _rollback_training_choice(gameplay_rng_snapshot: Dictionary = {}) -> void:
+	if not gameplay_rng_snapshot.is_empty():
+		_gameplay_rng_state = gameplay_rng_snapshot.duplicate(true)
 	if _pending_runtime_perk_rollback_snapshot.is_empty():
 		return
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
@@ -678,6 +731,74 @@ func _rollback_training_choice() -> void:
 			_active_owner,
 			_active_registry
 		)
+
+
+func _training_maximum_message(choice: Dictionary) -> String:
+	if str(choice.get("id", "")) == TowerTrainingLuckyBonusPolicy.STORAGE_TRAINING_ID:
+		return str(choice.get("level_text", "3/3"))
+	return TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
+	)
+
+
+func _training_projection_value_text(choice: Dictionary, projected: bool) -> String:
+	if str(choice.get("id", "")) == TowerTrainingLuckyBonusPolicy.STORAGE_TRAINING_ID:
+		var level_key := "next_level" if projected else "current_level"
+		return "%d/3" % clampi(int(choice.get(level_key, 0)), 0, 3)
+	var value_key := "training_value_after" if projected else "training_value_before"
+	return _format_training_value(float(choice.get(value_key, 0.0)), choice)
+
+
+func _training_base_increment(choice: Dictionary) -> float:
+	return (
+		float(choice.get("training_amount", 0.0))
+		* float(choice.get("training_multiplier", 1.0))
+	)
+
+
+func _build_training_receipt_message(
+	choice: Dictionary,
+	effect_receipt: Dictionary
+) -> String:
+	var applied_text := _format_training_value(
+		float(effect_receipt.get("applied_value", 0.0)),
+		choice
+	)
+	if bool(effect_receipt.get("triggered", false)):
+		return TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TRAINING_LUCKY_RECEIPT,
+			{
+				"base": _format_training_value(
+					float(effect_receipt.get("base_value", 0.0)),
+					choice
+				),
+				"applied": applied_text,
+			}
+		)
+	return TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_BASE_RECEIPT,
+		{"applied": applied_text}
+	)
+
+
+func _format_training_value(value: float, choice: Dictionary) -> String:
+	var number_text := (
+		str(int(roundf(value)))
+		if is_equal_approx(value, roundf(value))
+		else "%.1f" % value
+	)
+	var unit := str(choice.get("training_unit", ""))
+	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
+		unit = str(choice.get("training_unit_ko", unit))
+	return "%s%s" % [number_text, unit]
+
+
+func set_training_gameplay_rng_state_for_tests(value: Dictionary) -> void:
+	_gameplay_rng_state = value.duplicate(true)
+
+
+func get_training_gameplay_rng_state_for_tests() -> Dictionary:
+	return _gameplay_rng_state.duplicate(true)
 
 func _capture_runtime_perk_build_state() -> void:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")

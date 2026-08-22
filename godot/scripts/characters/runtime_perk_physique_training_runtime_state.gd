@@ -58,6 +58,10 @@ func get_count(training_id: String) -> int:
 	return int(_state.get_count(training_id))
 
 
+func get_applied_count(training_id: String) -> float:
+	return float(_state.get_applied_count(training_id))
+
+
 func get_bonus(stat_key: String, training_multiplier: float = 1.0) -> float:
 	if not PerkConversionFlags.is_enabled():
 		return 0.0
@@ -113,7 +117,12 @@ func apply_choice_from_runtime_state(
 	var training_id := str(choice.get("id", "")).strip_edges()
 	if is_saturated_from_runtime_state(runtime_state, training_id, registry):
 		return false
-	var accepted := bool(_state.commit(training_id, _catalog).get("accepted", false))
+	var effect_multiplier := maxf(1.0, float(choice.get("training_effect_multiplier", 1.0)))
+	var accepted := bool(_state.commit(
+		training_id,
+		_catalog,
+		effect_multiplier
+	).get("accepted", false))
 	if not accepted:
 		return false
 	if runtime_state.has_method("_sync_runtime_perk_owner_effects"):

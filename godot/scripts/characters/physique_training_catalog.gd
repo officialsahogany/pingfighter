@@ -172,7 +172,8 @@ func is_training_mastery_amplifiable_stat(stat_key: String) -> bool:
 func build_card(
 	training_id: String,
 	acquired_count: int,
-	training_multiplier: float = 1.0
+	training_multiplier: float = 1.0,
+	applied_count_before: float = -1.0
 ) -> Dictionary:
 	var data := get_training_data(training_id)
 	if data.is_empty():
@@ -183,11 +184,17 @@ func build_card(
 	# max_count(-1)이 누적 표기를 0으로 접어 카드가 "0% 증가"로 읽힌다.
 	var before_count := maxi(0, acquired_count) if unlimited else clampi(acquired_count, 0, max_count)
 	var after_count := before_count + 1 if unlimited else mini(before_count + 1, max_count)
+	var before_applied_count := (
+		maxf(float(before_count), applied_count_before)
+		if applied_count_before >= 0.0
+		else float(before_count)
+	)
+	var after_applied_count := before_applied_count + (1.0 if after_count > before_count else 0.0)
 	var amount := float(data.get("amount", 0.0))
 	var ceiling := float(data.get("effective_ceiling", CEILING_NONE))
 	# 카드는 실효값을 말해야 한다 — 천장을 넘는 누적치를 그대로 찍으면 순환결이
 	# "105% 감소"처럼 존재할 수 없는 수치를 광고한다.
-	var after_value := amount * float(after_count)
+	var after_value := amount * after_applied_count
 	if ceiling > 0.0:
 		after_value = minf(after_value, ceiling)
 	var stat_key := str(data.get("stat_key", ""))
@@ -196,6 +203,10 @@ func build_card(
 		if is_training_mastery_amplifiable_stat(stat_key)
 		else 1.0
 	)
+	var before_value := amount * before_applied_count
+	if ceiling > 0.0:
+		before_value = minf(before_value, ceiling)
+	before_value *= applied_multiplier
 	after_value *= applied_multiplier
 	var value_label := str(data.get("value_label", ""))
 	var unit := str(data.get("unit", ""))
@@ -226,6 +237,14 @@ func build_card(
 		"training_multiplier": applied_multiplier,
 		"training_count_before": before_count,
 		"training_count_after": after_count,
+		"training_applied_count_before": before_applied_count,
+		"training_applied_count_after": after_applied_count,
+		"training_value_before": before_value,
+		"training_value_after": after_value,
+		"training_value_label": value_label,
+		"training_unit": unit,
+		"training_unit_ko": unit_ko,
+		"training_reduction": reduction,
 		# 디버그 피커의 "N회 한정 / 반복 습득" 배지가 카탈로그를 단일 소스로 읽게 한다
 		# (리터럴 복사본을 두면 상한을 바꿀 때 배지만 옛 값으로 남는다).
 		"training_max_count": max_count,
