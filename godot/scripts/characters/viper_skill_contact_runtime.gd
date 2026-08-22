@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 
 static func register_player_ball_contact(runtime: Object, deps: Dictionary, constants: Dictionary) -> void:
@@ -12,12 +13,13 @@ static func register_player_ball_contact(runtime: Object, deps: Dictionary, cons
 			if runtime.visibility_query.is_skill_equipped(skill_config, str(constants.get("core_flip", "core_flip"))):
 				runtime.core_flip_ready_msec = now_msec; runtime.core_flip_buffered_until_msec = 0
 	var four_poisons_level: int = runtime.visibility_query.get_runtime_skill_level(deps, "four_poisons")
-	if runtime.dive_active and runtime.dive_phase == 0 and four_poisons_level < 3:
+	var has_superarmor := RuntimePerkProgression.get_int_value("four_poisons", "superarmor", four_poisons_level) > 0
+	if runtime.dive_active and runtime.dive_phase == 0 and not has_superarmor:
 		runtime._reset_dive_runtime(false)
-	if runtime.dual_glitch_state == "startup" and four_poisons_level < 3:
+	if runtime.dual_glitch_state == "startup" and not has_superarmor:
 		runtime._reset_dual_glitch_runtime(false)
 	if runtime.chaos_state == "startup":
-		if four_poisons_level < 3:
+		if not has_superarmor:
 			runtime._reset_chaos_spear_runtime(false)
 	elif runtime.chaos_state == "blackhole":
 		runtime._release_chaos_blackhole(true, {}, deps)

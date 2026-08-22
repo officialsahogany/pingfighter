@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 const CAFFEINE_SKILL_ID := "item_caffeine"
 const CAFFEINE_DURATION_BONUS_PER_LEVEL := 0.30
 
@@ -14,7 +16,7 @@ func get_multiplier(registry: Object) -> float:
 		return max(0.0, 1.0 + max(0.0, float(runtime_perk_state.get_runtime_skill_bonus(CAFFEINE_SKILL_ID))))
 	if runtime_perk_state.has_method("get_runtime_skill_level"):
 		var level: int = max(0, int(runtime_perk_state.get_runtime_skill_level(CAFFEINE_SKILL_ID)))
-		return 1.0 + float(level) * CAFFEINE_DURATION_BONUS_PER_LEVEL
+		return 1.0 + RuntimePerkProgression.get_value(CAFFEINE_SKILL_ID, "duration_bonus", level)
 	return 1.0
 
 

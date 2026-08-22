@@ -28,6 +28,7 @@ const CommandoFirearmSuicideDroneState := preload("res://scripts/characters/comm
 const CommandoFirearmTimerState := preload("res://scripts/characters/commando_firearm_timer_state.gd")
 const CommandoFirearmValueUtils := preload("res://scripts/characters/commando_firearm_value_utils.gd")
 const GrenadeExplosionDrawer := preload("res://scripts/effects/grenade_explosion_drawer.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
@@ -175,10 +176,20 @@ const COMMANDO_FIRE_SHEET_PLAYER_FOOT_Y_OFFSET := 12.0
 const PISTOL_SPREAD_RADIANS := PI / 12.0
 const BERETTA_SPREAD_RADIANS := PISTOL_SPREAD_RADIANS * 0.70
 const PISTOL_ENHANCE_PERK_ID := "pistol_enhance"
-const PISTOL_ENHANCE_SPREAD_DEGREES := [0.0, 12.0, 9.0, 6.0, 3.0, 1.0]
-const PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL := 0.10
-const PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL := 0.30
-const PISTOL_ENHANCE_TUNING := {
+
+
+static func _build_pistol_enhance_spread_degrees() -> Array:
+	var values: Array = [0.0]
+	values.append_array(RuntimePerkProgression.get_authored_values_reference(
+		PISTOL_ENHANCE_PERK_ID, "spread_degrees"
+	))
+	return values
+
+
+static var PISTOL_ENHANCE_SPREAD_DEGREES: Array = _build_pistol_enhance_spread_degrees()
+static var PISTOL_ENHANCE_SPEED_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_value(PISTOL_ENHANCE_PERK_ID, "speed_bonus_pct", 1) / 100.0
+static var PISTOL_ENHANCE_KNOCKBACK_BONUS_PER_LEVEL: float = RuntimePerkProgression.get_value(PISTOL_ENHANCE_PERK_ID, "knockback_bonus_pct", 1) / 100.0
+static var PISTOL_ENHANCE_TUNING: Dictionary = {
 	"perk_id": PISTOL_ENHANCE_PERK_ID,
 	"base_ammo_max": PISTOL_AMMO_MAX,
 	"base_spread_radians": PISTOL_SPREAD_RADIANS,

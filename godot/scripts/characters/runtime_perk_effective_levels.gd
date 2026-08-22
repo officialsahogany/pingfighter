@@ -4,30 +4,31 @@ const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const VIPER_IGNITION_AURA_LEVEL_BONUS := 2
 const ITEM_CAFFEINE_ID := "item_caffeine"
-const ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL := 0.30
+const ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL := RuntimePerkProgression.ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL
 const ITEM_POLISH_ID := "item_polish"
-const ITEM_POLISH_ROLL_BONUS_PER_LEVEL := 0.12
-const PERK_POLISH_AMPLIFY_PER_LEVEL := 0.05
+const ITEM_POLISH_ROLL_BONUS_PER_LEVEL := RuntimePerkProgression.ITEM_POLISH_ROLL_BONUS_PER_LEVEL
+const PERK_POLISH_AMPLIFY_PER_LEVEL := RuntimePerkProgression.PERK_POLISH_AMPLIFY_PER_LEVEL
 const TRAINING_MASTERY_ID := "training_mastery"
-const TRAINING_MASTERY_AMPLIFY_PER_LEVEL := 0.20
+const TRAINING_MASTERY_AMPLIFY_PER_LEVEL := RuntimePerkProgression.TRAINING_MASTERY_AMPLIFY_PER_LEVEL
 const ITEM_RECYCLE_ID := "item_recycle"
-const ITEM_RECYCLE_CHANCE_PER_LEVEL := 0.07
-const MAX_ITEM_RECYCLE_CHANCE := 0.90
+const ITEM_RECYCLE_CHANCE_PER_LEVEL := RuntimePerkProgression.ITEM_RECYCLE_CHANCE_PER_LEVEL
+const MAX_ITEM_RECYCLE_CHANCE := RuntimePerkProgression.MAX_ITEM_RECYCLE_CHANCE
 const PERK_LAUREL_SHIELD_ID := "perk_laurel_shield"
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const DASH_ACCELERATION_ID := "dash_acceleration"
-const DASH_ACCELERATION_BONUS_PER_LEVEL := 0.70
+const DASH_ACCELERATION_BONUS_PER_LEVEL := RuntimePerkProgression.DASH_ACCELERATION_BONUS_PER_LEVEL
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
 const BASE_ACTIVE_ITEM_SLOT_LIMIT := 3
 const MIN_DASH_RECHARGE_FRAMES := 6.0
 const MIN_DASH_RECOVERY_FRAMES := 1.0
 const MIN_ITEM_SPAWN_DELAY_MSEC := 1
 const DOWNTOWN_TREASURE_MAP_ID := "downtown_treasure_map"
-const TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL := 1.50
-const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := 0.03
+const TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL := RuntimePerkProgression.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
+const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := RuntimePerkProgression.TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
 const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := {
 	"dash_lightweight": true,
 	"dash_module_control": true,
@@ -242,51 +243,30 @@ func get_runtime_skill_bonus(
 		clean_id
 	)
 	var base_bonus := 0.0
-	match clean_id:
-		"dash_lightweight":
-			base_bonus = float(level) * 0.12
-		"dash_module_control":
-			base_bonus = float(level) * 0.18
-		"dash_jump":
-			base_bonus = float(level) * 0.07
-		DASH_ACCELERATION_ID:
-			base_bonus = float(level) * DASH_ACCELERATION_BONUS_PER_LEVEL
-		"dash_spirit":
-			base_bonus = float(level) * 0.07
-		"dash_amplification":
-			base_bonus = float(level)
-		"item_luck":
-			base_bonus = float(level) * 0.12
-		"item_cooldown_mastery":
-			base_bonus = float(level) * 0.13
-		"item_gauge_mastery":
-			base_bonus = float(level) * 15.0
-		ITEM_CAFFEINE_ID:
-			base_bonus = float(level) * ITEM_CAFFEINE_DURATION_BONUS_PER_LEVEL
-		ITEM_POLISH_ID:
-			base_bonus = float(level) * ITEM_POLISH_ROLL_BONUS_PER_LEVEL
-		TRAINING_MASTERY_ID:
-			base_bonus = float(level) * TRAINING_MASTERY_AMPLIFY_PER_LEVEL
-		ITEM_RECYCLE_ID:
-			base_bonus = float(level) * ITEM_RECYCLE_CHANCE_PER_LEVEL
-		DOWNTOWN_TREASURE_MAP_ID:
-			base_bonus = get_downtown_treasure_map_mythic_bonus(
-				runtime_skill_levels,
-				item_perk_level_bonus,
-				viper_ignition_aura_active
-			)
-		"common_swiftness":
-			base_bonus = float(level) * 0.06
-		SLOT_EXPANSION_PERK_ID:
-			base_bonus = 0.0 if PerkConversionFlags.is_enabled() else float(level)
-		"common_bulk_up":
-			base_bonus = float(level) * 0.06
-		"common_training":
-			base_bonus = float(level) * 0.08
-		"perk_boost_charge":
-			base_bonus = float(level) * 7.0
-		PERK_LAUREL_SHIELD_ID:
-			base_bonus = float(level)
+	if RuntimePerkProgression.has_primary_runtime_bonus(clean_id):
+		base_bonus = RuntimePerkProgression.get_primary_runtime_bonus(clean_id, level)
+	else:
+		# Compatibility-only lanes outside the 37-perk S2 owner: ten migrated
+		# Training ids and the existing max-level 3/4 perks remain untouched.
+		match clean_id:
+			"dash_lightweight":
+				base_bonus = float(level) * 0.12
+			"dash_module_control":
+				base_bonus = float(level) * 0.18
+			"dash_jump":
+				base_bonus = float(level) * 0.07
+			"dash_amplification":
+				base_bonus = float(level)
+			"item_cooldown_mastery":
+				base_bonus = float(level) * 0.13
+			"common_swiftness":
+				base_bonus = float(level) * 0.06
+			SLOT_EXPANSION_PERK_ID:
+				base_bonus = 0.0 if PerkConversionFlags.is_enabled() else float(level)
+			"common_bulk_up":
+				base_bonus = float(level) * 0.06
+			"common_training":
+				base_bonus = float(level) * 0.08
 	return base_bonus * get_perk_amplify_multiplier(runtime_skill_levels, clean_id)
 
 
@@ -299,7 +279,7 @@ func get_perk_amplify_multiplier(runtime_skill_levels: Dictionary, skill_id: Str
 	var polish_level: int = max(0, int(runtime_skill_levels.get(ITEM_POLISH_ID, 0)))
 	if polish_level <= 0:
 		return 1.0
-	return 1.0 + float(polish_level) * PERK_POLISH_AMPLIFY_PER_LEVEL
+	return 1.0 + RuntimePerkProgression.get_value(ITEM_POLISH_ID, "general_amplify", polish_level)
 
 
 static func is_polish_amplifiable_perk_id(skill_id: String) -> bool:
@@ -324,9 +304,9 @@ func get_combo_amplifier_chip_bonus(
 	if level <= 0:
 		return {"drive_speed": 0.0, "drive_curve": 0.0, "smash_speed": 0.0}
 	return {
-		"drive_speed": float(level) * 0.90,
-		"smash_speed": float(level) * 0.45,
-		"drive_curve": float(mini(level, 3)) * 0.05,
+		"drive_speed": RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_speed_bonus", level),
+		"smash_speed": RuntimePerkProgression.get_value("combo_amplifier_chip", "smash_speed_bonus", level),
+		"drive_curve": RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_curve_bonus", level),
 	}
 
 
@@ -688,12 +668,13 @@ func get_laurel_leaf_count(
 	viper_ignition_aura_active: bool,
 	sacred_laurel_leaf_bonus: int = 0
 ) -> int:
-	return max(0, int(get_runtime_skill_level(
+	var level: int = max(0, int(get_runtime_skill_level(
 		runtime_skill_levels,
 		item_perk_level_bonus,
 		viper_ignition_aura_active,
 		PERK_LAUREL_SHIELD_ID
-	))) + max(0, sacred_laurel_leaf_bonus)
+	)))
+	return RuntimePerkProgression.get_int_value(PERK_LAUREL_SHIELD_ID, "leaf_count", level) + max(0, sacred_laurel_leaf_bonus)
 
 
 func get_downtown_treasure_map_mythic_bonus(
@@ -701,15 +682,13 @@ func get_downtown_treasure_map_mythic_bonus(
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool
 ) -> float:
-	return max(
-		0.0,
-		float(get_runtime_skill_level(
-			runtime_skill_levels,
-			item_perk_level_bonus,
-			viper_ignition_aura_active,
-			DOWNTOWN_TREASURE_MAP_ID
-		)) * TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
+	var level := get_runtime_skill_level(
+		runtime_skill_levels,
+		item_perk_level_bonus,
+		viper_ignition_aura_active,
+		DOWNTOWN_TREASURE_MAP_ID
 	)
+	return max(0.0, RuntimePerkProgression.get_value(DOWNTOWN_TREASURE_MAP_ID, "mythic_offer_bonus", level))
 
 
 func get_downtown_treasure_map_vision_box_chance_bonus(
@@ -717,17 +696,15 @@ func get_downtown_treasure_map_vision_box_chance_bonus(
 	item_perk_level_bonus: int,
 	viper_ignition_aura_active: bool
 ) -> float:
-	return max(
-		0.0,
-		float(get_runtime_skill_level(
-			runtime_skill_levels,
-			item_perk_level_bonus,
-			viper_ignition_aura_active,
-			DOWNTOWN_TREASURE_MAP_ID
-		)) * TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
+	var level := get_runtime_skill_level(
+		runtime_skill_levels,
+		item_perk_level_bonus,
+		viper_ignition_aura_active,
+		DOWNTOWN_TREASURE_MAP_ID
 	)
+	return max(0.0, RuntimePerkProgression.get_value(DOWNTOWN_TREASURE_MAP_ID, "vision_box_chance_bonus", level))
 
 
 func get_base_polish_multiplier(runtime_skill_levels: Dictionary) -> float:
 	var base_level: int = max(0, int(runtime_skill_levels.get(ITEM_POLISH_ID, 0)))
-	return max(0.0, 1.0 + float(base_level) * ITEM_POLISH_ROLL_BONUS_PER_LEVEL)
+	return max(0.0, 1.0 + RuntimePerkProgression.get_value(ITEM_POLISH_ID, "mythic_roll_bonus", base_level))

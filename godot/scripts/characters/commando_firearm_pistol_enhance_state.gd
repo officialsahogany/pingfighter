@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 
 static func get_runtime_perk_level(deps: Dictionary, perk_id: String) -> int:
 	var perk_state: Object = deps.get("runtime_perk_state", null)
@@ -9,33 +11,24 @@ static func get_runtime_perk_level(deps: Dictionary, perk_id: String) -> int:
 
 
 static func get_ammo_bonus(level: int) -> int:
-	if level <= 2:
+	if level <= 0:
 		return 0
-	if level <= 4:
-		return 1
-	return level - 3
+	return RuntimePerkProgression.get_int_value("pistol_enhance", "magazine_size", level) - RuntimePerkProgression.get_int_value("pistol_enhance", "magazine_size", 1)
 
 
 static func get_spread_radians(level: int, tuning: Dictionary) -> float:
 	var base_spread_radians := float(tuning.get("base_spread_radians", 0.0))
 	if level <= 0:
 		return base_spread_radians
-	var spread_degrees_value: Variant = tuning.get("spread_degrees", [])
-	if not spread_degrees_value is Array:
-		return base_spread_radians
-	var spread_degrees: Array = spread_degrees_value
-	if spread_degrees.size() <= 1:
-		return base_spread_radians
-	var index: int = clampi(level, 1, spread_degrees.size() - 1)
-	return deg_to_rad(float(spread_degrees[index]))
+	return deg_to_rad(RuntimePerkProgression.get_value("pistol_enhance", "spread_degrees", level))
 
 
-static func get_speed_multiplier(level: int, tuning: Dictionary) -> float:
-	return 1.0 + float(clampi(level, 0, 5)) * float(tuning.get("speed_bonus_per_level", 0.0))
+static func get_speed_multiplier(level: int, _tuning: Dictionary) -> float:
+	return 1.0 + RuntimePerkProgression.get_value("pistol_enhance", "speed_bonus_pct", level) / 100.0
 
 
-static func get_knockback_multiplier(level: int, tuning: Dictionary) -> float:
-	return 1.0 + float(clampi(level, 0, 5)) * float(tuning.get("knockback_bonus_per_level", 0.0))
+static func get_knockback_multiplier(level: int, _tuning: Dictionary) -> float:
+	return 1.0 + RuntimePerkProgression.get_value("pistol_enhance", "knockback_bonus_pct", level) / 100.0
 
 
 static func build_spawn_options(deps: Dictionary, tuning: Dictionary) -> Dictionary:

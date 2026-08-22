@@ -15,6 +15,7 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentActiveItemAcquisitionPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
 )
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const LUCKY_COIN_ITEM_NAME := "lucky_coin"
 const TREASURE_MAP_SKILL_ID := "downtown_treasure_map"
@@ -624,7 +625,9 @@ func _get_treasure_map_mythic_multiplier(registry: Object, fallback_level: int) 
 	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
 	if runtime_perk_state != null and runtime_perk_state.has_method("get_downtown_treasure_map_mythic_multiplier"):
 		return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_mythic_multiplier()))
-	return 1.0 + 1.5 * float(max(0, fallback_level))
+	return 1.0 + RuntimePerkProgression.get_value(
+		TREASURE_MAP_SKILL_ID, "mythic_offer_bonus", fallback_level
+	)
 
 
 func _get_selected_character_type(owner: Object) -> String:

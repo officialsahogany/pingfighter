@@ -5,6 +5,7 @@ const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_re
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SkillOrbTooltipEffectPreviewRenderer := preload("res://scripts/hud/skill_orb_tooltip_effect_preview_renderer.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 const TowerCardAbsorptionTargetResolver := preload(
 	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
 )
@@ -1022,16 +1023,14 @@ func _build_description_with_runtime_bonus(skill_data: Dictionary, hover_context
 	var blade_level: int = _get_runtime_skill_level(hover_context, "blade_amp")
 	if blade_level <= 0:
 		return description
-	var size_pct: int = min(max(0, blade_level), 5) * 10
-	var projectile_speed_pct: int = max(0, blade_level) * 10
-	var hit_speed_pct: int = max(0, blade_level) * 15
-	var cost_cut: int = min(max(0, blade_level) * 10, 100)
+	var size_pct := int(round(RuntimePerkProgression.get_value("blade_amp", "range_width_bonus", blade_level) * 100.0))
+	var projectile_speed_pct := int(round(RuntimePerkProgression.get_value("blade_amp", "projectile_speed_bonus", blade_level) * 100.0))
+	var hit_speed_pct := int(round(RuntimePerkProgression.get_value("blade_amp", "hit_speed_bonus", blade_level) * 100.0))
+	var cost_cut := RuntimePerkProgression.get_int_value("blade_amp", "gauge_cost_reduction", blade_level)
 	var homing_pct: int = 0
-	if blade_level >= 3:
+	if RuntimePerkProgression.get_int_value("blade_amp", "homing_tier", blade_level) > 0:
 		homing_pct = 30 if skill_name == "dark_blade" else 60
-	var followup_pct: int = 0
-	if blade_level >= 3:
-		followup_pct = min(100, (blade_level - 2) * 10)
+	var followup_pct := RuntimePerkProgression.get_int_value("blade_amp", "followup_chance_pct", blade_level)
 	var lines: Array[String] = [_format_blade_amp_runtime_line(size_pct, projectile_speed_pct, hit_speed_pct, cost_cut)]
 	if homing_pct > 0 or followup_pct > 0:
 		lines.append(_format_blade_amp_lv3_line(homing_pct, followup_pct))
@@ -1045,8 +1044,16 @@ func _append_combo_amplifier_runtime_bonus(description: String, hover_context: D
 	if level <= 0:
 		return description
 	var is_drive: bool = skill_name == "drive"
-	var pct_a: int = level * 90 if is_drive else level * 45
-	var pct_b: int = mini(level, 3) * 5 if is_drive else mini(level * 10, 50)
+	var pct_a := int(round(RuntimePerkProgression.get_value(
+		"combo_amplifier_chip",
+		"drive_speed_bonus" if is_drive else "smash_speed_bonus",
+		level
+	) * 100.0))
+	var pct_b := int(round(RuntimePerkProgression.get_value(
+		"combo_amplifier_chip",
+		"drive_curve_bonus" if is_drive else "initial_boost_decay_reduction",
+		level
+	) * 100.0))
 	return "%s\n%s" % [description, _format_combo_amplifier_line(is_drive, pct_a, pct_b)]
 
 
@@ -1088,12 +1095,15 @@ func _append_viper_kick_runtime_bonus(description: String, hover_context: Dictio
 	var kick_level: int = _get_runtime_skill_level(hover_context, "kick_enhance")
 	if kick_level <= 0:
 		return description
-	var precision_pct: int = max(0, kick_level) * 8
-	var speed_pct: int = max(0, kick_level) * 12
+	# Keep the known authored 8%/12% lanes distinct from the live 0.09/0.04
+	# geometry lanes. S2 records the mismatch without resolving it.
+	var precision_pct := RuntimePerkProgression.get_int_value("kick_enhance", "authored_precision_pct", kick_level)
+	var speed_pct := RuntimePerkProgression.get_int_value("kick_enhance", "authored_speed_pct", kick_level)
 	var lines: Array[String] = [_format_kick_enhance_runtime_line(precision_pct, speed_pct)]
 	if skill_name != "shadow_step":
-		lines[0] = "%s, %s -%d%%" % [lines[0], LanguageSettings.translate_text("준비"), min(max(0, kick_level) * 7, 90)]
-	var knockback_chance_pct: int = _get_kick_knockback_ball_chance_pct(kick_level)
+		var prep_pct := int(round(RuntimePerkProgression.get_value("kick_enhance", "prep_reduction", kick_level) * 100.0))
+		lines[0] = "%s, %s -%d%%" % [lines[0], LanguageSettings.translate_text("준비"), prep_pct]
+	var knockback_chance_pct := int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", kick_level) * 100.0))
 	if knockback_chance_pct > 0:
 		lines.append(_format_kick_knockback_runtime_line(knockback_chance_pct))
 	return "%s\n%s" % [description, "\n".join(lines)]
@@ -1103,14 +1113,14 @@ func _append_dive_strike_runtime_bonus(description: String, hover_context: Dicti
 	var four_poisons_level: int = _get_runtime_skill_level(hover_context, "four_poisons")
 	if four_poisons_level <= 0:
 		return description
-	var prep_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 8, 16, 25, 33, 40], 4, 70)
-	var sleep_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 5, 10, 15, 20, 25], 5, 50)
-	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
+	var prep_pct := RuntimePerkProgression.get_int_value("four_poisons", "prep_reduction_pct", four_poisons_level)
+	var sleep_pct := RuntimePerkProgression.get_int_value("four_poisons", "sleep_pct", four_poisons_level)
+	var cooldown_pct := RuntimePerkProgression.get_int_value("four_poisons", "cooldown_reduction_pct", four_poisons_level)
 	var line: String = _format_four_poisons_dive_line(prep_pct, sleep_pct)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
 		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
-	if four_poisons_level >= 3:
+	if RuntimePerkProgression.get_int_value("four_poisons", "superarmor", four_poisons_level) > 0:
 		extras.append(LanguageSettings.translate_text("슈퍼아머"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, "·".join(extras)]
@@ -1121,19 +1131,19 @@ func _append_dual_glitch_runtime_bonus(description: String, hover_context: Dicti
 	var four_poisons_level: int = _get_runtime_skill_level(hover_context, "four_poisons")
 	if four_poisons_level <= 0:
 		return description
-	var duration_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 7, 14, 20, 27, 33], 5, 45)
-	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
-	var clone_hp: int = _get_four_poisons_dual_glitch_clone_hp(four_poisons_level)
+	var duration_pct := RuntimePerkProgression.get_int_value("four_poisons", "dual_duration_pct", four_poisons_level)
+	var cooldown_pct := RuntimePerkProgression.get_int_value("four_poisons", "cooldown_reduction_pct", four_poisons_level)
+	var clone_hp := RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", four_poisons_level)
 	var line: String = _format_four_poisons_dual_line(duration_pct, clone_hp)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
 		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
-	if four_poisons_level >= 3:
+	if RuntimePerkProgression.get_int_value("four_poisons", "superarmor", four_poisons_level) > 0:
 		extras.append(LanguageSettings.translate_text("슈퍼아머"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, " · ".join(extras)]
 	var lines: Array[String] = [line]
-	if four_poisons_level >= 5:
+	if RuntimePerkProgression.get_int_value("four_poisons", "clone_replication", four_poisons_level) > 0:
 		lines.append(_format_four_poisons_dual_lv5_line())
 	return "%s\n%s" % [description, "\n".join(lines)]
 
@@ -1142,13 +1152,13 @@ func _append_nerve_strike_runtime_bonus(description: String, hover_context: Dict
 	var four_poisons_level: int = _get_runtime_skill_level(hover_context, "four_poisons")
 	if four_poisons_level <= 0:
 		return description
-	var confusion_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 12, 24, 36, 48, 70], 10, 150)
-	var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
+	var confusion_pct := RuntimePerkProgression.get_int_value("four_poisons", "confusion_pct", four_poisons_level)
+	var cooldown_pct := RuntimePerkProgression.get_int_value("four_poisons", "cooldown_reduction_pct", four_poisons_level)
 	var line: String = _format_four_poisons_nerve_line(confusion_pct)
 	var extras: Array[String] = []
 	if cooldown_pct > 0:
 		extras.append(_format_cooldown_reduction_runtime_line(cooldown_pct))
-	if four_poisons_level >= 5:
+	if RuntimePerkProgression.get_int_value("four_poisons", "clone_replication", four_poisons_level) > 0:
 		extras.append(LanguageSettings.translate_text("분신 독 슬래시"))
 	if not extras.is_empty():
 		line = "%s / %s" % [line, " · ".join(extras)]
@@ -1362,18 +1372,12 @@ func _format_cooldown_reduction_runtime_line(cooldown_pct: int) -> String:
 	return "쿨 -%d%%" % cooldown_pct
 
 
-func _get_kick_knockback_ball_chance_pct(level: int) -> int:
-	if level < 3:
-		return 0
-	return min(100, (level - 2) * 10)
-
-
 func _get_effective_skill_cost(skill_data: Dictionary, hover_context: Dictionary) -> float:
 	var skill_name: String = str(skill_data.get("name", ""))
 	var cost: float = float(skill_data.get("cost", 0.0))
 	if skill_name in ["blade_rush", "dark_blade"]:
 		var blade_level: int = _get_runtime_skill_level(hover_context, "blade_amp")
-		return max(100.0, cost - float(min(max(0, blade_level) * 10, 100)))
+		return max(100.0, cost - RuntimePerkProgression.get_value("blade_amp", "gauge_cost_reduction", blade_level))
 	return cost
 
 
@@ -1382,7 +1386,7 @@ func _get_effective_skill_cooldown_seconds(skill_data: Dictionary, hover_context
 	var cooldown: float = float(skill_data.get("cooldown", 0.0))
 	if skill_name in ["dive_strike", "chaos_spear", "dual_glitch", "nerve_strike"]:
 		var four_poisons_level: int = _get_runtime_skill_level(hover_context, "four_poisons")
-		var cooldown_pct: int = _get_four_poisons_extended_pct(four_poisons_level, [0, 0, 0, 10, 15, 20], 4, 40)
+		var cooldown_pct := RuntimePerkProgression.get_int_value("four_poisons", "cooldown_reduction_pct", four_poisons_level)
 		var base_cooldown: float = _get_viper_base_cooldown_seconds(skill_name, cooldown)
 		var configured_reduction: float = clamp(1.0 - cooldown / max(0.001, base_cooldown), 0.0, 0.95)
 		var total_reduction: float = clamp(configured_reduction + float(cooldown_pct) / 100.0, 0.0, 0.95)
@@ -1401,25 +1405,6 @@ func _get_viper_base_cooldown_seconds(skill_name: String, fallback: float) -> fl
 		"nerve_strike":
 			return 35.0
 	return fallback
-
-
-func _get_four_poisons_extended_pct(level: int, table: Array, extra_per_level: int, cap_value: int) -> int:
-	var safe_level: int = max(0, level)
-	if safe_level <= 0:
-		return 0
-	if safe_level < table.size():
-		return min(cap_value, int(table[safe_level]))
-	var base: int = int(table[table.size() - 1])
-	return min(cap_value, base + (safe_level - table.size() + 1) * extra_per_level)
-
-
-func _get_four_poisons_dual_glitch_clone_hp(level: int) -> int:
-	var table := [2, 2, 2, 3, 3, 4]
-	var safe_level: int = max(0, level)
-	var clone_hp: int = int(table[min(table.size() - 1, safe_level)])
-	if safe_level > 5:
-		clone_hp += min(2, max(0, int(floor(float(safe_level - 4) / 2.0))))
-	return min(6, clone_hp)
 
 
 func _get_runtime_skill_level(hover_context: Dictionary, skill_id: String) -> int:

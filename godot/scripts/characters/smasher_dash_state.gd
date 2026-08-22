@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 const SmasherDashMotionState := preload("res://scripts/characters/smasher_dash_motion_state.gd")
 const SmasherDashTokenState := preload("res://scripts/characters/smasher_dash_token_state.gd")
 
@@ -306,7 +308,9 @@ func _get_dash_acceleration_level(runtime_perk_state: Object) -> int:
 		return max(0, int(runtime_perk_state.get_dash_acceleration_level()))
 	if runtime_perk_state.has_method("get_runtime_skill_level"):
 		return max(0, int(runtime_perk_state.get_runtime_skill_level("dash_acceleration")))
-	return int(round(_get_dash_acceleration_bonus(runtime_perk_state) / 0.70))
+	return RuntimePerkProgression.get_dash_acceleration_level_for_bonus(
+		_get_dash_acceleration_bonus(runtime_perk_state)
+	)
 
 
 func _get_boost_charge_chance_pct(runtime_perk_state: Object, registry: Object = null) -> float:

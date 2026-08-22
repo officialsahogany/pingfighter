@@ -1,9 +1,11 @@
 extends RefCounted
-## 엘릭서 오브 마스터리 (Elixir of Mastery)
-## 신화급 액티브 아이템 - 사용 시 보유 퍽 중 랜덤 1개를 Lv.5로 만듦
+## 대성영단 (호환 ID: elixir_of_mastery)
+## 신화급 액티브 아이템 - 복용 시 보유 성장형 무공 중 하나를 카탈로그 상한으로
 ## 시네마틱 연출: 화면 정지 → 3초 빌드업 → 결과 공개 → 축하 → 확인 대기
 
-const MAX_PERK_LEVEL := 5
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 const BUILDUP_DURATION := 3.0
 const REVEAL_DURATION := 1.5
 const CINEMATIC_PARTICLE_COUNT := 60
@@ -22,6 +24,7 @@ var waiting_for_confirm := false
 var selected_perk_id := ""
 var selected_perk_data: Dictionary = {}
 var old_level := 0
+var target_level := 0
 
 var bottle_rotation := 0.0
 var bottle_scale := 1.0
@@ -51,6 +54,7 @@ func reset() -> void:
 	selected_perk_id = ""
 	selected_perk_data = {}
 	old_level = 0
+	target_level = 0
 	bottle_rotation = 0.0
 	bottle_scale = 1.0
 	flash_alpha = 0.0
@@ -77,17 +81,29 @@ func get_eligible_perks(runtime_skill_levels: Dictionary, all_skill_pools: Array
 			continue
 		for skill_id in pool:
 			var skill_data: Dictionary = pool[skill_id] if pool[skill_id] is Dictionary else {}
-			var max_level: int = int(skill_data.get("max_level", 0))
-			if max_level < MAX_PERK_LEVEL:
+			var mastery_level := get_mastery_target_level(str(skill_id), skill_data)
+			if mastery_level <= 0:
 				continue
 			var current: int = int(runtime_skill_levels.get(skill_id, 0))
-			if current > 0 and current < MAX_PERK_LEVEL:
+			if current > 0 and current < mastery_level:
 				eligible.append({
 					"id": skill_id,
 					"data": skill_data,
 					"current_level": current,
+					"target_level": mastery_level,
 				})
 	return eligible
+
+
+# GRT-054: the eligible family is canonical by perk identity while the target
+# itself comes from that perk's catalog max_level. S2 therefore keeps today's
+# 37 Mugong + 10 unbounded-training candidates byte-for-byte, and S3 can lower
+# only the 37 catalog caps without making the item silently exclude them.
+static func get_mastery_target_level(skill_id: String, skill_data: Dictionary) -> int:
+	var clean_id := skill_id.strip_edges()
+	if not RuntimePerkProgression.has_perk(clean_id) and not RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.has(clean_id):
+		return 0
+	return maxi(0, int(skill_data.get("max_level", 0)))
 
 
 func activate(
@@ -103,8 +119,9 @@ func activate(
 	selected_perk_id = str(chosen.get("id", ""))
 	selected_perk_data = chosen.get("data", {}) if chosen.get("data") is Dictionary else {}
 	old_level = int(chosen.get("current_level", 0))
+	target_level = int(chosen.get("target_level", 0))
 
-	var levels_to_add: int = MAX_PERK_LEVEL - old_level
+	var levels_to_add: int = target_level - old_level
 	for _i in range(levels_to_add):
 		if apply_skill_func.is_valid():
 			apply_skill_func.call(selected_perk_id)
@@ -166,6 +183,7 @@ func get_draw_context() -> Dictionary:
 		"selected_perk_id": selected_perk_id,
 		"selected_perk_data": selected_perk_data,
 		"old_level": old_level,
+		"target_level": target_level,
 	}
 
 
@@ -180,6 +198,8 @@ func _init_particles() -> void:
 			"angle": angle,
 			"dist": dist,
 			"speed": randf_range(0.5, 2.0),
+			"rise": 0.0,
+			"rise_speed": randf_range(18.0, 42.0),
 			"size": randf_range(2.0, 5.0),
 			"color": _random_particle_color(),
 			"alpha": randf_range(0.6, 1.0),
@@ -190,20 +210,25 @@ func _init_particles() -> void:
 			"radius": 80.0 + float(i) * 50.0,
 			"rotation": float(i) * 1.2,
 			"speed": 0.8 + float(i) * 0.3,
+			"direction": -1.0 if i == 1 else 1.0,
 			"segments": 6 + i * 2,
 			"alpha": (180.0 - float(i) * 30.0) / 255.0,
 		})
 
 
 func _update_buildup(dt: float) -> void:
-	bottle_rotation += dt * 180.0
-	bottle_scale = 1.0 + 0.2 * sin(cinematic_timer * 3.0)
 	var progress: float = minf(1.0, cinematic_timer / BUILDUP_DURATION)
+	var acceleration: float = progress * progress
+	bottle_rotation += dt * lerpf(48.0, 230.0, acceleration)
+	var breath_phase: float = cinematic_timer * lerpf(2.0, 6.5, acceleration)
+	bottle_scale = 0.94 + 0.06 * progress + 0.07 * sin(breath_phase) * lerpf(0.35, 1.0, progress)
 	for p in particles:
-		p["angle"] = float(p.get("angle", 0.0)) + float(p.get("speed", 1.0)) * dt
-		p["dist"] = maxf(5.0, float(p.get("dist", 100.0)) - progress * 80.0 * dt)
+		p["angle"] = float(p.get("angle", 0.0)) + float(p.get("speed", 1.0)) * dt * lerpf(0.45, 1.65, acceleration)
+		p["dist"] = maxf(5.0, float(p.get("dist", 100.0)) - lerpf(16.0, 118.0, acceleration) * dt)
+		p["rise"] = float(p.get("rise", 0.0)) + float(p.get("rise_speed", 28.0)) * dt * lerpf(0.45, 1.65, progress)
 	for rc in rune_circles:
-		rc["rotation"] = float(rc.get("rotation", 0.0)) + float(rc.get("speed", 1.0)) * dt
+		var direction: float = float(rc.get("direction", 1.0))
+		rc["rotation"] = float(rc.get("rotation", 0.0)) + float(rc.get("speed", 1.0)) * direction * dt * lerpf(0.40, 2.50, acceleration)
 	if cinematic_timer >= BUILDUP_DURATION:
 		cinematic_phase = Phase.REVEAL
 		cinematic_timer = 0.0
@@ -338,8 +363,8 @@ func _trigger_celebration() -> void:
 			"rotation": randf_range(0.0, 360.0),
 			"rot_speed": randf_range(-600.0, 600.0),
 			"size": randf_range(4.0, 10.0),
+			"variant": randi() % 4,
 			"color": _random_confetti_color(),
-			"shape": "star" if randf() < 0.25 else "rect",
 			"life": randf_range(2.5, 4.5),
 			"max_life": 4.5,
 			"gravity": randf_range(280.0, 460.0),
@@ -347,7 +372,7 @@ func _trigger_celebration() -> void:
 		})
 	shockwaves = [
 		{"radius": 0.0, "max_radius": 260.0, "width": 6.0, "color": Color(1.0, 0.84, 0.39), "delay": 0.0, "age": 0.0, "duration": 0.75, "current_alpha": 1.0},
-		{"radius": 0.0, "max_radius": 340.0, "width": 5.0, "color": Color(0.78, 0.55, 1.0), "delay": 0.13, "age": 0.0, "duration": 0.85, "current_alpha": 1.0},
+		{"radius": 0.0, "max_radius": 340.0, "width": 5.0, "color": Color(0.84, 0.16, 0.08), "delay": 0.13, "age": 0.0, "duration": 0.85, "current_alpha": 1.0},
 		{"radius": 0.0, "max_radius": 420.0, "width": 4.0, "color": Color.WHITE, "delay": 0.28, "age": 0.0, "duration": 0.95, "current_alpha": 1.0},
 	]
 	_fireworks_queue = [
@@ -389,26 +414,32 @@ func _finish_cinematic() -> void:
 
 
 func _random_particle_color() -> Color:
-	var colors: Array = [Color(0.71, 0.39, 1.0), Color(0.39, 0.78, 1.0), Color(1.0, 0.78, 0.39), Color.WHITE]
+	var colors: Array = [Color(0.96, 0.68, 0.16), Color(0.84, 0.16, 0.08), Color(1.0, 0.84, 0.39), Color(1.0, 0.96, 0.78)]
 	return colors[randi() % colors.size()]
 
 
 func _random_sparkle_color() -> Color:
-	var colors: Array = [Color(1.0, 0.84, 0.0), Color(0.78, 0.39, 1.0), Color(0.39, 0.86, 1.0), Color.WHITE, Color(1.0, 0.71, 0.2)]
+	var colors: Array = [Color(1.0, 0.84, 0.0), Color(0.84, 0.16, 0.08), Color(1.0, 0.94, 0.68), Color.WHITE, Color(1.0, 0.63, 0.12)]
 	return colors[randi() % colors.size()]
 
 
 func _random_confetti_color() -> Color:
-	var colors: Array = [Color(1.0, 0.84, 0.0), Color(1.0, 0.39, 0.59), Color(0.39, 0.78, 1.0), Color(0.71, 1.0, 0.39), Color(0.78, 0.39, 1.0), Color.WHITE, Color(1.0, 0.71, 0.2), Color(0.47, 1.0, 0.86)]
+	# Textured result uses a gold/crimson four-cell atlas. These colors remain
+	# for the procedural fallback and deliberately exclude white/gray/green.
+	var colors: Array = [
+		Color(1.0, 0.76, 0.12),
+		Color(0.93, 0.55, 0.08),
+		Color(0.84, 0.09, 0.04),
+		Color(0.64, 0.035, 0.02),
+	]
 	return colors[randi() % colors.size()]
 
 
 func _random_firework_palette() -> Array:
 	var palettes: Array = [
 		[Color(1.0, 0.84, 0.0), Color(1.0, 0.71, 0.24), Color(1.0, 1.0, 0.78)],
-		[Color(0.78, 0.39, 1.0), Color(1.0, 0.71, 1.0), Color.WHITE],
-		[Color(0.39, 0.78, 1.0), Color(0.71, 0.94, 1.0), Color.WHITE],
-		[Color(1.0, 0.39, 0.59), Color(1.0, 0.78, 0.86), Color.WHITE],
-		[Color(0.47, 1.0, 0.78), Color(0.86, 1.0, 0.86), Color.WHITE],
+		[Color(0.84, 0.16, 0.08), Color(1.0, 0.42, 0.12), Color(1.0, 0.94, 0.68)],
+		[Color(0.93, 0.61, 0.12), Color(1.0, 0.82, 0.35), Color.WHITE],
+		[Color(0.57, 0.12, 0.06), Color(0.94, 0.31, 0.10), Color(1.0, 0.82, 0.35)],
 	]
 	return palettes[randi() % palettes.size()]

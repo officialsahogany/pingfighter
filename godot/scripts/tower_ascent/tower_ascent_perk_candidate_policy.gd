@@ -51,7 +51,7 @@ func is_mugong_candidate(
 	for excluded_flag in EXCLUDED_MUGONG_FLAGS:
 		if bool(data.get(excluded_flag, false)):
 			return false
-	var max_level := maxi(1, int(data.get("max_level", 5)))
+	var max_level := maxi(1, int(data.get("max_level", 0)))
 	return int(runtime_levels.get(perk_id, 0)) < max_level
 
 

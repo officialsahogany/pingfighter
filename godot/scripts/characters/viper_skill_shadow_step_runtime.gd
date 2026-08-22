@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 
 static func try_dash_activation(runtime: Object, pressed_edge: bool, input_snapshot: Dictionary, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int, constants: Dictionary) -> Dictionary:
@@ -82,7 +83,11 @@ static func apply_hit(runtime: Object, hit_center: Vector2, hit_size: Vector2, c
 	var curve_force: float = float(hit_profile.get("curve_force", constants.get("hit_force_min", 0.4)))
 	var safe_dir: int = 1 if curve_dir >= 0 else -1
 	var current_speed: float = ball_vel.length()
-	var speed_bonus: float = 1.0 + float(runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance")) * 0.04
+	var speed_bonus: float = 1.0 + RuntimePerkProgression.get_value(
+		"kick_enhance",
+		"runtime_hit_speed_bonus",
+		runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance")
+	)
 	var raw_multiplier: float = speed_mult * speed_bonus
 	var multiplier: float = raw_multiplier
 	var ball_physics: Object = deps.get("ball_physics", null)

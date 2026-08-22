@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const KICK_PREP_SPEED_START := 9.0
 const KICK_PREP_SPEED_FULL := 24.0
@@ -77,28 +78,20 @@ func get_four_poisons_additive_cooldown_seconds(
 	return max(0.0, base_seconds * (1.0 - total_reduction))
 
 
-func get_dual_glitch_clone_hp(four_poisons_level: int, values: Array, cap: int) -> int:
-	var safe_four_poisons_level: int = max(0, four_poisons_level)
-	var clamped_four_poisons_level: int = min(values.size() - 1, safe_four_poisons_level)
-	var clone_hp: int = int(values[clamped_four_poisons_level])
-	if safe_four_poisons_level > 5:
-		clone_hp += min(2, max(0, int(floor(float(safe_four_poisons_level - 4) / 2.0))))
-	return min(cap, clone_hp)
+func get_dual_glitch_clone_hp(four_poisons_level: int, _values: Array, _cap: int) -> int:
+	return RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", four_poisons_level)
 
 
 func get_blade_skill_cost(base_cost: float, blade_amp_level: int, skill_name: String, blade_rush_name: String, dark_blade_name: String) -> float:
 	if skill_name == blade_rush_name or skill_name == dark_blade_name:
 		if base_cost <= 0.0:
 			base_cost = 150.0 if skill_name == dark_blade_name else 200.0
-		return max(100.0, base_cost - float(min(max(0, blade_amp_level) * 10, 100)))
+		return max(100.0, base_cost - RuntimePerkProgression.get_value("blade_amp", "gauge_cost_reduction", blade_amp_level))
 	return base_cost
 
 
 func get_blade_amp_followup_chance_pct(blade_amp_level: int) -> int:
-	var safe_level: int = max(0, blade_amp_level)
-	if safe_level < 3:
-		return 0
-	return min(100, (safe_level - 2) * 10)
+	return RuntimePerkProgression.get_int_value("blade_amp", "followup_chance_pct", blade_amp_level)
 
 
 func get_marshal_duration_frames(base_frames: float, kick_enhance_level: int, marshal_is_double: bool, double_fast: bool, double_fast_mult: float) -> float:
@@ -144,7 +137,7 @@ func get_marshal_hit_speed(
 	double_speed_mult: float,
 	double_min_speed: float
 ) -> float:
-	var speed_bonus: float = 1.0 + float(kick_enhance_level) * 0.04
+	var speed_bonus: float = 1.0 + RuntimePerkProgression.get_value("kick_enhance", "runtime_hit_speed_bonus", kick_enhance_level)
 	var selected_speed_mult: float = double_speed_mult if marshal_is_double else speed_mult
 	var selected_min_speed: float = double_min_speed if marshal_is_double else min_speed
 	return max(current_speed * selected_speed_mult * speed_bonus, selected_min_speed)
@@ -156,13 +149,12 @@ func get_core_flip_hit_speed(
 	speed_mult: float,
 	min_speed: float
 ) -> float:
-	var speed_bonus: float = 1.0 + float(kick_enhance_level) * 0.04
+	var speed_bonus: float = 1.0 + RuntimePerkProgression.get_value("kick_enhance", "runtime_hit_speed_bonus", kick_enhance_level)
 	return max(current_speed * speed_mult * speed_bonus, min_speed)
 
 
 func get_marshal_prep_duration_mult(kick_enhance_level: int) -> float:
-	var prep_cut_pct: float = min(float(kick_enhance_level) * 7.0, 90.0)
-	return max(0.1, 1.0 - prep_cut_pct / 100.0)
+	return max(0.1, 1.0 - RuntimePerkProgression.get_value("kick_enhance", "prep_reduction", kick_enhance_level))
 
 
 func _get_vector2(value: Variant, fallback: Vector2) -> Vector2:

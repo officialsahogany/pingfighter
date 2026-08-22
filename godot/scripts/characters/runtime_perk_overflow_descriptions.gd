@@ -30,6 +30,7 @@ extends RefCounted
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 # Linear "prefix + per_level * L + suffix" lanes (legacy skill_patterns port).
 # per_level values mirror runtime_perk_effective_levels.gd's
@@ -40,20 +41,20 @@ const LINEAR_PATTERNS := {
 	"dash_module_control": {"prefix": "활주 후딜 ", "per_level": 18, "suffix": "% 감소"},
 	"dash_jump": {"prefix": "활주 거리 ", "per_level": 7, "suffix": "% 증가"},
 	"dash_amplification": {"prefix": "최대 활주 횟수 +", "per_level": 1, "suffix": ""},
-	"dash_spirit": {"prefix": "활주시 ", "per_level": 7, "suffix": "% 확률로 레이저 잔상"},
-	"item_luck": {"prefix": "아이템 스폰 대기 ", "per_level": 12, "suffix": "% 감소"},
+	"dash_spirit": {"prefix": "활주시 ", "lane": "laser_chance", "scale": 100.0, "suffix": "% 확률로 레이저 잔상"},
+	"item_luck": {"prefix": "아이템 스폰 대기 ", "lane": "spawn_wait_reduction", "scale": 100.0, "suffix": "% 감소"},
 	"item_cooldown_mastery": {"prefix": "액티브 아이템 쿨타임 ", "per_level": 13, "suffix": "% 감소"},
-	"item_gauge_mastery": {"prefix": "액티브 사용시 기력 +", "per_level": 15, "suffix": ""},
-	"item_caffeine": {"prefix": "타이머형 아이템 지속 ", "per_level": 30, "suffix": "% 증가"},
-	"item_polish": {"prefix": "모든 일반 성장형 무공의 수치 능력치 ", "per_level": 5, "suffix": "% 증폭"},
-	"item_recycle": {"prefix": "아이템 유지 확률 ", "per_level": 7, "suffix": "%", "value_max": 90},
+	"item_gauge_mastery": {"prefix": "액티브 사용시 기력 +", "lane": "gauge_gain", "scale": 1.0, "suffix": ""},
+	"item_caffeine": {"prefix": "타이머형 아이템 지속 ", "lane": "duration_bonus", "scale": 100.0, "suffix": "% 증가"},
+	"item_polish": {"prefix": "모든 일반 성장형 무공의 수치 능력치 ", "lane": "general_amplify", "scale": 100.0, "suffix": "% 증폭"},
+	"item_recycle": {"prefix": "아이템 유지 확률 ", "lane": "retain_chance", "scale": 100.0, "suffix": "%"},
 	"common_swiftness": {"prefix": "이동속도 ", "per_level": 6, "suffix": "% 증가"},
 	"common_bulk_up": {"prefix": "몸집 크기 ", "per_level": 6, "suffix": "% 증가"},
-	"training_mastery": {"prefix": "모든 수련의 능력치 효과 ", "per_level": 20, "suffix": "% 증폭"},
+	"training_mastery": {"prefix": "모든 수련의 능력치 효과 ", "lane": "training_amplify", "scale": 100.0, "suffix": "% 증폭"},
 	"common_training": {"prefix": "모든 초식 쿨타임 ", "per_level": 8, "suffix": "% 감소"},
-	"perk_boost_charge": {"prefix": "확률 +", "per_level": 7, "suffix": "%, 발동 시 다음 활주 무료 + 재충전 -90%", "value_max": 100},
-	"perk_laurel_shield": {"prefix": "벽사 잎 ", "per_level": 1, "suffix": "개 보호"},
-	"extension_gear": {"prefix": "경신보/청심결/건곤환문 지속시간 +", "per_level": 25, "suffix": "%"},
+	"perk_boost_charge": {"prefix": "확률 +", "lane": "trigger_chance_pct", "scale": 1.0, "suffix": "%, 발동 시 다음 활주 무료 + 재충전 -90%"},
+	"perk_laurel_shield": {"prefix": "벽사 잎 ", "lane": "leaf_count", "scale": 1.0, "suffix": "개 보호"},
+	"extension_gear": {"prefix": "경신보/청심결/건곤환문 지속시간 +", "lane": "duration_bonus", "scale": 100.0, "suffix": "%"},
 }
 
 # Converted-perk lane templates. Values come straight from
@@ -124,23 +125,51 @@ const CONVERTED_TEMPLATES := {
 	"soul_burst": {"format": "활주 횟수가 없을 때 완전 활주 기력 %s", "keys": ["soul_burst_gauge_cost"]},
 	"bulletproof_hat": {"format": "자세보정 +%s%%", "keys": ["posture_correction_pct"]},
 	"venom_mist_gauntlet": {"format": "독안개 발동 %s%%, 지속 %s초", "keys": ["mist_trigger_chance_pct", "mist_duration_sec"]},
+	"sage_ring": {
+		"format": "공 타격 시 %s%%: 모든 무공 유효 경지 +%s (%s초)",
+		"keys": ["trigger_chance_pct", "perk_level_bonus", "duration_sec"],
+		"int_keys": {"perk_level_bonus": true},
+	},
 }
 
 # four_poisons lane tables — MUST stay equal to ViperSkillRuntime
 # FOUR_POISONS_* consts (equality-sealed in the smoke). Index = level,
 # overflow = values[last] + (L - last) * per_extra, clamped to cap
 # (same math as ViperSkillScaling.get_four_poisons_scaled_pct).
-const FOUR_POISONS_PREP := {"values": [0, 8, 16, 25, 33, 40], "per_extra": 4, "cap": 70}
-const FOUR_POISONS_SLEEP := {"values": [0, 5, 10, 15, 20, 25], "per_extra": 5, "cap": 50}
-const FOUR_POISONS_CONFUSION := {"values": [0, 12, 24, 36, 48, 70], "per_extra": 10, "cap": 150}
-const FOUR_POISONS_DUAL_DURATION := {"values": [0, 7, 14, 20, 27, 33], "per_extra": 5, "cap": 45}
-const FOUR_POISONS_COOLDOWN := {"values": [0, 0, 0, 10, 15, 20], "per_extra": 4, "cap": 40}
-const FOUR_POISONS_CLONE_HP := {"values": [2, 2, 2, 3, 3, 4], "cap": 6}
+static var FOUR_POISONS_PREP: Dictionary = _build_legacy_linear_lane("prep_reduction_pct")
+static var FOUR_POISONS_SLEEP: Dictionary = _build_legacy_linear_lane("sleep_pct")
+static var FOUR_POISONS_CONFUSION: Dictionary = _build_legacy_linear_lane("confusion_pct")
+static var FOUR_POISONS_DUAL_DURATION: Dictionary = _build_legacy_linear_lane("dual_duration_pct")
+static var FOUR_POISONS_COOLDOWN: Dictionary = _build_legacy_linear_lane("cooldown_reduction_pct")
+static var FOUR_POISONS_CLONE_HP: Dictionary = _build_legacy_clone_hp_lane()
 
 # pistol_enhance authored spread ladder (mirrors commando_firearm_runtime.gd
 # PISTOL_ENHANCE_SPREAD_DEGREES minus the level-0 slot; index clamps at Lv.5
 # like the runtime consumer, so Lv.6+ keeps ±1°).
-const PISTOL_ENHANCE_SPREAD_DEGREES := [12, 9, 6, 3, 1]
+static var PISTOL_ENHANCE_SPREAD_DEGREES: Array = RuntimePerkProgression.get_authored_values_reference(
+	"pistol_enhance", "spread_degrees"
+)
+
+
+static func _build_legacy_linear_lane(lane_id: String) -> Dictionary:
+	var values: Array = [0]
+	for level in range(1, 6):
+		values.append(RuntimePerkProgression.get_int_value("four_poisons", lane_id, level))
+	return {
+		"values": values,
+		"per_extra": RuntimePerkProgression.get_int_value("four_poisons", lane_id, 6) - int(values[5]),
+		"cap": RuntimePerkProgression.get_int_value("four_poisons", lane_id, 10000),
+	}
+
+
+static func _build_legacy_clone_hp_lane() -> Dictionary:
+	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 1)]
+	for level in range(1, 6):
+		values.append(RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level))
+	return {
+		"values": values,
+		"cap": RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 10000),
+	}
 
 
 # Full stat-line resolution: authored text at defined levels, generated text
@@ -300,7 +329,11 @@ static func _linear_pattern_text_with_polish(
 	runtime_state: Object
 ) -> String:
 	var pattern: Dictionary = LINEAR_PATTERNS[skill_id]
-	var base_value: float = float(int(pattern["per_level"]) * level)
+	var base_value: float
+	if pattern.has("lane"):
+		base_value = RuntimePerkProgression.get_value(skill_id, str(pattern["lane"]), level) * float(pattern.get("scale", 1.0))
+	else:
+		base_value = float(int(pattern["per_level"]) * level)
 	if pattern.has("value_max"):
 		base_value = minf(base_value, float(pattern["value_max"]))
 	var amplified_value := base_value
@@ -321,8 +354,8 @@ static func _linear_pattern_text_with_polish(
 
 
 static func _dash_acceleration_text_with_polish(level: int, amplify_ratio: float) -> String:
-	var height_value: float = 70.0 * float(level)
-	var width_value: float = 10.0 * float(level)
+	var height_value: float = RuntimePerkProgression.get_value("dash_acceleration", "vertical_scale_bonus", level) * 100.0
+	var width_value: float = RuntimePerkProgression.get_value("dash_acceleration", "horizontal_scale_bonus", level) * 100.0
 	return "활주시 몸집 세로 %s%% %s·가로 %s%% %s 증가" % [
 		_format_number(height_value),
 		_format_polish_delta(height_value * amplify_ratio, true),
@@ -369,14 +402,21 @@ static func generate_stats_text(skill_id: String, level: int) -> String:
 
 
 static func _dash_acceleration_text(level: int) -> String:
-	return "활주시 몸집 세로 %d%%·가로 %d%% 증가" % [70 * level, 10 * level]
+	return "활주시 몸집 세로 %d%%·가로 %d%% 증가" % [
+		int(round(RuntimePerkProgression.get_value("dash_acceleration", "vertical_scale_bonus", level) * 100.0)),
+		int(round(RuntimePerkProgression.get_value("dash_acceleration", "horizontal_scale_bonus", level) * 100.0)),
+	]
 
 
 static func _linear_pattern_text(skill_id: String, level: int) -> String:
 	var pattern: Dictionary = LINEAR_PATTERNS[skill_id]
-	var value: int = int(pattern["per_level"]) * level
-	if pattern.has("value_max"):
-		value = mini(value, int(pattern["value_max"]))
+	var value: int
+	if pattern.has("lane"):
+		value = int(round(RuntimePerkProgression.get_value(skill_id, str(pattern["lane"]), level) * float(pattern.get("scale", 1.0))))
+	else:
+		value = int(pattern["per_level"]) * level
+		if pattern.has("value_max"):
+			value = mini(value, int(pattern["value_max"]))
 	return "%s%d%s" % [str(pattern["prefix"]), value, str(pattern["suffix"])]
 
 
@@ -400,7 +440,7 @@ static func _converted_template_text(skill_id: String, level: int) -> String:
 # (1.50 = +150%/lv) → tower_reward_pick_offer_builder의 절세무공 카드 확률.
 static func _treasure_map_text(level: int) -> String:
 	return "승리 보상 픽 절세무공 등장 확률 +%d%%" % (
-		int(round(RuntimePerkEffectiveLevels.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL * 100.0)) * level
+		int(round(RuntimePerkProgression.get_value("downtown_treasure_map", "mythic_offer_bonus", level) * 100.0))
 	)
 
 
@@ -409,12 +449,14 @@ static func _treasure_map_text(level: int) -> String:
 # motion_resolver max(0.5, 1 - L*0.10)); the authored text marks both with
 # "(캡)" from the level the cap engages.
 static func _combo_amplifier_chip_text(level: int) -> String:
-	var drive_speed: int = 90 * level
-	var curve: int = 5 * mini(level, 3)
-	var curve_cap: String = "(캡)" if level > 3 else ""
-	var smash_speed: int = 45 * level
-	var decay: int = mini(10 * level, 50)
-	var decay_cap: String = "(캡)" if 10 * level >= 50 else ""
+	var drive_speed: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_speed_bonus", level) * 100.0))
+	var curve: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_curve_bonus", level) * 100.0))
+	var curve_cap_level := RuntimePerkProgression.get_milestone_level("combo_amplifier_chip", "drive_curve_bonus", "cap_reached")
+	var curve_cap: String = "(캡)" if level > curve_cap_level else ""
+	var smash_speed: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "smash_speed_bonus", level) * 100.0))
+	var decay: int = int(round(RuntimePerkProgression.get_value("combo_amplifier_chip", "initial_boost_decay_reduction", level) * 100.0))
+	var decay_cap_level := RuntimePerkProgression.get_milestone_level("combo_amplifier_chip", "initial_boost_decay_reduction", "cap_reached")
+	var decay_cap: String = "(캡)" if level >= decay_cap_level else ""
 	return "콤보 효과 증폭: 벽력타 공속+%d%%, 커브+%d%%%s, 천뢰격 공속+%d%%, 초기부스트 감쇄 -%d%%%s" % [
 		drive_speed, curve, curve_cap, smash_speed, decay, decay_cap,
 	]
@@ -425,25 +467,24 @@ static func _combo_amplifier_chip_text(level: int) -> String:
 # (runtime: commando_firearm_runtime.gd clampi(L,·,5) lanes + ammo bonus
 # L-3 for L>=5).
 static func _pistol_enhance_text(level: int) -> String:
-	var spread_deg: int = PISTOL_ENHANCE_SPREAD_DEGREES[clampi(level, 1, 5) - 1]
-	var speed: int = 10 * mini(level, 5)
-	var knockback: int = 30 * mini(level, 5)
-	var ammo_bonus: int = 0
-	if level >= 5:
-		ammo_bonus = level - 3
-	elif level >= 3:
-		ammo_bonus = 1
+	var spread_deg := RuntimePerkProgression.get_int_value("pistol_enhance", "spread_degrees", level)
+	var speed := RuntimePerkProgression.get_int_value("pistol_enhance", "speed_bonus_pct", level)
+	var knockback := RuntimePerkProgression.get_int_value("pistol_enhance", "knockback_bonus_pct", level)
+	var magazine := RuntimePerkProgression.get_int_value("pistol_enhance", "magazine_size", level)
 	return "단총통 정확도 ±%d°, 탄속 +%d%%, 넉백 +%d%%, 장전 %d발" % [
-		spread_deg, speed, knockback, 5 + ammo_bonus,
+		spread_deg, speed, knockback, magazine,
 	]
 
 
 # Runtime: viper_jetpack_state.gd — max gauge +20%/lv uncapped, airborne
 # gauge gain (L-2)*10% from Lv.3 uncapped.
 static func _jetpack_enhance_text(level: int) -> String:
-	var text: String = "제트팩 최대 게이지 +%d%%" % (20 * level)
-	if level >= 3:
-		text += ", 체공 중 게이지 획득 +%d%%" % (10 * (level - 2))
+	var max_gauge := int(round(RuntimePerkProgression.get_value("jetpack_enhance", "max_gauge_bonus", level) * 100.0))
+	var text: String = "제트팩 최대 게이지 +%d%%" % max_gauge
+	var airborne_start := RuntimePerkProgression.get_milestone_level("jetpack_enhance", "airborne_gauge_gain_bonus", "starts")
+	if level >= airborne_start:
+		var airborne := int(round(RuntimePerkProgression.get_value("jetpack_enhance", "airborne_gauge_gain_bonus", level) * 100.0))
+		text += ", 체공 중 게이지 획득 +%d%%" % airborne
 	return text
 
 
@@ -453,40 +494,49 @@ static func _jetpack_enhance_text(level: int) -> String:
 # furnace knockback-ball (L-2)*10% cap 100 mirror the runtime.
 static func _kick_enhance_text(level: int) -> String:
 	var text: String = "킥 발사 정밀도 +%d%%, 공속 +%d%%, 준비 -%d%%" % [
-		8 * level, 12 * level, mini(7 * level, 90),
+		RuntimePerkProgression.get_int_value("kick_enhance", "authored_precision_pct", level),
+		RuntimePerkProgression.get_int_value("kick_enhance", "authored_speed_pct", level),
+		int(round(RuntimePerkProgression.get_value("kick_enhance", "prep_reduction", level) * 100.0)),
 	]
-	if level >= 3:
-		text += ", 용광로 넉백볼 %d%%" % mini((level - 2) * 10, 100)
+	var furnace_start := RuntimePerkProgression.get_milestone_level("kick_enhance", "furnace_knockback_chance", "starts")
+	if level >= furnace_start:
+		text += ", 용광로 넉백볼 %d%%" % int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", level) * 100.0))
 	return text
 
 
 # Runtime: range/width clamps at Lv.5 (+50%), speed keeps scaling +10%/lv
 # (viper_skill_geometry.gd). The homing labels follow the authored gating.
 static func _blade_amp_text(level: int) -> String:
-	var range_cap: String = "(캡)" if level > 5 else ""
+	var authored_count := RuntimePerkProgression.get_authored_level_count("blade_amp", "range_width_bonus")
+	var range_cap: String = "(캡)" if level > authored_count else ""
 	var text: String = "참격 사거리/가로폭 +%d%%%s, 참격 속도 +%d%%" % [
-		10 * mini(level, 5), range_cap, 10 * level,
+		int(round(RuntimePerkProgression.get_value("blade_amp", "range_width_bonus", level) * 100.0)),
+		range_cap,
+		int(round(RuntimePerkProgression.get_value("blade_amp", "projectile_speed_bonus", level) * 100.0)),
 	]
-	if level >= 5:
+	var homing_tier := RuntimePerkProgression.get_int_value("blade_amp", "homing_tier", level)
+	if homing_tier >= 2:
 		text += ", 추가 유도검기"
-	elif level >= 3:
+	elif homing_tier >= 1:
 		text += ", 유도검기"
 	return text
 
 
 static func _four_poisons_text(level: int) -> String:
 	var text: String = "천뢰진각/혼천흑창 준비 -%d%%, 천뢰진각 수면 +%d%%, 독영절맥 혼란 +%d%%, 쌍영분신 지속 +%d%%" % [
-		_four_poisons_scaled_pct(level, FOUR_POISONS_PREP),
-		_four_poisons_scaled_pct(level, FOUR_POISONS_SLEEP),
-		_four_poisons_scaled_pct(level, FOUR_POISONS_CONFUSION),
-		_four_poisons_scaled_pct(level, FOUR_POISONS_DUAL_DURATION),
+		RuntimePerkProgression.get_int_value("four_poisons", "prep_reduction_pct", level),
+		RuntimePerkProgression.get_int_value("four_poisons", "sleep_pct", level),
+		RuntimePerkProgression.get_int_value("four_poisons", "confusion_pct", level),
+		RuntimePerkProgression.get_int_value("four_poisons", "dual_duration_pct", level),
 	]
-	if level >= 3:
+	var superarmor_start := RuntimePerkProgression.get_milestone_level("four_poisons", "superarmor", "starts")
+	if level >= superarmor_start:
 		text += ", 쌍영분신 HP %d, 4초식 쿨 -%d%%, 슈퍼아머" % [
-			_four_poisons_clone_hp(level),
-			_four_poisons_scaled_pct(level, FOUR_POISONS_COOLDOWN),
+			RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level),
+			RuntimePerkProgression.get_int_value("four_poisons", "cooldown_reduction_pct", level),
 		]
-	if level >= 5:
+	var replication_start := RuntimePerkProgression.get_milestone_level("four_poisons", "clone_replication", "starts")
+	if level >= replication_start:
 		text += ", 분신 복제"
 	return text
 

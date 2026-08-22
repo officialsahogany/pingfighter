@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 
 static func segment_intersects_rect(start_pos: Vector2, end_pos: Vector2, rect: Rect2) -> bool:
 	if rect.has_point(start_pos) or rect.has_point(end_pos):
@@ -22,13 +24,11 @@ static func blade_rect(pos: Vector2, width: float, dark_mode: bool, normal_heigh
 
 
 static func blade_projectile_speed_multiplier(blade_amp_level: int) -> float:
-	var amp_level: int = max(0, blade_amp_level)
-	return 1.0 + float(amp_level * 10) / 100.0
+	return 1.0 + RuntimePerkProgression.get_value("blade_amp", "projectile_speed_bonus", blade_amp_level)
 
 
 static func blade_projectile_homing_strength(blade_amp_level: int, dark_mode: bool) -> float:
-	var amp_level: int = max(0, blade_amp_level)
-	if amp_level < 3:
+	if RuntimePerkProgression.get_int_value("blade_amp", "homing_tier", blade_amp_level) <= 0:
 		return 0.0
 	return 0.30 if dark_mode else 0.60
 
@@ -106,8 +106,7 @@ static func blade_projectile_launch_spec(
 	range_scale: float = 1.0,
 	min_width: float = 0.0
 ) -> Dictionary:
-	var amp_pct: int = min(max(0, blade_amp_level), 5) * 10
-	var amp_mult: float = 1.0 + float(amp_pct) / 100.0
+	var amp_mult: float = 1.0 + RuntimePerkProgression.get_value("blade_amp", "range_width_bonus", blade_amp_level)
 	var size_mult: float = (1.3 if dark_mode else 1.0) * amp_mult
 	var range_mult: float = (2.0 if dark_mode else 1.0) * amp_mult
 	var center: Vector2 = player_pos + paddle_size * 0.5
@@ -289,7 +288,7 @@ static func blade_hit_velocity(
 	var next_vel: Vector2 = ball_vel
 	if current_speed > 0.1:
 		var base_mult: float = dark_base_mult if dark_mode else air_base_mult
-		var hit_mult: float = base_mult * (1.0 + float(max(0, blade_amp_level) * 15) / 100.0) * max(0.0, hit_speed_scale)
+		var hit_mult: float = base_mult * (1.0 + RuntimePerkProgression.get_value("blade_amp", "hit_speed_bonus", blade_amp_level)) * max(0.0, hit_speed_scale)
 		var new_speed: float = current_speed * hit_mult
 		var ratio: float = new_speed / current_speed
 		next_vel = Vector2(ball_vel.x * ratio, -abs(ball_vel.y * ratio))
@@ -697,7 +696,7 @@ static func core_flip_bank_velocity(speed: float, kick_dir: int, config: Diction
 	var boss_width: float = max(1.0, float(config.get("boss_paddle_width", 100.0)))
 	var boss_height: float = max(1.0, float(config.get("boss_hitbox_height", 40.0)))
 	var boss_center := Vector2(boss_pos.x + boss_width * 0.5, boss_pos.y + boss_height * 0.5)
-	var bias: float = 0.6 + (1.0 - 0.6) * min(float(aim_level) * 0.09, 0.90)
+	var bias: float = 0.6 + (1.0 - 0.6) * RuntimePerkProgression.get_value("kick_enhance", "runtime_aim_gain", aim_level)
 	var safe_dir: int = 1 if kick_dir >= 0 else -1
 	var wall_x: float = width if safe_dir > 0 else 0.0
 	var target_spread_x: float = max(20.0, 150.0 * (1.0 - bias))
@@ -715,7 +714,9 @@ static func core_flip_bank_velocity(speed: float, kick_dir: int, config: Diction
 	var lane_gap_base: float = max(12.0, 42.0 - bias * 18.0)
 	var lane_gap_step: float = max(10.0, 30.0 - bias * 10.0)
 	var lane_jitter: float = max(2.0, 16.0 * (1.0 - bias))
-	var candidate_count: int = 3 + max(0, min(aim_level, 5))
+	var candidate_count := RuntimePerkProgression.get_int_value(
+		"kick_enhance", "runtime_aim_candidate_count", aim_level
+	)
 	var target_y_offsets := [
 		0.0,
 		-target_spread_y * 0.55,
@@ -871,7 +872,7 @@ static func aimed_kick_launch_angle(
 	base_bias: float,
 	min_angle: float
 ) -> float:
-	var bias: float = base_bias + (1.0 - base_bias) * min(float(aim_level) * 0.09, 0.90)
+	var bias: float = base_bias + (1.0 - base_bias) * RuntimePerkProgression.get_value("kick_enhance", "runtime_aim_gain", aim_level)
 	var boss_dx: float = boss_pos.x - ball_pos.x
 	var away_dir: int = -1 if boss_dx > 0.0 else (1 if boss_dx < 0.0 else kick_dir)
 	var raw_angle: float = randf_range(-55.0, 55.0)

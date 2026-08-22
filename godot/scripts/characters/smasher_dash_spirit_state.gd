@@ -1,6 +1,7 @@
 extends RefCounted
 
 const SmasherDashSpiritRenderer := preload("res://scripts/characters/smasher_dash_spirit_renderer.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const PERK_ID := "dash_spirit"
 const LASER_DURATION_FRAMES := 360.0
@@ -181,7 +182,9 @@ func _get_dash_spirit_chance(runtime_perk_state: Object) -> float:
 	if runtime_perk_state.has_method("get_runtime_skill_bonus"):
 		return max(0.0, float(runtime_perk_state.get_runtime_skill_bonus(PERK_ID)))
 	if runtime_perk_state.has_method("get_runtime_skill_level"):
-		return max(0.0, float(runtime_perk_state.get_runtime_skill_level(PERK_ID)) * 0.07)
+		return max(0.0, RuntimePerkProgression.get_value(
+			PERK_ID, "laser_chance", int(runtime_perk_state.get_runtime_skill_level(PERK_ID))
+		))
 	return 0.0
 
 

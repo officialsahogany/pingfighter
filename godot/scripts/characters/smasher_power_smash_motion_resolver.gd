@@ -1,5 +1,7 @@
 extends RefCounted
 
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
+
 const POWER_SMASH_EFFECT_MULT := 1.0
 const POWER_SMASH_INITIAL_DECAY_FACTOR := 0.89024
 # Side-smash trajectory angle ceiling (40 deg from vertical), matching the launch
@@ -72,7 +74,10 @@ func _apply_initial_boost(power_state: Object, ball_velocity: Vector2, elapsed: 
 	var initial_boosted_speed: float = boosted_speed if boosted_speed > 0.0 else target_speed
 	# 콤보증폭칩(D1=Option A): Godot 베이스 감쇄(0.89024)에 Python 비율(-10%/Lv, cap -50%)을 곱해
 	# 체감을 보존하면서 칩 레벨만큼 감쇄를 완만하게(작을수록 초기 부스트 속도 오래 유지).
-	var decay_factor: float = POWER_SMASH_INITIAL_DECAY_FACTOR * max(0.5, 1.0 - float(combo_amp_chip_level) * 0.10)
+	var decay_reduction := RuntimePerkProgression.get_value(
+		"combo_amplifier_chip", "initial_boost_decay_reduction", combo_amp_chip_level
+	)
+	var decay_factor: float = POWER_SMASH_INITIAL_DECAY_FACTOR * (1.0 - decay_reduction)
 	var interpolated_speed: float = initial_boosted_speed - (initial_boosted_speed - target_speed) * boost_progress * decay_factor
 	if current_speed > 0.0:
 		ball_velocity *= interpolated_speed / current_speed

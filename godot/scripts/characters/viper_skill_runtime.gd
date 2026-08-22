@@ -44,6 +44,7 @@ const ViperSkillWallLeapRuntime := preload("res://scripts/characters/viper_skill
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
 const ViperPhantomKickCutinState := preload("res://scripts/characters/viper_phantom_kick_cutin_state.gd")
 const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 const CMD_BUFFER_MODAL_TIME_KEYS: Array[String] = ["time"]
 const CHAOS_FX_DISK_HEIGHT := 220.0
 const SHADOW_STEP := "shadow_step"; const MARSHAL_KICK := "marshal_kick"; const PHANTOM_KICK := "phantom_kick"; const DOUBLE_MARSHAL_KICK := "double_marshal_kick"
@@ -115,12 +116,12 @@ const NERVE_STRIKE_SLASH_TRIGGER_RATIO := 0.45
 # Keep dash behind the boss body; the strike sheet owns the high eye-slash read.
 const NERVE_STRIKE_TARGET_Y_OFFSET := 0.0; const NERVE_STRIKE_TRACKING_END_RATIO := 0.80; const NERVE_STRIKE_TRACKING_STRENGTH := 0.12; const NERVE_STRIKE_SLASH_VFX_FRAMES := 30.0
 const DUAL_GLITCH_NERVE_STAGGER_FRAMES := 12.0; const DUAL_GLITCH_NERVE_TRAVEL_FRAMES := 13.2; const DUAL_GLITCH_NERVE_SLASH_FRAMES := 12.0
-const FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL := [0, 8, 16, 25, 33, 40]; const FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL := 4; const FOUR_POISONS_PREP_REDUCTION_PCT_CAP := 70
-const FOUR_POISONS_EMP_SLEEP_PCT_BY_LEVEL := [0, 5, 10, 15, 20, 25]; const FOUR_POISONS_EMP_SLEEP_PCT_PER_EXTRA_LEVEL := 5; const FOUR_POISONS_EMP_SLEEP_PCT_CAP := 50
-const FOUR_POISONS_COOLDOWN_REDUCTION_PCT_BY_LEVEL := [0, 0, 0, 10, 15, 20]; const FOUR_POISONS_COOLDOWN_REDUCTION_PCT_PER_EXTRA_LEVEL := 4; const FOUR_POISONS_COOLDOWN_REDUCTION_PCT_CAP := 40
-const FOUR_POISONS_VENOM_CONFUSION_PCT_BY_LEVEL := [0, 12, 24, 36, 48, 70]; const FOUR_POISONS_VENOM_CONFUSION_PCT_PER_EXTRA_LEVEL := 10; const FOUR_POISONS_VENOM_CONFUSION_PCT_CAP := 150
-const FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_BY_LEVEL := [0, 7, 14, 20, 27, 33]; const FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_PER_EXTRA_LEVEL := 5; const FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_CAP := 45
-const FOUR_POISONS_DUAL_GLITCH_CLONE_HP_BY_LEVEL := [2, 2, 2, 3, 3, 4]; const FOUR_POISONS_DUAL_GLITCH_CLONE_HP_CAP := 6
+static var FOUR_POISONS_PREP_REDUCTION_PCT_BY_LEVEL: Array = _build_four_poisons_legacy_lane("prep_reduction_pct"); static var FOUR_POISONS_PREP_REDUCTION_PCT_PER_EXTRA_LEVEL: int = _four_poisons_legacy_step("prep_reduction_pct"); static var FOUR_POISONS_PREP_REDUCTION_PCT_CAP: int = _four_poisons_legacy_cap("prep_reduction_pct")
+static var FOUR_POISONS_EMP_SLEEP_PCT_BY_LEVEL: Array = _build_four_poisons_legacy_lane("sleep_pct"); static var FOUR_POISONS_EMP_SLEEP_PCT_PER_EXTRA_LEVEL: int = _four_poisons_legacy_step("sleep_pct"); static var FOUR_POISONS_EMP_SLEEP_PCT_CAP: int = _four_poisons_legacy_cap("sleep_pct")
+static var FOUR_POISONS_COOLDOWN_REDUCTION_PCT_BY_LEVEL: Array = _build_four_poisons_legacy_lane("cooldown_reduction_pct"); static var FOUR_POISONS_COOLDOWN_REDUCTION_PCT_PER_EXTRA_LEVEL: int = _four_poisons_legacy_step("cooldown_reduction_pct"); static var FOUR_POISONS_COOLDOWN_REDUCTION_PCT_CAP: int = _four_poisons_legacy_cap("cooldown_reduction_pct")
+static var FOUR_POISONS_VENOM_CONFUSION_PCT_BY_LEVEL: Array = _build_four_poisons_legacy_lane("confusion_pct"); static var FOUR_POISONS_VENOM_CONFUSION_PCT_PER_EXTRA_LEVEL: int = _four_poisons_legacy_step("confusion_pct"); static var FOUR_POISONS_VENOM_CONFUSION_PCT_CAP: int = _four_poisons_legacy_cap("confusion_pct")
+static var FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_BY_LEVEL: Array = _build_four_poisons_legacy_lane("dual_duration_pct"); static var FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_PER_EXTRA_LEVEL: int = _four_poisons_legacy_step("dual_duration_pct"); static var FOUR_POISONS_DUAL_GLITCH_DURATION_PCT_CAP: int = _four_poisons_legacy_cap("dual_duration_pct")
+static var FOUR_POISONS_DUAL_GLITCH_CLONE_HP_BY_LEVEL: Array = _build_four_poisons_legacy_clone_hp_lane(); static var FOUR_POISONS_DUAL_GLITCH_CLONE_HP_CAP: int = RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 10000)
 const CORE_FLIP_READY_WINDOW_MSEC := 700; const CORE_FLIP_DASH_SUCCESS_WINDOW_MSEC := 400; const CORE_FLIP_DASH_START_UNSET_MSEC := -100000; const CORE_FLIP_DASH_START_VALID_AFTER_MSEC := -99999
 const CORE_FLIP_INPUT_FRAME_UNSET := -999999; const CORE_FLIP_INPUT_FRAME_GAP := 4; const CORE_FLIP_INPUT_MAX_AGE_FRAMES := 16; const CORE_FLIP_DEFAULT_PADDLE_SIZE := Vector2(155.0, 50.0)
 const CORE_FLIP_PHASE0_FRAMES := 24.0; const CORE_FLIP_PHASE1_FRAMES := 105.3; const CORE_FLIP_PHASE2_FRAMES := 23.4; const CORE_FLIP_PHASE3_FRAMES := 9.0
@@ -128,7 +129,7 @@ const CORE_FLIP_ZIGZAG_LEG_FRAMES := 28.08; const CORE_FLIP_ZIGZAG_CLING_FRAMES 
 const CORE_FLIP_HIT_RADIUS := 60.0; const CORE_FLIP_SPEED_MULT := 2.2; const CORE_FLIP_MIN_SPEED := 11.0; const CORE_FLIP_HIT_GOLD := 30
 const CORE_FLIP_START_SHAKE_AMOUNT := 0.14; const CORE_FLIP_START_SHAKE_INTENSITY := 4.5; const CORE_FLIP_HIT_SHAKE_AMOUNT := 0.15; const CORE_FLIP_HIT_SHAKE_INTENSITY := 6.0
 const CORE_FLIP_HIT_PULSE_INTENSITY := 0.92; const CORE_FLIP_HIT_PULSE_KIND := "viper_core_flip"; const CORE_FLIP_DARK_BLADE_HANDOFF_FRAMES := 30.0; const CORE_FLIP_MISS_TEXT_FRAMES := 50.0; const CORE_FLIP_MISS_TEXT_FLOAT_Y := 34.0
-const KICK_ENHANCE_KNOCKBACK_BALL_CHANCE_CAP := 100; const KICK_ENHANCE_KNOCKBACK_BALL_FIXED_PCT := 150
+static var KICK_ENHANCE_KNOCKBACK_BALL_CHANCE_CAP: int = int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", 10000) * 100.0)); static var KICK_ENHANCE_KNOCKBACK_BALL_FIXED_PCT: int = RuntimePerkProgression.get_int_value("kick_enhance", "guard_fire_knockback_pct", 3)
 const PHANTOM_KICK_KNOCKBACK_DISTANCE := 18.0; const PHANTOM_KICK_KNOCKBACK_FRAMES := 36.0; const PHANTOM_KICK_KNOCKBACK_DECAY := 0.88
 const KICK_GUARD_KNOCKBACK_FIRE_BASE := 22.0; const KICK_GUARD_KNOCKBACK_FRAMES := 18.0; const KICK_GUARD_KNOCKBACK_DECAY := 0.85; const KICK_GUARD_DISTANCE_MULTIPLIER := 1.56
 const KICK_GUARD_BALL_SPEED_REDUCTION_PCT := 50
@@ -501,8 +502,33 @@ func _reset_chaos_spear_runtime(clear_command: bool = false, deps: Dictionary = 
 	if clear_command:
 		chaos_cmd_buffer.clear()
 	fx_host_controller.hide_fx_host(chaos_fx_host)
+
+
+static func _build_four_poisons_legacy_lane(lane_id: String) -> Array:
+	var values: Array = [0]
+	for level in range(1, RuntimePerkProgression.get_authored_max_level("four_poisons") + 1):
+		values.append(RuntimePerkProgression.get_int_value("four_poisons", lane_id, level))
+	return values
+
+
+static func _build_four_poisons_legacy_clone_hp_lane() -> Array:
+	var values: Array = [RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", 1)]
+	for level in range(1, RuntimePerkProgression.get_authored_max_level("four_poisons") + 1):
+		values.append(RuntimePerkProgression.get_int_value("four_poisons", "clone_hp", level))
+	return values
+
+
+static func _four_poisons_legacy_step(lane_id: String) -> int:
+	var authored_max := RuntimePerkProgression.get_authored_max_level("four_poisons")
+	return RuntimePerkProgression.get_int_value("four_poisons", lane_id, authored_max + 1) - RuntimePerkProgression.get_int_value("four_poisons", lane_id, authored_max)
+
+
+static func _four_poisons_legacy_cap(lane_id: String) -> int:
+	return RuntimePerkProgression.get_int_value("four_poisons", lane_id, 10000)
+
+
 func _get_four_poisons_scaled_pct(deps: Dictionary, values: Array, cap: int, per_extra_level: int) -> int: return skill_scaling.get_four_poisons_scaled_pct(visibility_query.get_runtime_skill_level(deps, "four_poisons"), values, cap, per_extra_level)
-func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool: return dual_glitch_state == "active" and visibility_query.get_runtime_skill_level(deps, "four_poisons") >= 5
+func _is_dual_glitch_clone_replication_active(deps: Dictionary) -> bool: return dual_glitch_state == "active" and RuntimePerkProgression.get_int_value("four_poisons", "clone_replication", visibility_query.get_runtime_skill_level(deps, "four_poisons")) > 0
 func _enter_dual_glitch_fade(reason: String) -> void:
 	if dual_glitch_state == "fade":
 		return

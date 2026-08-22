@@ -5889,6 +5889,7 @@ This section is intentionally long; use search to find the nearest owner.
   `scripts/characters/runtime_perk_unlock_swap_flow.gd`,
   `scripts/characters/runtime_perk_skill_cooldown_pause.gd`,
   `scripts/characters/runtime_perk_deferred_instants.gd`,
+  `scripts/characters/runtime_perk_progression.gd`,
   `scripts/characters/runtime_perk_effective_levels.gd`,
   `scripts/characters/runtime_perk_effective_stat_query_surface.gd`,
   `scripts/characters/runtime_perk_dynamic_effects.gd`,
@@ -6340,6 +6341,14 @@ This section is intentionally long; use search to find the nearest owner.
   `runtime_perk_state.gd` still applies the actual dimension gate / full-gauge
   side effects through callbacks and keeps the public
   pending-query and `on_ball_spawn_intro_finished()` surfaces.
+  `runtime_perk_progression.gd` owns the O(1) numeric progression index for
+  exactly the 37 authored five-level Mugong: named Lv.1-5 lane arrays, overflow
+  modes and slopes, lane bounds, milestone levels, polarity, and Polish
+  amplification metadata. It explicitly preserves the split kick authored vs
+  live-runtime lanes and item-polish general vs mythic-roll lanes. Runtime and
+  display consumers read scalar values or stable authored-array references;
+  they do not rebuild arithmetic, deep-copy the index per query, or cache an
+  applied result whose key can conceal later content changes.
   `runtime_perk_effective_levels.gd` owns runtime perk effective-level and
   numeric bonus policy: Lv.6+ bonus eligibility, Ignition Aura exclusions,
   Ignition Aura active-state dirty-sync payloads, item perk-level bonus clamp

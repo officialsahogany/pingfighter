@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ViperAirStrikeFlashOverride := preload("res://scripts/core/viper_air_strike_flash_override.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const WIDTH := 760.0
 const HEIGHT := 750.0
@@ -113,7 +114,7 @@ func update(delta: float, player_pos: Vector2, config: Dictionary, deps: Diction
 		if overheat:
 			overheat = false
 		if hold_timer > 0.0 and not active:
-			var recharge_multiplier: float = 1.0 + float(_get_jetpack_enhance_level(deps)) * JETPACK_ENHANCE_HOLD_PER_LEVEL
+			var recharge_multiplier: float = 1.0 + RuntimePerkProgression.get_value("jetpack_enhance", "max_gauge_bonus", _get_jetpack_enhance_level(deps))
 			hold_timer = max(0.0, hold_timer - HOLD_RECHARGE_SPEED * recharge_multiplier * fps_scale)
 
 	_sync_audio(deps.get("audio", null), active)
@@ -146,7 +147,7 @@ func is_airborne(threshold: float = AIRBORNE_THRESHOLD) -> bool:
 
 
 func get_max_hold_frames(deps: Dictionary = {}) -> float:
-	return BASE_MAX_HOLD_FRAMES * (1.0 + float(_get_jetpack_enhance_level(deps)) * JETPACK_ENHANCE_HOLD_PER_LEVEL)
+	return BASE_MAX_HOLD_FRAMES * (1.0 + RuntimePerkProgression.get_value("jetpack_enhance", "max_gauge_bonus", _get_jetpack_enhance_level(deps)))
 
 
 func get_height_ratio() -> float:
@@ -179,10 +180,9 @@ func get_movement_bonus_multiplier() -> float:
 
 
 func get_jetpack_enhance_gauge_bonus_pct(deps: Dictionary = {}) -> int:
-	var level: int = _get_jetpack_enhance_level(deps)
-	if level < JETPACK_ENHANCE_GAUGE_START_LEVEL:
-		return 0
-	return (level - (JETPACK_ENHANCE_GAUGE_START_LEVEL - 1)) * JETPACK_ENHANCE_GAUGE_PCT_PER_LEVEL
+	return int(round(RuntimePerkProgression.get_value(
+		"jetpack_enhance", "airborne_gauge_gain_bonus", _get_jetpack_enhance_level(deps)
+	) * 100.0))
 
 
 func apply_air_strike_post_hit(

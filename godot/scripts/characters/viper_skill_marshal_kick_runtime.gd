@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ViperSkillGeometry := preload("res://scripts/characters/viper_skill_geometry.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 
 static func start_kick(runtime: Object, skill_name: String, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, constants: Dictionary) -> Dictionary:
@@ -152,6 +153,7 @@ static func enter_freeze_phase(runtime: Object, next_phase: int, deps: Dictionar
 	runtime.dmk_text_frames = float(constants.get("dmk_text_frames", 80.0)) + float(constants.get("dmk_freeze_frames", 60.0))
 	if runtime.has_method("begin_phantom_kick_cutin"):
 		runtime.begin_phantom_kick_cutin(runtime.dmk_freeze_frames / 60.0)
+		runtime.audio_router.play_full_skill_cutin_sound(deps)
 	runtime.audio_router.play_phantom_show_sound(deps)
 
 
@@ -235,8 +237,9 @@ static func get_prep_duration_mult(runtime: Object, deps: Dictionary, constants:
 static func mark_kick_skill_knockback_pending(runtime: Object, deps: Dictionary, constants: Dictionary) -> void:
 	runtime.kick_skill_knockback_pending_pct = 0
 	var level: int = runtime.visibility_query.get_runtime_skill_level(deps, "kick_enhance")
-	var chance_pct: int = 0 if level < 3 else min(int(constants.get("knockback_chance_cap", 100)), (level - 2) * 10)
-	runtime.kick_skill_knockback_pending_pct = int(constants.get("knockback_fixed_pct", 150)) if chance_pct > 0 and randf() * 100.0 < float(chance_pct) else 0
+	var chance_pct := int(round(RuntimePerkProgression.get_value("kick_enhance", "furnace_knockback_chance", level) * 100.0))
+	var fixed_pct := RuntimePerkProgression.get_int_value("kick_enhance", "guard_fire_knockback_pct", level)
+	runtime.kick_skill_knockback_pending_pct = fixed_pct if chance_pct > 0 and randf() * 100.0 < float(chance_pct) else 0
 
 
 static func mark_kick_guard_speed_reduction_pending(runtime: Object, constants: Dictionary) -> void:

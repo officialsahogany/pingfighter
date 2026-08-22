@@ -1,6 +1,7 @@
 extends RefCounted
 
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const CONVERSION_SOURCE_TO_PERK := {
 	"star_detector": "star_detector",
@@ -67,57 +68,13 @@ const DELETED_ITEM_COMPENSATION := {
 
 # R1 redesign group: gold_bar is intentionally absent from conversion and
 # deleted-item compensation maps. The other redesign ids are wired as perks.
-const CONVERTED_PERK_VALUES := {
-	"star_detector": {
-		"star_bonus_pct": [5.0, 10.0, 15.0, 20.0, 25.0],
-	},
-	"adversity_armor": {
-		"trigger_chance_pct": [20.0, 25.0, 30.0, 35.0, 40.0],
-		"invincible_duration_sec": [5.0, 8.0, 10.0, 13.0, 15.0],
-	},
-	"reinforced_boomerang_gauntlet": {
-		"boomerang_knockback_pct": [20.0, 28.0, 35.0, 43.0, 50.0],
-		"boomerang_stun_pct": [20.0, 35.0, 50.0, 65.0, 80.0],
-		"boomerang_launch_speed_pct": [15.0, 24.0, 33.0, 41.0, 50.0],
-		"boomerang_homing_pct": [10.0, 20.0, 30.0, 40.0, 50.0],
-		"boomerang_spawn_bonus_pct": [50.0, 88.0, 125.0, 163.0, 200.0],
-	},
-	"sensor": {
-		"auto_dash_token_count": [1.0, 1.0, 2.0, 2.0, 2.0],
-		"auto_dash_cooldown_sec": [30.0, 26.0, 23.0, 19.0, 15.0],
-	},
+const NON_TARGET_CONVERTED_PERK_VALUES := {
 	"gravitybelt": {
 		"gravitybelt_instant_movement": [1.0],
-	},
-	"dowsing_pendulum": {
-		"attraction_range": [120.0, 160.0, 200.0, 240.0, 280.0],
 	},
 	"dowsing_goggles": {
 		"bonus_perk_chance": [40.0, 70.0, 100.0],
 		"fusion_byproduct_chance_pct": [3.0, 6.0, 9.0],
-	},
-	"chargebag": {
-		"chargebag_pct": [15.0, 25.0, 35.0, 45.0, 55.0],
-	},
-	"battery": {
-		"gauge_preserve_pct": [40.0, 55.0, 70.0, 85.0, 100.0],
-	},
-	"master": {
-		"wall_length_pct": [12.0, 20.0, 29.0, 37.0, 45.0],
-		"item_cooldown_pct": [3.0, 5.0, 8.0, 10.0, 12.0],
-		"wall_spawn_bonus_pct": [100.0, 158.0, 215.0, 273.0, 330.0],
-	},
-	"gold_digger": {
-		"gold_bonus_pct": [15.0, 25.0, 35.0, 45.0, 55.0],
-	},
-	"lucky_coin": {
-		"double_spawn_pct": [3.0, 7.0, 10.0, 14.0, 17.0],
-	},
-	"shrapnel_armor": {
-		"trigger_chance_pct": [6.0, 9.0, 12.0, 14.0, 17.0],
-		"shard_count": [4.0, 5.0, 6.0, 7.0, 8.0],
-		"knockback_level": [1.0, 2.0, 3.0, 3.0, 4.0],
-		"gauge_cost": [50.0, 44.0, 38.0, 31.0, 25.0],
 	},
 	"fuel_pouch": {
 		"fuel_bonus_flat": [40.0, 65.0, 90.0, 115.0, 140.0],
@@ -125,70 +82,34 @@ const CONVERTED_PERK_VALUES := {
 	"bluetooth_ring": {
 		"gauge_gain_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
 	},
-	"foul_whistle": {
-		"negate_chance_pct": [3.0, 5.0, 7.0, 9.0, 11.0],
-	},
 	"smartphone": {
 		"smartphone_auto_use_enabled": [1.0],
-	},
-	"neural_helmet": {
-		"aipill_gauge_reduction": [10.0, 15.0, 20.0, 25.0, 30.0],
-		"aipill_ball_speed_bonus_pct": [2.0, 4.0, 6.0, 8.0, 10.0],
-		"aipill_spawn_bonus_pct": [100.0, 158.0, 215.0, 273.0, 330.0],
-	},
-	"commando_arm": {
-		"throw_speed_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
-		"explosion_range_pct": [3.0, 7.0, 11.0, 14.0, 18.0],
-		"smoke_duration_pct": [12.0, 21.0, 30.0, 39.0, 48.0],
-		"prep_reduction_pct": [12.0, 21.0, 30.0, 39.0, 48.0],
-	},
-	"rainbow_fur_glove": {
-		"rainbow_glove_trigger_chance_pct": [3.0, 4.0, 5.0, 6.0, 7.0],
-		"rainbow_glove_cooldown_reduction_pct": [8.0, 11.0, 14.0, 17.0, 20.0],
-	},
-	"knee_pads": {
-		"knee_charge_pct": [20.0, 33.0, 45.0, 58.0, 70.0],
-	},
-	"soul_burst": {
-		"soul_burst_gauge_cost": [170.0, 153.0, 135.0, 118.0, 100.0],
 	},
 	"bulletproof_hat": {
 		"posture_correction_pct": [6.0, 11.0, 15.0, 20.0, 24.0],
 	},
-	"venom_mist_gauntlet": {
-		"mist_trigger_chance_pct": [20.0, 29.0, 38.0, 46.0, 55.0],
-		"mist_duration_sec": [1.5, 2.5, 3.5, 4.5, 5.5],
-	},
-	"sage_ring": {
-		"trigger_chance_pct": [5.0, 5.0, 5.0, 5.0, 5.0],
-		"perk_level_bonus": [1.0, 1.0, 2.0, 2.0, 3.0],
-		"duration_sec": [6.0, 7.0, 8.0, 9.0, 10.0],
-	},
 }
+
+# Compatibility inspection surface used by fusion/tests. The 19 target tables
+# are mirrored once from RuntimePerkProgression at script load; gameplay reads
+# those targets directly from the owner below.
+static var CONVERTED_PERK_VALUES: Dictionary = _build_converted_perk_values()
 
 # 개광결은 전환 일반무공의 연속 수치 레인 전체를 증폭한다. 정수 횟수와
 # on/off 상태는 배율을 곱하면 경계가 깨지므로 구조값으로 분류해 그대로 둔다.
 # 신규 전환 레인은 기본적으로 증폭 대상이며, 구조값을 추가할 때만 이 표에
 # 명시한다. 이 fail-open 정책은 "모든 무공의 수치 효과"라는 개광결 계약을
 # 신규 무공에도 자동으로 유지하기 위한 것이다.
-const POLISH_STRUCTURAL_OPTION_KEYS := {
-	"sensor": {
-		"auto_dash_token_count": true,
-	},
+const NON_TARGET_POLISH_STRUCTURAL_OPTION_KEYS := {
 	"gravitybelt": {
 		"gravitybelt_instant_movement": true,
-	},
-	"shrapnel_armor": {
-		"shard_count": true,
-		"knockback_level": true,
 	},
 	"smartphone": {
 		"smartphone_auto_use_enabled": true,
 	},
-	"sage_ring": {
-		"perk_level_bonus": true,
-	},
 }
+
+static var POLISH_STRUCTURAL_OPTION_KEYS: Dictionary = _build_polish_structural_option_keys()
 
 const CONVERTED_MYTHIC_VALUES := {
 	"megingjord": {
@@ -245,6 +166,61 @@ const CONVERTED_MYTHIC_VALUES := {
 }
 
 
+static func _build_converted_perk_values() -> Dictionary:
+	# One script-load-time compatibility index. No per-frame merge or copy.
+	var index: Dictionary = NON_TARGET_CONVERTED_PERK_VALUES.duplicate(true)
+	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		if not RuntimePerkProgression.is_converted_perk(perk_id):
+			continue
+		var raw_lanes: Dictionary = {}
+		for lane_id_value: Variant in RuntimePerkProgression.get_lane_ids(perk_id):
+			var lane_id := str(lane_id_value)
+			raw_lanes[lane_id] = RuntimePerkProgression.get_authored_values_reference(perk_id, lane_id)
+		index[perk_id] = raw_lanes
+	return index
+
+
+static func _build_polish_structural_option_keys() -> Dictionary:
+	var index: Dictionary = NON_TARGET_POLISH_STRUCTURAL_OPTION_KEYS.duplicate(true)
+	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		if not RuntimePerkProgression.is_converted_perk(perk_id):
+			continue
+		var structural_lanes: Dictionary = {}
+		for lane_id_value: Variant in RuntimePerkProgression.get_lane_ids(perk_id):
+			var lane_id := str(lane_id_value)
+			if not RuntimePerkProgression.is_polish_amplifiable_lane(perk_id, lane_id):
+				structural_lanes[lane_id] = true
+		if not structural_lanes.is_empty():
+			index[perk_id] = structural_lanes
+	return index
+
+
+static func _build_overflow_value_bounds() -> Dictionary:
+	var index: Dictionary = NON_TARGET_OVERFLOW_VALUE_BOUNDS.duplicate(true)
+	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		if not RuntimePerkProgression.is_converted_perk(perk_id):
+			continue
+		var progression: Dictionary = RuntimePerkProgression.PROGRESSIONS.get(perk_id, {})
+		var lanes: Dictionary = progression.get("lanes", {})
+		var perk_bounds: Dictionary = {}
+		for lane_id_value: Variant in lanes.keys():
+			var lane_id := str(lane_id_value)
+			var lane: Dictionary = lanes.get(lane_id, {})
+			var bounds: Dictionary = {}
+			if lane.has("min"):
+				bounds["min"] = float(lane["min"])
+			if lane.has("max"):
+				bounds["max"] = float(lane["max"])
+			if not bounds.is_empty():
+				perk_bounds[lane_id] = bounds
+		if not perk_bounds.is_empty():
+			index[perk_id] = perk_bounds
+	return index
+
+
 static func is_retired_converted_perk_id(perk_id: String) -> bool:
 	return bool(RETIRED_CONVERTED_PERK_IDS.get(perk_id.strip_edges(), false))
 
@@ -262,7 +238,9 @@ static func sanitize_runtime_levels(runtime_levels: Dictionary) -> Dictionary:
 		sanitized.erase(StringName(target_id))
 		if source_level > 0 or target_level > 0:
 			var target_data: Dictionary = RuntimePerkCatalog.CONVERTED_PERKS.get(target_id, {})
-			var max_level := maxi(1, int(target_data.get("max_level", 5)))
+			var max_level := maxi(1, int(target_data.get(
+				"max_level", RuntimePerkProgression.get_authored_max_level(target_id)
+			)))
 			sanitized[target_id] = mini(max_level, source_level + target_level)
 	for perk_id_value: Variant in RETIRED_CONVERTED_PERK_IDS.keys():
 		var perk_id := str(perk_id_value)
@@ -294,12 +272,19 @@ static func _get_stored_runtime_level(runtime_levels: Dictionary, perk_id: Strin
 # 방향이 없으므로 false.
 static func is_lower_value_better(perk_id: String, key: String) -> bool:
 	var clean_id := perk_id.strip_edges()
+	var clean_key := key.strip_edges()
+	if RuntimePerkProgression.is_converted_perk(clean_id):
+		return (
+			RuntimePerkProgression.has_lane(clean_id, clean_key)
+			and RuntimePerkProgression.get_lane_polarity(clean_id, clean_key)
+				== RuntimePerkProgression.POLARITY_LOWER_IS_BETTER
+		)
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return false
 	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
-	if not table.has(key):
+	if not table.has(clean_key):
 		return false
-	var values_value: Variant = table[key]
+	var values_value: Variant = table[clean_key]
 	if not (values_value is Array):
 		return false
 	var values: Array = values_value
@@ -311,6 +296,11 @@ static func is_lower_value_better(perk_id: String, key: String) -> bool:
 static func is_polish_amplifiable_option(perk_id: String, key: String) -> bool:
 	var clean_id := perk_id.strip_edges()
 	var clean_key := key.strip_edges()
+	if RuntimePerkProgression.is_converted_perk(clean_id):
+		return (
+			RuntimePerkProgression.has_lane(clean_id, clean_key)
+			and RuntimePerkProgression.is_polish_amplifiable_lane(clean_id, clean_key)
+		)
 	if clean_id.is_empty() or clean_key.is_empty() or not CONVERTED_PERK_VALUES.has(clean_id):
 		return false
 	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
@@ -324,6 +314,8 @@ static func is_polish_amplifiable_option(perk_id: String, key: String) -> bool:
 
 static func has_polish_amplifiable_option(perk_id: String) -> bool:
 	var clean_id := perk_id.strip_edges()
+	if RuntimePerkProgression.is_converted_perk(clean_id):
+		return RuntimePerkProgression.has_polish_amplifiable_lane(clean_id)
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return false
 	var option_table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
@@ -350,32 +342,12 @@ static func has_polish_amplifiable_option(perk_id: String) -> bool:
 # intentional hard cap must be declared in catalog wording too.
 # sage_ring is effective_level_exempt, so its proc spec always follows the
 # invested Lv.1-5 table and never extrapolates from another level-buff source.
-const OVERFLOW_VALUE_BOUNDS := {
-	"adversity_armor": {"trigger_chance_pct": {"max": 100.0}},
-	"sensor": {"auto_dash_cooldown_sec": {"min": 1.0}},
-	"battery": {"gauge_preserve_pct": {"max": 100.0}},
-	# 감소 계열 바운드는 각 소비 코드의 실효 한도와 1:1 정합한다(레거시
-	# 클램프/최소 배율과 패리티): master=95(레거시 clamp·쿨0 금지),
-	# neural=90(기본 게이지 90 감산·레거시 캡 90), commando prep=95(레거시
-	# 캡·최소 배율 0.05), rainbow 쿨감=95(소비자 0.95 클램프).
-	"master": {"item_cooldown_pct": {"max": 95.0}},
-	"lucky_coin": {"double_spawn_pct": {"max": 100.0}},
-	"shrapnel_armor": {
-		"trigger_chance_pct": {"max": 100.0},
-		"gauge_cost": {"min": 0.0},
-	},
-	"foul_whistle": {"negate_chance_pct": {"max": 100.0}},
-	"neural_helmet": {"aipill_gauge_reduction": {"max": 90.0}},
-	"commando_arm": {"prep_reduction_pct": {"max": 95.0}},
-	"rainbow_fur_glove": {
-		"rainbow_glove_trigger_chance_pct": {"max": 100.0},
-		"rainbow_glove_cooldown_reduction_pct": {"max": 95.0},
-	},
-	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
+const NON_TARGET_OVERFLOW_VALUE_BOUNDS := {
 	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
-	"venom_mist_gauntlet": {"mist_trigger_chance_pct": {"max": 100.0}},
 	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
 }
+
+static var OVERFLOW_VALUE_BOUNDS: Dictionary = _build_overflow_value_bounds()
 
 
 static func get_value(perk_id: String, key: String, level: int, fusion_overlay_source: Object = null) -> float:
@@ -406,6 +378,22 @@ static func get_value_before_fusion(
 	if not CONVERTED_PERK_VALUES.has(clean_id):
 		return 0.0
 	var clean_key := key.strip_edges()
+	if RuntimePerkProgression.is_converted_perk(clean_id):
+		if not RuntimePerkProgression.has_lane(clean_id, clean_key):
+			return 0.0
+		var canonical_value := RuntimePerkProgression.get_value(clean_id, clean_key, level)
+		if (
+			runtime_state == null
+			or not is_polish_amplifiable_option(clean_id, clean_key)
+			or not runtime_state.has_method("get_perk_amplify_multiplier")
+		):
+			return canonical_value
+		return apply_polish_amplification(
+			clean_id,
+			clean_key,
+			canonical_value,
+			float(runtime_state.call("get_perk_amplify_multiplier", clean_id))
+		)
 	var table: Dictionary = CONVERTED_PERK_VALUES[clean_id]
 	if not table.has(clean_key):
 		return 0.0

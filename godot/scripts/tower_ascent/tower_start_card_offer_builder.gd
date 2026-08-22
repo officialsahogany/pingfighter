@@ -68,7 +68,7 @@ func build_offer(run_id: String, owner: Object, registry: Object) -> Dictionary:
 			chosik_pool.append(data)
 		elif (
 			unlocked_skill.is_empty()
-			and int(data.get("max_level", 5)) >= TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL
+			and int(data.get("max_level", 0)) >= TowerAscentTuning.TEMP_START_CARD_MUGONG_START_LEVEL
 			and _candidate_policy.is_mugong_candidate(
 			data,
 			runtime_levels,

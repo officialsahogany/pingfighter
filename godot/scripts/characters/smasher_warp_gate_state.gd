@@ -3,6 +3,7 @@ extends RefCounted
 const SmasherWarpGatePresentation := preload("res://scripts/characters/smasher_warp_gate_presentation.gd")
 const SmasherWarpGateAfterimageState := preload("res://scripts/characters/smasher_warp_gate_afterimage_state.gd")
 const RuntimePerkModalTimeShift := preload("res://scripts/core/runtime_perk_modal_time_shift.gd")
+const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const PORTAL_MODAL_TIME_KEYS: Array[String] = ["spawn_msec"]
 
@@ -424,7 +425,7 @@ func _is_input_blocked(config: Dictionary, deps: Dictionary) -> bool:
 
 func _get_duration_msec(deps: Dictionary) -> int:
 	var extension_level: int = _get_runtime_skill_level(deps, "extension_gear")
-	return int(round(float(BASE_DURATION_MSEC) * (1.0 + EXTENSION_GEAR_DURATION_BONUS * float(extension_level))))
+	return int(round(float(BASE_DURATION_MSEC) * (1.0 + RuntimePerkProgression.get_value("extension_gear", "duration_bonus", extension_level))))
 
 
 func _get_runtime_skill_level(deps: Dictionary, skill_id: String) -> int:
