@@ -63,7 +63,8 @@ class FakeScoreboardRenderer:
 		_sparkle_duration: float,
 		_t: float,
 		_quality_scale: float = 1.0,
-		stakes: Dictionary = {}
+		stakes: Dictionary = {},
+		_presentation_visible: bool = true
 	) -> void:
 		draw_calls += 1
 		last_player_score = player_score

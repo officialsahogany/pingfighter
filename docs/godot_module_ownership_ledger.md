@@ -4008,7 +4008,10 @@ This section is intentionally long; use search to find the nearest owner.
 - `scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd`
   Owns Stage 1 scene-facing top mini-scoreboard draw context assembly:
   live score snapshot lookup, deuce flag forwarding, sparkle timing, and
-  handoff to the shared scoreboard renderer.
+  handoff to the shared scoreboard renderer. It also owns the narrow screen
+  policy that suppresses the combat-only mini score while an active Tower
+  Ascent `NODE_MODAL` is open; inactive/missing tower flow and all other
+  phases keep the shared campaign HUD visible.
 - `scripts/stages/stage1/stage1_active_item_hud_scene_drawer.gd`
   Owns Stage 1 scene-facing active-item HUD draw context assembly: active
   slot list normalization, bottom HUD layout build, round-start timing,
@@ -8286,8 +8289,14 @@ This section is intentionally long; use search to find the nearest owner.
   through `match_flow_controller.gd` / `game_audio.gd`.
 - `scripts/hud/scoreboard_renderer.gd`
   Owns the public scoreboard draw API and delegates visual bodies to
-  focused scoreboard helpers. The scene drawer decides when to draw it and
-  passes score/state snapshots in.
+  focused scoreboard helpers. The scene drawer passes score/state snapshots
+  and its presentation visibility. The renderer composes that visibility with
+  external transition-loading visibility and applies the result to both the
+  retained top-mini host and the immediate fallback.
+- `scripts/hud/scoreboard_top_mini_retained_host.gd`
+  Owns retained top-mini draw commands, state-key redraw gating, and the host
+  presentation visibility guard so stale commands cannot survive a hidden
+  modal or deferred attachment window.
 - `scripts/hud/serve_wait_indicator_renderer.gd`
   Owns the serve-wait playfield indicator port: Player / Boss Serve labels,
   accent lines, manual / auto-serve helper text, boss Preparing / Ready

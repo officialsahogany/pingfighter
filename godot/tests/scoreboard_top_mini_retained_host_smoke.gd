@@ -14,14 +14,22 @@ extends SceneTree
 #      기존 즉시 경로 유지 (정확성-동일 폴백)
 #  (5) 위임 파이프라인: 호스트 render_to가 최신 인자를 그대로 전달
 #  (6) 스폰-글라이드 트랩 준수: physics_interpolation_mode == OFF
+#  (7) 전환 가시성: 지연 생성 중 숨김도 호스트 부착 뒤까지 유지
+#  (8) 수명 합성: external loading hide와 NODE_MODAL presentation hide가 서로
+#      먼저 풀려도 다른 이유가 남아 있으면 리테인드/즉시 경로 모두 계속 숨김
+#  (9) 범위: 활성 탑 NODE_MODAL만 숨기고 COMBAT 복귀와 비탑 캠페인은 표시
+#  (10) deferred 부착 전 숨김도 새 호스트에 보존되어 stale 픽셀이 0프레임 노출
 #
 # 반증검증(수동, in-place 토글 — git reset 금지):
 #  - update_state의 키 비교를 제거(항상 queue_redraw)하면 (1) 레그 RED.
 #  - _build_top_mini_state_key에서 quality_scale 항을 빼면 (2) 품질 레그 RED.
 #  - draw_top_mini의 호스트 분기를 제거하면 (1)·(5) 레그 RED.
 
+const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
+const BattleSceneMatchEventDriver := preload("res://scripts/core/battle_scene_match_event_driver.gd")
 const ScoreboardRenderer := preload("res://scripts/hud/scoreboard_renderer.gd")
 const ScoreboardTopMiniRetainedHost := preload("res://scripts/hud/scoreboard_top_mini_retained_host.gd")
+const Stage1TopMiniScoreboardSceneDrawer := preload("res://scripts/stages/stage1/stage1_top_mini_scoreboard_scene_drawer.gd")
 
 var _failures: Array[String] = []
 
@@ -52,6 +60,90 @@ class FakeForwardTopMiniRenderer:
 		last_canvas = canvas
 
 
+class FakeTransitionOwner:
+	extends Node2D
+
+	var current_stage := 1
+	var weather_type := ""
+	var weather_event_active := false
+	var weather_event_context := {}
+
+
+class FakeTransitionScoreboardRenderer:
+	extends RefCounted
+
+	var visibility_calls: Array[bool] = []
+	var last_canvas: Object = null
+
+	func set_top_mini_visible(canvas: Object, is_visible: bool) -> void:
+		last_canvas = canvas
+		visibility_calls.append(is_visible)
+
+
+class FakeTransitionRegistry:
+	extends RefCounted
+
+	var scoreboard_renderer := FakeTransitionScoreboardRenderer.new()
+
+	func get_instance(key: String) -> Object:
+		if key == "scoreboard_renderer":
+			return scoreboard_renderer
+		return null
+
+	func get_cached_instance(key: String) -> Object:
+		return get_instance(key)
+
+
+
+class FakeTowerFlow:
+	extends RefCounted
+
+	var active := true
+	var phase := "COMBAT"
+
+	func is_active() -> bool:
+		return active
+
+	func get_phase_name() -> String:
+		return phase
+
+
+class FakeScoreState:
+	extends RefCounted
+
+	func get_snapshot() -> Dictionary:
+		return {"player_score": 7, "boss_score": 2, "deuce_mode": false}
+
+	func would_score_finish(_side: String) -> bool:
+		return false
+
+	func is_player_in_danger() -> bool:
+		return false
+
+
+class FakeSceneRegistry:
+	extends RefCounted
+
+	var scoreboard_renderer: Object
+	var score_state := FakeScoreState.new()
+	var flow_owner: Object = null
+
+	func _init(new_scoreboard_renderer: Object) -> void:
+		scoreboard_renderer = new_scoreboard_renderer
+
+	func get_instance(key: String) -> Object:
+		if key == "scoreboard_renderer":
+			return scoreboard_renderer
+		if key == "match_score_state":
+			return score_state
+		return null
+
+	func get_cached_instance(key: String) -> Object:
+		if key == "tower_ascent_flow_owner":
+			return flow_owner
+		return null
+
+
 func _init() -> void:
 	call_deferred("_run")
 
@@ -59,6 +151,9 @@ func _init() -> void:
 func _run() -> void:
 	await _verify_non_node_canvas_falls_back_inline()
 	await _verify_retained_host_redraw_gating()
+	await _verify_visibility_survives_pending_attach()
+	await _verify_stage_transition_driver_toggles_visibility()
+	await _verify_tower_node_modal_visibility_lifecycle()
 	await _verify_stale_freed_pending_host_recovers()
 
 	if _failures.is_empty():
@@ -79,7 +174,8 @@ func _draw_once(
 	sparkle_timer: float = 0.0,
 	quality_scale: float = 0.58,
 	stakes: Dictionary = {},
-	game_offset: Vector2 = Vector2(260.0, 40.0)
+	game_offset: Vector2 = Vector2(260.0, 40.0),
+	presentation_visible: bool = true
 ) -> void:
 	renderer.draw_top_mini(
 		canvas,
@@ -93,7 +189,8 @@ func _draw_once(
 		0.35,
 		1.25,
 		quality_scale,
-		stakes
+		stakes,
+		presentation_visible
 	)
 
 
@@ -117,6 +214,9 @@ func _verify_retained_host_redraw_gating() -> void:
 	# 생성 프레임: 호스트는 아직 부착 전이라 즉시 경로 폴백이 그린다.
 	_draw_once(renderer, canvas)
 	_expect(fake_top.draw_calls == 1, "attach-gap frame should fall back to the inline path")
+	# deferred attach 전에 로딩 hide가 들어와도 pending 호스트가 같은 상태로
+	# 부착되어야 한다. draw skip만으로는 이 레그에서 이전 픽셀이 노출된다.
+	renderer.set_top_mini_visible(canvas, false)
 
 	# deferred add_child 플러시 시점은 엔진 메인루프 순서에 민감하므로 bounded
 	# 대기(그 사이 draw 호출 없음 — 폴백 카운트는 1로 유지된다).
@@ -135,6 +235,10 @@ func _verify_retained_host_redraw_gating() -> void:
 		host.physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_OFF,
 		"retained host must opt out of physics interpolation (spawn-glide trap)"
 	)
+	_expect(not host.visible and not host.is_presentation_visible(), "pending host should attach hidden")
+	renderer.set_top_mini_visible(canvas, true)
+	_expect(host.visible and host.is_presentation_visible(), "external visibility restore should show the attached host")
+	await process_frame
 
 	# 부착 대기 프레임 동안 큐된 redraw가 실제 _draw로 디스패치되어 페이크
 	# 렌더러에 위임됐어야 한다(리테인드 파이프라인 라이브 증거 — 헤드리스에서도
@@ -192,6 +296,27 @@ func _verify_retained_host_redraw_gating() -> void:
 	_expect(fake_top.last_canvas == probe, "render_to should draw onto the provided canvas")
 	probe.free()
 
+	# (6) 듀스 폴백 발동선은 룰 정본을 따라야 한다. deuce_mode=false인 평범한
+	# 동점(구 리터럴 4:4 포함)은 정착 상태라 redraw가 서면 안 된다 — 듀스 표시는
+	# 안 뜨므로 눈으로 안 보이는 상시 재드로 회귀다. 마지막 드로 상태를 바꾸므로
+	# render_to 검증 뒤에 둔다.
+	var below_trigger: int = MatchScoreState.DEUCE_TRIGGER - 1
+	_draw_once(renderer, canvas, below_trigger, below_trigger, false)
+	var rr_below: int = host.redraw_request_count
+	_draw_once(renderer, canvas, below_trigger, below_trigger, false)
+	_expect(
+		host.redraw_request_count == rr_below,
+		"a non-deuce tie below the trigger must stay settled (no per-frame redraw)"
+	)
+	# 반대로 정본 발동선에서의 동점은 deuce_mode 플래그 없이도 폴백이 잡아야 한다.
+	_draw_once(renderer, canvas, MatchScoreState.DEUCE_TRIGGER, MatchScoreState.DEUCE_TRIGGER, false)
+	var rr_at_trigger: int = host.redraw_request_count
+	_draw_once(renderer, canvas, MatchScoreState.DEUCE_TRIGGER, MatchScoreState.DEUCE_TRIGGER, false)
+	_expect(
+		host.redraw_request_count > rr_at_trigger,
+		"a tie at the deuce trigger should still animate through the fallback"
+	)
+
 	# 중복 호스트 없음.
 	var host_count := 0
 	for child in canvas.get_children():
@@ -204,7 +329,139 @@ func _verify_retained_host_redraw_gating() -> void:
 	await process_frame
 
 
-# (7) 스테일 freed pending 복구: 호스트가 부착된 뒤 그 씬이 통째로 해제되면
+func _verify_visibility_survives_pending_attach() -> void:
+	var renderer := ScoreboardRenderer.new()
+	var fake_top := FakeForwardTopMiniRenderer.new()
+	renderer.top_mini_renderer = fake_top
+	var canvas := Node2D.new()
+	root.add_child(canvas)
+
+	_draw_once(renderer, canvas)
+	var draw_calls_before_hide: int = fake_top.draw_calls
+	renderer.set_top_mini_visible(canvas, false)
+	_draw_once(renderer, canvas)
+	_expect(fake_top.draw_calls == draw_calls_before_hide, "transition-hidden pending host must not fall back to inline drawing")
+	var host: Node2D = null
+	for _spin in range(10):
+		host = canvas.get_node_or_null("TopMiniScoreboardRetainedHost") as Node2D
+		if host != null and host.is_inside_tree():
+			break
+		await process_frame
+	_expect(host != null and host.is_inside_tree(), "hidden pending host should still attach under the live canvas")
+	if host != null:
+		_expect(not host.visible, "stage-transition hiding should survive deferred host attachment")
+		_draw_once(renderer, canvas)
+		_expect(not host.visible, "drawing while transition-hidden must not reveal the top mini scoreboard")
+		_expect(fake_top.draw_calls == draw_calls_before_hide, "transition-hidden attached host must not issue draw calls")
+		renderer.set_top_mini_visible(canvas, true)
+		_expect(host.visible, "finishing transition loading should restore the top mini scoreboard")
+
+	root.remove_child(canvas)
+	canvas.free()
+	await process_frame
+
+
+func _verify_stage_transition_driver_toggles_visibility() -> void:
+	var driver := BattleSceneMatchEventDriver.new()
+	var owner := FakeTransitionOwner.new()
+	var registry := FakeTransitionRegistry.new()
+	root.add_child(owner)
+
+	driver.call("_begin_stage_transition_loading", owner, registry, 2)
+	_expect(bool(driver.is_stage_transition_loading_active()), "stage transition should enter its loading gate")
+	_expect(registry.scoreboard_renderer.visibility_calls == [false], "transition loading should hide the top mini scoreboard immediately")
+	_expect(registry.scoreboard_renderer.last_canvas == owner, "top mini visibility should target the live battle canvas")
+
+	driver.call("_finish_stage_transition_loading", owner, registry)
+	_expect(not bool(driver.is_stage_transition_loading_active()), "finishing transition loading should release its gate")
+	_expect(registry.scoreboard_renderer.visibility_calls == [false, true], "finishing transition loading should restore the top mini scoreboard")
+
+	root.remove_child(owner)
+	owner.free()
+	await process_frame
+
+
+# (8) 스테일 freed pending 복구: 호스트가 부착된 뒤 그 씬이 통째로 해제되면
+func _verify_tower_node_modal_visibility_lifecycle() -> void:
+	var renderer := ScoreboardRenderer.new()
+	var fake_top := FakeForwardTopMiniRenderer.new()
+	renderer.top_mini_renderer = fake_top
+	var registry := FakeSceneRegistry.new(renderer)
+	var drawer := Stage1TopMiniScoreboardSceneDrawer.new()
+	var canvas := Node2D.new()
+	root.add_child(canvas)
+
+	# 비탑 일반 캠페인: flow cache가 없어도 기존 점수판 경로가 살아 있다.
+	_draw_scene_once(drawer, registry, canvas)
+	var host: Node = null
+	for _spin in range(10):
+		host = canvas.get_node_or_null("TopMiniScoreboardRetainedHost")
+		if host != null and host.is_inside_tree():
+			break
+		await process_frame
+	_expect(host != null and host.is_inside_tree(), "normal campaign should attach the retained score host")
+	if host == null:
+		root.remove_child(canvas)
+		canvas.free()
+		return
+	_expect(host.visible, "normal campaign without tower flow must keep the mini scoreboard visible")
+
+	var flow := FakeTowerFlow.new()
+	registry.flow_owner = flow
+	flow.active = false
+	flow.phase = "NODE_MODAL"
+	_draw_scene_once(drawer, registry, canvas)
+	_expect(host.visible, "inactive tower flow must not alter the shared campaign HUD")
+
+	# 다섯 생산 NPC 노드의 공용 수명 경계: 활성 NODE_MODAL에서만 숨긴다.
+	flow.active = true
+	flow.phase = "NODE_MODAL"
+	var forwarded_before_hide: int = fake_top.draw_calls
+	_draw_scene_once(drawer, registry, canvas)
+	_expect(not host.visible and not host.is_presentation_visible(), "active tower NODE_MODAL must hide the retained score host")
+	var probe := Node2D.new()
+	host.render_to(probe)
+	_expect(fake_top.draw_calls == forwarded_before_hide, "hidden retained host must not forward stale draw commands")
+
+	# 로딩 hide가 겹친 뒤 external 이유만 풀어도 NODE_MODAL 이유가 남는다.
+	renderer.set_top_mini_visible(canvas, false)
+	renderer.set_top_mini_visible(canvas, true)
+	_expect(not host.visible, "releasing external hide must not override active NODE_MODAL hide")
+
+	# 전투 복귀: 같은 호스트를 다시 보이고 최신 7|2 상태를 위임한다.
+	flow.phase = "COMBAT"
+	_draw_scene_once(drawer, registry, canvas)
+	_expect(host.visible and host.is_presentation_visible(), "tower COMBAT return must restore the mini scoreboard")
+	host.render_to(probe)
+	_expect(fake_top.draw_calls == forwarded_before_hide + 1, "combat restore should resume retained drawing")
+	_expect(fake_top.last_player_score == 7, "combat restore should forward the current player score")
+
+	# 역순 합성: COMBAT 중 external loading hide는 presentation draw가 덮지 못한다.
+	renderer.set_top_mini_visible(canvas, false)
+	_draw_scene_once(drawer, registry, canvas)
+	_expect(not host.visible, "external loading hide must survive a visible COMBAT draw request")
+	renderer.set_top_mini_visible(canvas, true)
+	_expect(host.visible, "external loading restore should show the host when COMBAT remains visible")
+
+	probe.free()
+	root.remove_child(canvas)
+	canvas.free()
+	await process_frame
+
+
+func _draw_scene_once(drawer: Object, registry: Object, canvas: Node2D) -> void:
+	drawer.draw(
+		canvas,
+		{"width": 760.0, "top_mini_score_sparkle_duration": 0.35},
+		registry,
+		{},
+		Vector2(260.0, 40.0),
+		Vector2(760.0, 750.0),
+		1.25
+	)
+
+
+# (10) 스테일 freed pending 복구: 호스트가 부착된 뒤 그 씬이 통째로 해제되면
 # 렌더러의 pending 참조가 freed 인스턴스로 남는다(호스트가 씬의 마지막 HUD
 # 프레임에 만들어진 배틀에서 실전 재현 — 2026-07-23 라이브 신고). 구 코드는
 # 'is' 타입 검사를 is_instance_valid보다 먼저 태워 "Left operand of 'is' is a

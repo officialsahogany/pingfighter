@@ -1,4 +1,55 @@
-# 탑 노드 모달 UI 전면 개선 S3 착지 보고
+# 탑 노드 모달 UI 전면 개선 진행 보고
+
+## S4 선행 별도 슬라이스 — NPC 노드 미니 점수판 수명
+
+### 판정과 소유 경로
+
+- 구현 기준 본 트리 HEAD: `90d11e7ac2c7acf84d034965c82f0fbd2f3a19c1`.
+- 격리 브랜치: `codex/tower-node-modal-scoreboard-90d11e7ac`. 본 트리에 통합하거나
+  푸시하지 않았다.
+- 새 아트는 **필요 없다**. 이 슬라이스는 기존 미니 점수판의 화면 수명만 고치며
+  제품 아트·임시 도형·노드 모달 아트 배선을 추가하지 않는다.
+- 숨김 목록은 생산 비전투 노드 다섯 종류 `shop`, `training`, `fallen_monk`,
+  `guardian_spring`, `rest`다. 다섯 종류가 공통으로 점유하는 활성 탑
+  `NODE_MODAL` 동안만 숨긴다. `common_shell` 호환 fixture도 같은 경계라 누출되지
+  않는다. 전투 `COMBAT`, 지도·경로 선택, flow가 없거나 비활성인 비탑 일반
+  캠페인에서는 표시한다.
+- 근거는 물리차단 NPC 모달이 열린 동안 전투 점수는 의사결정 정보가 아니고 실제로
+  모달 제목 위에 겹치는 반면, 지도·경로 선택은 그 모달 수명이 아니며 공용 필러 HUD
+  전체를 바꾸라는 요구가 아니기 때문이다. 따라서 "비전투 구간 전부"가 아니라
+  "다섯 비전투 노드 모달이 실제로 열린 동안"을 가장 좁은 정본으로 삼았다.
+- 실제 호출은 `stage1_pillar_hud_scene_drawer.gd`가 매 HUD draw마다
+  `stage1_top_mini_scoreboard_scene_drawer.gd`로 내려오고, 그 드로어가 이미 prewarm된
+  `tower_ascent_flow_owner`의 cached instance만 읽는다. 활성 `NODE_MODAL` 판정은
+  `scoreboard_renderer.gd`에 presentation visibility로 전달된다.
+- 단순 draw skip으로 끝내지 않았다. `scoreboard_top_mini_retained_host.gd`는 이전
+  draw command를 보유하므로 부착 호스트와 deferred pending 호스트를 모두
+  `visible=false`로 만들고 `_draw`/`render_to`도 차단한다. 즉시 fallback도 같은
+  effective visibility 앞에서 반환한다. 기존 stage-transition loading의 external
+  visibility와 모달 presentation visibility는 AND로 합성되어 어느 한쪽만 먼저
+  풀려도 점수판이 깜빡여 나타나지 않는다.
+
+### 별도 슬라이스 검증
+
+- 개정 `scoreboard_top_mini_retained_host_smoke.gd`가 deferred 부착 전 숨김,
+  활성 `NODE_MODAL` retained·즉시 경로 0회, external/modal 이유 합성 양방향,
+  `COMBAT` 7|2 복귀, 비탑 flow 없음·비활성 표시를 봉인했다.
+- `scoreboard_top_mini_stakes_director_smoke.gd`, `tower_node_modal_pointer_smoke.gd`,
+  `tower_ascent_node_modal_shell_smoke.gd`도 GREEN이라 기존 stakes, GRT-022 입력,
+  GRT-058 물리차단 모달 개폐가 유지된다.
+- Forward Mobile Vulkan, NVIDIA GeForce RTX 5070, 2020×1246에서 동일 수련장
+  반증 `node_modal_control_visible`, 생산 `node_modal_hidden`, `combat_restored`,
+  `non_tower_visible` 4장과 4프레임 비교 strip을 캡처했다. 반증 프레임에는 제목
+  위 `7 | 2`가 있고 생산 모달에는 없으며 전투·비탑 프레임에는 복귀한다. 증거는
+  `godot/.godot/codex_captures/tower_node_modal_scoreboard_s4/`다.
+- 신규 씰은 없다. 기존 씰 개정이므로 CI와 pre-push 리터럴 목록은 함께
+  **201개**를 유지한다.
+- 범위 밖 `battle_scene_stage_transition_loading_smoke.gd`는 이 슬라이스가 건드리지
+  않은 lingpet affinity battle budget 카운터 두 건에서 RED다. 점수판 로딩
+  visibility 합성은 개정 retained 씰의 external-first/presentation-first 양방향으로
+  별도 GREEN이며, 이 기준선 결함을 점수판 슬라이스에서 고치지 않았다.
+- 설계안 §3.6의 샘터·휴식 및 나머지 표현 어댑터는 이 커밋에 포함하지 않았다.
+  미니 점수판 슬라이스 보고 뒤 대기하고, 승인된 다음 슬라이스에서만 시작한다.
 
 ## S3 공용 호버와 거래 영수증 착지
 

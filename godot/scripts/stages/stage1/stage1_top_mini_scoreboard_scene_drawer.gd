@@ -31,8 +31,22 @@ func draw(
 		float(context.get("top_mini_score_sparkle_duration", 0.35)),
 		time_seconds,
 		_get_top_mini_quality_scale(context),
-		stakes
+		stakes,
+		_should_show_top_mini_scoreboard(registry)
 	)
+
+
+func _should_show_top_mini_scoreboard(registry: Object) -> bool:
+	# 탑의 생산 비전투 노드(shop/training/fallen_monk/guardian_spring/rest)는
+	# 모두 NODE_MODAL 한 경계에서 물리를 막는다. 그 모달이 실제로 열린 동안만
+	# 전투 점수를 숨기고, COMBAT/지도/경로 및 비탑 캠페인에는 손대지 않는다.
+	# common_shell fixture도 같은 모달 경계를 따르므로 미래/호환 폴백 누수를 막는다.
+	if registry == null or not registry.has_method("get_cached_instance"):
+		return true
+	var flow_owner: Object = registry.get_cached_instance("tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("is_active") or not flow_owner.has_method("get_phase_name"):
+		return true
+	return not (bool(flow_owner.is_active()) and str(flow_owner.get_phase_name()) == "NODE_MODAL")
 
 
 func _get_top_mini_quality_scale(context: Dictionary) -> float:

@@ -22,6 +22,7 @@ var _top_mini_renderer: Object = null
 var _draw_args: Array = []
 var _last_state_key: Array = []
 var _has_state := false
+var _presentation_visible := true
 
 
 func _init() -> void:
@@ -44,7 +45,18 @@ func update_state(top_mini_renderer: Object, draw_args: Array, state_key: Array,
 		queue_redraw()
 
 
+func set_presentation_visible(value: bool) -> void:
+	_presentation_visible = value
+	visible = value
+
+
+func is_presentation_visible() -> bool:
+	return _presentation_visible
+
+
 func _draw() -> void:
+	if not _presentation_visible:
+		return
 	draw_invocation_count += 1
 	render_to(self)
 
@@ -52,7 +64,7 @@ func _draw() -> void:
 # 테스트 시임: 엔진 draw 디스패치 없이 위임 파이프라인(최신 인자 그대로 전달)을
 # 검증할 수 있도록 렌더 위임을 분리한다. 실제 _draw는 self를 캔버스로 넘긴다.
 func render_to(canvas: Node2D) -> void:
-	if _top_mini_renderer == null or _draw_args.size() != 11:
+	if not _presentation_visible or _top_mini_renderer == null or _draw_args.size() != 11:
 		return
 	_top_mini_renderer.draw(
 		canvas,

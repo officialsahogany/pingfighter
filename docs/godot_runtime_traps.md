@@ -2561,9 +2561,15 @@ triage에서 스테이지2 인배틀 74창 중 41창이 60fps 미만, 공용 필
    타입/메서드 검사보다 먼저 태우고 스테일 참조는 그 자리에서 null 청소
    한다(라이브 재발 사례 → 씰 레그
    `_verify_stale_freed_pending_host_recovers`, 버그 순서 토글로 RED 반증).
+   리테인드 HUD를 화면 수명 때문에 가릴 때는 **draw 호출만 건너뛰면 안 된다.**
+   호스트가 지난 draw command를 계속 보유하므로 부착 호스트와 deferred pending
+   호스트의 `visible`을 함께 끄고, 호스트 `_draw`/테스트 위임과 즉시 draw 폴백도
+   같은 게이트로 조기 반환한다. 로딩 전환과 화면 모달처럼 숨김 이유가 둘 이상이면
+   마지막 요청 하나로 덮지 말고 AND로 합성해 한 이유가 먼저 풀려도 노출되지 않게 한다.
 
 **씰.** `scoreboard_top_mini_retained_host_smoke.gd`(redraw 게이트/키
-커버리지/애니 창/폴백/위임 — 게이트 무력화 토글로 RED 반증 확인),
+커버리지/애니 창/폴백/위임 + pending 숨김/NODE_MODAL/전투·비탑 복귀/다중 이유
+합성 — 게이트 무력화 토글로 RED 반증 확인),
 `stage1_pillar_sensor_orb_bezel_bake_smoke.gd`(핫패스 소스-프리미티브 예산
 draw_arc 5/draw_circle 7 + 베이크 ops 지오메트리 21op 계약 + 베이크 수렴 —
 핫패스 프리미티브 추가 토글로 RED 반증 확인). 폴백이 correctness-identical
