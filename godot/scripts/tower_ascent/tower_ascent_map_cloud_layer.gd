@@ -8,7 +8,7 @@ const CLOUD_LAYER_COUNT := 3
 const CLOUD_SAMPLE_COUNT := 48
 const BITMAP_PARALLAX_LAYER_COUNT := 2
 const BITMAP_FRONT_CLOUD_COUNT := 4
-const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 11
+const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 13
 # 피드백2 5항: the near-opaque mist fog owns spatial concealment of locked
 # floors; the haze band and motifs above it only supply cloud texture. The
 # tone is deliberately distinct from the scroll chrome paper (f1dfb8) so a
@@ -16,6 +16,11 @@ const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 11
 # classifies chrome-paper pixels as blank background).
 const FOG_COVER_OPACITY := 0.97
 const FOG_COVER_COLOR := Color("ece4cd")
+const FOG_EDGE_WAVE_RATIO := 0.055
+# World-space pixels at 1.0x map zoom. The core remains near-opaque while two
+# cached gradient strips split the old single hard step across the organic edge.
+const FOG_EDGE_FEATHER_DEPTH := 12.0
+const FOG_EDGE_ALPHA_STEP_COUNT := 100
 const PRESENTATION_SEED_SALT := 0x434c4f5544
 const PAPER_LIGHT := Color("f1dfb8")
 const PAPER_DEEP := Color("d7bd88")
@@ -30,6 +35,8 @@ const FRONT_CLOUD_CENTER_Y_RATIOS: Array[float] = [0.30, 0.67, 0.45, 0.80]
 const FRONT_CLOUD_SCALE_MINIMUMS: Array[float] = [1.10, 1.00, 1.18, 0.82]
 const FRONT_CLOUD_SCALE_MAXIMUMS: Array[float] = [1.28, 1.18, 1.48, 1.02]
 
+static var _fog_feather_colors_by_step: Array[PackedColorArray] = []
+
 
 static func estimate_draw_calls(nodes_value: Variant) -> int:
 	var floors: Dictionary = {}
@@ -40,10 +47,10 @@ static func estimate_draw_calls(nodes_value: Variant) -> int:
 				"segment_floor",
 				(node_variant as Dictionary).get("floor", 0)
 			))] = true
-	# Reserve the bitmap worst case even when assets are unavailable. One flat
-	# fog cover, one tileable haze band as two clipped copies, and four
-	# feathered foreground motifs that may each straddle one horizontal wrap
-	# edge (1 + 2 + 4 * 2 = 11). The route builder widens dot spacing against
+	# Reserve the bitmap worst case even when assets are unavailable. One fog
+	# core plus two edge-feather strips, one tileable haze band as two clipped
+	# copies, and four foreground motifs that may each straddle one horizontal
+	# wrap edge (3 + 2 + 4 * 2 = 13). The route builder widens dot spacing against
 	# this reserve before draw.
 	return floors.size() * BITMAP_MAX_DRAW_CALLS_PER_FLOOR
 
@@ -79,6 +86,7 @@ func build(
 	# This RNG is intentionally local and presentation-only. It never receives or
 	# returns the authoritative gameplay RNG state.
 	presentation_rng.seed = int((map_seed ^ PRESENTATION_SEED_SALT) & 0x7fffffff)
+	_ensure_fog_feather_color_cache()
 	var bitmap_assets := _build_bitmap_asset_models(resolution_by_key_value)
 	var bitmap_ready := (
 		bitmap_assets.size() == TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS.size()
@@ -299,10 +307,21 @@ func _draw_bitmap_floor(
 		var spec := spec_variant as Dictionary
 		if str(spec.get("kind", "cloud")) == "fog":
 			var fog_color: Color = spec.get("color", FOG_COVER_COLOR)
-			canvas.draw_rect(
-				floor_rect,
-				Color(fog_color, alpha_multiplier * float(spec.get("opacity", 1.0))),
-				true
+			var fog_opacity := alpha_multiplier * float(spec.get("opacity", 1.0))
+			_draw_cached_fog_feather_polygon(
+				canvas,
+				spec.get("top_feather_points", null),
+				fog_opacity
+			)
+			_draw_cached_fog_feather_polygon(
+				canvas,
+				spec.get("bottom_feather_points", null),
+				fog_opacity
+			)
+			_draw_cached_fog_polygon(
+				canvas,
+				spec.get("core_points", null),
+				Color(fog_color, fog_opacity)
 			)
 			continue
 		var asset_value: Variant = bitmap_assets.get(str(spec.get("asset_key", "")), null)
@@ -389,6 +408,40 @@ func _draw_bitmap_floor(
 				source_size,
 				modulate
 			)
+
+
+static func _draw_cached_fog_polygon(
+	canvas: CanvasItem,
+	points_value: Variant,
+	color: Color
+) -> void:
+	if not (points_value is PackedVector2Array):
+		return
+	var points := points_value as PackedVector2Array
+	if points.size() < 3:
+		return
+	canvas.draw_colored_polygon(points, color)
+
+
+static func _draw_cached_fog_feather_polygon(
+	canvas: CanvasItem,
+	points_value: Variant,
+	opacity: float
+) -> void:
+	if not (points_value is PackedVector2Array):
+		return
+	var points := points_value as PackedVector2Array
+	if points.size() < 3 or _fog_feather_colors_by_step.is_empty():
+		return
+	var color_step := clampi(
+		int(round(
+			clampf(opacity / FOG_COVER_OPACITY, 0.0, 1.0)
+				* float(FOG_EDGE_ALPHA_STEP_COUNT)
+		)),
+		0,
+		FOG_EDGE_ALPHA_STEP_COUNT
+	)
+	canvas.draw_polygon(points, _fog_feather_colors_by_step[color_step])
 
 
 static func _draw_texture_clipped(
@@ -492,14 +545,24 @@ static func _build_bitmap_specs(
 		{}
 	)
 	var haze_world_size: Vector2 = haze_asset.get("world_size", Vector2.ZERO)
+	var fog_geometry := _build_fog_cover_geometry(floor_rect, rng)
 	# 피드백2 5항: locked floors must be genuinely unreadable, like the pre-S7
-	# fog. One flat paper cover per floor (one draw call) sits under the
-	# textured haze/motif layers and fades with the same reveal multiplier.
+	# fog. A near-opaque core and two gradient organic edge strips sit under
+	# the textured haze/motif layers and fade with the same reveal multiplier.
 	result.append({
 		"kind": "fog",
 		"depth_layer": 0,
 		"color": FOG_COVER_COLOR,
 		"opacity": FOG_COVER_OPACITY,
+		"core_points": fog_geometry.get("core_points", PackedVector2Array()),
+		"top_feather_points": fog_geometry.get(
+			"top_feather_points",
+			PackedVector2Array()
+		),
+		"bottom_feather_points": fog_geometry.get(
+			"bottom_feather_points",
+			PackedVector2Array()
+		),
 	})
 	result.append({
 		"kind": "haze",
@@ -579,6 +642,102 @@ static func _build_soft_band_points(
 	for index in range(bottom_points.size() - 1, -1, -1):
 		polygon.append(bottom_points[index])
 	return polygon
+
+
+static func fog_polygon_is_triangulable(points_value: Variant) -> bool:
+	if not (points_value is PackedVector2Array):
+		return false
+	var points := points_value as PackedVector2Array
+	if points.size() < 3:
+		return false
+	var doubled_area := 0.0
+	for index in range(points.size()):
+		var current := points[index]
+		var next := points[(index + 1) % points.size()]
+		doubled_area += current.x * next.y - next.x * current.y
+	return (
+		absf(doubled_area) > 0.001
+		and not Geometry2D.triangulate_polygon(points).is_empty()
+	)
+
+
+static func _ensure_fog_feather_color_cache() -> void:
+	if _fog_feather_colors_by_step.size() == FOG_EDGE_ALPHA_STEP_COUNT + 1:
+		return
+	_fog_feather_colors_by_step.clear()
+	var edge_count := CLOUD_SAMPLE_COUNT + 1
+	for step in range(FOG_EDGE_ALPHA_STEP_COUNT + 1):
+		var colors := PackedColorArray()
+		var inner_alpha := (
+			FOG_COVER_OPACITY
+			* float(step)
+			/ float(FOG_EDGE_ALPHA_STEP_COUNT)
+		)
+		for _index in range(edge_count):
+			colors.append(Color(FOG_COVER_COLOR, 0.0))
+		for _index in range(edge_count):
+			colors.append(Color(FOG_COVER_COLOR, inner_alpha))
+		_fog_feather_colors_by_step.append(colors)
+
+
+static func _build_fog_cover_geometry(
+	rect: Rect2,
+	rng: RandomNumberGenerator
+) -> Dictionary:
+	var outer_points := _build_soft_band_points(rect, rng, FOG_EDGE_WAVE_RATIO)
+	var edge_count := CLOUD_SAMPLE_COUNT + 1
+	if outer_points.size() != edge_count * 2:
+		return {}
+	var feather_depth := minf(FOG_EDGE_FEATHER_DEPTH, rect.size.y * 0.16)
+	var outer_top := PackedVector2Array()
+	var inner_top := PackedVector2Array()
+	var outer_bottom := PackedVector2Array()
+	var inner_bottom := PackedVector2Array()
+	for index in range(edge_count):
+		var top_point := outer_points[index]
+		outer_top.append(top_point)
+		inner_top.append(top_point + Vector2(0.0, feather_depth))
+		var bottom_point := outer_points[edge_count + index]
+		outer_bottom.append(bottom_point)
+		inner_bottom.append(bottom_point - Vector2(0.0, feather_depth))
+	var core_points := PackedVector2Array()
+	for point in inner_top:
+		core_points.append(point)
+	for point in inner_bottom:
+		core_points.append(point)
+	if not fog_polygon_is_triangulable(core_points):
+		core_points = _rect_polygon(Rect2(
+			Vector2(rect.position.x, rect.position.y + feather_depth),
+			Vector2(rect.size.x, rect.size.y - feather_depth * 2.0)
+		))
+	var top_feather_points := PackedVector2Array()
+	for point in outer_top:
+		top_feather_points.append(point)
+	for index in range(inner_top.size() - 1, -1, -1):
+		top_feather_points.append(inner_top[index])
+	if not fog_polygon_is_triangulable(top_feather_points):
+		top_feather_points.clear()
+	var bottom_feather_points := PackedVector2Array()
+	for point in outer_bottom:
+		bottom_feather_points.append(point)
+	for index in range(inner_bottom.size() - 1, -1, -1):
+		bottom_feather_points.append(inner_bottom[index])
+	if not fog_polygon_is_triangulable(bottom_feather_points):
+		bottom_feather_points.clear()
+	return {
+		"core_points": core_points,
+		"top_feather_points": top_feather_points,
+		"bottom_feather_points": bottom_feather_points,
+	}
+
+
+static func _rect_polygon(rect: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	])
 
 
 static func _layer_color(layer_index: int) -> Color:

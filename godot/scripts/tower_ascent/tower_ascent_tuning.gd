@@ -159,7 +159,7 @@ const TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO := 0.072
 const TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO := 0.030
 const TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS := 10
 # The frame-cost ceiling is 768 visible route dots * two polygon draws. Bitmap
-# clouds reserve their ten-per-floor worst case from the same 1536 ceiling;
+# clouds reserve their thirteen-per-floor worst case from the same 1536 ceiling;
 # cached projection widens dot spacing while preserving every stable edge ID.
 const TEMP_MAP_PATH_DRAW_CALL_BUDGET := 1536
 

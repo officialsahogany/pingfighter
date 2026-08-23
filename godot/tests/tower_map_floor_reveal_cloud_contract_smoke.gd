@@ -161,8 +161,14 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 	var cloud_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
 	)
-	var draw_body := cloud_source.substr(cloud_source.find("func draw("))
-	draw_body = draw_body.substr(0, draw_body.find("static func _build_soft_band_points"))
+	var draw_body := (
+		_function_body(cloud_source, "func draw(")
+		+ _function_body(cloud_source, "func _draw_bitmap_floor(")
+		+ _function_body(cloud_source, "static func _draw_cached_fog_polygon(")
+		+ _function_body(cloud_source, "static func _draw_cached_fog_feather_polygon(")
+		+ _function_body(cloud_source, "static func _draw_texture_clipped(")
+		+ _function_body(cloud_source, "func _draw_procedural_floor(")
+	)
 	_expect(
 		draw_body.find("RandomNumberGenerator.new") < 0
 			and draw_body.find("PackedVector2Array(") < 0,
@@ -278,7 +284,7 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 	_expect(str(cloud_model.get("render_mode", "")) == "bitmap", "all four prewarmed cloud assets must select bitmap rendering")
 	_expect(int(cloud_model.get("bitmap_asset_count", 0)) == 4, "bitmap rendering must bind all four approved assets")
 	_expect(int(cloud_model.get("parallax_layer_count", 0)) == 2, "locked clouds must retain slow haze plus faster foreground depth")
-	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 11, "each locked floor must reserve the exact fog cover plus two-wrap haze plus four two-wrap motif worst case")
+	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 13, "each locked floor must reserve fog core plus two edge feathers, two-wrap haze, and four two-wrap motif worst case")
 
 	var visual: Dictionary = flow.get_floor_reveal_visual_model()
 	_expect(
@@ -318,6 +324,16 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 					float(spec.get("opacity", 0.0)) >= 0.9,
 					"the locked-floor fog cover must be near-opaque to conceal upper nodes"
 				)
+				for geometry_key in [
+					"core_points",
+					"top_feather_points",
+					"bottom_feather_points",
+				]:
+					var points_value: Variant = spec.get(geometry_key, null)
+					_expect(
+						TowerAscentMapCloudLayer.fog_polygon_is_triangulable(points_value),
+						"GRT-006: locked-floor fog %s must remain triangulable" % geometry_key
+					)
 			elif str(spec.get("kind", "")) == "haze":
 				haze_count += 1
 				haze_speed = minf(haze_speed, float(spec.get("drift_speed", INF)))
@@ -353,6 +369,14 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		inspected_density = true
 		break
 	_expect(inspected_density and wrapped_motion_checked, "the production fixture must expose one inspectable locked bitmap floor")
+	_expect(
+		not TowerAscentMapCloudLayer.fog_polygon_is_triangulable(PackedVector2Array([
+			Vector2.ZERO,
+			Vector2.ZERO,
+			Vector2.ZERO,
+		])),
+		"GRT-006: a collapsed fog polygon must be rejected before draw"
+	)
 
 	var build_args_nodes: Variant = model.get("overview_nodes", [])
 	var build_world_rect: Rect2 = model.get("fit_all_camera_world_rect", Rect2())
@@ -380,6 +404,14 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 	_expect(
 		_bitmap_layout_signature(cloud_model) == _bitmap_layout_signature(same_seed),
 		"the same presentation seed must reproduce cloud placement, direction, speed, and phase"
+	)
+	_expect(
+		_fog_geometry_signature(cloud_model) == _fog_geometry_signature(same_seed),
+		"the same presentation seed must reproduce the organic fog edge geometry"
+	)
+	_expect(
+		_fog_geometry_signature(cloud_model) != _fog_geometry_signature(different_seed),
+		"a different presentation seed must change the organic fog edge geometry"
 	)
 	_expect(
 		_bitmap_layout_signature(cloud_model) != _bitmap_layout_signature(different_seed),
@@ -460,6 +492,27 @@ func _bitmap_layout_signature(model: Dictionary) -> PackedStringArray:
 				str(spec.get("center_y", 0.0)),
 				str(spec.get("drift_direction", 0.0)),
 				str(spec.get("drift_speed", 0.0)),
+			])
+	return signature
+
+
+func _fog_geometry_signature(model: Dictionary) -> PackedStringArray:
+	var signature := PackedStringArray()
+	for floor_variant in model.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_spec := floor_variant as Dictionary
+		for spec_variant in floor_spec.get("bitmap_specs", []):
+			if not (spec_variant is Dictionary):
+				continue
+			var spec := spec_variant as Dictionary
+			if str(spec.get("kind", "")) != "fog":
+				continue
+			signature.append("%d:%s:%s:%s" % [
+				int(floor_spec.get("floor", 0)),
+				str(spec.get("core_points", PackedVector2Array())),
+				str(spec.get("top_feather_points", PackedVector2Array())),
+				str(spec.get("bottom_feather_points", PackedVector2Array())),
 			])
 	return signature
 

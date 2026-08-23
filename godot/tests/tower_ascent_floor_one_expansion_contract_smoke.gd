@@ -346,7 +346,7 @@ func _verify_fit_all_budget(map_seed: int) -> void:
 		"seed %d budget LOD must preserve every stable edge" % map_seed
 	)
 	var cloud_calls := int(cache.get("cloud_draw_call_budget", 0))
-	_expect(cloud_calls == 132, "seed %d fit-all must reserve all twelve cloud floors at eleven calls each" % map_seed)
+	_expect(cloud_calls == 156, "seed %d fit-all must reserve all twelve cloud floors at thirteen calls each" % map_seed)
 	if total_draw_calls > _maximum_draw_calls:
 		_maximum_draw_calls = total_draw_calls
 		_maximum_draw_seed = map_seed
