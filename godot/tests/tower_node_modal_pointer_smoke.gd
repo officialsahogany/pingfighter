@@ -521,20 +521,33 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 		var card_grid_rect: Rect2 = layout.get("card_grid_rect", Rect2())
 		var column_gap := float(layout.get("grid_column_gap", TowerAscentNodeModalState.GRID_COLUMN_GAP))
 		var row_gap := float(layout.get("grid_row_gap", TowerAscentNodeModalState.GRID_ROW_GAP))
+		# S5 재배치: 수련장은 1x6 좌측 레일, 나머지는 3x2 — 기대 그리드도
+		# 같은 레이아웃 플래그를 따른다(S5 당시 이 레그의 갱신 누락 수리).
+		var is_training_grid := str(node_kind) == "training"
+		var grid_columns := (
+			TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
+			if is_training_grid
+			else TowerAscentNodeModalState.CARD_GRID_COLUMNS
+		)
+		var grid_rows := (
+			TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS
+			if is_training_grid
+			else TowerAscentNodeModalState.CARD_GRID_ROWS
+		)
 		var card_width := (
 			card_grid_rect.size.x
 			- column_gap
-			* float(TowerAscentNodeModalState.CARD_GRID_COLUMNS - 1)
-		) / float(TowerAscentNodeModalState.CARD_GRID_COLUMNS)
+			* float(grid_columns - 1)
+		) / float(grid_columns)
 		var card_height := (
 			card_grid_rect.size.y
 			- row_gap
-			* float(TowerAscentNodeModalState.CARD_GRID_ROWS - 1)
-		) / float(TowerAscentNodeModalState.CARD_GRID_ROWS)
+			* float(grid_rows - 1)
+		) / float(grid_rows)
 		for index in range(6):
 			var rect := rects[index] as Rect2
-			var expected_column := index % TowerAscentNodeModalState.CARD_GRID_COLUMNS
-			var expected_row := index / TowerAscentNodeModalState.CARD_GRID_COLUMNS
+			var expected_column := index % grid_columns
+			var expected_row := index / grid_columns
 			var expected_rect := Rect2(
 				card_grid_rect.position + Vector2(
 					float(expected_column) * (
@@ -546,7 +559,7 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 				),
 				Vector2(card_width, card_height)
 			)
-			_expect(rect.is_equal_approx(expected_rect), "%s card %d must occupy its exact 3x2 cell" % [node_kind, index])
+			_expect(rect.is_equal_approx(expected_rect), "%s card %d must occupy its exact flagged grid cell" % [node_kind, index])
 			_expect(card_grid_rect.encloses(rect), "%s card %d must remain inside the flagged card grid" % [node_kind, index])
 			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
 			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
