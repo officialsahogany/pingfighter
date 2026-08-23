@@ -1268,7 +1268,7 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	_prime_runtime_aim_to_target(runtime, input_reader, left_target, Vector2(380.0, 665.0))
 	input_reader.snapshot["mouse_left_just_pressed"] = true
 	runtime.update(0.0, targets)
-	var hit_result: Dictionary = runtime.update(1.5, targets)
+	var hit_result: Dictionary = runtime.update(_travel_seconds(1.5), targets)
 	_expect(str(hit_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT, "the real serve trajectory must resolve a swept target hit")
 	_expect(str(hit_result.get("target_id", "")) == "left", "the physical hit, not an aim choice, must select the node")
 	_expect(runtime.get_serve_attempt_count() == 2, "miss and retry must count two actual serve launches")

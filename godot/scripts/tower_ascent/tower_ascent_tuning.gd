@@ -53,8 +53,11 @@ const TEMP_ROUTE_AIM_MAX_DEGREES := 55.0
 const TEMP_ROUTE_AIM_SWEEP_PERIOD_SECONDS := 2.4
 const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 # Live feedback 2026-08-22: the route serve read as too fast to aim, so this
-# is a deliberate 30 percent cut from the original 522.0.
-const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 365.4
+# is a deliberate 30 percent cut from the original 522.0. 피드백2 7항
+# (2026-08-23): still too fast in live play, so a further 25 percent cut
+# (522.0 -> 365.4 -> 274.0). Misses only lengthen flight; there is no
+# flight timeout to retune.
+const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 274.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
