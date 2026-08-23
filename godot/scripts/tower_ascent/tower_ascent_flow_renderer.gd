@@ -576,6 +576,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		if flow.has_method("get_floor_reveal_visual_model")
 		else {"revealed_floor": 0}
 	)
+	model["run_intro_title_visual"] = (
+		flow.get_run_intro_title_visual_model()
+		if flow.has_method("get_run_intro_title_visual_model")
+		else {}
+	)
 	model["transition_marker"] = _build_fullscreen_transition_marker(
 		flow,
 		base,
@@ -1411,10 +1416,15 @@ func _draw_fullscreen_map_model(
 		camera_model,
 		model.get("floor_reveal_visual", {})
 	)
+	var title_visual: Dictionary = model.get("floor_reveal_visual", {})
+	if not bool(title_visual.get("active", false)):
+		# 피드백2 9항 보강: 걷힘이 없는 최초 1층 진입은 런 시작 인트로
+		# 모델이 타이틀을 공급한다(구름은 걷힘 모델만 소비).
+		title_visual = model.get("run_intro_title_visual", {})
 	_draw_floor_reveal_title(
 		canvas,
 		camera_view_rect,
-		model.get("floor_reveal_visual", {})
+		title_visual
 	)
 	var font := ThemeDB.fallback_font
 	var chrome_ink := PAPER if subcover_active else INK

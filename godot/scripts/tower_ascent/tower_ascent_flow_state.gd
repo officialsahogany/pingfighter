@@ -160,6 +160,9 @@ var _map_transition_progress := 0.0
 # 피드백2 5항: 구름 상시 드리프트 앰비언트 클록. 표현 전용이며 게임플레이
 # 상태·RNG에 절대 쓰지 않는다.
 var _map_ambient_drift_sec := 0.0
+# 피드백2 9항 보강(코덱스 리뷰 8/23): 최초 1층 진입은 걷힘이 없어 타이틀이
+# 뜨지 않았다. 런 시작 시 표시 전용 인트로 창의 시작 시각(-1=꺼짐).
+var _run_intro_title_start_sec := -1.0
 var _map_render_revision := 0
 var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()

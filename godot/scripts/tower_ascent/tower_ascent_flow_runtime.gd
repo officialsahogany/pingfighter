@@ -33,6 +33,10 @@ func begin_vertical_slice(
 	_active_registry = context.get("registry", null)
 	_guardian_spring_node.sync_owner_projection(owner)
 	_active = true
+	if _run_state.get_revealed_floor() <= 1:
+		# 피드백2 9항 보강(코덱스 리뷰): 최초 1층 진입도 '층 진입'이다.
+		# 걷힘이 없는 런 시작은 표시 전용 인트로 창으로 타이틀을 띄운다.
+		_run_intro_title_start_sec = _map_ambient_drift_sec
 	_current_node_id = _route_source_node_id
 	if _is_audition_terminal_node(_get_node(_current_node_id)):
 		var terminal_callback := finish_callback
@@ -378,6 +382,12 @@ func update_selective(delta: float, owner: Object = null) -> void:
 	# 피드백2 5항: 구름 상시 드리프트용 단조증가 앰비언트 클록. 걷힘 타이머와
 	# 합류해 하나의 시간원만 소비되므로 걷힘 시작/종료에 구름이 스냅하지 않는다.
 	_map_ambient_drift_sec += maxf(0.0, delta)
+	if (
+		_run_intro_title_start_sec >= 0.0
+		and _map_ambient_drift_sec - _run_intro_title_start_sec
+			> TowerAscentTuning.TEMP_MAP_FLOOR_REVEAL_SEC
+	):
+		_run_intro_title_start_sec = -1.0
 	if _map_overlay_active or _map_overlay_closing:
 		var overlay_finished: bool = bool(
 			_transition_fade_state.update_map_overlay(maxf(0.0, delta))
@@ -450,6 +460,22 @@ func get_floor_reveal_visual_model() -> Dictionary:
 	# snapped around each reveal. The ambient clock is monotone across both.
 	model["drift_time_sec"] = _map_ambient_drift_sec
 	return model
+
+
+func get_run_intro_title_visual_model() -> Dictionary:
+	# 표시 전용 — 걷힘 모델과 분리해 구름·씰의 reveal 의미론을 건드리지
+	# 않는다. 렌더러는 걷힘 비활성일 때만 이 모델로 타이틀을 그린다.
+	if _run_intro_title_start_sec < 0.0:
+		return {}
+	var duration := maxf(0.001, TowerAscentTuning.TEMP_MAP_FLOOR_REVEAL_SEC)
+	var intro_elapsed := _map_ambient_drift_sec - _run_intro_title_start_sec
+	if intro_elapsed < 0.0 or intro_elapsed > duration:
+		return {}
+	return {
+		"active": true,
+		"target_floor": maxi(1, _run_state.get_revealed_floor()),
+		"progress": clampf(intro_elapsed / duration, 0.0, 1.0),
+	}
 
 
 func is_floor_reveal_pending() -> bool:

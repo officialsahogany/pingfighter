@@ -231,6 +231,41 @@ func _verify_floor_reveal_title_catalog_and_wiring() -> void:
 		cloud_draw_index >= 0 and title_draw_index > cloud_draw_index,
 		"the reveal title must draw after the clouds so it floats above the fog"
 	)
+	_expect(
+		renderer_source.find("run_intro_title_visual", cloud_draw_index) > cloud_draw_index,
+		"the renderer must fall back to the run-start title model at the title site"
+	)
+	# 코덱스 리뷰(8/23): 최초 1층 진입도 층 진입이다 — 걷힘 없는 런 시작은
+	# 표시 전용 인트로 창이 타이틀을 공급하고, 구름 걷힘 모델은 오염되지
+	# 않아야 한다.
+	var intro_flow := _new_flow("intro-title")
+	_expect(intro_flow != null, "run-start title leg requires a began floor-1 flow")
+	if intro_flow != null:
+		var intro_model: Dictionary = intro_flow.get_run_intro_title_visual_model()
+		_expect(
+			bool(intro_model.get("active", false)),
+			"a fresh floor-1 run must arm the run-start title window"
+		)
+		_expect(
+			int(intro_model.get("target_floor", 0)) == 1,
+			"the run-start title must name floor one"
+		)
+		_expect(
+			not bool(intro_flow.get_floor_reveal_visual_model().get("active", false)),
+			"the run-start title must not fabricate an active cloud reveal"
+		)
+		for _tick in range(60):
+			intro_flow.update_selective(TICK_SEC)
+		_expect(
+			float(intro_flow.get_run_intro_title_visual_model().get("progress", 0.0)) > 0.0,
+			"the run-start title progress must advance on the ambient clock"
+		)
+		for _tick in range(200):
+			intro_flow.update_selective(TICK_SEC)
+		_expect(
+			intro_flow.get_run_intro_title_visual_model().is_empty(),
+			"the run-start title must retire after its reveal-length window"
+		)
 
 
 func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
