@@ -12,6 +12,19 @@ static func minimum_cover_zoom(view_rect: Rect2, world_rect: Rect2) -> float:
 	)
 
 
+static func minimum_fit_all_zoom(view_rect: Rect2, world_rect: Rect2) -> float:
+	if view_rect.size.x <= 0.0 or view_rect.size.y <= 0.0:
+		return 1.0
+	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
+		return 1.0
+	# Wheel-only overview floor: show the measured tower height, but never exceed
+	# the established cover floor when a short/wide map fits vertically already.
+	return minf(
+		view_rect.size.y / world_rect.size.y,
+		minimum_cover_zoom(view_rect, world_rect)
+	)
+
+
 static func cursor_anchored_offset(
 	cursor_screen_position: Vector2,
 	old_offset: Vector2,
@@ -43,8 +56,6 @@ static func build_cursor_zoom_override(
 		return {}
 	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
 		return {}
-	var safe_minimum := maxf(minimum_cover_zoom(view_rect, world_rect), minimum_zoom)
-	var safe_maximum := maxf(safe_minimum, maximum_zoom)
 	var old_zoom := maxf(
 		0.001,
 		float(camera_model.get(
@@ -52,6 +63,8 @@ static func build_cursor_zoom_override(
 			camera_model.get("zoom_multiplier", 1.0)
 		))
 	)
+	var safe_minimum := maxf(0.001, minimum_zoom)
+	var safe_maximum := maxf(safe_minimum, maximum_zoom)
 	var new_zoom := clampf(requested_zoom, safe_minimum, safe_maximum)
 	var old_offset: Vector2 = camera_model.get("offset", Vector2.ZERO)
 	var requested_offset := cursor_anchored_offset(
@@ -70,7 +83,8 @@ static func build_cursor_zoom_override(
 		0.0
 	)
 	apply_offset_override(rebuilt, requested_offset)
-	rebuilt["minimum_cover_zoom"] = safe_minimum
+	rebuilt["minimum_cover_zoom"] = minimum_cover_zoom(view_rect, world_rect)
+	rebuilt["minimum_fit_all_zoom"] = safe_minimum
 	rebuilt["maximum_zoom"] = safe_maximum
 	rebuilt["render_zoom_multiplier"] = new_zoom
 	rebuilt["zoom_multiplier"] = new_zoom
@@ -91,7 +105,10 @@ static func build(
 	if world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
 		return {}
 	var safe_padding := maxf(0.0, boundary_padding)
-	var safe_zoom := maxf(1.0, zoom_multiplier)
+	# Sub-cover zoom is an explicit wheel-camera state. Keep only a numerical
+	# safety floor here; entry, M-key, and walking defaults remain cover-owned by
+	# the renderer that calls build().
+	var safe_zoom := maxf(0.001, zoom_multiplier)
 	var padded_left := (world_rect.position.x - safe_padding) * safe_zoom
 	var padded_right := (world_rect.end.x + safe_padding) * safe_zoom
 	var padded_top := (world_rect.position.y - safe_padding) * safe_zoom
@@ -164,18 +181,26 @@ static func apply_offset_override(
 	var maximum_offset_x := float(camera_model.get("maximum_offset_x", 0.0))
 	var minimum_offset_y := float(camera_model.get("minimum_offset_y", 0.0))
 	var maximum_offset_y := float(camera_model.get("maximum_offset_y", 0.0))
-	var offset := Vector2(
-		clampf(requested_offset.x, minimum_offset_x, maximum_offset_x),
-		clampf(requested_offset.y, minimum_offset_y, maximum_offset_y)
-	)
 	var zoom := float(camera_model.get("zoom_multiplier", 1.0))
 	var view_rect: Rect2 = camera_model.get("view_rect", Rect2())
+	var world_rect: Rect2 = camera_model.get("world_rect", Rect2())
 	var focus_world_position: Vector2 = camera_model.get(
 		"focus_world_position",
 		Vector2.ZERO
 	)
 	var horizontal_world_fits := bool(camera_model.get("horizontal_world_fits", false))
 	var vertical_world_fits := bool(camera_model.get("vertical_world_fits", false))
+	# Once a projected axis is smaller than the viewport its clamp interval is
+	# inverted. Pin that axis to center so cursor zoom and drag cannot throw the
+	# scroll out of view; clamp only the axes which remain larger than the view.
+	var offset := Vector2(
+		view_rect.get_center().x - world_rect.get_center().x * zoom
+		if horizontal_world_fits
+		else clampf(requested_offset.x, minimum_offset_x, maximum_offset_x),
+		view_rect.get_center().y - world_rect.get_center().y * zoom
+		if vertical_world_fits
+		else clampf(requested_offset.y, minimum_offset_y, maximum_offset_y)
+	)
 	camera_model["offset"] = offset
 	camera_model["focus_screen_position"] = focus_world_position * zoom + offset
 	camera_model["visible_world_rect"] = Rect2(

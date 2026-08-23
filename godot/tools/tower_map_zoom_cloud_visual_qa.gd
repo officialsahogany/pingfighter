@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 
 const GAME_SIZE := Vector2i(2020, 1246)
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
@@ -19,6 +22,7 @@ const PANEL_BLANK_COLORS := [
 	Color("bd8c35"),
 ]
 const PANEL_BLANK_COLOR_EPSILON := 0.002
+const SURROUND_COLOR_EPSILON := 0.012
 
 var _failure := ""
 
@@ -74,20 +78,52 @@ func _run() -> void:
 	if initial_image == null:
 		_fail("initial map capture failed")
 		return
+	var renderer: Object = flow.get("_renderer")
+	var cover_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	if not _save_and_assert_cover(
+		initial_image,
+		output_dir.path_join("zoom_cover.png"),
+		"cover"
+	):
+		return
 	var cursor := VIEWPORT_RECT.get_center()
 	for _index in range(24):
 		flow.handle_input(_wheel(cursor, false))
 		canvas.queue_redraw()
 		await process_frame
+	var fit_all_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var minimum_image: Image = await _capture(canvas, viewport)
-	if not _save_and_assert_cover(minimum_image, output_dir.path_join("zoom_minimum.png"), "minimum"):
+	if not _save_and_assert_subcover(
+		minimum_image,
+		output_dir.path_join("zoom_fit_all.png"),
+		"fit_all",
+		fit_all_model
+	):
 		return
-	for _index in range(3):
+	var fit_all_zoom := float((fit_all_model.get("camera", {}) as Dictionary).get(
+		"render_zoom_multiplier",
+		0.0
+	))
+	var cover_zoom := float(fit_all_model.get("minimum_cover_zoom", 0.0))
+	var middle_target := lerpf(fit_all_zoom, cover_zoom, 0.5)
+	for _index in range(24):
 		flow.handle_input(_wheel(cursor, true))
 		canvas.queue_redraw()
 		await process_frame
+		var candidate_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+		if float((candidate_model.get("camera", {}) as Dictionary).get(
+			"render_zoom_multiplier",
+			0.0
+		)) >= middle_target:
+			break
+	var middle_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var middle_image: Image = await _capture(canvas, viewport)
-	if not _save_and_assert_cover(middle_image, output_dir.path_join("zoom_middle.png"), "middle"):
+	if not _save_and_assert_subcover(
+		middle_image,
+		output_dir.path_join("zoom_middle.png"),
+		"middle",
+		middle_model
+	):
 		return
 	for _index in range(32):
 		flow.handle_input(_wheel(cursor, true))
@@ -96,6 +132,24 @@ func _run() -> void:
 	var maximum_image: Image = await _capture(canvas, viewport)
 	if not _save_and_assert_cover(maximum_image, output_dir.path_join("zoom_maximum.png"), "maximum"):
 		return
+	var budget: Dictionary = renderer.get_render_cache_debug_state()
+	if int(budget.get("total_map_draw_call_budget", 0)) > TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET:
+		_fail("sub-cover overview exceeded the established dotted/cloud draw-call budget")
+		return
+	print(
+		"[TowerMapZoomCloudVisualQA] fit_all=%.6f cover=%.6f maximum=%.6f world=%s floors=%d draw_calls=%d"
+		% [
+			fit_all_zoom,
+			cover_zoom,
+			float(((renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT) as Dictionary).get(
+				"camera",
+				{}
+			) as Dictionary).get("render_zoom_multiplier", 0.0)),
+			fit_all_model.get("camera_world_rect", Rect2()),
+			(fit_all_model.get("floor_bands", []) as Array).size(),
+			int(budget.get("total_map_draw_call_budget", 0)),
+		]
+	)
 	flow.close_map_overlay()
 	# The screen capture owner intentionally has no gameplay registry. Start the
 	# walking fixture through the same null-owner path as the focused production
@@ -127,6 +181,30 @@ func _run() -> void:
 	if not _save(covered_image, output_dir.path_join("cloud_covered.png")):
 		_fail("covered cloud capture failed")
 		return
+	var walking_renderer: Object = flow.get("_renderer")
+	var walking_cursor := VIEWPORT_RECT.get_center()
+	for _index in range(24):
+		flow.handle_input(_wheel(walking_cursor, false))
+		canvas.queue_redraw()
+		await process_frame
+	var walking_subcover_model: Dictionary = walking_renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var walking_subcover_image: Image = await _capture(canvas, viewport)
+	if not _save_and_assert_subcover(
+		walking_subcover_image,
+		output_dir.path_join("walker_cloud_subcover.png"),
+		"walker_cloud_subcover",
+		walking_subcover_model,
+		false
+	):
+		return
+	# Restore the established walking presentation before recording the existing
+	# reveal-to-travel strip. This QA-only reset does not alter runtime ownership.
+	(flow.get("_map_drag_state") as Object).reset_surface()
+	canvas.queue_redraw()
+	await process_frame
 	flow.update_selective(1.0, canvas)
 	var revealing_image: Image = await _capture(canvas, viewport)
 	if not _save(revealing_image, output_dir.path_join("cloud_revealing.png")):
@@ -199,6 +277,75 @@ func _save_and_assert_cover(image: Image, path: String, label: String) -> bool:
 	return true
 
 
+func _save_and_assert_subcover(
+	image: Image,
+	path: String,
+	label: String,
+	model: Dictionary,
+	require_all_floors: bool = true
+) -> bool:
+	if not _save(image, path):
+		_fail("%s zoom capture failed" % label)
+		return false
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var world_rect: Rect2 = model.get("camera_world_rect", Rect2())
+	var projected_world := Rect2(world_rect.position * zoom + offset, world_rect.size * zoom)
+	var floor_numbers: Dictionary = {}
+	for floor_variant in model.get("floor_bands", []):
+		if floor_variant is Dictionary:
+			floor_numbers[int((floor_variant as Dictionary).get("floor", 0))] = true
+	if require_all_floors and floor_numbers.size() != 12:
+		_fail("%s capture does not contain all 12 floor bands" % label)
+		return false
+	var expected_surround := TowerAscentFlowRenderer.surround_color_for_realm(
+		str(model.get("realm_kind", "human_realm"))
+	)
+	var counts := _outside_edge_counts(image, projected_world, expected_surround)
+	print(
+		"[TowerMapZoomCloudVisualQA] zoom=%s outside_paper=%d surround_mismatch=%d projected=%s"
+		% [label, counts.paper, counts.surround_mismatch, projected_world]
+	)
+	if int(counts.paper) > 0:
+		_fail("%s zoom exposes PAPER-band pixels outside the scroll: %s" % [label, counts])
+		return false
+	if int(counts.surround_mismatch) > 0:
+		_fail("%s zoom outside edge is not the procedural ink surround: %s" % [label, counts])
+		return false
+	return true
+
+
+func _outside_edge_counts(
+	image: Image,
+	projected_world: Rect2,
+	expected_surround: Color
+) -> Dictionary:
+	var counts := {"paper": 0, "surround_mismatch": 0}
+	var exposed_edges: Array[Dictionary] = []
+	if projected_world.position.x > 0.5:
+		exposed_edges.append({"vertical": true, "coordinate": 0})
+	if projected_world.end.x < float(GAME_SIZE.x) - 0.5:
+		exposed_edges.append({"vertical": true, "coordinate": GAME_SIZE.x - 1})
+	if projected_world.position.y > 0.5:
+		exposed_edges.append({"vertical": false, "coordinate": 0})
+	if projected_world.end.y < float(GAME_SIZE.y) - 0.5:
+		exposed_edges.append({"vertical": false, "coordinate": GAME_SIZE.y - 1})
+	for edge in exposed_edges:
+		var sample_count := GAME_SIZE.y if bool(edge.vertical) else GAME_SIZE.x
+		for sample_index in range(sample_count):
+			var pixel := (
+				image.get_pixel(int(edge.coordinate), sample_index)
+				if bool(edge.vertical)
+				else image.get_pixel(sample_index, int(edge.coordinate))
+			)
+			if _is_paper_band(pixel):
+				counts.paper = int(counts.paper) + 1
+			if not _colors_near(pixel, expected_surround, SURROUND_COLOR_EPSILON):
+				counts.surround_mismatch = int(counts.surround_mismatch) + 1
+	return counts
+
+
 func _blank_edge_counts(image: Image) -> Dictionary:
 	var counts := {"top": 0, "bottom": 0, "left": 0, "right": 0}
 	for x in range(GAME_SIZE.x):
@@ -223,6 +370,25 @@ func _is_panel_blank(pixel: Color) -> bool:
 		):
 			return true
 	return false
+
+
+func _is_paper_band(pixel: Color) -> bool:
+	return (
+		pixel.r >= 0.82
+		and pixel.r <= 0.96
+		and pixel.g >= 0.69
+		and pixel.g <= 0.90
+		and pixel.b >= 0.48
+		and pixel.b <= 0.76
+	)
+
+
+func _colors_near(left: Color, right: Color, epsilon: float) -> bool:
+	return (
+		absf(left.r - right.r) <= epsilon
+		and absf(left.g - right.g) <= epsilon
+		and absf(left.b - right.b) <= epsilon
+	)
 
 
 func _promote_first_target_to_next_floor(flow: Object, revealed_floor: int) -> String:

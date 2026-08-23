@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
+const TowerAscentMapCameraModel := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -53,6 +56,24 @@ func _verify_m_key_cover_and_r10_width_contract() -> void:
 		"R10-2: M-key scroll world must retain its content-width scaling"
 	)
 	_assert_cover(model, FULLSCREEN_RECT, "M-key minimum zoom")
+	var camera: Dictionary = model.get("camera", {})
+	_expect(
+		is_equal_approx(
+			float(camera.get("render_zoom_multiplier", 0.0)),
+			float(model.get("minimum_cover_zoom", -1.0))
+		),
+		"M-key entry framing must remain exactly at the established cover zoom"
+	)
+	var negative_model := model.duplicate(true)
+	var negative_camera: Dictionary = negative_model.get("camera", {})
+	negative_camera["render_zoom_multiplier"] = float(
+		model.get("minimum_fit_all_zoom", 0.0)
+	)
+	negative_model["camera"] = negative_camera
+	_expect(
+		not _cover_violation_reason(negative_model, FULLSCREEN_RECT).is_empty(),
+		"negative leg: an entry default below cover must turn this seal RED"
+	)
 
 
 func _verify_walking_minimum_and_closeup_cover() -> void:
@@ -107,9 +128,9 @@ func _assert_cover(model: Dictionary, expected_view: Rect2, label: String) -> vo
 	var camera: Dictionary = model.get("camera", {})
 	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
 	var offset: Vector2 = camera.get("offset", Vector2.INF)
-	var expected_floor := maxf(
-		expected_view.size.x / maxf(0.001, camera_world_rect.size.x),
-		expected_view.size.y / maxf(0.001, camera_world_rect.size.y)
+	var expected_floor := TowerAscentMapCameraModel.minimum_cover_zoom(
+		expected_view,
+		camera_world_rect
 	)
 	var projected_world := Rect2(
 		camera_world_rect.position * zoom + offset,
@@ -125,6 +146,30 @@ func _assert_cover(model: Dictionary, expected_view: Rect2, label: String) -> vo
 		projected_world.grow(EPSILON).encloses(expected_view),
 		"%s must project map art across every screen edge" % label
 	)
+	_expect(
+		_cover_violation_reason(model, expected_view).is_empty(),
+		"%s must keep the original cover seal GREEN" % label
+	)
+
+
+func _cover_violation_reason(model: Dictionary, expected_view: Rect2) -> String:
+	var camera_world_rect: Rect2 = model.get("camera_world_rect", Rect2())
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.INF)
+	var cover_zoom := TowerAscentMapCameraModel.minimum_cover_zoom(
+		expected_view,
+		camera_world_rect
+	)
+	if zoom + EPSILON < cover_zoom:
+		return "default_below_cover"
+	var projected_world := Rect2(
+		camera_world_rect.position * zoom + offset,
+		camera_world_rect.size * zoom
+	)
+	if not projected_world.grow(EPSILON).encloses(expected_view):
+		return "default_exposes_background"
+	return ""
 
 
 func _new_flow(run_id: String) -> Object:

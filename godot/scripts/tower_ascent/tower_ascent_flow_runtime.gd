@@ -319,8 +319,8 @@ func _apply_fullscreen_map_wheel_zoom(mouse_event: InputEventMouseButton) -> boo
 		else current_zoom / zoom_step
 	)
 	var minimum_zoom := float(camera_model.get(
-		"minimum_cover_zoom",
-		TowerAscentMapCameraModel.minimum_cover_zoom(
+		"minimum_fit_all_zoom",
+		TowerAscentMapCameraModel.minimum_fit_all_zoom(
 			camera_model.get("view_rect", Rect2()),
 			camera_model.get("world_rect", Rect2())
 		)
@@ -330,7 +330,10 @@ func _apply_fullscreen_map_wheel_zoom(mouse_event: InputEventMouseButton) -> boo
 		mouse_event.position,
 		requested_zoom,
 		minimum_zoom,
-		TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+		float(camera_model.get(
+			"maximum_zoom",
+			TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+		))
 	)
 	if not zoom_override.is_empty():
 		_map_drag_state.apply_zoom_override(

@@ -126,6 +126,11 @@ const CINNABAR := Color("9e352d")
 const CINNABAR_DARK := Color("63241f")
 const GOLD := Color("bd8c35")
 const SEALED := Color("5e5145")
+const MAP_SURROUND_HUMAN := Color(0.018, 0.012, 0.01, 1.0)
+const MAP_SURROUND_IMMORTAL := Color(0.018, 0.03, 0.035, 1.0)
+const MAP_SCROLL_EDGE_INK_SCREEN_PX := 6.0
+const MAP_SCROLL_EDGE_GAP_RATIO := 0.08
+const SUBCOVER_ZOOM_EPSILON := 0.0001
 
 var _cached_graph_key := ""
 var _cached_render_model: Dictionary = {}
@@ -158,6 +163,10 @@ func get_route_aim_gauge_asset_paths() -> PackedStringArray:
 		ROUTE_AIM_GAUGE_FAN_PATH,
 		ROUTE_AIM_GAUGE_ARROW_PATH,
 	])
+
+
+static func surround_color_for_realm(realm_kind: String) -> Color:
+	return MAP_SURROUND_IMMORTAL if realm_kind == "immortal_realm" else MAP_SURROUND_HUMAN
 
 
 func get_route_wind_vane_asset_paths() -> PackedStringArray:
@@ -422,6 +431,11 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		_last_fullscreen_model = {}
 		return {}
 	var fit_content_width := str(flow.get_phase_name()) != "MAP_TRANSITION"
+	var static_base := (
+		_build_full_tower_overview_base(flow, base)
+		if fit_content_width
+		else base
+	)
 	var fullscreen_key := "%s:%0.3f:%0.3f:%s" % [
 		_cached_graph_key,
 		viewport_rect.size.x,
@@ -431,7 +445,7 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	if fullscreen_key != _cached_fullscreen_key:
 		_cached_fullscreen_key = fullscreen_key
 		_cached_fullscreen_model = _build_static_fullscreen_map_model(
-			base,
+			static_base,
 			viewport_rect,
 			fit_content_width
 		)
@@ -488,37 +502,55 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		0.0,
 		1.0
 	)
+	var has_manual_zoom := (
+		flow.has_method("has_map_camera_manual_zoom_override")
+		and bool(flow.has_map_camera_manual_zoom_override())
+		and flow.has_method("get_map_camera_manual_zoom_multiplier")
+	)
+	if has_manual_zoom:
+		camera_render_multiplier = clampf(
+			float(flow.get_map_camera_manual_zoom_multiplier()),
+			float(model.get("minimum_fit_all_zoom", 1.0)),
+			maxf(
+				float(model.get("minimum_cover_zoom", 1.0)),
+				TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
+			)
+		)
+	var subcover_active := (
+		has_manual_zoom
+		and camera_render_multiplier + SUBCOVER_ZOOM_EPSILON
+			< float(model.get("minimum_cover_zoom", 1.0))
+	)
+	var camera_world_rect: Rect2 = (
+		model.get("fit_all_camera_world_rect", model.get("camera_world_rect", Rect2()))
+		if subcover_active
+		else model.get("camera_world_rect", Rect2())
+	)
+	model["camera_world_rect"] = camera_world_rect
+	if subcover_active:
+		model["nodes"] = model.get("overview_nodes", model.get("nodes", []))
+		model["edges"] = model.get("overview_edges", model.get("edges", []))
+		model["floor_bands"] = model.get(
+			"overview_floor_bands",
+			model.get("floor_bands", [])
+		)
+		model["scroll_background"] = model.get(
+			"overview_scroll_background",
+			model.get("scroll_background", {})
+		)
+		model["position_by_id"] = model.get(
+			"overview_position_by_id",
+			model.get("position_by_id", {})
+		)
 	var camera_model := TowerAscentMapCameraModel.build(
 		model.get("camera_view_rect", Rect2()),
-		model.get("camera_world_rect", Rect2()),
+		camera_world_rect,
 		focus_world_position,
 		0.0,
 		TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
 		camera_render_multiplier,
 		camera_focus_x_blend
 	)
-	if (
-		flow.has_method("has_map_camera_manual_zoom_override")
-		and bool(flow.has_map_camera_manual_zoom_override())
-		and flow.has_method("get_map_camera_manual_zoom_multiplier")
-	):
-		camera_render_multiplier = clampf(
-			float(flow.get_map_camera_manual_zoom_multiplier()),
-			float(model.get("minimum_cover_zoom", 1.0)),
-			maxf(
-				float(model.get("minimum_cover_zoom", 1.0)),
-				TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
-			)
-		)
-		camera_model = TowerAscentMapCameraModel.build(
-			model.get("camera_view_rect", Rect2()),
-			model.get("camera_world_rect", Rect2()),
-			focus_world_position,
-			0.0,
-			TowerAscentTuning.TEMP_MAP_CAMERA_FOCUS_Y_RATIO,
-			camera_render_multiplier,
-			camera_focus_x_blend
-		)
 	if (
 		flow.has_method("has_map_camera_manual_override")
 		and bool(flow.has_map_camera_manual_override())
@@ -534,13 +566,69 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 	# hit testing read render_zoom_multiplier.
 	camera_model["zoom_multiplier"] = camera_intro_multiplier
 	camera_model["minimum_cover_zoom"] = float(model.get("minimum_cover_zoom", 1.0))
+	camera_model["minimum_fit_all_zoom"] = float(model.get("minimum_fit_all_zoom", 1.0))
 	camera_model["maximum_zoom"] = maxf(
 		float(model.get("minimum_cover_zoom", 1.0)),
 		TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
 	)
+	model["subcover_active"] = subcover_active
+	model["surround_color"] = surround_color_for_realm(str(model.get(
+		"realm_kind",
+		"human_realm"
+	)))
 	model["camera"] = camera_model
 	_last_fullscreen_model = model
 	return model
+
+
+func _build_full_tower_overview_base(flow: Object, active_base: Dictionary) -> Dictionary:
+	if not flow.has_method("get_graph_phases"):
+		return active_base
+	var phases: Array = flow.get_graph_phases()
+	if phases.size() <= 1:
+		return active_base
+	var overview := active_base.duplicate(false)
+	var floors: Array[Dictionary] = []
+	var nodes: Array[Dictionary] = []
+	var edges: Array[Dictionary] = []
+	var active_phase: Dictionary = active_base.get("phase", {})
+	var active_phase_id := str(active_phase.get("id", ""))
+	for phase_variant in phases:
+		if not (phase_variant is Dictionary):
+			continue
+		var phase := phase_variant as Dictionary
+		var realm_kind := str(phase.get("realm_kind", "human_realm"))
+		var phase_is_active := str(phase.get("id", "")) == active_phase_id
+		for floor_variant in phase.get("floors", []):
+			if not (floor_variant is Dictionary):
+				continue
+			var floor_data := (floor_variant as Dictionary).duplicate(true)
+			floor_data["realm_kind"] = realm_kind
+			floor_data["overview_active_phase"] = phase_is_active
+			floors.append(floor_data)
+		for node_variant in phase.get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := (node_variant as Dictionary).duplicate(true)
+			node["realm_kind"] = realm_kind
+			node["overview_active_phase"] = phase_is_active
+			# Locked registry-only data contributes layout and cloud bounds, but it
+			# is neither rendered nor hittable until the gameplay content unlocks.
+			node["overview_hidden"] = str(node.get(
+				"content_state",
+				"generated"
+			)) != "generated"
+			nodes.append(node)
+		for edge_variant in phase.get("edges", []):
+			if edge_variant is Dictionary:
+				edges.append((edge_variant as Dictionary).duplicate(true))
+	if floors.is_empty() or nodes.is_empty():
+		return active_base
+	overview["floors"] = floors
+	overview["nodes"] = nodes
+	overview["edges"] = edges
+	overview["full_tower_overview"] = true
+	return overview
 
 
 func _build_static_fullscreen_map_model(
@@ -590,10 +678,29 @@ func _build_static_fullscreen_map_model(
 	var row_index_by_source_y: Dictionary = {}
 	for row_index in range(sorted_source_rows.size()):
 		row_index_by_source_y[int(sorted_source_rows[row_index])] = row_index
+	var active_first_row_index := 0
+	var found_active_row := false
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if not bool(node.get("overview_active_phase", true)):
+			continue
+		var source_position := _vector2(node.get("position", Vector2.ZERO))
+		var source_row_index := int(row_index_by_source_y.get(
+			int(round(source_position.y)),
+			0
+		))
+		active_first_row_index = (
+			mini(active_first_row_index, source_row_index)
+			if found_active_row
+			else source_row_index
+		)
+		found_active_row = true
 	var world_rect := Rect2(
 		Vector2(
 			content_rect.get_center().x - scaled_tile_size.x * 0.5,
-			content_rect.position.y
+			content_rect.position.y - float(active_first_row_index) * scaled_row_pitch
 		),
 		Vector2(
 			scaled_tile_size.x,
@@ -639,6 +746,8 @@ func _build_static_fullscreen_map_model(
 	var node_hit_cell_size := maxf(1.0, art_size)
 	var node_hit_ids_by_cell: Dictionary = {}
 	for node in projected_nodes:
+		if bool(node.get("overview_hidden", false)):
+			continue
 		var hit_node_id := str(node.get("id", ""))
 		var hit_rect: Rect2 = node.get("world_art_rect", Rect2())
 		var minimum_cell := Vector2i(
@@ -663,6 +772,17 @@ func _build_static_fullscreen_map_model(
 		var from_id := str(edge.get("from", ""))
 		var to_id := str(edge.get("to", ""))
 		if not position_by_id.has(from_id) or not position_by_id.has(to_id):
+			continue
+		if (
+			bool((projected_node_by_id.get(from_id, {}) as Dictionary).get(
+				"overview_hidden",
+				false
+			))
+			or bool((projected_node_by_id.get(to_id, {}) as Dictionary).get(
+				"overview_hidden",
+				false
+			))
+		):
 			continue
 		straight_edges.append({
 			"from": from_id,
@@ -709,6 +829,21 @@ func _build_static_fullscreen_map_model(
 			float(draw_call_count) / float(route_draw_call_budget)
 		)
 	var projected_edges := _attach_route_brush_strips(dotted_edges, map_scale)
+	var active_projected_nodes: Array[Dictionary] = []
+	var active_position_by_id: Dictionary = {}
+	for node in projected_nodes:
+		if not bool(node.get("overview_active_phase", true)):
+			continue
+		active_projected_nodes.append(node)
+		var active_node_id := str(node.get("id", ""))
+		active_position_by_id[active_node_id] = node.get("world_position", Vector2.ZERO)
+	var active_projected_edges: Array[Dictionary] = []
+	for edge in projected_edges:
+		if (
+			active_position_by_id.has(str(edge.get("from", "")))
+			and active_position_by_id.has(str(edge.get("to", "")))
+		):
+			active_projected_edges.append(edge)
 	_path_cache_build_count += 1
 	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
 	_path_cached_dot_gap = dot_gap
@@ -729,6 +864,14 @@ func _build_static_fullscreen_map_model(
 		floor_bands.append({
 			"floor": floor_number,
 			"segment_floor": floor_number,
+			"realm_kind": str(floor_data.get(
+				"realm_kind",
+				base.get("realm_kind", "human_realm")
+			)),
+			"overview_active_phase": bool(floor_data.get(
+				"overview_active_phase",
+				true
+			)),
 			"y": band_y,
 			"rect": Rect2(
 				world_rect.position.x,
@@ -737,7 +880,31 @@ func _build_static_fullscreen_map_model(
 				scaled_tile_size.y
 			),
 		})
+	var active_floor_bands: Array[Dictionary] = []
+	var active_camera_world_rect := Rect2()
+	var has_active_camera_world_rect := false
+	for band_variant in floor_bands:
+		if not (band_variant is Dictionary):
+			continue
+		var band := band_variant as Dictionary
+		if not bool(band.get("overview_active_phase", true)):
+			continue
+		active_floor_bands.append(band)
+		var band_rect: Rect2 = band.get("rect", Rect2())
+		active_camera_world_rect = (
+			active_camera_world_rect.merge(band_rect)
+			if has_active_camera_world_rect
+			else band_rect
+		)
+		has_active_camera_world_rect = true
 	var scroll_background := build_scroll_background_model(
+		active_floor_bands,
+		world_rect,
+		str(base.get("realm_kind", "human_realm")),
+		base.get("map_scroll_assets", {}),
+		scaled_tile_size
+	)
+	var overview_scroll_background := build_scroll_background_model(
 		floor_bands,
 		world_rect,
 		str(base.get("realm_kind", "human_realm")),
@@ -745,20 +912,30 @@ func _build_static_fullscreen_map_model(
 		scaled_tile_size
 	)
 	# The node layout keeps the established safe gutters, while the camera and
-	# scroll artwork own the whole screen. `tile_world_rect` is the exact opaque
+	# scroll artwork own the whole screen. `world_rect` is the exact opaque
 	# map-art extent, so clamping against it cannot reveal the paper panel when a
 	# cover crop tracks near an edge.
 	var camera_view_rect := viewport_rect
-	var camera_world_rect: Rect2 = scroll_background.get(
-		"tile_world_rect",
+	var fit_all_camera_world_rect: Rect2 = overview_scroll_background.get(
+		"world_rect",
 		Rect2(
 			Vector2(world_rect.position.x, world_rect.position.y - scaled_tile_size.y * 0.5),
 			Vector2(world_rect.size.x, world_rect.size.y + scaled_tile_size.y)
 		)
 	)
+	var camera_world_rect: Rect2 = scroll_background.get(
+		"world_rect",
+		active_camera_world_rect
+		if has_active_camera_world_rect
+		else fit_all_camera_world_rect
+	)
 	var minimum_cover_zoom := TowerAscentMapCameraModel.minimum_cover_zoom(
 		camera_view_rect,
 		camera_world_rect
+	)
+	var minimum_fit_all_zoom := TowerAscentMapCameraModel.minimum_fit_all_zoom(
+		camera_view_rect,
+		fit_all_camera_world_rect
 	)
 	var preferred_camera_zoom := maxf(
 		minimum_cover_zoom,
@@ -766,7 +943,7 @@ func _build_static_fullscreen_map_model(
 	)
 	var cloud_layer_model := _map_cloud_layer.build(
 		projected_nodes,
-		camera_world_rect,
+		fit_all_camera_world_rect,
 		int(base.get("map_seed", 0)),
 		art_size
 	)
@@ -778,17 +955,24 @@ func _build_static_fullscreen_map_model(
 		"world_rect": world_rect,
 		"camera_view_rect": camera_view_rect,
 		"camera_world_rect": camera_world_rect,
+		"fit_all_camera_world_rect": fit_all_camera_world_rect,
 		"minimum_cover_zoom": minimum_cover_zoom,
+		"minimum_fit_all_zoom": minimum_fit_all_zoom,
 		"preferred_camera_zoom": preferred_camera_zoom,
 		"cloud_layer": cloud_layer_model,
 		"map_scale": map_scale,
 		"plaque_size": MAP_SCROLL_PLAQUE_SIZE * map_scale,
-		"nodes": projected_nodes,
-		"edges": projected_edges,
-		"floor_bands": floor_bands,
+		"nodes": active_projected_nodes,
+		"edges": active_projected_edges,
+		"floor_bands": active_floor_bands,
+		"overview_nodes": projected_nodes,
+		"overview_edges": projected_edges,
+		"overview_floor_bands": floor_bands,
 		"scroll_background": scroll_background,
+		"overview_scroll_background": overview_scroll_background,
 		"map_scroll_assets": base.get("map_scroll_assets", {}),
-		"position_by_id": position_by_id,
+		"position_by_id": active_position_by_id,
+		"overview_position_by_id": position_by_id,
 		"node_by_id": projected_node_by_id,
 		"node_hit_cell_size": node_hit_cell_size,
 		"node_hit_ids_by_cell": node_hit_ids_by_cell,
@@ -797,6 +981,7 @@ func _build_static_fullscreen_map_model(
 		"phase": base.get("phase", {}),
 		"realm_kind": str(base.get("realm_kind", "human_realm")),
 		"locked_phase_hints": base.get("locked_phase_hints", []),
+		"full_tower_overview": bool(base.get("full_tower_overview", false)),
 	}
 
 
@@ -967,14 +1152,16 @@ func _draw_fullscreen_map_model(
 	var camera_model: Dictionary = model.get("camera", {})
 	var realm_kind := str(model.get("realm_kind", "human_realm"))
 	var immortal_realm := realm_kind == "immortal_realm"
-	canvas.draw_rect(
-		viewport_rect,
-		Color(0.018, 0.03, 0.035, 0.985) if immortal_realm else Color(0.018, 0.012, 0.01, 0.985),
-		true
+	var subcover_active := bool(model.get("subcover_active", false))
+	var surround_color: Color = model.get(
+		"surround_color",
+		surround_color_for_realm(realm_kind)
 	)
-	canvas.draw_rect(panel_rect, Color("dce3da") if immortal_realm else PAPER, true)
-	canvas.draw_rect(panel_rect, CINNABAR_DARK, false, 5.0)
-	canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
+	canvas.draw_rect(viewport_rect, surround_color, true)
+	if not subcover_active:
+		canvas.draw_rect(panel_rect, Color("dce3da") if immortal_realm else PAPER, true)
+		canvas.draw_rect(panel_rect, CINNABAR_DARK, false, 5.0)
+		canvas.draw_rect(panel_rect.grow(-10.0), GOLD, false, 1.5)
 	var scroll_background_value: Variant = model.get("scroll_background", {})
 	var scroll_background: Dictionary = (
 		scroll_background_value as Dictionary
@@ -984,6 +1171,13 @@ func _draw_fullscreen_map_model(
 	var scroll_background_ready := bool(scroll_background.get("ready", false))
 	if scroll_background_ready:
 		_draw_scroll_background_model(canvas, scroll_background, camera_view_rect, camera_model)
+		if subcover_active:
+			_draw_subcover_scroll_edge_treatment(
+				canvas,
+				camera_view_rect,
+				model.get("camera_world_rect", Rect2()),
+				camera_model
+			)
 	else:
 		if immortal_realm:
 			_draw_immortal_realm_backdrop(canvas, camera_view_rect)
@@ -1046,7 +1240,10 @@ func _draw_fullscreen_map_model(
 	var selected_target_id := str(model.get("selected_target_id", ""))
 	var pointer_selected_node_id := str(model.get("pointer_selected_node_id", ""))
 	for node_variant in model.get("nodes", []):
-		if node_variant is Dictionary:
+		if (
+			node_variant is Dictionary
+			and not bool((node_variant as Dictionary).get("overview_hidden", false))
+		):
 			_draw_fullscreen_map_node(
 				canvas,
 				node_variant as Dictionary,
@@ -1074,6 +1271,8 @@ func _draw_fullscreen_map_model(
 		model.get("floor_reveal_visual", {})
 	)
 	var font := ThemeDB.fallback_font
+	var chrome_ink := PAPER if subcover_active else INK
+	var chrome_ink_soft := PAPER_DEEP if subcover_active else INK_SOFT
 	canvas.draw_string(
 		font,
 		panel_rect.position + Vector2(34.0, 48.0),
@@ -1084,7 +1283,7 @@ func _draw_fullscreen_map_model(
 		HORIZONTAL_ALIGNMENT_LEFT,
 		panel_rect.size.x * 0.48,
 		30,
-		INK
+		chrome_ink
 	)
 	canvas.draw_string(
 		font,
@@ -1093,7 +1292,7 @@ func _draw_fullscreen_map_model(
 		HORIZONTAL_ALIGNMENT_LEFT,
 		panel_rect.size.x * 0.58,
 		14,
-		INK_SOFT
+		chrome_ink_soft
 	)
 	_draw_locked_phase_hints(canvas, panel_rect, model.get("locked_phase_hints", []))
 	var transition_marker_value: Variant = model.get("transition_marker", {})
@@ -1125,7 +1324,7 @@ func _draw_fullscreen_map_model(
 		HORIZONTAL_ALIGNMENT_RIGHT,
 		196.0,
 		14,
-		INK_SOFT
+		chrome_ink_soft
 	)
 	var legend_rect := Rect2(
 		panel_rect.position.x + 34.0,
@@ -1144,6 +1343,55 @@ func _draw_fullscreen_map_model(
 		11,
 		INK
 	)
+
+
+func _draw_subcover_scroll_edge_treatment(
+	canvas: CanvasItem,
+	view_rect: Rect2,
+	map_world_rect: Rect2,
+	camera_model: Dictionary
+) -> void:
+	var projected_rect := _camera_world_rect_to_screen(camera_model, map_world_rect)
+	if projected_rect.size.x <= 0.0 or projected_rect.size.y <= 0.0:
+		return
+	var visible_rect := projected_rect.intersection(view_rect)
+	if visible_rect.size.x <= 0.0 or visible_rect.size.y <= 0.0:
+		return
+	var edge_ink := Color(INK, 0.68)
+	var horizontal_gap := projected_rect.size.x * MAP_SCROLL_EDGE_GAP_RATIO
+	var vertical_gap := projected_rect.size.y * MAP_SCROLL_EDGE_GAP_RATIO
+	var horizontal_length := maxf(
+		0.0,
+		projected_rect.size.x - horizontal_gap * 2.0
+	)
+	var vertical_length := maxf(
+		0.0,
+		projected_rect.size.y - vertical_gap * 2.0
+	)
+	# Four disconnected filled washes darken the scroll's own edge without
+	# introducing the repository-forbidden closed or dotted perimeter silhouette.
+	canvas.draw_rect(Rect2(
+		Vector2(projected_rect.position.x + horizontal_gap, projected_rect.position.y),
+		Vector2(horizontal_length, MAP_SCROLL_EDGE_INK_SCREEN_PX)
+	).intersection(view_rect), edge_ink, true)
+	canvas.draw_rect(Rect2(
+		Vector2(
+			projected_rect.position.x + horizontal_gap,
+			projected_rect.end.y - MAP_SCROLL_EDGE_INK_SCREEN_PX
+		),
+		Vector2(horizontal_length, MAP_SCROLL_EDGE_INK_SCREEN_PX)
+	).intersection(view_rect), edge_ink, true)
+	canvas.draw_rect(Rect2(
+		Vector2(projected_rect.position.x, projected_rect.position.y + vertical_gap),
+		Vector2(MAP_SCROLL_EDGE_INK_SCREEN_PX, vertical_length)
+	).intersection(view_rect), edge_ink, true)
+	canvas.draw_rect(Rect2(
+		Vector2(
+			projected_rect.end.x - MAP_SCROLL_EDGE_INK_SCREEN_PX,
+			projected_rect.position.y + vertical_gap
+		),
+		Vector2(MAP_SCROLL_EDGE_INK_SCREEN_PX, vertical_length)
+	).intersection(view_rect), edge_ink, true)
 
 
 func _draw_fullscreen_castle(
@@ -1659,8 +1907,9 @@ func build_scroll_background_model(
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
 		var floor_number := int(band.get("segment_floor", band.get("floor", 0)))
+		var band_realm_kind := str(band.get("realm_kind", realm_kind))
 		var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
-			realm_kind,
+			band_realm_kind,
 			floor_number,
 			previous_asset_key
 		)
@@ -1676,7 +1925,7 @@ func build_scroll_background_model(
 		var center_y := float(band.get("y", world_rect.get_center().y))
 		tiles.append({
 			"floor": floor_number,
-			"realm_kind": realm_kind,
+			"realm_kind": band_realm_kind,
 			"asset_key": asset_key,
 			"rect": Rect2(
 				Vector2(
@@ -2817,7 +3066,7 @@ func _camera_world_rect_to_screen(camera_model: Dictionary, rect: Rect2) -> Rect
 
 func _camera_render_zoom(camera_model: Dictionary) -> float:
 	return maxf(
-		1.0,
+		0.001,
 		float(camera_model.get(
 			"render_zoom_multiplier",
 			camera_model.get("zoom_multiplier", 1.0)
