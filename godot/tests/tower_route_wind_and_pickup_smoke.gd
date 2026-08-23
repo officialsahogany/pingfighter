@@ -141,7 +141,7 @@ func _init() -> void:
 	_verify_route_wind_visual_density_profiles()
 	_verify_calm_wind_visual_zero_payload()
 	_verify_weather_wind_reverse_contract()
-	_verify_route_wind_visual_does_not_change_flight()
+	_verify_route_wind_bends_flight_laterally()
 	_verify_pickup_roll_layout_and_rng()
 	_verify_swept_pickup_contact()
 	_verify_currency_collection_and_double_consume_guard()
@@ -353,7 +353,9 @@ func _verify_weather_wind_reverse_contract() -> void:
 	_expect(weather.get_weather_direction() == -1, "ordinary weather direction must remain authoritative")
 
 
-func _verify_route_wind_visual_does_not_change_flight() -> void:
+func _verify_route_wind_bends_flight_laterally() -> void:
+	# 피드백2 6항: the bias-only ruling is reversed — wind now applies a real
+	# lateral force, so the drift leg is positive and lateral-only.
 	_leg_count += 1
 	var calm := TowerAscentRouteServeRuntime.new()
 	var strong := TowerAscentRouteServeRuntime.new()
@@ -365,8 +367,9 @@ func _verify_route_wind_visual_does_not_change_flight() -> void:
 	calm.update(1.0 / 60.0, [], [])
 	strong.update(1.0 / 60.0, [], [])
 	_expect(
-		calm.get_ball_position().is_equal_approx(strong.get_ball_position()),
-		"route weather visuals must not add post-launch wind force"
+		strong.get_ball_position().x > calm.get_ball_position().x
+		and is_equal_approx(strong.get_ball_position().y, calm.get_ball_position().y),
+		"route wind must bend the flying ball downwind, laterally only"
 	)
 
 

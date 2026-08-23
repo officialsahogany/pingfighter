@@ -580,7 +580,7 @@ func _init() -> void:
 	_verify_route_target_uses_map_icon_without_name_text()
 	_verify_route_wind_probability_and_strength_table()
 	_verify_route_wind_indicator_calm_and_directional_states()
-	_verify_wind_bias_reachability_and_trajectory_isolation()
+	_verify_wind_bias_reachability_and_flight_drift()
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_free_movement_while_waiting_and_in_flight()
@@ -668,7 +668,7 @@ func _verify_route_wind_indicator_calm_and_directional_states() -> void:
 	_expect(left_canvas.circle_calls == 1, "wind must keep the vane pivot without the calm ring")
 
 
-func _verify_wind_bias_reachability_and_trajectory_isolation() -> void:
+func _verify_wind_bias_reachability_and_flight_drift() -> void:
 	var route_origin := Vector2(380.0, 665.0)
 	var target_positions := [
 		Vector2(TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X, TowerAscentTuning.TEMP_ROUTE_TARGET_Y),
@@ -722,6 +722,8 @@ func _verify_wind_bias_reachability_and_trajectory_isolation() -> void:
 			)
 		runtime.cancel()
 
+	# 피드백2 6항: the 2026-08-21 trajectory-isolation ruling is reversed.
+	# Wind must now bend the flying ball downwind, laterally only.
 	var calm_runtime := TowerAscentRouteServeRuntime.new()
 	var windy_runtime := TowerAscentRouteServeRuntime.new()
 	calm_runtime.begin(null, null, TowerAscentRouteWindPolicy.calm_model())
@@ -732,16 +734,32 @@ func _verify_wind_bias_reachability_and_trajectory_isolation() -> void:
 	var empty_targets: Array[Dictionary] = []
 	calm_runtime.update(0.25, empty_targets)
 	windy_runtime.update(0.25, empty_targets)
+	var calm_position := calm_runtime.get_ball_position()
+	var windy_position := windy_runtime.get_ball_position()
 	_expect(
-		calm_runtime.get_ball_position().is_equal_approx(windy_runtime.get_ball_position()),
-		"wind must not bend equal-angle route ball trajectories after launch"
+		windy_position.x > calm_position.x,
+		"strength-3 tailwind must drift the equal-angle route ball downwind"
 	)
 	_expect(
-		Vector2(calm_runtime.get("_fixture_ball_velocity")).is_equal_approx(
-			Vector2(windy_runtime.get("_fixture_ball_velocity"))
-		),
-		"wind must not mutate equal-angle route ball velocity after launch"
+		is_equal_approx(windy_position.y, calm_position.y),
+		"wind force must stay lateral and never change route ball vertical motion"
 	)
+	var calm_velocity := Vector2(calm_runtime.get("_fixture_ball_velocity"))
+	var windy_velocity := Vector2(windy_runtime.get("_fixture_ball_velocity"))
+	_expect(
+		windy_velocity.x > calm_velocity.x
+		and is_equal_approx(windy_velocity.y, calm_velocity.y),
+		"wind must accelerate route ball x only, derived from the tuning force"
+	)
+	var upwind_runtime := TowerAscentRouteServeRuntime.new()
+	upwind_runtime.begin(null, null, TowerAscentRouteWindPolicy.build_model(-1, 3))
+	upwind_runtime.debug_serve_toward(same_aim_point)
+	upwind_runtime.update(0.25, empty_targets)
+	_expect(
+		upwind_runtime.get_ball_position().x < calm_position.x,
+		"opposite wind direction must drift the route ball the opposite way"
+	)
+	upwind_runtime.cancel()
 	calm_runtime.cancel()
 	windy_runtime.cancel()
 

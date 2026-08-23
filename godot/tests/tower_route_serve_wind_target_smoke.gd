@@ -178,15 +178,24 @@ func _verify_maximum_wind_reachability_and_flight_isolation() -> void:
 	var empty_targets: Array[Dictionary] = []
 	calm_runtime.update(0.25, empty_targets)
 	windy_runtime.update(0.25, empty_targets)
+	# 피드백2 6항: bias-only ruling reversed — a direction -1 wind must drift
+	# the equal-angle ball upwind-left, laterally only.
 	_expect(
-		calm_runtime.get_ball_position().is_equal_approx(windy_runtime.get_ball_position()),
-		"equal launch angles must produce identical post-launch positions in wind"
+		windy_runtime.get_ball_position().x < calm_runtime.get_ball_position().x
+		and is_equal_approx(
+			windy_runtime.get_ball_position().y,
+			calm_runtime.get_ball_position().y
+		),
+		"equal launch angles must drift downwind laterally under wind force"
 	)
 	_expect(
-		Vector2(calm_runtime.get("_fixture_ball_velocity")).is_equal_approx(
-			Vector2(windy_runtime.get("_fixture_ball_velocity"))
+		Vector2(windy_runtime.get("_fixture_ball_velocity")).x
+			< Vector2(calm_runtime.get("_fixture_ball_velocity")).x
+		and is_equal_approx(
+			Vector2(windy_runtime.get("_fixture_ball_velocity")).y,
+			Vector2(calm_runtime.get("_fixture_ball_velocity")).y
 		),
-		"equal launch angles must produce identical post-launch velocities in wind"
+		"wind force must accelerate the route ball on x only"
 	)
 	calm_runtime.cancel()
 	windy_runtime.cancel()

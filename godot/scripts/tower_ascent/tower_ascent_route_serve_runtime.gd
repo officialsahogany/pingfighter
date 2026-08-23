@@ -259,6 +259,17 @@ func _update_aim_oscillator(delta: float) -> void:
 	_aim_sweep_direction = 1.0 if cos(phase) >= 0.0 else -1.0
 
 
+func _wind_flight_accel_per_frame() -> float:
+	var strength := int(_wind_model.get("strength_level", 0))
+	if strength <= 0:
+		return 0.0
+	return (
+		float(_wind_model.get("direction", 0))
+		* float(strength)
+		* TowerAscentTuning.TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME
+	)
+
+
 func _effective_aim_bounds() -> Vector2:
 	var bias_degrees := float(_wind_model.get("bias_degrees", 0.0))
 	return Vector2(
@@ -331,6 +342,14 @@ func _advance_live_ball(
 ) -> Dictionary:
 	var previous := _owner_vector2("ball_pos", Vector2.ZERO)
 	var velocity := _owner_vector2("ball_vel", Vector2.ZERO)
+	# 피드백2 6항: wind exerts a real lateral force on the flying route ball
+	# (2026-08-21 bias-only ruling reversed). The aim-window bias stays, so the
+	# arrow still points at the true launch direction and upwind compensation
+	# angles remain reachable.
+	var wind_accel := _wind_flight_accel_per_frame()
+	if wind_accel != 0.0 and velocity != Vector2.ZERO:
+		velocity.x += wind_accel * maxf(0.0, delta) * 60.0
+		_set_owner_value("ball_vel", velocity)
 	var impact_boost := maxf(0.0, float(_owner_value("ball_impact_boost", 1.0)))
 	var movement := velocity * impact_boost * maxf(0.0, delta) * 60.0
 	var step_result: Dictionary = _motion_stepper.step(
@@ -383,6 +402,11 @@ func _update_fixture_flight(
 	if not _fixture_ball_active:
 		return {"status": STATUS_WAITING}
 	var previous := _fixture_ball_position
+	# The fixture flight must feel the same wind force as the live path, or
+	# fixture-driven seals silently stop covering the production trajectory.
+	var wind_accel := _wind_flight_accel_per_frame()
+	if wind_accel != 0.0 and _fixture_ball_velocity != Vector2.ZERO:
+		_fixture_ball_velocity.x += wind_accel * maxf(0.0, delta) * 60.0
 	_fixture_ball_position += _fixture_ball_velocity * maxf(0.0, delta) * 60.0
 	var pickup_ids := _find_hit_pickup_ids(
 		previous,

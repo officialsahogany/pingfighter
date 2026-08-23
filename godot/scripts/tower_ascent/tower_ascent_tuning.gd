@@ -63,6 +63,14 @@ const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
 const TEMP_ROUTE_AIM_GAUGE_TEXTURE_RADIUS_PX := 88.0
 const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
+# 피드백2 6항 (2026-08-23): the 2026-08-21 "bias-only, no in-flight force"
+# ruling is reversed by the user's follow-up feedback. Wind now applies a
+# lateral acceleration to the route ball per physics frame (x delta x 60
+# convention), scaled by strength level 1..3. At serve speed 274 the full
+# flight (~2s) drifts roughly 50/100/150px, versus the 49px target hit
+# radius, so strength must actually be aimed against. Battle weather owns
+# its own constants (weather_event_state.gd); never share them here.
+const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.007
 const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
 const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
 const TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE := Vector2(12.0, 7.0)
