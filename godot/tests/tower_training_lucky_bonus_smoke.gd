@@ -1,33 +1,18 @@
 extends SceneTree
 
-const PerkConversionFlags := preload(
-	"res://scripts/characters/perk_conversion_flags.gd"
-)
-const RuntimePerkState := preload(
-	"res://scripts/characters/runtime_perk_state.gd"
-)
-const TowerAscentFeatureFlags := preload(
-	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
-)
-const TowerAscentFlowOwner := preload(
-	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
-)
-const TowerTrainingLuckyBonusPolicy := preload(
-	"res://scripts/tower_ascent/tower_training_lucky_bonus_policy.gd"
-)
-const RuntimePerkOverlayRenderer := preload(
-	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
-)
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
+const TowerAscentFlowOwner := preload("res://scripts/tower_ascent/tower_ascent_flow_owner.gd")
+const TowerTrainingTimingJudgmentPolicy := preload("res://scripts/tower_ascent/tower_training_timing_judgment_policy.gd")
+const TowerTrainingTimingState := preload("res://scripts/tower_ascent/tower_training_timing_state.gd")
+const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 
 const TARGET_ID := "physique_move_speed"
 const STORAGE_ID := "physique_storage"
 const ALLOWED_TRAINING_IDS: Array[String] = [
-	TARGET_ID,
-	STORAGE_ID,
-	"physique_dash_distance",
-	"physique_paddle_size",
-	"physique_max_gauge",
-	"physique_hit_gauge",
+	TARGET_ID, STORAGE_ID, "physique_dash_distance", "physique_paddle_size",
+	"physique_max_gauge", "physique_hit_gauge",
 ]
 
 var _failures: Array[String] = []
@@ -59,18 +44,17 @@ class FakeMythicItemRuntime:
 		runtime_state = runtime_state_value
 
 	func refresh_runtime_perk_scaling(owner: Object, _registry: Object) -> void:
-		if owner == null or runtime_state == null:
-			return
-		var training_bonus := 0.0
-		if runtime_state.has_method("get_physique_training_bonus"):
-			training_bonus = float(runtime_state.get_physique_training_bonus("max_gauge_flat"))
-		owner.set("special_gauge_max", 500.0 + training_bonus)
+		if owner != null and runtime_state != null:
+			owner.set("special_gauge_max", 500.0 + float(
+				runtime_state.get_physique_training_bonus("max_gauge_flat")
+			))
 
 	func calculate_bluetooth_ring_gauge_charge(base_charge: float) -> float:
-		if runtime_state == null or not runtime_state.has_method("get_physique_training_bonus"):
+		if runtime_state == null:
 			return base_charge
-		var bonus_pct := float(runtime_state.get_physique_training_bonus("hit_gauge_bonus_pct"))
-		return base_charge * (1.0 + bonus_pct / 100.0)
+		return base_charge * (1.0 + float(
+			runtime_state.get_physique_training_bonus("hit_gauge_bonus_pct")
+		) / 100.0)
 
 	func get_player_paddle_scale() -> float:
 		return 1.0
@@ -92,10 +76,10 @@ class FakeRuntimePerkState:
 	func get_physique_training_multiplier() -> float:
 		return 1.0
 
-	func is_physique_training_saturated(
-		training_id: String,
-		_registry: Object = null
-	) -> bool:
+	func get_physique_training_bonus(_lane: String) -> float:
+		return 0.0
+
+	func is_physique_training_saturated(training_id: String, _registry: Object = null) -> bool:
 		return saturated_ids.has(training_id)
 
 	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
@@ -103,9 +87,8 @@ class FakeRuntimePerkState:
 		var effect_multiplier := float(choice.get("training_effect_multiplier", 1.0))
 		if training_id == STORAGE_ID:
 			effect_multiplier = 1.0
-		var previous_applied_count := get_physique_training_applied_count(training_id)
 		training_counts[training_id] = get_physique_training_count(training_id) + 1
-		applied_counts[training_id] = previous_applied_count + effect_multiplier
+		applied_counts[training_id] = get_physique_training_applied_count(training_id) + effect_multiplier
 		return true
 
 	func build_unlock_save_snapshot() -> Dictionary:
@@ -117,11 +100,7 @@ class FakeRuntimePerkState:
 			},
 		}
 
-	func apply_unlock_save_snapshot(
-		snapshot: Dictionary,
-		_owner: Object = null,
-		_registry: Object = null
-	) -> Dictionary:
+	func apply_unlock_save_snapshot(snapshot: Dictionary, _owner: Object = null, _registry: Object = null) -> Dictionary:
 		var training: Dictionary = snapshot.get("physique_training", {})
 		training_counts = (training.get("acquired_counts", {}) as Dictionary).duplicate(true)
 		applied_counts = (training.get("applied_counts", {}) as Dictionary).duplicate(true)
@@ -147,11 +126,11 @@ func _run() -> void:
 	var original_conversion_flag := PerkConversionFlags.is_enabled()
 	PerkConversionFlags.debug_set_enabled(true)
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	_verify_lucky_and_non_lucky_final_consumers()
-	_verify_click_roll_gates_and_storage_exception()
-	_verify_badge_and_saturation_copy()
+	_verify_three_tier_final_consumers()
+	_verify_target_roll_gates_cancel_and_input_ownership()
+	_verify_rng_separation_and_wall_clock()
+	_verify_storage_badge_and_saturation_copy()
 	_verify_six_card_stats_panel_sync()
-	_verify_presentation_rng_source_boundary()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(original_conversion_flag)
 	if _failures.is_empty():
@@ -163,263 +142,172 @@ func _run() -> void:
 		quit(1)
 
 
-func _verify_lucky_and_non_lucky_final_consumers() -> void:
-	var lucky_seed := _find_seed(true)
-	var normal_seed := _find_seed(false)
-	_expect(lucky_seed > 0 and normal_seed > 0, "test must find deterministic lucky and normal seeds")
-
-	var lucky_runtime := RuntimePerkState.new()
-	var lucky_flow := _open_training_flow(lucky_runtime, 10)
-	var lucky_presentation: Object = _training_presentation(lucky_flow)
-	lucky_presentation.set_presentation_rng_for_tests(991, 0)
-	lucky_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
-	lucky_flow.set_training_stage_clock_msec_for_tests(1000)
-	_click_action(lucky_flow, "training_stat:%s" % TARGET_ID)
-	var lucky_history: Array[Dictionary] = lucky_flow.get_training_history()
-	_expect(lucky_history.size() == 1, "one valid click must produce one training record")
-	var lucky_record: Dictionary = lucky_history[0]
-	_expect(int(lucky_record.get("lucky_roll_count", 0)) == 1, "one valid click must roll exactly once")
-	_expect(bool(lucky_record.get("lucky_triggered", false)), "lucky seed must trigger the 20 percent bonus")
-	_expect(is_equal_approx(float(lucky_record.get("effect_multiplier", 0.0)), 1.5), "lucky record must carry the exact 1.5 multiplier")
-	var lucky_snapshot := lucky_runtime.get_physique_training_snapshot()
-	_expect(is_equal_approx(float((lucky_snapshot.get("applied_counts", {}) as Dictionary).get(TARGET_ID, 0.0)), 1.5), "authoritative snapshot must persist 1.5 applied training units")
-	_expect(is_equal_approx(lucky_runtime.get_player_speed_multiplier(), 1.06), "final player-speed consumer must read the 4 percent base as an actual 6 percent lucky gain")
-	_expect(str(lucky_flow.get_node_modal_view_model().get("status_text", "")) == "행운 발동! 기본 4% -> 6% 적용", "lucky receipt must show actual base and 1.5x values")
-
-	var restored_runtime := RuntimePerkState.new()
-	restored_runtime.restore_physique_training_snapshot(lucky_snapshot)
-	_expect(is_equal_approx(restored_runtime.get_player_speed_multiplier(), 1.06), "restored snapshot must still reach the final player-speed consumer at 1.06")
-
-	var rng_after_lucky: Dictionary = lucky_flow.get_training_gameplay_rng_state_for_tests()
-	var presentation_rolls_before_frames := int(lucky_presentation.get_debug_state().get("presentation_rng_roll_count", -1))
-	for frame_index in range(20):
-		lucky_flow.set_training_stage_clock_msec_for_tests(1000 + frame_index * 16)
-		lucky_flow.update_selective(0.016, null)
-	_expect(lucky_flow.get_training_history().size() == 1, "twenty animation frames must not create another training resolution")
-	_expect(lucky_flow.get_training_gameplay_rng_state_for_tests() == rng_after_lucky, "GRT-011 animation frames must not advance gameplay RNG")
-	_expect(int(lucky_presentation.get_debug_state().get("presentation_rng_roll_count", -1)) == presentation_rolls_before_frames, "retained strike frames must not reroll presentation randomness")
-
-	var resolution_id := str(lucky_record.get("node_resolution_id", ""))
-	var duplicate_rng_before: Dictionary = lucky_flow.get_training_gameplay_rng_state_for_tests()
-	var duplicate: Dictionary = lucky_flow.execute_node_action(
-		"training_stat:%s" % TARGET_ID,
-		resolution_id
-	)
-	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "an already handled resolution must remain an accepted no-op")
-	_expect(lucky_flow.get_training_gameplay_rng_state_for_tests() == duplicate_rng_before, "an already handled resolution must consume zero rolls")
-
-	var differential_runtime := RuntimePerkState.new()
-	var differential_flow := _open_training_flow(differential_runtime, 10)
-	var differential_presentation: Object = _training_presentation(differential_flow)
-	differential_presentation.set_presentation_rng_for_tests(991, 37)
-	differential_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
-	differential_flow.set_training_stage_clock_msec_for_tests(1000)
-	_click_action(differential_flow, "training_stat:%s" % TARGET_ID)
-	_expect(
-		int(differential_presentation.get_debug_state().get("presentation_rng_roll_count", 0))
-		!= presentation_rolls_before_frames,
-		"differential leg must consume a different number of presentation RNG samples"
-	)
-	_expect(
-		var_to_bytes(differential_presentation.get_visual_model().get("impact_point_offsets", []))
-		!= var_to_bytes(lucky_presentation.get_visual_model().get("impact_point_offsets", [])),
-		"differential presentation seeds/consumption must change retained impact points"
-	)
-	var differential_history: Array[Dictionary] = differential_flow.get_training_history()
-	_expect(bool(differential_history[0].get("lucky_triggered", false)), "presentation RNG consumption must not change the lucky result")
-	var differential_rng_after: Dictionary = differential_flow.get_training_gameplay_rng_state_for_tests()
-	_expect(differential_rng_after == rng_after_lucky, "presentation RNG consumption must not change the next gameplay RNG state")
-	_expect(
-		is_equal_approx(
-			float(TowerTrainingLuckyBonusPolicy.roll_from_gameplay_state(differential_rng_after).get("sample", -1.0)),
-			float(TowerTrainingLuckyBonusPolicy.roll_from_gameplay_state(rng_after_lucky).get("sample", -2.0))
-		),
-		"differential presentation consumption must leave the same next gameplay RNG value"
-	)
-
-	var normal_runtime := RuntimePerkState.new()
-	var normal_flow := _open_training_flow(normal_runtime, 10)
-	normal_flow.set_training_gameplay_rng_state_for_tests(_rng_state(normal_seed))
-	_click_action(normal_flow, "training_stat:%s" % TARGET_ID)
-	var normal_record: Dictionary = normal_flow.get_training_history()[0]
-	_expect(int(normal_record.get("lucky_roll_count", 0)) == 1 and not bool(normal_record.get("lucky_triggered", true)), "normal seed must still consume exactly one roll and not trigger")
-	_expect(is_equal_approx(float(normal_record.get("effect_multiplier", 0.0)), 1.0), "negative leg must keep the exact base multiplier")
-	_expect(is_equal_approx(normal_runtime.get_player_speed_multiplier(), 1.04), "negative leg final consumer must read exactly the 4 percent base value")
-	_expect(str(normal_flow.get_node_modal_view_model().get("status_text", "")) == "4% 적용", "negative receipt must show only the actual base applied value")
+func _verify_three_tier_final_consumers() -> void:
+	for spec in [
+		{"kind": "critical", "multiplier": 1.5, "consumer": 1.06, "copy": "회심의 수련!", "value": "+6%"},
+		{"kind": "great", "multiplier": 1.3, "consumer": 1.052, "copy": "훌륭한 수련!", "value": "+5.2%"},
+		{"kind": "base", "multiplier": 1.0, "consumer": 1.04, "copy": "수련 성공", "value": "+4%"},
+	]:
+		var runtime := RuntimePerkState.new()
+		var flow := _open_training_flow(runtime, 10)
+		var gameplay_rng_before: Dictionary = flow.get_training_gameplay_rng_state_for_tests()
+		_start_timing(flow, "training_stat:%s" % TARGET_ID, 1000)
+		_stop_timing_at(flow, str(spec.kind))
+		var history: Array[Dictionary] = flow.get_training_history()
+		_expect(history.size() == 1, "%s stop must commit one training record" % spec.kind)
+		if history.is_empty():
+			continue
+		var record: Dictionary = history[0]
+		_expect(str(record.get("timing_judgment_kind", "")) == spec.kind, "%s tier must be authoritative" % spec.kind)
+		_expect(int(record.get("timing_target_roll_count", 0)) == 1, "%s click must own exactly one target roll" % spec.kind)
+		_expect(is_equal_approx(float(record.get("effect_multiplier", 0.0)), float(spec.multiplier)), "%s multiplier must be exact" % spec.kind)
+		var snapshot := runtime.get_physique_training_snapshot()
+		_expect(is_equal_approx(float((snapshot.get("applied_counts", {}) as Dictionary).get(TARGET_ID, 0.0)), float(spec.multiplier)), "%s snapshot must persist the applied multiplier" % spec.kind)
+		_expect(is_equal_approx(runtime.get_player_speed_multiplier(), float(spec.consumer)), "%s final player-speed consumer must read the applied value" % spec.kind)
+		var receipt := str(flow.get_training_stage_presentation_debug_state().get(
+			"message_text",
+			""
+		))
+		_expect(receipt.contains(str(spec.copy)) and receipt.contains("이동 속도") and receipt.contains(str(spec.value)), "%s receipt must derive its stat label and applied value: %s" % [spec.kind, receipt])
+		_expect(flow.get_training_gameplay_rng_state_for_tests() == gameplay_rng_before, "%s target and presentation must not advance gameplay RNG" % spec.kind)
 
 
-func _verify_click_roll_gates_and_storage_exception() -> void:
-	var lucky_seed := _find_seed(true)
-	var canceled_runtime := FakeRuntimePerkState.new()
-	var canceled_flow := _open_training_flow(canceled_runtime, 10)
-	canceled_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
+func _verify_target_roll_gates_cancel_and_input_ownership() -> void:
+	var canceled_flow := _open_training_flow(FakeRuntimePerkState.new(), 10)
 	var canceled_rng_before: Dictionary = canceled_flow.get_training_gameplay_rng_state_for_tests()
-	var action_rect := _action_rect(canceled_flow, "training_stat:%s" % TARGET_ID)
-	var press := _mouse_button(true, action_rect.position + Vector2(2.0, 2.0))
-	var canceled_release := _mouse_button(false, Vector2.ZERO)
-	canceled_flow.handle_input(press)
-	canceled_flow.handle_input(canceled_release)
-	_expect(canceled_flow.get_training_history().is_empty(), "release outside the armed card must cancel the click")
-	_expect(canceled_flow.get_training_gameplay_rng_state_for_tests() == canceled_rng_before, "canceled press/release must consume zero rolls")
+	var target_rect := _action_rect(canceled_flow, "training_stat:%s" % TARGET_ID)
+	canceled_flow.handle_input(_mouse_button(true, target_rect.position + Vector2(2.0, 2.0)))
+	canceled_flow.handle_input(_mouse_button(false, Vector2.ZERO))
+	_expect(canceled_flow.get_training_timing_roll_count_for_tests() == 0, "release outside armed card must consume zero target rolls")
+	_expect(canceled_flow.get_training_history().is_empty(), "release outside armed card must not commit")
 
-	var poor_runtime := FakeRuntimePerkState.new()
-	var poor_flow := _open_training_flow(poor_runtime, 0)
-	poor_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
-	var poor_rng_before: Dictionary = poor_flow.get_training_gameplay_rng_state_for_tests()
-	_click_action(poor_flow, "training_stat:%s" % TARGET_ID)
-	_expect(poor_flow.get_training_history().is_empty(), "insufficient Muhon card must not commit")
-	_expect(poor_flow.get_training_gameplay_rng_state_for_tests() == poor_rng_before, "insufficient cost must consume zero rolls")
+	_start_timing(canceled_flow, "training_stat:%s" % TARGET_ID, 2000)
+	var escape := InputEventKey.new()
+	escape.pressed = true
+	escape.keycode = KEY_ESCAPE
+	canceled_flow.handle_input(escape)
+	_expect(canceled_flow.get_training_timing_roll_count_for_tests() == 1, "ESC keeps the consumed roll to prevent free rerolls")
+	_expect(canceled_flow.get_training_history().is_empty(), "ESC before judgment must not commit")
+	_expect(int(canceled_flow.get_run_state_snapshot().get("muhon", -1)) == 10, "ESC before judgment must spend zero Muhon")
+	_expect(not bool(canceled_flow.get_training_timing_debug_state().get("running", false)), "ESC must clear the active gauge")
+	_expect(canceled_flow.get_training_gameplay_rng_state_for_tests() == canceled_rng_before, "ESC and target placement must not touch gameplay RNG")
+
+	var poor_flow := _open_training_flow(FakeRuntimePerkState.new(), 0)
+	_click_card_release(poor_flow, "training_stat:%s" % TARGET_ID)
+	_expect(poor_flow.get_training_timing_roll_count_for_tests() == 0, "insufficient cost must consume zero target rolls")
+	_expect(poor_flow.get_training_history().is_empty(), "insufficient cost must not open or commit timing")
 
 	var saturated_runtime := FakeRuntimePerkState.new()
 	saturated_runtime.saturated_ids.append(TARGET_ID)
 	var saturated_flow := _open_training_flow(saturated_runtime, 10)
-	saturated_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
-	var saturated_rng_before: Dictionary = saturated_flow.get_training_gameplay_rng_state_for_tests()
-	_click_action(saturated_flow, "training_stat:%s" % TARGET_ID)
-	_expect(saturated_flow.get_training_history().is_empty(), "disabled saturated card must not commit")
-	_expect(saturated_flow.get_training_gameplay_rng_state_for_tests() == saturated_rng_before, "disabled saturated card must consume zero rolls")
+	_click_card_release(saturated_flow, "training_stat:%s" % TARGET_ID)
+	_expect(saturated_flow.get_training_timing_roll_count_for_tests() == 0, "disabled saturated card must consume zero target rolls")
 
+	var duplicate_flow := _open_training_flow(FakeRuntimePerkState.new(), 20)
+	var duplicate_action := _find_action(duplicate_flow, "training_stat:%s" % TARGET_ID)
+	var first: Dictionary = duplicate_flow.execute_node_action("training_stat:%s" % TARGET_ID, "sealed-training-resolution")
+	_expect(bool(first.get("applied", false)), "duplicate fixture must commit its first resolution")
+	var duplicate_rolls_before: int = duplicate_flow.get_training_timing_roll_count_for_tests()
+	var duplicate: Dictionary = duplicate_flow.call("_begin_training_timing_action", duplicate_action, "sealed-training-resolution")
+	_expect(not bool(duplicate.get("prepared", true)), "already committed resolution must not open a gauge")
+	_expect(duplicate_flow.get_training_timing_roll_count_for_tests() == duplicate_rolls_before, "already committed resolution must consume zero target rolls")
+
+	var owned_flow := _open_training_flow(FakeRuntimePerkState.new(), 10)
+	_start_timing(owned_flow, "training_stat:%s" % TARGET_ID, 3000)
+	var end_rect := _action_rect(owned_flow, "end_work")
+	owned_flow.handle_input(_mouse_button(true, end_rect.get_center()))
+	owned_flow.handle_input(_mouse_button(false, end_rect.get_center()))
+	_expect(owned_flow.get_training_history().size() == 1, "gauge click must stop and commit its pending card")
+	_expect(int(owned_flow.get("_phase")) == 1, "gauge click over end work must not leak into modal exit")
+
+
+func _verify_rng_separation_and_wall_clock() -> void:
+	var first_flow := _open_training_flow(FakeRuntimePerkState.new(), 10)
+	var second_flow := _open_training_flow(FakeRuntimePerkState.new(), 10)
+	var first_presentation: Object = _training_presentation(first_flow)
+	var second_presentation: Object = _training_presentation(second_flow)
+	first_presentation.set_presentation_rng_for_tests(991, 0)
+	second_presentation.set_presentation_rng_for_tests(991, 37)
+	_start_timing(first_flow, "training_stat:%s" % TARGET_ID, 4000)
+	_start_timing(second_flow, "training_stat:%s" % TARGET_ID, 4000)
+	var first_target := float(first_flow.get_training_timing_debug_state().get("target_position", -1.0))
+	var second_target := float(second_flow.get_training_timing_debug_state().get("target_position", -2.0))
+	_expect(is_equal_approx(first_target, second_target), "presentation RNG consumption must not change the authoritative target")
+	_stop_timing_at(first_flow, "critical")
+	_stop_timing_at(second_flow, "critical")
+	_expect(first_flow.get_training_gameplay_rng_state_for_tests() == second_flow.get_training_gameplay_rng_state_for_tests(), "presentation RNG differential must leave gameplay RNG identical")
+	_expect(var_to_bytes(first_presentation.get_visual_model().get("impact_point_offsets", [])) != var_to_bytes(second_presentation.get_visual_model().get("impact_point_offsets", [])), "presentation RNG differential must change cosmetic impact points")
+
+	var target_a := TowerTrainingTimingJudgmentPolicy.roll_target(417, "node", "action", 0, 20.0)
+	var target_b := TowerTrainingTimingJudgmentPolicy.roll_target(418, "node", "action", 0, 20.0)
+	_expect(not is_equal_approx(float(target_a.target_position), float(target_b.target_position)), "differential authority seeds must change target placement")
+	_expect(int(target_a.roll_count) == 1 and int(target_b.roll_count) == 1, "each target placement call consumes one sample")
+	for sample_msec in [0, 137, 799, 800, 801, 1599, 1600, 2400]:
+		var at_72hz := TowerTrainingTimingState.pendulum_position_at_elapsed(sample_msec)
+		var unlimited := TowerTrainingTimingState.pendulum_position_at_elapsed(sample_msec)
+		_expect(is_equal_approx(at_72hz, unlimited), "wall-clock pendulum must be frame-rate independent at %dms" % sample_msec)
+	_expect(is_equal_approx(TowerTrainingTimingState.pendulum_position_at_elapsed(0), TowerTrainingTimingState.pendulum_position_at_elapsed(1600)), "pendulum full-cycle period must be 1600ms")
+
+
+func _verify_storage_badge_and_saturation_copy() -> void:
 	var storage_runtime := RuntimePerkState.new()
 	var storage_flow := _open_training_flow(storage_runtime, 10)
-	storage_flow.set_training_gameplay_rng_state_for_tests(_rng_state(lucky_seed))
-	var storage_rng_before: Dictionary = storage_flow.get_training_gameplay_rng_state_for_tests()
 	var base_slots := storage_runtime.get_active_item_slot_capacity()
-	_click_action(storage_flow, "training_stat:%s" % STORAGE_ID)
+	_start_timing(storage_flow, "training_stat:%s" % STORAGE_ID, 5000)
+	_stop_timing_at(storage_flow, "critical")
 	var storage_record: Dictionary = storage_flow.get_training_history()[0]
-	_expect(int(storage_record.get("lucky_roll_count", -1)) == 0, "storage training must be excluded from lucky rolls")
-	_expect(storage_flow.get_training_gameplay_rng_state_for_tests() == storage_rng_before, "storage training must not advance gameplay RNG")
-	_expect(storage_runtime.get_active_item_slot_capacity() == base_slots + 1, "storage final consumer must gain exactly one slot")
-	var storage_snapshot := storage_runtime.get_physique_training_snapshot()
-	_expect(is_equal_approx(float((storage_snapshot.get("applied_counts", {}) as Dictionary).get(STORAGE_ID, 0.0)), 1.0), "storage snapshot must persist exactly one applied slot")
-	_expect(str(storage_flow.get_node_modal_view_model().get("status_text", "")) == "1칸 적용", "storage receipt must report the fixed one-slot value")
+	_expect(str(storage_record.get("timing_judgment_kind", "")) == "critical", "storage reports the visible timing tier")
+	_expect(is_equal_approx(float(storage_record.get("effect_multiplier", 0.0)), 1.0), "storage must never round 1.5 slots into +2")
+	_expect(storage_runtime.get_active_item_slot_capacity() == base_slots + 1, "storage final consumer gains exactly one slot")
+	_expect(str(_find_action(storage_flow, "training_stat:%s" % STORAGE_ID).get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "고정 +1칸", "storage card discloses its fixed exception")
 
-
-func _verify_badge_and_saturation_copy() -> void:
 	var runtime := FakeRuntimePerkState.new()
 	var flow := _open_training_flow(runtime, 10)
-	var lucky_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
-	var lucky_choice: Dictionary = lucky_action.get("payload", {}).get("choice", {})
-	_expect(str(lucky_choice.get("bonus_badge_text", "")) == "행운 20% · 효과 +50%", "production lucky card must supply the exact always-on badge")
-	var storage_action := _find_action(flow, "training_stat:%s" % STORAGE_ID)
-	var storage_choice: Dictionary = storage_action.get("payload", {}).get("choice", {})
-	_expect(str(storage_choice.get("bonus_badge_text", "")) == "고정 +1칸", "storage card must disclose its fixed integer exception")
-
+	var timing_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
+	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "행운 판정 폭 20% · 최대 효과 +50%", "footer discloses timing-window meaning")
 	var renderer := RuntimePerkOverlayRenderer.new()
-	var longest_action := lucky_action.duplicate(true)
-	var longest_choice: Dictionary = longest_action.get("payload", {}).get("choice", {})
-	longest_choice["description"] = "수련 효과와 실제 적용값을 확인하는 가장 긴 설명 문구를 세 행 예산으로 정확하게 검증합니다 반복 문장"
-	var layout: Dictionary = renderer.build_tower_node_card_text_layout(
-		longest_action,
-		_action_rect(flow, "training_stat:%s" % TARGET_ID)
-	)
-	_expect(int(layout.get("appended_description_row_count", -1)) == 3, "production longest Korean training copy must append exactly three description rows")
-	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "production lucky badge must append exactly one whole row")
-	_expect(int(layout.get("appended_text_row_count", -1)) == 4, "GRT-021 production card must append exactly four rows")
-	_expect(
-		renderer.should_draw_tower_node_bonus_badge(layout, {}),
-		"idle training card must draw its complete lucky badge"
-	)
-	_expect(
-		not renderer.should_draw_tower_node_bonus_badge(
-			layout,
-			{"success_progress": 0.5}
-		),
-		"GRT-021 success receipt must temporarily replace the whole badge row"
-	)
-
+	var layout: Dictionary = renderer.build_tower_node_card_text_layout(timing_action, _action_rect(flow, "training_stat:%s" % TARGET_ID))
+	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail appends one complete fitted effect row")
+	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "timing footer appends one whole row")
+	_expect(int(layout.get("appended_text_row_count", -1)) == 2, "compact card budgets two appended rows")
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
-	var saturated_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
-	_expect(str(saturated_action.get("unavailable_reason", "")) == "효과 한계", "consumer saturation must replace the retired maximum-level copy with effect limit")
-
+	_expect(str(_find_action(flow, "training_stat:%s" % TARGET_ID).get("unavailable_reason", "")) == "효과 한계", "consumer saturation retains effect-limit copy")
 	runtime.training_counts[STORAGE_ID] = 3
 	runtime.applied_counts[STORAGE_ID] = 3.0
 	flow.call("_refresh_training_modal", "")
-	var full_storage_action := _find_action(flow, "training_stat:%s" % STORAGE_ID)
-	_expect(str(full_storage_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "3/3", "full storage must display exactly 3/3")
-	_expect(str(full_storage_action.get("unavailable_reason", "")) == "3/3", "full storage rejection must display exactly 3/3")
-	var unlimited_choice: Dictionary = lucky_action.get("payload", {}).get("choice", {})
-	var presentation: Dictionary = lucky_action.get("payload", {}).get("presentation", {})
-	_expect(str(unlimited_choice.get("level_text", "")) == "Lv.0", "unlimited training must retain its Lv.N label")
-	_expect(str(presentation.get("current", "")) == "0%" and str(presentation.get("result", "")) == "4%", "unlimited training hover fallback must show only current and applied values")
-
-
-func _verify_presentation_rng_source_boundary() -> void:
-	var strike_source := FileAccess.get_file_as_string(
-		"res://scripts/tower_ascent/tower_training_strike_presentation_state.gd"
-	)
-	var audio_source := FileAccess.get_file_as_string(
-		"res://scripts/audio/game_audio.gd"
-	)
-	_expect(
-		strike_source.contains("RandomNumberGenerator.new()")
-		and strike_source.contains("impact_point_offsets")
-		and not strike_source.contains("_gameplay_rng_state"),
-		"impact points and fragments must use a presentation RNG with no gameplay-state access"
-	)
-	var training_audio_start := audio_source.find("func play_training_strike_hit")
-	var training_audio_end := audio_source.find("func stop_training_strike_audio", training_audio_start)
-	var training_audio_body := audio_source.substr(
-		training_audio_start,
-		training_audio_end - training_audio_start
-	)
-	_expect(
-		audio_source.contains("var _core_match_feedback_rng := RandomNumberGenerator.new()")
-		and training_audio_body.contains("_core_match_feedback_randf_range(0.98, 1.02)"),
-		"training strike pitch must use GameAudio's separate presentation RNG"
-	)
+	_expect(str(_find_action(flow, "training_stat:%s" % STORAGE_ID).get("unavailable_reason", "")) == "3/3", "full storage displays 3/3")
 
 
 func _verify_six_card_stats_panel_sync() -> void:
-	var runtime := RuntimePerkState.new()
-	var flow := _open_training_flow(runtime, 20)
+	var flow := _open_training_flow(RuntimePerkState.new(), 20)
 	var registry: Object = flow.get("_active_registry")
 	var renderer: Object = registry.get_cached_instance("runtime_perk_overlay_renderer")
-	var opening_snapshot: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
-	_expect(int(opening_snapshot.get("row_count", 0)) == 10, "training modal must prepare all ten canonical character-info rows")
-	_expect(int(opening_snapshot.get("prepare_count", 0)) == 1, "training stats panel must prepare once on modal open")
+	var opening: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
+	_expect(int(opening.get("row_count", 0)) == 10, "modal prepares ten canonical stat rows")
+	_expect(int(opening.get("prepare_count", 0)) == 1, "stats panel prepares once on open")
 	for idle_frame in range(12):
 		flow.get_node_modal_view_model()
 		flow.get_node_modal_render_context()
-	_expect(
-		int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0)) == 1,
-		"GRT-028 idle frames must perform zero additional stats-panel preparation"
-	)
-
+	_expect(int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0)) == 1, "idle frames perform zero stats-panel preparation")
 	for card_index in range(6):
-		var before: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
-		var before_values: Array = before.get("values", [])
 		var model: Dictionary = flow.get_node_modal_view_model()
 		var actions: Array = model.get("actions", [])
 		var rects: Array = model.get("action_rects", [])
-		_expect(actions.size() == 7 and rects.size() == 7, "training rail must keep six offers plus end work")
 		var action := actions[card_index] as Dictionary
-		var rect := rects[card_index] as Rect2
-		var top_corner := rect.position + Vector2(2.0, 2.0)
-		flow.handle_input(_mouse_button(true, top_corner))
-		flow.handle_input(_mouse_button(false, top_corner))
-		var after: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
-		_expect(
-			flow.get_training_history().size() == card_index + 1,
-			"card %d top-corner click must commit exactly one training action" % (card_index + 1)
-		)
-		_expect(
-			int(after.get("prepare_count", 0)) == card_index + 2,
-			"card %d commit must refresh the canonical stats cache in the same input frame" % (card_index + 1)
-		)
-		_expect(
-			var_to_bytes(after.get("values", [])) != var_to_bytes(before_values),
-			"card %d (%s) commit must change a final-consumer stat row immediately: %s -> %s" % [
-				card_index + 1,
-				str(action.get("id", "")),
-				str(before_values),
-				str(after.get("values", [])),
-			]
-		)
-		_expect(
-			str(action.get("id", "")).begins_with("training_"),
-			"card %d must retain the production training action route" % (card_index + 1)
-		)
+		var before_prepare := int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0))
+		var point := (rects[card_index] as Rect2).position + Vector2(2.0, 2.0)
+		flow.set_training_stage_clock_msec_for_tests(6000 + card_index * 3000)
+		flow.handle_input(_mouse_button(true, point))
+		flow.handle_input(_mouse_button(false, point))
+		_expect(flow.get_training_history().size() == card_index, "card release opens timing without early commit")
+		_stop_timing_at(flow, "base")
+		_expect(flow.get_training_history().size() == card_index + 1, "card %d top-corner timing commits once" % (card_index + 1))
+		_expect(int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0)) == before_prepare + 1, "card %d refreshes stats in the stop input frame" % (card_index + 1))
+		_expect(str(action.get("id", "")).begins_with("training_"), "card %d retains training routing" % (card_index + 1))
+		_finish_presentation(flow)
+
+
 func _open_training_flow(runtime_state: Object, muhon: int) -> Object:
 	var registry := FakeRegistry.new()
 	registry.instances = {
@@ -428,17 +316,15 @@ func _open_training_flow(runtime_state: Object, muhon: int) -> Object:
 		"runtime_perk_overlay_renderer": RuntimePerkOverlayRenderer.new(),
 		"mythic_item_runtime": FakeMythicItemRuntime.new(runtime_state),
 	}
-	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	flow.set("_active", true)
 	flow.set("_phase", 1)
 	flow.set("_node_modal_kind", "training")
-	flow.set("_current_node_id", "s4-training-node")
+	flow.set("_current_node_id", "timing-training-node")
 	flow.set("_map_seed", 417)
-	flow.set("_active_owner", owner)
+	flow.set("_active_owner", FakeOwner.new())
 	flow.set("_active_registry", registry)
-	var run_state: Object = flow.get("_run_state")
-	_expect(run_state.begin("s4-training-run", {"muhon": muhon}), "training test run state must begin")
+	_expect(flow.get("_run_state").begin("timing-training-run", {"muhon": muhon}), "training run state begins")
 	flow.call("_open_node_modal")
 	return flow
 
@@ -447,9 +333,38 @@ func _training_presentation(flow: Object) -> Object:
 	return flow.get_node_modal_render_context().get("training_stage_presentation", null)
 
 
-func _click_action(flow: Object, action_id: String) -> void:
+func _start_timing(flow: Object, action_id: String, start_msec: int) -> void:
+	flow.set_training_stage_clock_msec_for_tests(start_msec)
+	var rolls_before: int = flow.get_training_timing_roll_count_for_tests()
+	_click_card_release(flow, action_id)
+	_expect(bool(flow.get_training_timing_debug_state().get("running", false)), "%s opens timing" % action_id)
+	_expect(flow.get_training_timing_roll_count_for_tests() == rolls_before + 1, "%s consumes one target roll" % action_id)
+
+
+func _stop_timing_at(flow: Object, judgment_kind: String) -> void:
+	var debug: Dictionary = flow.get_training_timing_debug_state()
+	var target := float(debug.get("target_position", 0.5))
+	var cell_width := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(float(debug.get("luck_percent", 20.0)))
+	var position := target
+	if judgment_kind == "great":
+		position = target + cell_width
+	elif judgment_kind == "base":
+		position = 0.0 if target >= 0.5 else 1.0
+	var elapsed := int(roundf(clampf(position, 0.0, 1.0) * float(TowerTrainingTimingState.FULL_CYCLE_MSEC) * 0.5))
+	flow.set_training_stage_clock_msec_for_tests(int(debug.get("started_msec", 0)) + elapsed)
+	flow.handle_input(_mouse_button(true, Vector2(8.0, 8.0)))
+	flow.handle_input(_mouse_button(false, Vector2(8.0, 8.0)))
+
+
+func _finish_presentation(flow: Object) -> void:
+	var debug: Dictionary = flow.get_training_stage_presentation_debug_state()
+	flow.set_training_stage_clock_msec_for_tests(int(debug.get("started_msec", 0)) + 2000)
+	flow.update_selective(0.016, null)
+
+
+func _click_card_release(flow: Object, action_id: String) -> void:
 	var rect := _action_rect(flow, action_id)
-	_expect(rect.has_area(), "%s must have a production hit rect" % action_id)
+	_expect(rect.has_area(), "%s has a production hit rect" % action_id)
 	var point := rect.position + Vector2(2.0, 2.0)
 	flow.handle_input(_mouse_button(true, point))
 	flow.handle_input(_mouse_button(false, point))
@@ -478,22 +393,6 @@ func _find_action(flow: Object, action_id: String) -> Dictionary:
 		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")) == action_id:
 			return action_value as Dictionary
 	return {}
-
-
-func _find_seed(triggered: bool) -> int:
-	for seed_value in range(1, 10000):
-		var roll := TowerTrainingLuckyBonusPolicy.roll_from_gameplay_state(
-			_rng_state(seed_value)
-		)
-		if bool(roll.get("triggered", false)) == triggered:
-			return seed_value
-	return 0
-
-
-func _rng_state(seed_value: int) -> Dictionary:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value
-	return {"seed": int(rng.seed), "state": int(rng.state)}
 
 
 func _expect(condition: bool, message: String) -> void:

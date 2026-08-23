@@ -9,7 +9,7 @@ const RuntimePerkOverlayRenderer := preload(
 
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
 const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
-const LONGEST_KOREAN_BONUS_BADGE := "행운 발동 시 수련 효과 +50%"
+const LONGEST_KOREAN_BONUS_BADGE := "행운 판정 폭 20% · 최대 효과 +50%"
 
 var _failures: Array[String] = []
 
@@ -232,7 +232,7 @@ func _verify_bonus_badge_four_row_budget() -> void:
 			"large Vulkan viewport must preserve the complete Korean badge copy"
 		)
 
-	choice["bonus_badge_text"] = "행운 발동 시 이번 수련의 실제 능력치 적용값이 기본 수련값보다 오십 퍼센트 더 증가합니다"
+	choice["bonus_badge_text"] = "행운 판정 폭이 넓어질수록 회심과 훌륭 판정 구간이 함께 넓어지고 최대 수련 효과는 오십 퍼센트 증가합니다"
 	var insufficient_layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
 	_expect(
 		not bool(insufficient_layout.get("bonus_badge_visible", true)),

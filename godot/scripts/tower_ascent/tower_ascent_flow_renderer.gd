@@ -3334,6 +3334,16 @@ func _draw_training_stage_layout(
 		if presentation != null and presentation.has_method("get_visual_model")
 		else {}
 	)
+	var timing_presentation: Object = render_context.get(
+		"training_timing_presentation",
+		null
+	)
+	var timing_model: Dictionary = (
+		timing_presentation.get_visual_model()
+		if timing_presentation != null
+		and timing_presentation.has_method("get_visual_model")
+		else {}
+	)
 	var shake_offset: Vector2 = _vector2(
 		visual_model.get("stage_shake_offset", Vector2.ZERO)
 	) * content_scale
@@ -3377,6 +3387,14 @@ func _draw_training_stage_layout(
 		shaken_stage_rect,
 		content_scale
 	)
+	if bool(visual_model.get("aura_active", false)):
+		_draw_training_judgment_aura(
+			canvas,
+			player_slot,
+			content_scale,
+			str(visual_model.get("judgment_kind", "base")),
+			float(visual_model.get("aura_progress", 0.0))
+		)
 	_draw_training_character(
 		canvas,
 		player_slot,
@@ -3401,6 +3419,220 @@ func _draw_training_stage_layout(
 			visual_model.get("impact_directions", []),
 			visual_model.get("impact_point_offsets", [])
 		)
+	if bool(visual_model.get("message_active", false)):
+		_draw_training_judgment_message(
+			canvas,
+			stage_rect,
+			content_scale,
+			str(visual_model.get("message_text", "")),
+			str(visual_model.get("judgment_kind", "base")),
+			float(visual_model.get("message_progress", 0.0))
+		)
+	if bool(timing_model.get("visible", false)):
+		_draw_training_timing_gauge(
+			canvas,
+			stage_rect,
+			content_scale,
+			timing_model
+		)
+
+
+func _draw_training_timing_gauge(
+	canvas: CanvasItem,
+	stage_rect: Rect2,
+	content_scale: float,
+	model: Dictionary
+) -> void:
+	var gauge_rect := Rect2(
+		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
+		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
+	)
+	if not gauge_rect.has_area():
+		return
+	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	canvas.draw_rect(gauge_rect.grow(3.0 * content_scale), Color(0.03, 0.018, 0.012, 0.34), true)
+	canvas.draw_rect(gauge_rect, Color(0.16, 0.095, 0.045, 0.98), true)
+	canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
+	var target_position := clampf(float(model.get("target_position", 0.5)), 0.0, 1.0)
+	var cell_width := clampf(float(model.get("cell_width_ratio", 0.20)), 0.01, 0.30)
+	var critical_rect := _training_timing_segment_rect(
+		track_rect,
+		target_position - cell_width * 0.5,
+		target_position + cell_width * 0.5
+	)
+	var great_left_rect := _training_timing_segment_rect(
+		track_rect,
+		target_position - cell_width * 1.5,
+		target_position - cell_width * 0.5
+	)
+	var great_right_rect := _training_timing_segment_rect(
+		track_rect,
+		target_position + cell_width * 0.5,
+		target_position + cell_width * 1.5
+	)
+	for great_rect in [great_left_rect, great_right_rect]:
+		canvas.draw_rect(great_rect, Color(0.13, 0.34, 0.54, 0.72), true)
+		canvas.draw_rect(great_rect.grow(-1.0 * content_scale), Color(0.30, 0.58, 0.76, 0.18), true)
+	var pulse := clampf(float(model.get("pulse_strength", 0.0)), 0.0, 1.0)
+	canvas.draw_rect(
+		critical_rect.grow((4.0 + 5.0 * pulse) * content_scale),
+		Color(0.92, 0.08, 0.045, 0.055 + pulse * 0.045),
+		true
+	)
+	canvas.draw_rect(critical_rect, Color(0.68, 0.045, 0.028, 0.94), true)
+	canvas.draw_rect(
+		critical_rect.grow(-2.0 * content_scale),
+		Color(1.0, 0.20, 0.08, 0.18 + pulse * 0.12),
+		true
+	)
+	# The jackpot cell is a UI contract, so its requested gold border is explicit;
+	# aura and impact VFX remain fill-and-broad-stroke only.
+	canvas.draw_rect(
+		critical_rect,
+		Color(0.95, 0.72, 0.24, 0.96),
+		false,
+		2.0 * content_scale
+	)
+	for boundary_ratio in [
+		target_position - cell_width * 1.5,
+		target_position - cell_width * 0.5,
+		target_position + cell_width * 0.5,
+		target_position + cell_width * 1.5,
+	]:
+		var boundary_x := track_rect.position.x + track_rect.size.x * float(boundary_ratio)
+		canvas.draw_line(
+			Vector2(boundary_x, track_rect.position.y),
+			Vector2(boundary_x, track_rect.end.y),
+			Color(0.95, 0.77, 0.38, 0.34),
+			1.0 * content_scale
+		)
+	var pendulum_position := clampf(float(model.get("pendulum_position", 0.0)), 0.0, 1.0)
+	var marker_x := track_rect.position.x + track_rect.size.x * pendulum_position
+	var marker_color := Color(0.98, 0.91, 0.70, 1.0)
+	match str(model.get("judgment_kind", "")):
+		"critical":
+			marker_color = Color(1.0, 0.35, 0.16, 1.0)
+		"great":
+			marker_color = Color(0.38, 0.78, 1.0, 1.0)
+	canvas.draw_line(
+		Vector2(marker_x, track_rect.position.y - 3.0 * content_scale),
+		Vector2(marker_x, track_rect.end.y + 3.0 * content_scale),
+		Color(marker_color, 0.22),
+		9.0 * content_scale
+	)
+	canvas.draw_line(
+		Vector2(marker_x, track_rect.position.y - 4.0 * content_scale),
+		Vector2(marker_x, track_rect.end.y + 4.0 * content_scale),
+		marker_color,
+		3.0 * content_scale
+	)
+	canvas.draw_circle(
+		Vector2(marker_x, gauge_rect.get_center().y),
+		4.5 * content_scale,
+		marker_color
+	)
+
+
+func _training_timing_segment_rect(
+	track_rect: Rect2,
+	start_ratio: float,
+	end_ratio: float
+) -> Rect2:
+	var clamped_start := clampf(start_ratio, 0.0, 1.0)
+	var clamped_end := clampf(end_ratio, clamped_start, 1.0)
+	return Rect2(
+		Vector2(
+			track_rect.position.x + track_rect.size.x * clamped_start,
+			track_rect.position.y
+		),
+		Vector2(track_rect.size.x * (clamped_end - clamped_start), track_rect.size.y)
+	)
+
+
+func _draw_training_judgment_aura(
+	canvas: CanvasItem,
+	player_slot: Rect2,
+	content_scale: float,
+	judgment_kind: String,
+	progress: float
+) -> void:
+	var t := clampf(progress, 0.0, 1.0)
+	var center := player_slot.get_center() + Vector2(8.0, 10.0) * content_scale
+	var aura_color := (
+		Color(0.96, 0.11, 0.055)
+		if judgment_kind == "critical"
+		else Color(0.12, 0.52, 0.95)
+	)
+	var bloom_radius := (20.0 + 58.0 * sin(t * PI)) * content_scale
+	canvas.draw_circle(center, bloom_radius * 1.28, Color(aura_color, 0.035))
+	canvas.draw_circle(center, bloom_radius * 0.86, Color(aura_color, 0.085))
+	canvas.draw_circle(
+		center + Vector2(-8.0, -10.0) * content_scale,
+		bloom_radius * 0.44,
+		Color(1.0, 0.78, 0.46, 0.10) if judgment_kind == "critical" else Color(0.56, 0.86, 1.0, 0.10)
+	)
+	for direction in [
+		Vector2(-0.96, -0.26),
+		Vector2(-0.62, -0.78),
+		Vector2(0.15, -0.98),
+		Vector2(0.82, -0.52),
+		Vector2(0.94, 0.22),
+	]:
+		var ray_direction: Vector2 = direction
+		var inner := center + ray_direction * (12.0 + 9.0 * t) * content_scale
+		var outer := center + ray_direction * (42.0 + 38.0 * t) * content_scale
+		canvas.draw_line(inner, outer, Color(aura_color, 0.02), 24.0 * content_scale)
+		canvas.draw_line(inner, outer, Color(aura_color, 0.16 * (1.0 - t)), 7.0 * content_scale)
+	for point_spec in [
+		Vector2(-31.0, -21.0),
+		Vector2(24.0, -34.0),
+		Vector2(39.0, 12.0),
+	]:
+		var drift: Vector2 = point_spec
+		canvas.draw_circle(
+			center + drift * content_scale * (0.72 + t * 0.45),
+			(3.0 - 1.2 * t) * content_scale,
+			Color(aura_color.lightened(0.45), 0.78 * (1.0 - t))
+		)
+
+
+func _draw_training_judgment_message(
+	canvas: CanvasItem,
+	stage_rect: Rect2,
+	content_scale: float,
+	message_text: String,
+	judgment_kind: String,
+	progress: float
+) -> void:
+	if message_text.is_empty():
+		return
+	var t := clampf(progress, 0.0, 1.0)
+	var rise := (8.0 + 24.0 * t) * content_scale
+	var baseline := Vector2(stage_rect.position.x, stage_rect.end.y - 18.0 * content_scale - rise)
+	var color := Color(0.94, 0.84, 0.62, 1.0)
+	if judgment_kind == "critical":
+		color = Color(1.0, 0.38, 0.18, 1.0)
+	elif judgment_kind == "great":
+		color = Color(0.38, 0.78, 1.0, 1.0)
+	var alpha := minf(1.0, t * 6.0) * (1.0 - pow(maxf(0.0, t - 0.72) / 0.28, 2.0))
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		baseline + Vector2(1.5, 2.0) * content_scale,
+		message_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		stage_rect.size.x,
+		maxi(11, int(round(16.0 * content_scale))),
+		Color(0.02, 0.012, 0.008, 0.72 * alpha)
+	)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		baseline,
+		message_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		stage_rect.size.x,
+		maxi(11, int(round(16.0 * content_scale))),
+		Color(color, alpha)
+	)
 
 
 func _draw_training_card_ordinal(

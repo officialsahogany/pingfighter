@@ -152,6 +152,9 @@ const TOWER_NODE_DESCRIPTION_ROW_LIMIT := 3
 const TOWER_NODE_BONUS_BADGE_ROW_LIMIT := 1
 
 var _fallback_font: Font = null
+var _tower_node_compact_font: FontVariation = null
+var _tower_node_compact_font_base: Font = null
+var _tower_node_compact_font_spacing := -1
 var _draw_now_msec := 0
 var _draw_time_override_msec := -1
 var _title_text_size := Vector2.ZERO
@@ -675,16 +678,22 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		else 1.0
 	)
 	var font_size := (
-		clampi(int(round(10.0 * compact_scale)), 10, 18)
+		clampi(int(round(9.0 * compact_scale)), 9, 18)
 		if compact_card
 		else clampi(int(round(rect.size.x * 0.056)), 11, 13)
 	)
 	var text_width := maxf(24.0, rect.size.x - (22.0 if compact_card else 28.0))
+	var text_font := (
+		_get_tower_node_compact_font(compact_scale)
+		if compact_card
+		else _get_font()
+	)
 	var description_wrap := _wrap_text_px_with_budget(
 		description,
 		font_size,
 		text_width,
-		TOWER_NODE_DESCRIPTION_ROW_LIMIT
+		TOWER_NODE_DESCRIPTION_ROW_LIMIT,
+		text_font
 	)
 	var description_rows: Array = description_wrap.get("lines", [])
 	var strict_text_budget := bool(choice.get("tower_node_strict_text_budget", false))
@@ -702,10 +711,19 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 	var bonus_badge_rows: Array[String] = []
 	var bonus_badge_hidden_by_budget := false
 	if compact_card and not bonus_badge_text.is_empty():
-		var font := _get_font()
+		while (
+			bonus_badge_font_size > 9
+			and text_font != null
+			and _get_text_size(
+				text_font,
+				bonus_badge_text,
+				bonus_badge_font_size
+			).x > text_width
+		):
+			bonus_badge_font_size -= 1
 		var badge_fits_one_row := (
-			font != null
-			and _get_text_size(font, bonus_badge_text, bonus_badge_font_size).x <= text_width
+			text_font != null
+			and _get_text_size(text_font, bonus_badge_text, bonus_badge_font_size).x <= text_width
 		)
 		if badge_fits_one_row and TOWER_NODE_BONUS_BADGE_ROW_LIMIT >= 1:
 			bonus_badge_rows.append(bonus_badge_text)
@@ -718,6 +736,7 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		"choice": choice,
 		"compact_card": compact_card,
 		"compact_scale": compact_scale,
+		"text_font": text_font,
 		"description_font_size": font_size,
 		"description_rows": description_rows,
 		# GRT-021: this is the count of rows actually appended by the same
@@ -1027,6 +1046,9 @@ func draw_tower_node_card(
 
 	var description_rows: Array = text_layout.get("description_rows", [])
 	var description_font_size := int(text_layout.get("description_font_size", 12))
+	var text_font_value: Variant = text_layout.get("text_font", null)
+	var text_font: Font = text_font_value as Font if text_font_value is Font else _get_font()
+	var description_row_step := 10.0 * compact_scale if compact_card else 16.0
 	for row_index in range(description_rows.size()):
 		_draw_text_fitted(
 			canvas,
@@ -1034,26 +1056,30 @@ func draw_tower_node_card(
 			Vector2(
 				rect.position.x + (11.0 * compact_scale if compact_card else 14.0),
 					rect.position.y
-					+ (67.0 * compact_scale if compact_card else 96.0)
-					+ float(row_index) * (12.0 * compact_scale if compact_card else 16.0)
+					+ (64.0 * compact_scale if compact_card else 96.0)
+					+ float(row_index) * description_row_step
 					+ content_offset.y
 			),
 			description_font_size,
 			Color(0.24, 0.19, 0.14, 0.96),
 			rect.size.x - (22.0 * compact_scale if compact_card else 28.0),
-			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10
+			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10,
+			text_font
 		)
 	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])
 	# The compact rail has one shared footer lane. A success/rejection receipt
-	# temporarily owns that lane, so keep the steady lucky badge intact at idle
+	# temporarily owns that lane, so keep the steady timing badge intact at idle
 	# but remove it as a whole while the authoritative receipt is visible
 	# (GRT-021). Drawing both makes two complete Korean promises collide.
 	var bonus_badge_drawn := should_draw_tower_node_bonus_badge(text_layout, visual_state)
 	if bonus_badge_drawn:
+		# The old footer baseline sat on the lower brass edge at the live Vulkan
+		# scale. An 18-unit bottom inset leaves the complete fourth row above the
+		# frame while the 64/10 description grid retains all three budgeted rows.
 		var badge_rect := Rect2(
 			Vector2(
 				rect.position.x + 10.0 * compact_scale,
-				rect.end.y - 13.0 * compact_scale
+				rect.end.y - 18.0 * compact_scale
 			) + content_offset,
 			Vector2(rect.size.x - 20.0 * compact_scale, 11.0 * compact_scale)
 		)
@@ -1063,7 +1089,8 @@ func draw_tower_node_card(
 			str(bonus_badge_rows[0]),
 			badge_rect.get_center(),
 			int(text_layout.get("bonus_badge_font_size", 10)),
-			Color(0.50, 0.22, 0.06, 0.96)
+			Color(0.50, 0.22, 0.06, 0.96),
+			text_font
 		)
 
 	var reason := str(action.get("unavailable_reason", "")).strip_edges()
@@ -3292,8 +3319,14 @@ func _wrap_text_px(text: String, font_size: int, max_px: float, max_lines: int) 
 # GRT-021: description rows used to disappear silently at max_lines. Keep the
 # production result and its source/appended/discarded counts together so seals
 # can assert the rows that the drawer will actually receive.
-func _wrap_text_px_with_budget(text: String, font_size: int, max_px: float, max_lines: int) -> Dictionary:
-	var font: Font = _get_font()
+func _wrap_text_px_with_budget(
+	text: String,
+	font_size: int,
+	max_px: float,
+	max_lines: int,
+	font_override: Font = null
+) -> Dictionary:
+	var font: Font = font_override if font_override != null else _get_font()
 	if font == null or text == "" or max_lines <= 0 or max_px <= 4.0:
 		return _empty_wrap_result()
 	var source_lines: Array = _wrap_text_px_all(font, text, font_size, max_px)
@@ -4801,9 +4834,18 @@ func _draw_text(canvas: CanvasItem, text: String, baseline: Vector2, font_size: 
 	canvas.draw_string(font, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size, color)
 
 
-func _draw_text_fitted(canvas: CanvasItem, text: String, baseline: Vector2, font_size: int, color: Color, max_width: float, min_font_size: int = 10) -> void:
+func _draw_text_fitted(
+	canvas: CanvasItem,
+	text: String,
+	baseline: Vector2,
+	font_size: int,
+	color: Color,
+	max_width: float,
+	min_font_size: int = 10,
+	font_override: Font = null
+) -> void:
 	text = LanguageSettings.translate_text(text)
-	var font: Font = _get_font()
+	var font: Font = font_override if font_override != null else _get_font()
 	if font == null or text == "" or max_width <= 0.0:
 		return
 	var fit: Dictionary = _get_fitted_text(font, text, font_size, min_font_size, max_width)
@@ -4882,9 +4924,16 @@ func _ellipsize_to_width(font: Font, text: String, max_width: float, font_size: 
 	return suffix
 
 
-func _draw_text_centered(canvas: CanvasItem, text: String, center: Vector2, font_size: int, color: Color) -> void:
+func _draw_text_centered(
+	canvas: CanvasItem,
+	text: String,
+	center: Vector2,
+	font_size: int,
+	color: Color,
+	font_override: Font = null
+) -> void:
 	text = LanguageSettings.translate_text(text)
-	var font: Font = _get_font()
+	var font: Font = font_override if font_override != null else _get_font()
 	if font == null or text == "":
 		return
 	var size: Vector2 = _get_text_size(font, text, font_size)
@@ -4928,6 +4977,28 @@ func _get_font() -> Font:
 	if _fallback_font == null:
 		_fallback_font = ThemeDB.fallback_font
 	return _fallback_font
+
+
+func _get_tower_node_compact_font(compact_scale: float) -> Font:
+	var base := _get_font()
+	if base == null:
+		return base
+	# At the rail's 8-10px Korean size the fallback font can let adjacent
+	# syllable boxes touch. Keep the adjustment scoped to compact tower cards;
+	# wider cards and every other HUD surface retain the canonical font metrics.
+	var spacing := maxi(1, int(round(compact_scale)))
+	if (
+		_tower_node_compact_font == null
+		or _tower_node_compact_font_base != base
+		or _tower_node_compact_font_spacing != spacing
+	):
+		var variation := FontVariation.new()
+		variation.base_font = base
+		variation.set_spacing(TextServer.SPACING_GLYPH, spacing)
+		_tower_node_compact_font = variation
+		_tower_node_compact_font_base = base
+		_tower_node_compact_font_spacing = spacing
+	return _tower_node_compact_font
 
 
 func _capture_draw_msec() -> void:

@@ -1,7 +1,7 @@
 extends "res://scripts/tower_ascent/tower_ascent_flow_map_progress.gd"
 
-const TowerTrainingLuckyBonusPolicy := preload(
-	"res://scripts/tower_ascent/tower_training_lucky_bonus_policy.gd"
+const TowerTrainingTimingJudgmentPolicy := preload(
+	"res://scripts/tower_ascent/tower_training_timing_judgment_policy.gd"
 )
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 
@@ -484,10 +484,20 @@ func _build_training_action(
 		_active_registry
 	))
 	var enabled: bool = not at_maximum and affordable
+	live_choice["training_timing_luck_percent"] = (
+		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
+	)
 	live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_BONUS_BADGE
-		if TowerTrainingLuckyBonusPolicy.is_lucky_eligible(choice_id)
+		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE
+		if choice_id != TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
 		else TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
+		,
+		{
+			"width": int(roundf(TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT)),
+			"effect": int(roundf(
+				(TowerTrainingTimingJudgmentPolicy.CRITICAL_MULTIPLIER - 1.0) * 100.0
+			)),
+		}
 	)
 	var unavailable_reason := ""
 	var disabled_reason := ""
@@ -529,9 +539,140 @@ func _build_training_action(
 		},
 	}
 
-func _execute_training_action(
+func _begin_training_timing_action(
+	action: Dictionary,
+	requested_resolution_id: String = ""
+) -> Dictionary:
+	var action_id := str(action.get("id", "")).strip_edges()
+	var prepared := _prepare_training_timing_action(action_id, requested_resolution_id)
+	if not bool(prepared.get("prepared", false)):
+		return prepared
+	var roll_index := _training_timing_roll_count
+	var target_roll := TowerTrainingTimingJudgmentPolicy.roll_target(
+		_map_seed,
+		_current_node_id,
+		action_id,
+		roll_index,
+		float(prepared.get(
+			"luck_percent",
+			TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
+		))
+	)
+	# Exactly one authoritative target sample belongs to one valid card
+	# press/release. Presentation frames and presentation RNG never enter here.
+	_training_timing_roll_count += int(target_roll.get("roll_count", 0))
+	var pending := prepared.duplicate(true)
+	pending["action"] = action.duplicate(true)
+	pending["target_roll"] = target_roll.duplicate(true)
+	pending["gameplay_rng_state_before"] = _gameplay_rng_state.duplicate(true)
+	if not _node_modal_state.begin_training_timing(pending, target_roll):
+		_training_timing_roll_count = roll_index
+		return {
+			"accepted": false,
+			"prepared": false,
+			"reason": "training_timing_presentation_unavailable",
+		}
+	_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_PROMPT
+	))
+	return {
+		"accepted": true,
+		"prepared": true,
+		"action_id": action_id,
+		"node_resolution_id": str(prepared.get("node_resolution_id", "")),
+		"target_roll_count": int(target_roll.get("roll_count", 0)),
+		"target_position": float(target_roll.get("target_position", 0.5)),
+		"training_timing_roll_count": _training_timing_roll_count,
+	}
+
+
+func _prepare_training_timing_action(
 	action_id: String,
 	requested_resolution_id: String = ""
+) -> Dictionary:
+	var parsed := _parse_training_action_id(action_id)
+	if parsed.is_empty():
+		return {
+			"accepted": false,
+			"prepared": false,
+			"reason": "invalid_training_action",
+		}
+	var choice_kind := str(parsed.get("choice_kind", ""))
+	var choice_id := str(parsed.get("choice_id", ""))
+	var choice := _find_training_choice(choice_kind, choice_id)
+	if choice.is_empty():
+		return {
+			"accepted": false,
+			"prepared": false,
+			"reason": "unknown_training_choice",
+		}
+	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
+	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
+		choice_kind,
+		choice,
+		runtime_state
+	)
+	if _training_offer_builder.is_live_choice_at_maximum(
+		choice_kind,
+		live_choice,
+		runtime_state,
+		_active_registry
+	):
+		var maximum_message := _training_maximum_message(live_choice)
+		_refresh_training_modal(maximum_message)
+		return {
+			"accepted": false,
+			"prepared": false,
+			"reason": "training_maximum_reached",
+			"message": maximum_message,
+		}
+	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
+	var affordability: Dictionary = _run_state.can_afford({"muhon": cost})
+	if not bool(affordability.get("accepted", false)):
+		var insufficient_message := TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
+			{
+				"required": cost,
+				"shortfall": int(affordability.get("shortfall", cost)),
+			}
+		)
+		affordability["prepared"] = false
+		affordability["message"] = insufficient_message
+		_refresh_training_modal(insufficient_message)
+		return affordability
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(
+			_current_node_id,
+			"%s:%d" % [action_id, _training_history.size()]
+		)
+	if _resolution_ids.has(resolution_id):
+		return {
+			"accepted": true,
+			"prepared": false,
+			"applied": false,
+			"reason": "already_committed",
+			"node_resolution_id": resolution_id,
+		}
+	return {
+		"accepted": true,
+		"prepared": true,
+		"action_id": action_id,
+		"choice_kind": choice_kind,
+		"choice_id": choice_id,
+		"node_resolution_id": resolution_id,
+		"cost": cost,
+		"luck_percent": float(live_choice.get(
+			"training_timing_luck_percent",
+			TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
+		)),
+	}
+
+
+func _execute_training_action(
+	action_id: String,
+	requested_resolution_id: String = "",
+	judgment_result: Dictionary = {}
 ) -> Dictionary:
 	var parsed := _parse_training_action_id(action_id)
 	if parsed.is_empty():
@@ -580,15 +721,18 @@ func _execute_training_action(
 			"%s:%d" % [action_id, _training_history.size()]
 		)
 	var effect_receipt: Dictionary = {}
-	var gameplay_rng_before := _gameplay_rng_state.duplicate(true)
 	var transaction_result: Dictionary = _node_action_transaction.apply_once(
 		resolution_id,
 		{"muhon": cost},
 		{},
 		_run_state,
 		_resolution_ids,
-		Callable(self, "_grant_training_choice").bind(live_choice, effect_receipt),
-		Callable(self, "_rollback_training_choice").bind(gameplay_rng_before)
+		Callable(self, "_grant_training_choice").bind(
+			live_choice,
+			effect_receipt,
+			judgment_result
+		),
+		Callable(self, "_rollback_training_choice")
 	)
 	_pending_runtime_perk_rollback_snapshot.clear()
 	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
@@ -604,8 +748,18 @@ func _execute_training_action(
 		"choice_id": choice_id,
 		"display_name": display_name,
 		"cost": cost,
-		"lucky_triggered": bool(effect_receipt.get("triggered", false)),
-		"lucky_roll_count": int(effect_receipt.get("roll_count", 0)),
+		# Compatibility fields remain inert so old snapshots do not infer a
+		# stackable random bonus after the timing game replaced it.
+		"lucky_triggered": false,
+		"lucky_roll_count": 0,
+		"timing_judgment_kind": str(effect_receipt.get(
+			"judgment_kind",
+			TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+		)),
+		"timing_target_roll_count": int(judgment_result.get(
+			"target_roll_count",
+			0
+		)),
 		"effect_multiplier": float(effect_receipt.get("effect_multiplier", 1.0)),
 	}
 	_training_history.append(record)
@@ -618,10 +772,66 @@ func _execute_training_action(
 	# Refresh the canonical character-info row projection now so the very next
 	# draw frame shows the applied value instead of a one-frame stale receipt.
 	_prepare_training_stats_panel()
-	_refresh_training_modal(success_message)
+	# The stat and balance commit is immediate, but the confirmed result copy is
+	# owned by the staged strike and must not appear before the dummy reaction.
+	_refresh_training_modal("")
 	transaction_result["training"] = record.duplicate(true)
 	transaction_result["message"] = success_message
 	return transaction_result
+
+func _resolve_training_timing() -> Dictionary:
+	var stopped: Dictionary = _node_modal_state.stop_training_timing()
+	if not bool(stopped.get("accepted", false)):
+		return stopped
+	var pending_value: Variant = stopped.get("pending_action", {})
+	var pending: Dictionary = (
+		pending_value as Dictionary if pending_value is Dictionary else {}
+	)
+	var action_value: Variant = pending.get("action", {})
+	var action: Dictionary = (
+		action_value as Dictionary if action_value is Dictionary else {}
+	)
+	var action_id := str(pending.get("action_id", action.get("id", "")))
+	var resolution_id := str(pending.get("node_resolution_id", ""))
+	var result := _execute_training_action(action_id, resolution_id, stopped)
+	result["timing_target_roll_count"] = int(stopped.get("target_roll_count", 0))
+	result["timing_judgment_kind"] = str(stopped.get(
+		"judgment_kind",
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	))
+	result["gameplay_rng_unchanged"] = (
+		_dictionary_copy(pending.get("gameplay_rng_state_before", {}))
+		== _gameplay_rng_state
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		if not action.is_empty():
+			_node_modal_state.record_action_feedback(action, result)
+		_node_modal_state.cancel_training_timing()
+		return result
+	var message := str(result.get("message", ""))
+	if not action.is_empty():
+		var silent_feedback := result.duplicate(true)
+		silent_feedback["message"] = ""
+		_node_modal_state.record_action_feedback(action, silent_feedback)
+	if not _node_modal_state.begin_training_strike(
+		str(result.get("timing_judgment_kind", "")),
+		message
+	):
+		# The authoritative result is already committed, so a presentation failure
+		# may only clean up the retained timing state; it must never roll back stats.
+		_node_modal_state.cancel_training_timing()
+		_node_modal_state.set_status_text(message)
+	return result
+
+
+func _cancel_training_timing() -> Dictionary:
+	var result: Dictionary = _node_modal_state.cancel_training_timing()
+	if bool(result.get("accepted", false)):
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CANCELLED
+		))
+	return result
+
 
 func _get_or_create_training_offer() -> Dictionary:
 	var existing := _get_training_offer_entry()
@@ -668,13 +878,17 @@ func _parse_training_action_id(action_id: String) -> Dictionary:
 			return {"choice_kind": "stat", "choice_id": choice_id}
 	return {}
 
-func _grant_training_choice(choice: Dictionary, effect_receipt: Dictionary) -> bool:
+func _grant_training_choice(
+	choice: Dictionary,
+	effect_receipt: Dictionary,
+	judgment_result: Dictionary = {}
+) -> bool:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	if runtime_state == null or not runtime_state.has_method("apply_choice"):
 		return false
 	var training_id := str(choice.get("id", "")).strip_edges()
 	# Recheck the production final-consumer gate inside the transaction callback.
-	# A stale card cannot consume the authoritative roll before commit.
+	# A stale card cannot commit after the visible timing judgment was stopped.
 	if (
 		runtime_state.has_method("is_physique_training_saturated")
 		and bool(runtime_state.call(
@@ -689,20 +903,15 @@ func _grant_training_choice(choice: Dictionary, effect_receipt: Dictionary) -> b
 		var snapshot_value: Variant = runtime_state.call("build_unlock_save_snapshot")
 		if snapshot_value is Dictionary:
 			_pending_runtime_perk_rollback_snapshot = (snapshot_value as Dictionary).duplicate(true)
-	var gameplay_rng_before := _gameplay_rng_state.duplicate(true)
 	var applied_choice := choice.duplicate(true)
-	var triggered := false
-	var roll_count := 0
-	var effect_multiplier := 1.0
-	if TowerTrainingLuckyBonusPolicy.is_lucky_eligible(training_id):
-		var roll := TowerTrainingLuckyBonusPolicy.roll_from_gameplay_state(
-			_gameplay_rng_state
-		)
-		_gameplay_rng_state = _dictionary_copy(roll.get("gameplay_rng_state", {}))
-		triggered = bool(roll.get("triggered", false))
-		roll_count = int(roll.get("roll_count", 0))
-		if triggered:
-			effect_multiplier = TowerTrainingLuckyBonusPolicy.EFFECT_MULTIPLIER
+	var judgment_kind := str(judgment_result.get(
+		"judgment_kind",
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	))
+	var effect_multiplier := TowerTrainingTimingJudgmentPolicy.applied_multiplier(
+		training_id,
+		judgment_kind
+	)
 	applied_choice["training_effect_multiplier"] = effect_multiplier
 	if not bool(runtime_state.call(
 		"apply_choice",
@@ -710,11 +919,9 @@ func _grant_training_choice(choice: Dictionary, effect_receipt: Dictionary) -> b
 		_active_owner,
 		_active_registry
 	)):
-		_gameplay_rng_state = gameplay_rng_before
 		_rollback_training_choice()
 		return false
-	effect_receipt["triggered"] = triggered
-	effect_receipt["roll_count"] = roll_count
+	effect_receipt["judgment_kind"] = judgment_kind
 	effect_receipt["effect_multiplier"] = effect_multiplier
 	effect_receipt["base_value"] = _training_base_increment(choice)
 	effect_receipt["applied_value"] = (
@@ -738,7 +945,7 @@ func _rollback_training_choice(gameplay_rng_snapshot: Dictionary = {}) -> void:
 
 
 func _training_maximum_message(choice: Dictionary) -> String:
-	if str(choice.get("id", "")) == TowerTrainingLuckyBonusPolicy.STORAGE_TRAINING_ID:
+	if str(choice.get("id", "")) == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
 		return str(choice.get("level_text", "3/3"))
 	return TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
@@ -746,7 +953,7 @@ func _training_maximum_message(choice: Dictionary) -> String:
 
 
 func _training_projection_value_text(choice: Dictionary, projected: bool) -> String:
-	if str(choice.get("id", "")) == TowerTrainingLuckyBonusPolicy.STORAGE_TRAINING_ID:
+	if str(choice.get("id", "")) == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
 		var level_key := "next_level" if projected else "current_level"
 		return "%d/3" % clampi(int(choice.get(level_key, 0)), 0, 3)
 	var value_key := "training_value_after" if projected else "training_value_before"
@@ -768,20 +975,25 @@ func _build_training_receipt_message(
 		float(effect_receipt.get("applied_value", 0.0)),
 		choice
 	)
-	if bool(effect_receipt.get("triggered", false)):
-		return TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_TRAINING_LUCKY_RECEIPT,
-			{
-				"base": _format_training_value(
-					float(effect_receipt.get("base_value", 0.0)),
-					choice
-				),
-				"applied": applied_text,
-			}
-		)
+	var judgment_kind := str(effect_receipt.get(
+		"judgment_kind",
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	))
+	var judgment_key := TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BASE
+	if judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL:
+		judgment_key = TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CRITICAL
+	elif judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT:
+		judgment_key = TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_GREAT
 	return TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_BASE_RECEIPT,
-		{"applied": applied_text}
+		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_RESULT,
+		{
+			"judgment": TowerAscentNodeModalLocalization.text(judgment_key),
+			"name": str(choice.get(
+				"training_value_label",
+				choice.get("name", choice.get("id", ""))
+			)),
+			"applied": applied_text,
+		}
 	)
 
 
@@ -803,6 +1015,14 @@ func set_training_gameplay_rng_state_for_tests(value: Dictionary) -> void:
 
 func get_training_gameplay_rng_state_for_tests() -> Dictionary:
 	return _gameplay_rng_state.duplicate(true)
+
+
+func get_training_timing_roll_count_for_tests() -> int:
+	return _training_timing_roll_count
+
+
+func set_training_timing_roll_count_for_tests(value: int) -> void:
+	_training_timing_roll_count = maxi(0, value)
 
 func _capture_runtime_perk_build_state() -> void:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")

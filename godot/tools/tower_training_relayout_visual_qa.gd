@@ -213,7 +213,19 @@ func _run() -> void:
 		var top_corner := (rects[card_index] as Rect2).position + Vector2(2.0, 2.0)
 		flow.handle_input(_mouse_button(true, top_corner))
 		flow.handle_input(_mouse_button(false, top_corner))
-		flow.set_training_stage_clock_msec_for_tests(clock_base + 360)
+		var timing_debug: Dictionary = flow.get_training_timing_debug_state()
+		var target_position := float(timing_debug.get("target_position", 0.5))
+		var stop_position := 0.0 if target_position >= 0.5 else 1.0
+		var stop_elapsed := int(roundf(stop_position * 800.0))
+		flow.set_training_stage_clock_msec_for_tests(
+			int(timing_debug.get("started_msec", clock_base)) + stop_elapsed
+		)
+		flow.handle_input(_mouse_button(true, Vector2(8.0, 8.0)))
+		flow.handle_input(_mouse_button(false, Vector2(8.0, 8.0)))
+		var strike_debug: Dictionary = flow.get_training_stage_presentation_debug_state()
+		flow.set_training_stage_clock_msec_for_tests(
+			int(strike_debug.get("started_msec", clock_base)) + 360
+		)
 		flow.update_selective(0.016, null)
 		var after_values: Array = card_renderer.get_tower_training_stats_snapshot_for_tests().get(
 			"values",
@@ -234,7 +246,9 @@ func _run() -> void:
 			_fail("card %d capture failed" % (card_index + 1))
 			break
 		frames.append(frame)
-		flow.set_training_stage_clock_msec_for_tests(clock_base + 1000)
+		flow.set_training_stage_clock_msec_for_tests(
+			int(strike_debug.get("started_msec", clock_base)) + 1300
+		)
 		flow.update_selective(0.016, null)
 
 	if not _failed:

@@ -6,6 +6,9 @@ const TowerAscentNodeModalLocalization := preload(
 const TowerTrainingStrikePresentationState := preload(
 	"res://scripts/tower_ascent/tower_training_strike_presentation_state.gd"
 )
+const TowerTrainingTimingState := preload(
+	"res://scripts/tower_ascent/tower_training_timing_state.gd"
+)
 
 const ACTION_END_WORK := "end_work"
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
@@ -62,6 +65,9 @@ var _hover_transitions: Dictionary = {}
 var _interaction_receipt: Dictionary = {}
 var _clock_override_msec := -1
 var _training_stage_presentation: Object = null
+var _training_timing_state: Object = null
+var _training_timing_pending: Dictionary = {}
+var _training_timing_strike_started := false
 var _pointer_position := Vector2(-1.0, -1.0)
 var _training_stats_hovered := false
 # GRT-028: layout geometry is a retained size/flag product. The fullscreen
@@ -79,6 +85,7 @@ func open(
 	actions: Array = []
 ) -> void:
 	_clear_training_stage_presentation()
+	_clear_training_timing()
 	_node_id = node_id.strip_edges()
 	_node_kind = node_kind.strip_edges().to_lower()
 	if not TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.has(_node_kind):
@@ -102,6 +109,7 @@ func open(
 
 func close() -> void:
 	_clear_training_stage_presentation()
+	_clear_training_timing()
 	_node_id = ""
 	_actions.clear()
 	_keyboard_selected_index = 0
@@ -130,16 +138,106 @@ func configure_training_stage_presentation(
 	return bool(_training_stage_presentation.is_configured())
 
 
-func begin_training_strike() -> bool:
+func begin_training_strike(
+	judgment_kind: String = "",
+	message_text: String = ""
+) -> bool:
 	if _training_stage_presentation == null:
 		return false
-	return bool(_training_stage_presentation.start())
+	var started := bool(_training_stage_presentation.start(judgment_kind, message_text))
+	if started and _training_timing_state != null:
+		_training_timing_strike_started = true
+	return started
+
+
+func begin_training_timing(
+	pending_action: Dictionary,
+	target_roll: Dictionary
+) -> bool:
+	_clear_training_timing()
+	if _node_kind != "training" or pending_action.is_empty():
+		return false
+	var state := TowerTrainingTimingState.new()
+	if _clock_override_msec >= 0:
+		state.set_clock_msec_for_tests(_clock_override_msec)
+	if not state.start(target_roll):
+		return false
+	_training_timing_state = state
+	_training_timing_pending = pending_action.duplicate(true)
+	_training_timing_strike_started = false
+	cancel_pointer_press()
+	return true
+
+
+func stop_training_timing() -> Dictionary:
+	if _training_timing_state == null:
+		return {"accepted": false, "reason": "training_timing_not_running"}
+	var result: Dictionary = _training_timing_state.stop()
+	if bool(result.get("accepted", false)):
+		result["pending_action"] = _training_timing_pending.duplicate(true)
+	return result
+
+
+func cancel_training_timing() -> Dictionary:
+	var had_interaction := _training_timing_state != null
+	_clear_training_timing()
+	cancel_pointer_press()
+	return {
+		"accepted": had_interaction,
+		"muhon_spent": 0,
+		"reason": "training_timing_cancelled",
+	}
+
+
+func has_running_training_timing() -> bool:
+	return (
+		_training_timing_state != null
+		and bool(_training_timing_state.is_running())
+	)
+
+
+func has_training_timing_interaction() -> bool:
+	return _training_timing_state != null
+
+
+func get_training_timing_presentation() -> Object:
+	return _training_timing_state
+
+
+func get_training_timing_debug_state() -> Dictionary:
+	if _training_timing_state == null:
+		return {
+			"running": false,
+			"resolved": false,
+			"host_node_count": 0,
+			"dynamic_layer_count": 0,
+		}
+	return _training_timing_state.get_debug_state()
+
+
+func get_training_timing_visual_model_for_tests() -> Dictionary:
+	if _training_timing_state == null:
+		return {}
+	return _training_timing_state.get_visual_model()
 
 
 func update_training_strike_wall_clock() -> bool:
 	if _training_stage_presentation == null:
 		return false
 	return bool(_training_stage_presentation.update_wall_clock())
+
+
+func update_training_presentations_wall_clock() -> bool:
+	var remains_active := false
+	if has_running_training_timing():
+		_training_timing_state.update_wall_clock()
+		remains_active = true
+	if has_active_training_strike():
+		var strike_active := bool(_training_stage_presentation.update_wall_clock())
+		remains_active = remains_active or strike_active
+		if not strike_active and _training_timing_strike_started:
+			_clear_training_timing()
+	return remains_active
 
 
 func has_active_training_strike() -> bool:
@@ -165,8 +263,11 @@ func get_training_stage_debug_state() -> Dictionary:
 
 
 func set_training_stage_clock_msec_for_tests(value: int) -> void:
+	_clock_override_msec = value
 	if _training_stage_presentation != null:
 		_training_stage_presentation.set_clock_msec_for_tests(value)
+	if _training_timing_state != null:
+		_training_timing_state.set_clock_msec_for_tests(value)
 
 
 func get_training_stage_visual_model_for_tests() -> Dictionary:
@@ -179,6 +280,14 @@ func _clear_training_stage_presentation() -> void:
 	if _training_stage_presentation != null:
 		_training_stage_presentation.clear()
 	_training_stage_presentation = null
+
+
+func _clear_training_timing() -> void:
+	if _training_timing_state != null:
+		_training_timing_state.cancel()
+	_training_timing_state = null
+	_training_timing_pending.clear()
+	_training_timing_strike_started = false
 
 
 func set_actions(actions: Array) -> void:

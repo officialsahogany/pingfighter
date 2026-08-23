@@ -68,6 +68,18 @@ func get_training_stage_visual_model_for_tests() -> Dictionary:
 	return _node_modal_state.get_training_stage_visual_model_for_tests()
 
 
+func get_training_timing_debug_state() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_training_timing_debug_state()
+
+
+func get_training_timing_visual_model_for_tests() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_training_timing_visual_model_for_tests()
+
+
 func get_node_modal_render_context() -> Dictionary:
 	var context := {
 		"card_renderer": _get_cached_node_modal_render_module(
@@ -112,6 +124,13 @@ func get_node_modal_render_context() -> Dictionary:
 			# entry. This adds no registry lookup, layout build, or Node layer to
 			# an unhovered frame.
 			context["training_stage_presentation"] = training_stage_presentation
+		var training_timing_presentation: Object = (
+			_node_modal_state.get_training_timing_presentation()
+		)
+		if training_timing_presentation != null:
+			# GRT-028/GRT-043: this RefCounted and its draw model exist only from
+			# a valid card release until the owned strike presentation completes.
+			context["training_timing_presentation"] = training_timing_presentation
 	return context
 
 
@@ -190,6 +209,12 @@ func _open_node_modal() -> void:
 
 func _handle_node_modal_input(event: InputEvent) -> void:
 	var view_size := _get_node_modal_view_size()
+	if (
+		_node_modal_kind == "training"
+		and _node_modal_state.has_training_timing_interaction()
+	):
+		_handle_training_timing_owned_input(event)
+		return
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
@@ -254,6 +279,41 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				_confirm_node_modal_action(released_action)
 
 
+func _handle_training_timing_owned_input(event: InputEvent) -> void:
+	# GRT-019/GRT-022: while the gauge owns input, no press can arm another card,
+	# page control, or the end-work footer. The stop happens on the new press, so
+	# the release cannot be reinterpreted after the timing state becomes resolved.
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if not key_event.pressed or key_event.echo:
+			return
+		if key_event.keycode == KEY_ESCAPE:
+			if _node_modal_state.has_running_training_timing():
+				_cancel_training_timing()
+			else:
+				_enter_route_aim()
+			return
+		if (
+			_node_modal_state.has_running_training_timing()
+			and key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]
+		):
+			_resolve_training_timing()
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if (
+			_node_modal_state.has_running_training_timing()
+			and mouse_event.button_index == MOUSE_BUTTON_LEFT
+			and mouse_event.pressed
+		):
+			_resolve_training_timing()
+		return
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if _node_modal_state.has_running_training_timing() and touch_event.pressed:
+			_resolve_training_timing()
+
+
 func _get_node_modal_view_size() -> Vector2:
 	if (
 		_active_owner != null
@@ -276,15 +336,6 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	)
 	if action.is_empty():
 		return
-	if (
-		not pointer_action.is_empty()
-		and _node_modal_kind == "training"
-		and str(action.get("id", "")).begins_with("training_")
-	):
-		# One completed press/release on a training card starts exactly one
-		# presentation. Keyboard confirmation and the end-work footer remain
-		# outside this pointer-only strike contract.
-		_node_modal_state.begin_training_strike()
 	action["_feedback_index"] = _node_modal_state.get_action_index_by_id(
 		str(action.get("id", ""))
 	)
@@ -300,6 +351,18 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 		return
 	if str(action.get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK:
 		_enter_route_aim()
+		return
+	if (
+		_node_modal_kind == "training"
+		and str(action.get("id", "")).begins_with("training_")
+	):
+		var timing_result := _begin_training_timing_action(action)
+		if not bool(timing_result.get("prepared", false)):
+			_node_modal_state.record_action_feedback(action, timing_result)
+			_node_modal_state.set_status_text(str(timing_result.get(
+				"message",
+				timing_result.get("reason", "")
+			)))
 		return
 	var action_result := execute_node_action(str(action.get("id", "")))
 	_node_modal_state.record_action_feedback(action, action_result)

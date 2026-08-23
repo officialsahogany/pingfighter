@@ -22,6 +22,7 @@ const REENTRY_PROGRESS_FIELDS: Array[String] = [
 	"run_defeat_count",
 	"defeat_event_ids",
 	"gameplay_rng_state",
+	"training_timing_roll_count",
 	"route_history",
 	"reward_pick_history",
 ]
@@ -140,6 +141,7 @@ func _capture_reentry_progress() -> Dictionary:
 		"run_defeat_count": _run_defeat_count,
 		"defeat_event_ids": _defeat_event_ids,
 		"gameplay_rng_state": _gameplay_rng_state,
+		"training_timing_roll_count": _training_timing_roll_count,
 		"route_history": _route_history,
 		"reward_pick_history": _reward_pick_history,
 	}
@@ -202,6 +204,10 @@ func _restore_reentry_progress(progress: Dictionary) -> bool:
 	_run_defeat_count = maxi(0, int(progress.get("run_defeat_count", 0)))
 	_defeat_event_ids.assign(_string_array(progress.get("defeat_event_ids", [])))
 	_gameplay_rng_state = _dictionary_copy(progress.get("gameplay_rng_state", {}))
+	_training_timing_roll_count = maxi(0, int(progress.get(
+		"training_timing_roll_count",
+		0
+	)))
 	_route_history.assign(_dictionary_array(progress.get("route_history", [])))
 	_reward_pick_history.assign(_dictionary_array(progress.get("reward_pick_history", [])))
 	_add_history_resolution_ids(_reward_pick_history)

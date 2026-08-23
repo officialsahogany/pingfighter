@@ -6,6 +6,9 @@ const PlayerCharacterRuntime := preload(
 const Stage1PlayerSpriteRenderer := preload(
 	"res://scripts/stages/stage1/stage1_player_sprite_renderer.gd"
 )
+const TowerTrainingTimingJudgmentPolicy := preload(
+	"res://scripts/tower_ascent/tower_training_timing_judgment_policy.gd"
+)
 
 const SHEET_ATTACK_DURATION_MSEC := 720
 const SHEET_CONTACT_MSEC := 360
@@ -22,6 +25,11 @@ const DUMMY_REBOUND_DEGREES := -2.0
 const STAGE_SHAKE_MSEC := 90
 const STAGE_SHAKE_MAX_PX := 3.0
 const IMPACT_EFFECT_MSEC := 150
+const CRITICAL_PRELUDE_HITSTOP_MSEC := 200
+const CRITICAL_AURA_LEAD_MSEC := 60
+const AURA_EFFECT_MSEC := 320
+const MESSAGE_DELAY_AFTER_CONTACT_MSEC := DUMMY_AWAY_MSEC
+const MESSAGE_EFFECT_MSEC := 520
 const PADDLE_HIT_AUDIO_SOURCE_X := 504.0
 
 var _character_runtime: Object = PlayerCharacterRuntime.new()
@@ -49,6 +57,8 @@ var _presentation_rng_preconsume_for_tests := 0
 var _presentation_rng_roll_count := 0
 var _impact_directions: Array[Vector2] = []
 var _impact_point_offsets: Array[Vector2] = []
+var _judgment_kind := TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+var _message_text := ""
 
 
 func configure(
@@ -79,10 +89,12 @@ func clear() -> void:
 	_idle_model.clear()
 	_visual_model.clear()
 	_contact_audio_emitted = false
+	_judgment_kind = TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	_message_text = ""
 	_clear_presentation_rolls()
 
 
-func start() -> bool:
+func start(judgment_kind: String = "", message_text: String = "") -> bool:
 	if not _configured:
 		return false
 	if _active or _contact_audio_emitted or _audio_active:
@@ -91,6 +103,19 @@ func start() -> bool:
 	_active = true
 	_contact_audio_emitted = false
 	_audio_active = false
+	_judgment_kind = judgment_kind.strip_edges()
+	if _judgment_kind.is_empty():
+		# Legacy S3 callers had the approved 7-degree / 3-pixel profile. That is
+		# now the middle timing tier, so no-argument test and compatibility calls
+		# retain the same presentation instead of silently becoming the weak tier.
+		_judgment_kind = TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT
+	if _judgment_kind not in [
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL,
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT,
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE,
+	]:
+		_judgment_kind = TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	_message_text = message_text.strip_edges()
 	_started_msec = _now_msec()
 	_start_count += 1
 	_prepare_presentation_rolls()
@@ -105,6 +130,8 @@ func cancel() -> void:
 	_active = false
 	_stop_audio()
 	_contact_audio_emitted = false
+	_judgment_kind = TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+	_message_text = ""
 	_clear_presentation_rolls()
 	_visual_model = _idle_model
 
@@ -113,7 +140,7 @@ func update_wall_clock() -> bool:
 	if not _active:
 		return false
 	var elapsed_msec := maxi(0, _now_msec() - _started_msec)
-	var contact_msec := _contact_msec()
+	var contact_msec := _contact_wall_msec()
 	if elapsed_msec >= contact_msec and not _contact_audio_emitted:
 		_emit_contact_audio()
 	if elapsed_msec >= _total_wall_msec():
@@ -155,6 +182,7 @@ func get_debug_state() -> Dictionary:
 	return {
 		"configured": _configured,
 		"active": _active,
+		"started_msec": _started_msec,
 		"character_type": _character_type,
 		"motion_kind": str(_sprite_spec.get("motion_kind", "fallback")),
 		"weapon_kind": str(_sprite_spec.get("weapon_kind", "fallback")),
@@ -173,15 +201,23 @@ func get_debug_state() -> Dictionary:
 		"presentation_rng_seed": (
 			int(_presentation_rng.seed) if _presentation_rng != null else 0
 		),
+		"judgment_kind": _judgment_kind,
+		"prelude_hitstop_msec": _prelude_hitstop_msec(),
+		"message_text": _message_text,
 	}
 
 
 func _build_visual_model(elapsed_msec: int, strike_active: bool) -> Dictionary:
-	var local_msec := _local_timeline_msec(elapsed_msec) if strike_active else 0
+	var prelude_msec := _prelude_hitstop_msec()
+	var aura_elapsed_msec := maxi(0, elapsed_msec - prelude_msec)
+	var strike_lead_msec := _strike_lead_msec()
+	var strike_visible := strike_active and aura_elapsed_msec >= strike_lead_msec
+	var strike_elapsed_msec := maxi(0, aura_elapsed_msec - strike_lead_msec)
+	var local_msec := _local_timeline_msec(strike_elapsed_msec) if strike_visible else 0
 	var contact_msec := _contact_msec()
-	var dummy_elapsed := maxi(0, local_msec - contact_msec) if strike_active else 0
-	var impact_elapsed := maxi(0, elapsed_msec - contact_msec) if strike_active else 0
-	var sprite_context := _build_sprite_context(local_msec, strike_active)
+	var dummy_elapsed := maxi(0, local_msec - contact_msec) if strike_visible else 0
+	var impact_elapsed := maxi(0, strike_elapsed_msec - contact_msec) if strike_visible else 0
+	var sprite_context := _build_sprite_context(local_msec, strike_visible)
 	var resolved_sprite: Dictionary = {}
 	if _sprite_renderer != null:
 		resolved_sprite = _sprite_renderer.resolve_current_sprite(
@@ -195,6 +231,7 @@ func _build_visual_model(elapsed_msec: int, strike_active: bool) -> Dictionary:
 	return {
 		"configured": _configured,
 		"active": strike_active,
+		"strike_visible": strike_visible,
 		"character_type": _character_type,
 		"motion_kind": str(_sprite_spec.get("motion_kind", "fallback")),
 		"weapon_kind": str(_sprite_spec.get("weapon_kind", "fallback")),
@@ -202,14 +239,14 @@ func _build_visual_model(elapsed_msec: int, strike_active: bool) -> Dictionary:
 		"asset_present": bool(_sprite_spec.get("asset_present", false)),
 		"sprite": resolved_sprite,
 		"draw_size": _sprite_spec.get("draw_size", Vector2(160.0, 160.0)),
-		"frame_index": _resolved_sprite_frame_index(sprite_context, strike_active),
-		"character_offset_x": _character_offset_x(local_msec, strike_active),
+		"frame_index": _resolved_sprite_frame_index(sprite_context, strike_visible),
+		"character_offset_x": _character_offset_x(local_msec, strike_visible),
 		"dummy_rotation_radians": deg_to_rad(_dummy_rotation_degrees(dummy_elapsed)),
 		"dummy_elapsed_msec": dummy_elapsed,
-		"stage_shake_offset": _stage_shake_offset(elapsed_msec, strike_active),
+		"stage_shake_offset": _stage_shake_offset(strike_elapsed_msec, strike_visible),
 		"impact_active": (
-			strike_active
-			and elapsed_msec >= contact_msec
+			strike_visible
+			and strike_elapsed_msec >= contact_msec
 			and impact_elapsed < IMPACT_EFFECT_MSEC
 		),
 		"impact_progress": clampf(
@@ -219,14 +256,46 @@ func _build_visual_model(elapsed_msec: int, strike_active: bool) -> Dictionary:
 		),
 		"impact_directions": _impact_directions,
 		"impact_point_offsets": _impact_point_offsets,
+		"judgment_kind": _judgment_kind,
+		"aura_active": (
+			strike_active
+			and elapsed_msec >= prelude_msec
+			and _judgment_kind != TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE
+			and aura_elapsed_msec < AURA_EFFECT_MSEC
+		),
+		"aura_progress": clampf(
+			float(aura_elapsed_msec) / float(AURA_EFFECT_MSEC),
+			0.0,
+			1.0
+		),
+		"message_active": (
+			strike_visible
+			and not _message_text.is_empty()
+			and strike_elapsed_msec >= contact_msec + HITSTOP_MSEC + MESSAGE_DELAY_AFTER_CONTACT_MSEC
+			and strike_elapsed_msec < contact_msec + HITSTOP_MSEC + MESSAGE_DELAY_AFTER_CONTACT_MSEC + MESSAGE_EFFECT_MSEC
+		),
+		"message_progress": clampf(
+			float(strike_elapsed_msec - contact_msec - HITSTOP_MSEC - MESSAGE_DELAY_AFTER_CONTACT_MSEC)
+			/ float(MESSAGE_EFFECT_MSEC),
+			0.0,
+			1.0
+		),
+		"message_text": _message_text,
 		"hitstop_active": (
 			strike_active
-			and elapsed_msec >= contact_msec
-			and elapsed_msec < contact_msec + HITSTOP_MSEC
+			and (
+				elapsed_msec < prelude_msec
+				or (
+					strike_visible
+					and strike_elapsed_msec >= contact_msec
+					and strike_elapsed_msec < contact_msec + HITSTOP_MSEC
+				)
+			)
 		),
 		"wall_elapsed_msec": elapsed_msec,
 		"local_timeline_msec": local_msec,
-		"contact_msec": contact_msec,
+		"contact_msec": _contact_wall_msec(),
+		"prelude_hitstop_msec": prelude_msec,
 		"total_wall_msec": _total_wall_msec(),
 	}
 
@@ -402,11 +471,36 @@ func _contact_msec() -> int:
 
 func _total_wall_msec() -> int:
 	var local_end := _contact_msec() + DUMMY_REACTION_MSEC
+	if not _message_text.is_empty():
+		local_end = maxi(
+			local_end,
+			_contact_msec() + MESSAGE_DELAY_AFTER_CONTACT_MSEC + MESSAGE_EFFECT_MSEC
+		)
 	if _character_type != PlayerCharacterRuntime.OPTIMUS:
 		local_end = maxi(local_end, SHEET_ATTACK_DURATION_MSEC)
 	else:
 		local_end = maxi(local_end, OPTIMUS_APPROACH_MSEC + OPTIMUS_RETURN_MSEC)
-	return local_end + HITSTOP_MSEC
+	return _prelude_hitstop_msec() + _strike_lead_msec() + local_end + HITSTOP_MSEC
+
+
+func _prelude_hitstop_msec() -> int:
+	return (
+		CRITICAL_PRELUDE_HITSTOP_MSEC
+		if _judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL
+		else 0
+	)
+
+
+func _strike_lead_msec() -> int:
+	return (
+		CRITICAL_AURA_LEAD_MSEC
+		if _judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL
+		else 0
+	)
+
+
+func _contact_wall_msec() -> int:
+	return _prelude_hitstop_msec() + _strike_lead_msec() + _contact_msec()
 
 
 func _character_offset_x(local_msec: int, strike_active: bool) -> float:
@@ -429,23 +523,32 @@ func _character_offset_x(local_msec: int, strike_active: bool) -> float:
 func _dummy_rotation_degrees(dummy_elapsed_msec: int) -> float:
 	if dummy_elapsed_msec <= 0:
 		return 0.0
+	var away_degrees := DUMMY_AWAY_DEGREES
+	var rebound_degrees := DUMMY_REBOUND_DEGREES
+	match _judgment_kind:
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL:
+			away_degrees = 12.0
+			rebound_degrees = -3.0
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE:
+			away_degrees = 3.5
+			rebound_degrees = -1.0
 	if dummy_elapsed_msec < DUMMY_AWAY_MSEC:
 		return lerpf(
 			0.0,
-			DUMMY_AWAY_DEGREES,
+			away_degrees,
 			_ease_out_cubic(float(dummy_elapsed_msec) / float(DUMMY_AWAY_MSEC))
 		)
 	if dummy_elapsed_msec < DUMMY_AWAY_MSEC + DUMMY_REBOUND_MSEC:
 		return lerpf(
-			DUMMY_AWAY_DEGREES,
-			DUMMY_REBOUND_DEGREES,
+			away_degrees,
+			rebound_degrees,
 			_ease_in_out_sine(
 				float(dummy_elapsed_msec - DUMMY_AWAY_MSEC) / float(DUMMY_REBOUND_MSEC)
 			)
 		)
 	if dummy_elapsed_msec < DUMMY_REACTION_MSEC:
 		return lerpf(
-			DUMMY_REBOUND_DEGREES,
+			rebound_degrees,
 			0.0,
 			_ease_out_cubic(
 				float(dummy_elapsed_msec - DUMMY_AWAY_MSEC - DUMMY_REBOUND_MSEC)
@@ -462,7 +565,12 @@ func _stage_shake_offset(elapsed_msec: int, strike_active: bool) -> Vector2:
 	if shake_elapsed < 0 or shake_elapsed >= STAGE_SHAKE_MSEC:
 		return Vector2.ZERO
 	var progress := float(shake_elapsed) / float(STAGE_SHAKE_MSEC)
-	var amplitude := STAGE_SHAKE_MAX_PX * pow(1.0 - progress, 2.0)
+	var strength := 1.0
+	if _judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT:
+		strength = 0.68
+	elif _judgment_kind == TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE:
+		strength = 0.36
+	var amplitude := STAGE_SHAKE_MAX_PX * strength * pow(1.0 - progress, 2.0)
 	var angle := progress * TAU * 2.25
 	return Vector2(cos(angle), sin(angle)) * amplitude
 

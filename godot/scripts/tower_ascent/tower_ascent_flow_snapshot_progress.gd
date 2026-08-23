@@ -122,6 +122,10 @@ func restore_snapshot(
 		_reset_runtime_state()
 		return false
 	_gameplay_rng_state = _dictionary_copy(snapshot.get("gameplay_rng_state", {}))
+	_training_timing_roll_count = maxi(0, int(snapshot.get(
+		"training_timing_roll_count",
+		0
+	)))
 	_route_history.assign(_dictionary_array(snapshot.get("route_history", [])))
 	_route_source_node_id = str(snapshot.get("route_source_node_id", ""))
 	_route_target_ids.assign(_string_array(snapshot.get("route_target_ids", [])))
@@ -242,6 +246,7 @@ func export_snapshot() -> Dictionary:
 		"run_defeat_count": _run_defeat_count,
 		"defeat_event_ids": _defeat_event_ids.duplicate(),
 		"gameplay_rng_state": _gameplay_rng_state.duplicate(true),
+		"training_timing_roll_count": _training_timing_roll_count,
 		"route_history": _route_history.duplicate(true),
 		"route_source_node_id": _route_source_node_id,
 		"route_target_ids": _route_target_ids.duplicate(),

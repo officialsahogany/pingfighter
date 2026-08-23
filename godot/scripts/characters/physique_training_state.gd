@@ -66,7 +66,8 @@ func commit(
 	var applied_multiplier := clampf(effect_multiplier, 1.0, MAX_EFFECT_MULTIPLIER)
 	if clean_id == "physique_storage":
 		# 수납술은 정수 구조값이다. 1.5칸은 슬롯으로 적용할 수 없고 반올림하면
-		# +2칸이 되어 행운의 1.5배 계약을 깨므로, 이 한 항목은 언제나 +1칸이다.
+		# +2칸이 되어 타이밍 판정의 1.5배/1.3배 계약을 깨므로, 이 한 항목은
+		# 언제나 +1칸이다.
 		applied_multiplier = 1.0
 	var previous_applied_count := get_applied_count(clean_id)
 	acquired_counts[clean_id] = get_count(clean_id) + 1

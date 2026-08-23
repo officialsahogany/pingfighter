@@ -245,8 +245,11 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.position = press.position
 	flow.handle_input(release)
-	_expect(runtime_state.apply_calls == 1 and flow.get_training_history().size() == 1, "one mouse press plus release must commit exactly one training step")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "one training click must debit exactly one Muhon")
+	_expect(bool(flow.get_training_timing_debug_state().get("running", false)), "one mouse press plus release must open exactly one timing gauge")
+	_expect(runtime_state.apply_calls == 0, "opening the timing gauge must not commit a training step")
+	flow.handle_input(press)
+	_expect(runtime_state.apply_calls == 1 and flow.get_training_history().size() == 1, "one timing-stop click must commit exactly one training step")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "one resolved timing judgment must debit exactly one Muhon")
 
 	for purchase_index in range(2, 4):
 		var repeated_result := flow.execute_node_action(

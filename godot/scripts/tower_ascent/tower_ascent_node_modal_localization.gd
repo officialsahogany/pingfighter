@@ -36,10 +36,17 @@ const KEY_INSUFFICIENT_MUHON := "tower_ascent.node_modal.insufficient.muhon"
 const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
 const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
-const KEY_TRAINING_BONUS_BADGE := "tower_ascent.node_modal.training.bonus_badge"
+const KEY_TRAINING_TIMING_BADGE := "tower_ascent.node_modal.training.timing_badge"
+const KEY_TRAINING_BONUS_BADGE := KEY_TRAINING_TIMING_BADGE
 const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
 const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
-const KEY_TRAINING_LUCKY_RECEIPT := "tower_ascent.node_modal.training.lucky_receipt"
+const KEY_TRAINING_TIMING_PROMPT := "tower_ascent.node_modal.training.timing_prompt"
+const KEY_TRAINING_TIMING_CANCELLED := "tower_ascent.node_modal.training.timing_cancelled"
+const KEY_TRAINING_TIMING_CRITICAL := "tower_ascent.node_modal.training.timing_critical"
+const KEY_TRAINING_TIMING_GREAT := "tower_ascent.node_modal.training.timing_great"
+const KEY_TRAINING_TIMING_BASE := "tower_ascent.node_modal.training.timing_base"
+const KEY_TRAINING_TIMING_RESULT := "tower_ascent.node_modal.training.timing_result"
+const KEY_TRAINING_LUCKY_RECEIPT := KEY_TRAINING_TIMING_CRITICAL
 const KEY_TRAINING_OFFER_UNAVAILABLE := "tower_ascent.node_modal.training.offer_unavailable"
 const KEY_MONK_ACQUIRE_OPTION := "tower_ascent.node_modal.fallen_monk.acquire_option"
 const KEY_MONK_SWAP_OPTION := "tower_ascent.node_modal.fallen_monk.swap_option"
@@ -138,10 +145,15 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
 		KEY_TRAINING_MAXIMUM: "효과 한계",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
-		KEY_TRAINING_BONUS_BADGE: "행운 20% · 효과 +50%",
+		KEY_TRAINING_TIMING_BADGE: "행운 판정 폭 {width}% · 최대 효과 +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "고정 +1칸",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 적용",
-		KEY_TRAINING_LUCKY_RECEIPT: "행운 발동! 기본 {base} -> {applied} 적용",
+		KEY_TRAINING_TIMING_PROMPT: "움직이는 중심추를 클릭하여 멈추세요.",
+		KEY_TRAINING_TIMING_CANCELLED: "수련을 취소했습니다. 무혼은 소모되지 않았습니다.",
+		KEY_TRAINING_TIMING_CRITICAL: "회심의 수련!",
+		KEY_TRAINING_TIMING_GREAT: "훌륭한 수련!",
+		KEY_TRAINING_TIMING_BASE: "수련 성공",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		KEY_TRAINING_OFFER_UNAVAILABLE: "수련 선택지를 준비할 수 없습니다.",
 		KEY_MONK_ACQUIRE_OPTION: "초식 습득: {name}",
 		KEY_MONK_SWAP_OPTION: "초식 교환: {old_name} 대신 {new_name}",
@@ -227,10 +239,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} Gold",
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
 		KEY_TRAINING_MAXIMUM: "Effect limit",
-		KEY_TRAINING_BONUS_BADGE: "Luck 20% · Effect +50%",
+		KEY_TRAINING_TIMING_BADGE: "Luck window {width}% · Max effect +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "Fixed +1 slot",
 		KEY_TRAINING_BASE_RECEIPT: "Applied {applied}",
-		KEY_TRAINING_LUCKY_RECEIPT: "Lucky! Base {base} -> {applied} applied",
+		KEY_TRAINING_TIMING_PROMPT: "Click to stop the moving marker.",
+		KEY_TRAINING_TIMING_CANCELLED: "Training cancelled. No Mugong Soul spent.",
+		KEY_TRAINING_TIMING_CRITICAL: "Perfect training!",
+		KEY_TRAINING_TIMING_GREAT: "Excellent training!",
+		KEY_TRAINING_TIMING_BASE: "Training success",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
@@ -261,10 +278,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} 金币",
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
 		KEY_TRAINING_MAXIMUM: "效果上限",
-		KEY_TRAINING_BONUS_BADGE: "幸运 20% · 效果 +50%",
+		KEY_TRAINING_TIMING_BADGE: "幸运判定宽度 {width}% · 最大效果 +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "固定 +1 格",
 		KEY_TRAINING_BASE_RECEIPT: "已应用 {applied}",
-		KEY_TRAINING_LUCKY_RECEIPT: "幸运触发！基础 {base} -> 应用 {applied}",
+		KEY_TRAINING_TIMING_PROMPT: "点击停止移动的指针。",
+		KEY_TRAINING_TIMING_CANCELLED: "训练已取消，未消耗武魂。",
+		KEY_TRAINING_TIMING_CRITICAL: "会心修炼！",
+		KEY_TRAINING_TIMING_GREAT: "出色修炼！",
+		KEY_TRAINING_TIMING_BASE: "修炼成功",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
@@ -295,10 +317,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} 金貨",
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
 		KEY_TRAINING_MAXIMUM: "効果上限",
-		KEY_TRAINING_BONUS_BADGE: "幸運 20% · 効果 +50%",
+		KEY_TRAINING_TIMING_BADGE: "幸運判定幅 {width}% · 最大効果 +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "固定 +1枠",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 適用",
-		KEY_TRAINING_LUCKY_RECEIPT: "幸運発動！基本 {base} -> {applied} 適用",
+		KEY_TRAINING_TIMING_PROMPT: "クリックして動く指針を止めてください。",
+		KEY_TRAINING_TIMING_CANCELLED: "修練を中止しました。武魂は消費されません。",
+		KEY_TRAINING_TIMING_CRITICAL: "会心の修練！",
+		KEY_TRAINING_TIMING_GREAT: "見事な修練！",
+		KEY_TRAINING_TIMING_BASE: "修練成功",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
@@ -329,10 +356,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} de oro",
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Límite de efecto",
-		KEY_TRAINING_BONUS_BADGE: "Suerte 20% · Efecto +50%",
+		KEY_TRAINING_TIMING_BADGE: "Zona de suerte {width}% · Efecto máx. +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "+1 espacio fijo",
 		KEY_TRAINING_BASE_RECEIPT: "Se aplicó {applied}",
-		KEY_TRAINING_LUCKY_RECEIPT: "¡Suerte! Base {base} -> aplicado {applied}",
+		KEY_TRAINING_TIMING_PROMPT: "Haz clic para detener el marcador móvil.",
+		KEY_TRAINING_TIMING_CANCELLED: "Entrenamiento cancelado. No se gastó alma marcial.",
+		KEY_TRAINING_TIMING_CRITICAL: "¡Entrenamiento perfecto!",
+		KEY_TRAINING_TIMING_GREAT: "¡Entrenamiento excelente!",
+		KEY_TRAINING_TIMING_BASE: "Entrenamiento logrado",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
@@ -363,10 +395,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} de ouro",
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Limite do efeito",
-		KEY_TRAINING_BONUS_BADGE: "Sorte 20% · Efeito +50%",
+		KEY_TRAINING_TIMING_BADGE: "Faixa de sorte {width}% · Efeito máx. +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "+1 espaço fixo",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} aplicado",
-		KEY_TRAINING_LUCKY_RECEIPT: "Sorte ativada! Base {base} -> {applied} aplicado",
+		KEY_TRAINING_TIMING_PROMPT: "Clique para parar o marcador em movimento.",
+		KEY_TRAINING_TIMING_CANCELLED: "Treino cancelado. Nenhuma alma marcial foi gasta.",
+		KEY_TRAINING_TIMING_CRITICAL: "Treino perfeito!",
+		KEY_TRAINING_TIMING_GREAT: "Treino excelente!",
+		KEY_TRAINING_TIMING_BASE: "Treino concluído",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
@@ -397,10 +434,15 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} золота",
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Предел эффекта",
-		KEY_TRAINING_BONUS_BADGE: "Удача 20% · Эффект +50%",
+		KEY_TRAINING_TIMING_BADGE: "Ширина удачи {width}% · Макс. эффект +{effect}%",
 		KEY_TRAINING_STORAGE_BADGE: "Фикс. +1 ячейка",
 		KEY_TRAINING_BASE_RECEIPT: "Применено: {applied}",
-		KEY_TRAINING_LUCKY_RECEIPT: "Удача! База {base} -> применено {applied}",
+		KEY_TRAINING_TIMING_PROMPT: "Нажмите, чтобы остановить бегущий маркер.",
+		KEY_TRAINING_TIMING_CANCELLED: "Тренировка отменена. Душа боя не потрачена.",
+		KEY_TRAINING_TIMING_CRITICAL: "Идеальная тренировка!",
+		KEY_TRAINING_TIMING_GREAT: "Отличная тренировка!",
+		KEY_TRAINING_TIMING_BASE: "Тренировка успешна",
+		KEY_TRAINING_TIMING_RESULT: "{judgment} {name} +{applied}",
 		"tower_ascent.node_modal.training.description": "Закаляйте тело упорными тренировками.",
 	},
 }

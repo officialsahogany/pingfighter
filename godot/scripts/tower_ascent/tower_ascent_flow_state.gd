@@ -143,6 +143,7 @@ var _guardian_state := {
 	"sealed_guardians": [],
 }
 var _gameplay_rng_state := {"seed": 140913, "state": 140913}
+var _training_timing_roll_count := 0
 var _route_history: Array[Dictionary] = []
 var _route_source_node_id := ""
 var _route_target_ids: Array[String] = []
@@ -272,6 +273,7 @@ func _reset_runtime_state() -> void:
 		"runtime_snapshot": {},
 	}
 	_gameplay_rng_state = {"seed": 140913, "state": 140913}
+	_training_timing_roll_count = 0
 	_route_history.clear()
 	_route_source_node_id = ""
 	_route_target_ids.clear()

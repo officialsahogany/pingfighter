@@ -309,9 +309,14 @@ func _verify_production_pointer_and_idle_gates() -> void:
 	release.pressed = false
 	release.position = click_position
 	flow.handle_input(release)
+	var timing_debug: Dictionary = flow.get_training_timing_debug_state()
+	_expect(bool(timing_debug.get("running", false)), "one completed card click must open the timing gauge")
+	_expect(runtime_state.apply_calls == 0, "opening the timing gauge must not apply training early")
+	# The active gauge owns the next left press regardless of the underlying card rect.
+	flow.handle_input(press)
 	var clicked_debug: Dictionary = flow.get_training_stage_presentation_debug_state()
-	_expect(int(clicked_debug.get("start_count", 0)) == 1, "one completed card click must start exactly one strike")
-	_expect(runtime_state.apply_calls == 1, "one completed card click must still apply exactly one training action")
+	_expect(int(clicked_debug.get("start_count", 0)) == 1, "one timing-stop click must start exactly one strike")
+	_expect(runtime_state.apply_calls == 1, "one timing-stop click must apply exactly one training action")
 
 	flow.set_training_stage_clock_msec_for_tests(1360)
 	flow.set_node_modal_clock_msec_for_tests(1360)
@@ -344,6 +349,9 @@ func _verify_source_and_host_contracts() -> void:
 	var flow_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_node_progress.gd"
 	)
+	var economy_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd"
+	)
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
@@ -354,8 +362,9 @@ func _verify_source_and_host_contracts() -> void:
 		and not state_source.contains("_gameplay_rng_state"),
 		"S4 strike presentation RNG must remain structurally separate from Tower gameplay RNG"
 	)
-	_expect(flow_source.count("_node_modal_state.begin_training_strike()") == 1, "production pointer release must contain exactly one strike start site")
-	_expect(flow_source.contains("not pointer_action.is_empty()"), "keyboard confirmation must stay outside the card-click strike site")
+	_expect(economy_source.count("_node_modal_state.begin_training_strike(") == 1, "resolved timing judgment must contain exactly one strike start site")
+	_expect(not flow_source.contains("_node_modal_state.begin_training_strike("), "card release must not start a strike before timing judgment")
+	_expect(flow_source.contains("not pointer_action.is_empty()"), "keyboard confirmation must stay outside the card-click timing site")
 	var impact_start := renderer_source.find("func _draw_training_impact_effect")
 	var impact_end := renderer_source.find("func _training_dummy_point", impact_start)
 	var impact_source := renderer_source.substr(impact_start, impact_end - impact_start)
