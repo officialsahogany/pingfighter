@@ -22,7 +22,7 @@ func _init() -> void:
 
 func _run() -> void:
 	_verify_training_layout_flag_owns_render_and_hit_rects()
-	_verify_shared_six_card_layouts_are_unchanged()
+	_verify_service_card_layout_profiles()
 	_verify_training_stage_reservations()
 	_verify_layout_cache_is_size_owned()
 	_verify_compact_description_three_row_budget()
@@ -117,25 +117,49 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 	)
 
 
-func _verify_shared_six_card_layouts_are_unchanged() -> void:
-	for node_kind in ["shop", "fallen_monk"]:
-		var modal := _build_six_card_modal(node_kind)
-		var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
-		var flags: Dictionary = model.get("layout_flags", {})
-		_expect(
-			not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_TRAINING_STAGE, true)),
-			"%s must not inherit the training-stage layout" % node_kind
-		)
-		var layout: Dictionary = modal.build_screen_layout(BASE_VIEW_SIZE, flags)
-		_expect(
-			(layout.get("card_grid_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.CARD_GRID_RECT),
-			"%s must retain the established 438px card grid" % node_kind
-		)
-		var rects: Array = model.get("action_rects", [])
-		_expect(
-			(rects[6] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT),
-			"%s must retain the established end-work footer" % node_kind
-		)
+func _verify_service_card_layout_profiles() -> void:
+	var shop_modal := _build_six_card_modal("shop")
+	var shop_model: Dictionary = shop_modal.build_view_model(BASE_VIEW_SIZE)
+	var shop_flags: Dictionary = shop_model.get("layout_flags", {})
+	_expect(
+		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_COMPACT, false)),
+		"shop view model must carry its compact-grid layout flag"
+	)
+	var shop_layout: Dictionary = shop_modal.build_screen_layout(BASE_VIEW_SIZE, shop_flags)
+	_expect(
+		(shop_layout.get("card_grid_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_CARD_GRID_RECT),
+		"shop must resolve its dedicated compact 3x2 grid"
+	)
+	var shop_rects: Array = shop_model.get("action_rects", [])
+	var shop_card := shop_rects[0] as Rect2
+	_expect(is_equal_approx(shop_card.size.y, 106.0), "shop card height must shrink to the compact profile's 106px base")
+	_expect(
+		shop_card.size.y / shop_card.size.x <= RuntimePerkOverlayRenderer.TOWER_NODE_COMPACT_CARD_MAX_ASPECT,
+		"shop card aspect must select the shared compact renderer profile"
+	)
+	var shop_text_layout := RuntimePerkOverlayRenderer.new().build_tower_node_card_text_layout(
+		_training_card_action(0, "shop"),
+		shop_card
+	)
+	_expect(bool(shop_text_layout.get("compact_card", false)), "production shop card rect must activate compact icon and text sizing")
+	_expect(
+		(shop_rects[6] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT),
+		"shop must retain the established end-work footer"
+	)
+
+	var fallen_monk_modal := _build_six_card_modal("fallen_monk")
+	var fallen_monk_model: Dictionary = fallen_monk_modal.build_view_model(BASE_VIEW_SIZE)
+	var fallen_monk_flags: Dictionary = fallen_monk_model.get("layout_flags", {})
+	_expect(
+		not bool(fallen_monk_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_TRAINING_STAGE, true))
+		and not bool(fallen_monk_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_COMPACT, true)),
+		"fallen monk must inherit neither compact service layout"
+	)
+	var fallen_monk_layout: Dictionary = fallen_monk_modal.build_screen_layout(BASE_VIEW_SIZE, fallen_monk_flags)
+	_expect(
+		(fallen_monk_layout.get("card_grid_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.CARD_GRID_RECT),
+		"fallen monk must retain the established 438px card grid"
+	)
 
 
 func _verify_training_stage_reservations() -> void:

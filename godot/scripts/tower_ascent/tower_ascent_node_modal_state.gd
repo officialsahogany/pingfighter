@@ -32,8 +32,14 @@ const PAGE_NEXT_RECT := Rect2(536.0, 602.0, 68.0, 40.0)
 const PAGE_LABEL_RECT := Rect2(208.0, 646.0, 344.0, 24.0)
 const STATUS_BASELINE := Vector2(126.0, 680.0)
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const LAYOUT_FLAG_SHOP_COMPACT := "shop_compact"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
+const SHOP_CARD_GRID_RECT := Rect2(43.0, 150.0, 674.0, 226.0)
+const SHOP_CARD_GRID_COLUMNS := 3
+const SHOP_CARD_GRID_ROWS := 2
+const SHOP_GRID_COLUMN_GAP := 12.0
+const SHOP_GRID_ROW_GAP := 14.0
 const TRAINING_CARD_GRID_RECT := Rect2(52.0, 150.0, 245.0, 476.0)
 const TRAINING_CARD_GRID_COLUMNS := 1
 const TRAINING_CARD_GRID_ROWS := 6
@@ -676,9 +682,26 @@ func build_screen_layout(
 		LAYOUT_FLAG_TRAINING_STAGE,
 		false
 	))
+	var uses_shop_compact := bool(resolved_flags.get(LAYOUT_FLAG_SHOP_COMPACT, false))
 	var uses_hero_card := bool(resolved_flags.get(LAYOUT_FLAG_HERO_CARD, false))
 	var uses_page_controls := bool(resolved_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false))
-	var card_grid_source := TRAINING_CARD_GRID_RECT if uses_training_stage else CARD_GRID_RECT
+	var card_grid_source := CARD_GRID_RECT
+	var card_grid_columns := CARD_GRID_COLUMNS
+	var card_grid_rows := CARD_GRID_ROWS
+	var grid_column_gap := GRID_COLUMN_GAP
+	var grid_row_gap := GRID_ROW_GAP
+	if uses_training_stage:
+		card_grid_source = TRAINING_CARD_GRID_RECT
+		card_grid_columns = TRAINING_CARD_GRID_COLUMNS
+		card_grid_rows = TRAINING_CARD_GRID_ROWS
+		grid_column_gap = TRAINING_GRID_COLUMN_GAP
+		grid_row_gap = TRAINING_GRID_ROW_GAP
+	elif uses_shop_compact:
+		card_grid_source = SHOP_CARD_GRID_RECT
+		card_grid_columns = SHOP_CARD_GRID_COLUMNS
+		card_grid_rows = SHOP_CARD_GRID_ROWS
+		grid_column_gap = SHOP_GRID_COLUMN_GAP
+		grid_row_gap = SHOP_GRID_ROW_GAP
 	var end_work_source := TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
 	_layout_cache_signature = layout_signature
 	_layout_build_count += 1
@@ -693,16 +716,10 @@ func build_screen_layout(
 			if uses_hero_card
 			else Rect2()
 		),
-		"card_grid_columns": (
-			TRAINING_CARD_GRID_COLUMNS if uses_training_stage else CARD_GRID_COLUMNS
-		),
-		"card_grid_rows": TRAINING_CARD_GRID_ROWS if uses_training_stage else CARD_GRID_ROWS,
-		"grid_column_gap": (
-			TRAINING_GRID_COLUMN_GAP if uses_training_stage else GRID_COLUMN_GAP
-		) * content_scale,
-		"grid_row_gap": (
-			TRAINING_GRID_ROW_GAP if uses_training_stage else GRID_ROW_GAP
-		) * content_scale,
+		"card_grid_columns": card_grid_columns,
+		"card_grid_rows": card_grid_rows,
+		"grid_column_gap": grid_column_gap * content_scale,
+		"grid_row_gap": grid_row_gap * content_scale,
 		"end_work_rect": _scale_rect(end_work_source, content_scale, content_offset),
 		"page_previous_rect": (
 			_scale_rect(PAGE_PREVIOUS_RECT, content_scale, content_offset)
@@ -759,6 +776,7 @@ func _scale_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector
 func _build_layout_flags() -> Dictionary:
 	return {
 		LAYOUT_FLAG_TRAINING_STAGE: _node_kind == "training",
+		LAYOUT_FLAG_SHOP_COMPACT: _node_kind == "shop",
 		LAYOUT_FLAG_HERO_CARD: _node_kind in HERO_CARD_NODE_KINDS,
 		LAYOUT_FLAG_PAGE_CONTROLS: _uses_paged_cards() and get_page_count() > 1,
 	}
@@ -766,12 +784,12 @@ func _build_layout_flags() -> Dictionary:
 
 func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
 	var result := _build_layout_flags()
-	if layout_flags.has(LAYOUT_FLAG_TRAINING_STAGE):
-		result[LAYOUT_FLAG_TRAINING_STAGE] = bool(layout_flags.get(
-			LAYOUT_FLAG_TRAINING_STAGE,
-			false
-		))
-	for flag in [LAYOUT_FLAG_HERO_CARD, LAYOUT_FLAG_PAGE_CONTROLS]:
+	for flag in [
+		LAYOUT_FLAG_TRAINING_STAGE,
+		LAYOUT_FLAG_SHOP_COMPACT,
+		LAYOUT_FLAG_HERO_CARD,
+		LAYOUT_FLAG_PAGE_CONTROLS,
+	]:
 		if layout_flags.has(flag):
 			result[flag] = bool(layout_flags.get(flag, false))
 	return result
@@ -779,8 +797,8 @@ func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
 
 func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
 	# GRT-022: rendering and hit testing resolve and pass the same layout flag.
-	# In particular, the compact training grid must never be hit-tested with the
-	# legacy six-card rects after the lower training stage is exposed.
+	# In particular, compact training/shop grids must never be hit-tested with
+	# legacy six-card rects after their node-specific layout is exposed.
 	var layout_flags := _build_layout_flags()
 	var rects := get_action_rects(view_size, layout_flags)
 	# Reverse iteration makes a future overlap deterministic and agrees with the

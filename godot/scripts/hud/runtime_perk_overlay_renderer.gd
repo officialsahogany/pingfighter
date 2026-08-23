@@ -661,7 +661,7 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		description = str(choice.get("detail", "")).strip_edges()
 	# The card rect is already in screen space. An absolute pixel-height gate
 	# would flip back to the legacy layout at a large Vulkan viewport, so the
-	# compact training profile is identified by its scale-invariant aspect.
+	# compact service-card profile is identified by its scale-invariant aspect.
 	var compact_card := (
 		rect.size.y / maxf(1.0, rect.size.x)
 		<= TOWER_NODE_COMPACT_CARD_MAX_ASPECT

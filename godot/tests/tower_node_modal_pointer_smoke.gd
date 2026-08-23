@@ -521,19 +521,18 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 		var card_grid_rect: Rect2 = layout.get("card_grid_rect", Rect2())
 		var column_gap := float(layout.get("grid_column_gap", TowerAscentNodeModalState.GRID_COLUMN_GAP))
 		var row_gap := float(layout.get("grid_row_gap", TowerAscentNodeModalState.GRID_ROW_GAP))
-		# S5 재배치: 수련장은 1x6 좌측 레일, 나머지는 3x2 — 기대 그리드도
-		# 같은 레이아웃 플래그를 따른다(S5 당시 이 레그의 갱신 누락 수리).
+		# S5 수련 1x6 레일과 피드백3 상점 compact 3x2 모두 생산 레이아웃
+		# 플래그를 따라야 한다. 상단 모서리 표본이 GRT-022 반증 정본이다.
 		var is_training_grid := str(node_kind) == "training"
-		var grid_columns := (
-			TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
-			if is_training_grid
-			else TowerAscentNodeModalState.CARD_GRID_COLUMNS
-		)
-		var grid_rows := (
-			TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS
-			if is_training_grid
-			else TowerAscentNodeModalState.CARD_GRID_ROWS
-		)
+		var is_shop_grid := str(node_kind) == "shop"
+		var grid_columns := TowerAscentNodeModalState.CARD_GRID_COLUMNS
+		var grid_rows := TowerAscentNodeModalState.CARD_GRID_ROWS
+		if is_training_grid:
+			grid_columns = TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
+			grid_rows = TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS
+		elif is_shop_grid:
+			grid_columns = TowerAscentNodeModalState.SHOP_CARD_GRID_COLUMNS
+			grid_rows = TowerAscentNodeModalState.SHOP_CARD_GRID_ROWS
 		var card_width := (
 			card_grid_rect.size.x
 			- column_gap
