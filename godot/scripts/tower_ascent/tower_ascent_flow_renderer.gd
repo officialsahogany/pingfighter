@@ -30,6 +30,9 @@ const TowerAscentMapPathGeometry := preload(
 const TowerAscentMapCloudLayer := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
 )
+const TowerAscentFloorTitleCatalog := preload(
+	"res://scripts/tower_ascent/tower_ascent_floor_title_catalog.gd"
+)
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
@@ -1357,6 +1360,11 @@ func _draw_fullscreen_map_model(
 		camera_model,
 		model.get("floor_reveal_visual", {})
 	)
+	_draw_floor_reveal_title(
+		canvas,
+		camera_view_rect,
+		model.get("floor_reveal_visual", {})
+	)
 	var font := ThemeDB.fallback_font
 	var chrome_ink := PAPER if subcover_active else INK
 	var chrome_ink_soft := PAPER_DEEP if subcover_active else INK_SOFT
@@ -1667,6 +1675,97 @@ func _draw_locked_phase_hints(
 			13,
 			PAPER
 		)
+
+
+func _draw_floor_reveal_title(
+	canvas: CanvasItem,
+	view_rect: Rect2,
+	reveal_visual: Dictionary
+) -> void:
+	# 피드백2 9항: 새 층 진입(구름 걷힘) 위로 뜨는 디아블로식 구역 타이틀.
+	# 걷힘의 단일 progress에서 알파를 파생하므로 스킵 클릭과 함께 사라지고,
+	# 별도 타이머·게임플레이 상태를 만들지 않는 표시 전용 연출이다.
+	if not bool(reveal_visual.get("active", false)):
+		return
+	var target_floor := int(reveal_visual.get("target_floor", 0))
+	var title := TowerAscentFloorTitleCatalog.floor_title(target_floor)
+	if title.is_empty():
+		return
+	var alpha := TowerAscentFloorTitleCatalog.title_alpha(
+		float(reveal_visual.get("progress", 0.0))
+	)
+	if alpha <= 0.001:
+		return
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var title_scale := maxf(0.6, view_rect.size.y / 750.0)
+	var label := TowerAscentFloorTitleCatalog.floor_label(target_floor)
+	var label_font_size := maxi(12, int(round(19.0 * title_scale)))
+	var title_font_size := maxi(24, int(round(50.0 * title_scale)))
+	var label_baseline := Vector2(
+		view_rect.position.x,
+		view_rect.position.y + view_rect.size.y * 0.285
+	)
+	var title_baseline := label_baseline + Vector2(0.0, 58.0 * title_scale)
+	var shadow_ink := Color(0.03, 0.02, 0.012, 0.62 * alpha)
+	var outline_ink := Color(0.10, 0.066, 0.032, 0.90 * alpha)
+	canvas.draw_string(
+		font,
+		label_baseline + Vector2(1.5, 2.0) * title_scale,
+		label,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		label_font_size,
+		shadow_ink
+	)
+	canvas.draw_string_outline(
+		font,
+		label_baseline,
+		label,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		label_font_size,
+		maxi(2, int(round(4.0 * title_scale))),
+		outline_ink
+	)
+	canvas.draw_string(
+		font,
+		label_baseline,
+		label,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		label_font_size,
+		Color(0.90, 0.78, 0.50, alpha)
+	)
+	canvas.draw_string(
+		font,
+		title_baseline + Vector2(2.0, 3.0) * title_scale,
+		title,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		title_font_size,
+		shadow_ink
+	)
+	canvas.draw_string_outline(
+		font,
+		title_baseline,
+		title,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		title_font_size,
+		maxi(3, int(round(8.0 * title_scale))),
+		outline_ink
+	)
+	canvas.draw_string(
+		font,
+		title_baseline,
+		title,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		view_rect.size.x,
+		title_font_size,
+		Color(0.97, 0.87, 0.58, alpha)
+	)
 
 
 func _draw_fullscreen_transition_marker(

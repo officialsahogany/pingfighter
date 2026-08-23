@@ -12,6 +12,9 @@ const TowerAscentTuning := preload(
 const TowerAscentMapCloudLayer := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
 )
+const TowerAscentFloorTitleCatalog := preload(
+	"res://scripts/tower_ascent/tower_ascent_floor_title_catalog.gd"
+)
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
@@ -31,6 +34,7 @@ func _run() -> void:
 	_verify_reveal_sequence_persistence_and_rng()
 	_verify_bitmap_density_wrap_parallax_and_fallback()
 	_verify_skip_reset_and_hot_path_contracts()
+	_verify_floor_reveal_title_catalog_and_wiring()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print("tower_map_floor_reveal_cloud_contract_smoke: ok")
@@ -176,6 +180,56 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 	_expect(
 		bitmap_draw_body.find("sin(") < 0 and bitmap_draw_body.find("fposmod(") >= 0,
 		"bitmap clouds must flow continuously through wrap coordinates instead of oscillating"
+	)
+
+
+func _verify_floor_reveal_title_catalog_and_wiring() -> void:
+	# 피드백2 9항: 층 진입 타이틀 정본·포락·배선 봉인.
+	for floor_number in range(1, 13):
+		_expect(
+			not TowerAscentFloorTitleCatalog.floor_title(floor_number).is_empty(),
+			"floor %d must own a reveal title" % floor_number
+		)
+	_expect(
+		TowerAscentFloorTitleCatalog.floor_title(0).is_empty()
+		and TowerAscentFloorTitleCatalog.floor_title(13).is_empty(),
+		"out-of-tower floors must not fabricate a reveal title"
+	)
+	var catalog_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_floor_title_catalog.gd"
+	)
+	_expect(
+		catalog_source.find("—") < 0,
+		"Korean floor title copy must not contain an em dash"
+	)
+	_expect(
+		is_equal_approx(TowerAscentFloorTitleCatalog.title_alpha(0.0), 0.0)
+		and is_equal_approx(TowerAscentFloorTitleCatalog.title_alpha(
+			TowerAscentFloorTitleCatalog.TITLE_FADE_IN_END
+		), 1.0)
+		and is_equal_approx(TowerAscentFloorTitleCatalog.title_alpha(0.5), 1.0)
+		and is_equal_approx(TowerAscentFloorTitleCatalog.title_alpha(
+			TowerAscentFloorTitleCatalog.TITLE_HOLD_END
+		), 1.0)
+		and is_equal_approx(TowerAscentFloorTitleCatalog.title_alpha(1.0), 0.0),
+		"reveal title alpha must fade in, hold through the cloud fade, then leave"
+	)
+	var mid_fade := TowerAscentFloorTitleCatalog.title_alpha(0.89)
+	_expect(
+		mid_fade > 0.0 and mid_fade < 1.0,
+		"reveal title fade-out must pass through partial alpha"
+	)
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var cloud_draw_index := renderer_source.find("_map_cloud_layer.draw(")
+	var title_draw_index := renderer_source.find(
+		"_draw_floor_reveal_title(",
+		cloud_draw_index
+	)
+	_expect(
+		cloud_draw_index >= 0 and title_draw_index > cloud_draw_index,
+		"the reveal title must draw after the clouds so it floats above the fog"
 	)
 
 
