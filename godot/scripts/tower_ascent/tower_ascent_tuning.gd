@@ -71,10 +71,12 @@ const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 # ruling is reversed by the user's follow-up feedback. Wind now applies a
 # lateral acceleration to the route ball per physics frame (x delta x 60
 # convention), scaled by strength level 1..3. At serve speed 274 the full
-# flight (~2s) drifts roughly 50/100/150px, versus the 49px target hit
-# radius, so strength must actually be aimed against. Battle weather owns
-# its own constants (weather_event_state.gd); never share them here.
-const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.007
+# flight (~2s) drifts roughly 64/129/193px, versus the 49px target hit
+# radius, so strength must actually be aimed against. Feedback 3 candidates
+# 0.014, 0.012, and 0.010 failed the full two-target reachability sweep; 0.009
+# is the highest adopted GREEN value. Battle weather owns its own constants
+# (weather_event_state.gd); never share them here.
+const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.009
 const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
 const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
 const TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE := Vector2(12.0, 7.0)
@@ -134,6 +136,11 @@ const TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER := 1.18
 # before free zoom, so this input slice does not demand a higher-resolution map
 # source than the current renderer already displays.
 const TEMP_MAP_WHEEL_ZOOM_STEP_MULTIPLIER := TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+const TEMP_MAP_DEFAULT_ZOOMOUT_NOTCHES := 4.0
+const TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR := pow(
+	TEMP_MAP_WHEEL_ZOOM_STEP_MULTIPLIER,
+	TEMP_MAP_DEFAULT_ZOOMOUT_NOTCHES
+)
 const TEMP_MAP_WHEEL_ZOOM_MAX := (
 	TEMP_MAP_CAMERA_ZOOM * TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
 )

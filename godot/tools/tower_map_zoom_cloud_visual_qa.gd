@@ -79,15 +79,16 @@ func _run() -> void:
 		_fail("initial map capture failed")
 		return
 	var renderer: Object = flow.get("_renderer")
-	var cover_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
-	if not _save_and_assert_cover(
+	var default_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	if not _save_and_assert_subcover(
 		initial_image,
-		output_dir.path_join("zoom_cover.png"),
-		"cover"
+		output_dir.path_join("map_default.png"),
+		"map_default",
+		default_model
 	):
 		return
 	var cursor := VIEWPORT_RECT.get_center()
-	var floor_one_model: Dictionary = cover_model
+	var floor_one_model: Dictionary = default_model
 	for _index in range(24):
 		if _floor_one_route_is_visible(floor_one_model):
 			break
@@ -176,6 +177,75 @@ func _run() -> void:
 		]
 	)
 	flow.close_map_overlay()
+	# Capture the exact production transition states requested by feedback 3:
+	# the start of walker travel and the midpoint where the preferred base zoom
+	# has been restored halfway by the authoritative transition clock.
+	flow = TowerAscentFlowOwner.new()
+	canvas.flow = flow
+	if not flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "tower-map-default-zoom-walk-vulkan",
+		"map_seed": 83521,
+	}):
+		_fail("could not enter walking map for transition zoom captures")
+		return
+	var motion_targets: Array[String] = flow.get_route_target_ids()
+	if motion_targets.is_empty():
+		_fail("transition zoom capture fixture has no route target")
+		return
+	flow.call("_resolve_route_target", motion_targets[0])
+	var travel_start_elapsed := (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+	)
+	flow.set_transition_progress_for_qa(travel_start_elapsed / _transition_duration_sec())
+	var motion_renderer: Object = flow.get("_renderer")
+	var travel_start_model: Dictionary = motion_renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var travel_start_image: Image = await _capture(canvas, viewport)
+	if not _save_and_assert_subcover(
+		travel_start_image,
+		output_dir.path_join("travel_start.png"),
+		"travel_start",
+		travel_start_model,
+		false
+	):
+		return
+	flow.set_transition_progress_for_qa(
+		(travel_start_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.5)
+			/ _transition_duration_sec()
+	)
+	var travel_mid_model: Dictionary = motion_renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var travel_mid_image: Image = await _capture(canvas, viewport)
+	if not _save_and_assert_subcover(
+		travel_mid_image,
+		output_dir.path_join("travel_mid.png"),
+		"travel_mid",
+		travel_mid_model,
+		false
+	):
+		return
+	var travel_start_zoom := float((travel_start_model.get("camera", {}) as Dictionary).get(
+		"render_zoom_multiplier",
+		0.0
+	))
+	var travel_mid_zoom := float((travel_mid_model.get("camera", {}) as Dictionary).get(
+		"render_zoom_multiplier",
+		0.0
+	))
+	if travel_mid_zoom <= travel_start_zoom:
+		_fail("travel midpoint must be visibly more zoomed in than travel start")
+		return
+	print(
+		"[TowerMapZoomCloudVisualQA] travel_start=%.6f travel_mid=%.6f"
+		% [travel_start_zoom, travel_mid_zoom]
+	)
+	flow.call("_finish_vertical_slice")
 	# The screen capture owner intentionally has no gameplay registry. Start the
 	# walking fixture through the same null-owner path as the focused production
 	# smokes so route pickup setup cannot depend on unrelated live inventory.

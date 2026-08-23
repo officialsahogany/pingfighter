@@ -601,10 +601,17 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		1.0,
 		float(transition_marker.get("camera_zoom_multiplier", 1.0))
 	)
-	var camera_base_multiplier := (
-		float(model.get("preferred_camera_zoom", 1.0))
-		if not transition_marker.is_empty()
-		else float(model.get("minimum_cover_zoom", 1.0))
+	var minimum_cover_zoom := float(model.get("minimum_cover_zoom", 1.0))
+	var minimum_fit_all_zoom := float(model.get("minimum_fit_all_zoom", 1.0))
+	var default_camera_base_multiplier := clampf(
+		minimum_cover_zoom / TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		minimum_fit_all_zoom,
+		minimum_cover_zoom
+	)
+	var camera_base_multiplier := lerpf(
+		default_camera_base_multiplier,
+		float(model.get("preferred_camera_zoom", minimum_cover_zoom)),
+		float(transition_marker.get("camera_zoom_progress", 0.0))
 	)
 	var camera_render_multiplier := camera_base_multiplier * camera_intro_multiplier
 	var camera_focus_x_blend := clampf(
@@ -631,9 +638,7 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			)
 		)
 	var subcover_active := (
-		has_manual_zoom
-		and camera_render_multiplier + SUBCOVER_ZOOM_EPSILON
-			< float(model.get("minimum_cover_zoom", 1.0))
+		camera_render_multiplier + SUBCOVER_ZOOM_EPSILON < minimum_cover_zoom
 	)
 	var camera_world_rect: Rect2 = (
 		model.get("fit_all_camera_world_rect", model.get("camera_world_rect", Rect2()))
@@ -1188,6 +1193,9 @@ func _build_fullscreen_transition_marker(
 		"alpha": float(visual_model.get("marker_alpha", 1.0)),
 		"camera_zoom_multiplier": float(
 			visual_model.get("camera_zoom_multiplier", 1.0)
+		),
+		"camera_zoom_progress": float(
+			visual_model.get("camera_zoom_progress", 0.0)
 		),
 		"segment": str(visual_model.get("segment", "")),
 		"phase_entry": bool(flow.is_phase_entry_transition()),

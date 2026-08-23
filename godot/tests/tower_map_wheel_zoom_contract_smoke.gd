@@ -46,14 +46,21 @@ func _verify_fit_all_floor_and_derived_ceiling() -> void:
 	var flow: Object = fixture.flow
 	var renderer: Object = fixture.renderer
 	var cursor := VIEWPORT_RECT.get_center()
-	_assert_cover(fixture.model, "M-key entry default")
+	_assert_default_subcover(fixture.model, "M-key entry default")
 	var entry_camera: Dictionary = fixture.model.get("camera", {})
 	_expect(
+		not bool(flow.has_map_camera_manual_zoom_override()),
+		"the four-notch M-key default must be a base-camera policy, not a manual override"
+	)
+	_expect(
 		is_equal_approx(
-			float(entry_camera.get("render_zoom_multiplier", 0.0)),
-			float(fixture.model.get("minimum_cover_zoom", -1.0))
+			TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+			pow(
+				TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_STEP_MULTIPLIER,
+				TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_NOTCHES
+			)
 		),
-		"wheel-only fit-all must not change the M-key entry cover framing"
+		"GRT-054: the default divisor must derive from exactly four approved wheel steps"
 	)
 	for _index in range(24):
 		flow.handle_input(_wheel(cursor, false))
@@ -101,9 +108,11 @@ func _verify_fit_all_floor_and_derived_ceiling() -> void:
 	var after_anchor_world := (
 		anchor_cursor - (anchor_camera.get("offset", Vector2.ZERO) as Vector2)
 	) / float(anchor_camera.get("render_zoom_multiplier", 1.0))
-	_expect(
-		before_anchor_world.distance_to(after_anchor_world) <= EPSILON,
-		"cursor anchor formula must remain exact inside the sub-cover range"
+	_expect_cursor_anchor_by_axis(
+		before_anchor_world,
+		after_anchor_world,
+		anchor_camera,
+		"sub-cover wheel zoom"
 	)
 	flow.handle_input(_wheel(anchor_cursor, false))
 	fixture.model = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
@@ -119,8 +128,7 @@ func _verify_fit_all_floor_and_derived_ceiling() -> void:
 	_expect(
 		is_equal_approx(
 			float(maximum_camera.get("render_zoom_multiplier", 0.0)),
-			TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
-				* TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+			TowerAscentTuning.TEMP_MAP_WHEEL_ZOOM_MAX
 		),
 		"wheel-up must clamp at the existing production camera maximum, not a new literal"
 	)
@@ -145,10 +153,11 @@ func _verify_cursor_anchor_and_surface_reset() -> void:
 	var after_world := (
 		cursor - (after_camera.get("offset", Vector2.ZERO) as Vector2)
 	) / float(after_camera.get("render_zoom_multiplier", 1.0))
-	_expect(
-		before_world.distance_to(after_world) <= EPSILON,
-		"cursor-anchored wheel zoom must preserve the world point below the cursor (before=%s after=%s distance=%.3f camera=%s)"
-		% [before_world, after_world, before_world.distance_to(after_world), after_camera]
+	_expect_cursor_anchor_by_axis(
+		before_world,
+		after_world,
+		after_camera,
+		"walking-map wheel zoom"
 	)
 	_expect(bool(flow.has_map_camera_manual_zoom_override()), "walking map must accept wheel zoom")
 	flow.call("_complete_map_transition")
@@ -275,6 +284,38 @@ func _assert_cover(model: Dictionary, label: String) -> void:
 	)
 
 
+func _assert_default_subcover(model: Dictionary, label: String) -> void:
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 1.0))
+	var cover_zoom := float(model.get("minimum_cover_zoom", 1.0))
+	var expected_zoom := clampf(
+		cover_zoom / TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(model.get("minimum_fit_all_zoom", 1.0)),
+		cover_zoom
+	)
+	_expect(
+		is_equal_approx(zoom, expected_zoom),
+		"%s must equal four wheel-down notches from cover" % label
+	)
+	_expect(
+		zoom + 0.0001 < cover_zoom,
+		"%s must open below cover without changing the wheel range" % label
+	)
+	_expect(bool(model.get("subcover_active", false)), "%s must activate surround rendering" % label)
+	var floor_numbers: Array[int] = []
+	for floor_variant in model.get("floor_bands", []):
+		if floor_variant is Dictionary:
+			floor_numbers.append(int((floor_variant as Dictionary).get("floor", 0)))
+	floor_numbers.sort()
+	var expected_floors: Array[int] = []
+	for floor_number in range(1, 13):
+		expected_floors.append(floor_number)
+	_expect(
+		floor_numbers == expected_floors,
+		"%s must switch the default surface to the 12-floor overview" % label
+	)
+
+
 func _assert_fit_all(model: Dictionary, label: String) -> void:
 	var view_rect: Rect2 = model.get("camera_view_rect", Rect2())
 	var world_rect: Rect2 = model.get("camera_world_rect", Rect2())
@@ -320,6 +361,39 @@ func _assert_fit_all(model: Dictionary, label: String) -> void:
 		floor_numbers == expected_floors,
 		"%s must fit all floor bands 1 through 12" % label
 	)
+
+
+func _expect_cursor_anchor_by_axis(
+	before_world: Vector2,
+	after_world: Vector2,
+	camera: Dictionary,
+	label: String
+) -> void:
+	var view_rect: Rect2 = camera.get("view_rect", Rect2())
+	var world_rect: Rect2 = camera.get("world_rect", Rect2())
+	var zoom := float(camera.get("render_zoom_multiplier", 1.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var projected_world := Rect2(world_rect.position * zoom + offset, world_rect.size * zoom)
+	if bool(camera.get("horizontal_world_fits", false)):
+		_expect(
+			absf(projected_world.get_center().x - view_rect.get_center().x) <= EPSILON,
+			"%s must center the fitting horizontal axis" % label
+		)
+	else:
+		_expect(
+			absf(before_world.x - after_world.x) <= EPSILON,
+			"%s must preserve the cursor's world x on a scrollable axis" % label
+		)
+	if bool(camera.get("vertical_world_fits", false)):
+		_expect(
+			absf(projected_world.get_center().y - view_rect.get_center().y) <= EPSILON,
+			"%s must center the fitting vertical axis" % label
+		)
+	else:
+		_expect(
+			absf(before_world.y - after_world.y) <= EPSILON,
+			"%s must preserve the cursor's world y on a scrollable axis" % label
+		)
 
 
 func _wheel(position: Vector2, zoom_in: bool) -> InputEventMouseButton:

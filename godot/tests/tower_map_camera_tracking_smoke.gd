@@ -173,6 +173,12 @@ func _verify_intro_zoom_handoff_and_boundaries() -> void:
 	var zoom_end_elapsed := (
 		zoom_start_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
 	)
+	var travel_mid_elapsed := (
+		zoom_end_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.5
+	)
+	var travel_end_elapsed := (
+		zoom_end_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+	)
 	var physics_tick_sec := 1.0 / 72.0
 	var zoom_start := _model_at_elapsed(flow, renderer, zoom_start_elapsed, total)
 	var zoom_mid := _model_at_elapsed(
@@ -194,14 +200,39 @@ func _verify_intro_zoom_handoff_and_boundaries() -> void:
 		zoom_end_elapsed + physics_tick_sec,
 		total
 	)
+	var travel_mid := _model_at_elapsed(flow, renderer, travel_mid_elapsed, total)
+	var travel_end := _model_at_elapsed(flow, renderer, travel_end_elapsed, total)
 	var start_camera: Dictionary = zoom_start.get("camera", {})
 	var mid_camera: Dictionary = zoom_mid.get("camera", {})
 	var last_camera: Dictionary = zoom_last_tick.get("camera", {})
 	var boundary_camera: Dictionary = travel_boundary.get("camera", {})
 	var first_tick_camera: Dictionary = travel_first_tick.get("camera", {})
+	var travel_mid_camera: Dictionary = travel_mid.get("camera", {})
+	var travel_end_camera: Dictionary = travel_end.get("camera", {})
 	_expect(is_equal_approx(float(start_camera.get("zoom_multiplier", 0.0)), TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER), "map reveal must hand the established camera scale into the intro")
 	_expect(float(mid_camera.get("zoom_multiplier", 0.0)) > float(start_camera.get("zoom_multiplier", 1.0)), "intro midpoint must narrow the camera crop")
 	_expect(is_equal_approx(float(boundary_camera.get("zoom_multiplier", 0.0)), TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER), "travel must begin at the final intro scale")
+	_expect(
+		is_equal_approx(
+			float(start_camera.get("base_zoom_multiplier", 0.0)),
+			float(boundary_camera.get("base_zoom_multiplier", -1.0))
+		),
+		"the one-second intro must preserve the four-notch-out base while its 1.0 to 1.18 multiplier runs"
+	)
+	_expect(
+		float(travel_mid_camera.get("base_zoom_multiplier", 0.0))
+			> float(boundary_camera.get("base_zoom_multiplier", INF))
+		and float(travel_end_camera.get("base_zoom_multiplier", 0.0))
+			> float(travel_mid_camera.get("base_zoom_multiplier", INF)),
+		"walker travel must continue zooming monotonically toward the preferred base"
+	)
+	_expect(
+		is_equal_approx(
+			float(travel_end_camera.get("base_zoom_multiplier", 0.0)),
+			float(travel_end.get("preferred_camera_zoom", -1.0))
+		),
+		"travel completion must reach the existing viewport-derived preferred zoom"
+	)
 	var last_zoom_delta := absf(
 		float(boundary_camera.get("zoom_multiplier", 0.0))
 			- float(last_camera.get("zoom_multiplier", 0.0))
@@ -284,8 +315,8 @@ func _verify_boundary(model: Dictionary, boundary: String) -> void:
 		_expect(bool(camera.get("at_lower_boundary", false)), "floor 1 must own the lower clamp")
 		_expect(is_equal_approx(world.end.y * zoom + offset, content.end.y), "lower clamp must reveal no empty world")
 		return
-	_expect(bool(camera.get("at_upper_boundary", false)), "top floor must own the upper clamp")
-	_expect(is_equal_approx(world.position.y * zoom + offset, content.position.y), "upper clamp must reveal no empty world")
+	_expect(not bool(camera.get("at_upper_boundary", true)), "active floor 9 must remain below the 12-floor overview's upper clamp")
+	_expect(world.position.y * zoom + offset < content.position.y, "the default overview must retain scroll world above active floor 9")
 
 
 func _new_flow(run_id: String, map_seed: int) -> Object:

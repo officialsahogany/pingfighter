@@ -136,6 +136,15 @@ func _verify_production_zoom_handoff() -> void:
 	var renderer := TowerAscentFlowRenderer.new()
 	var static_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	_expect(is_equal_approx(float((static_model.get("camera", {}) as Dictionary).get("zoom_multiplier", 0.0)), 1.0), "non-transition map viewing must preserve the v1.13 camera crop")
+	var static_camera: Dictionary = static_model.get("camera", {})
+	var expected_static_zoom := clampf(
+		float(static_model.get("minimum_cover_zoom", 0.0))
+			/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(static_model.get("minimum_fit_all_zoom", 0.0)),
+		float(static_model.get("minimum_cover_zoom", 0.0))
+	)
+	_expect(is_equal_approx(float(static_camera.get("render_zoom_multiplier", 0.0)), expected_static_zoom), "non-transition M-key viewing must start four wheel notches out")
+	_expect(bool(static_model.get("subcover_active", false)), "the new M-key default must activate the 12-floor surround path")
 	var targets: Array[String] = flow.get_route_target_ids()
 	_expect(not targets.is_empty(), "production intro fixture must expose a route target")
 	if targets.is_empty():
@@ -144,14 +153,34 @@ func _verify_production_zoom_handoff() -> void:
 	flow.call("_resolve_route_target", target_id)
 	var total := _transition_duration_sec()
 	var zoom_end := _zoom_start_elapsed_sec() + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+	var travel_mid_elapsed := zoom_end + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.5
+	var travel_end_elapsed := zoom_end + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
 	var last_zoom := _model_at_elapsed(flow, renderer, zoom_end - PHYSICS_DELTA_SEC, total)
 	var boundary := _model_at_elapsed(flow, renderer, zoom_end, total)
 	var first_travel := _model_at_elapsed(flow, renderer, zoom_end + PHYSICS_DELTA_SEC, total)
+	var travel_mid := _model_at_elapsed(flow, renderer, travel_mid_elapsed, total)
+	var travel_end := _model_at_elapsed(flow, renderer, travel_end_elapsed, total)
 	var last_camera: Dictionary = last_zoom.get("camera", {})
 	var boundary_camera: Dictionary = boundary.get("camera", {})
 	var first_camera: Dictionary = first_travel.get("camera", {})
+	var travel_mid_camera: Dictionary = travel_mid.get("camera", {})
+	var travel_end_camera: Dictionary = travel_end.get("camera", {})
 	_expect(is_equal_approx(float(boundary_camera.get("zoom_multiplier", 0.0)), TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER), "travel must inherit the final 1.18x intro multiplier")
 	_expect(absf(float(boundary_camera.get("zoom_multiplier", 0.0)) - float(last_camera.get("zoom_multiplier", 0.0))) <= ZOOM_BOUNDARY_SCALE_EPSILON, "last intro frame and travel boundary must be scale-continuous")
+	_expect(
+		float(travel_mid_camera.get("render_zoom_multiplier", 0.0))
+			> float(boundary_camera.get("render_zoom_multiplier", INF))
+		and float(travel_end_camera.get("render_zoom_multiplier", 0.0))
+			> float(travel_mid_camera.get("render_zoom_multiplier", INF)),
+		"walker travel must visibly continue the zoom toward the original closeup"
+	)
+	_expect(
+		is_equal_approx(
+			float(travel_end_camera.get("base_zoom_multiplier", 0.0)),
+			float(travel_end.get("preferred_camera_zoom", -1.0))
+		),
+		"travel end must restore the cached preferred base before arrival"
+	)
 	var last_focus: Vector2 = last_camera.get("focus_screen_position", Vector2.ZERO)
 	var boundary_focus: Vector2 = boundary_camera.get("focus_screen_position", Vector2.ZERO)
 	var first_focus: Vector2 = first_camera.get("focus_screen_position", Vector2.ZERO)
@@ -166,8 +195,13 @@ func _verify_production_zoom_handoff() -> void:
 	_expect((boundary_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(boundary_camera.get("focus_world_position", Vector2.ONE)), "zoom boundary camera must focus the stationary walker")
 	_expect((first_marker.get("world_position", Vector2.ZERO) as Vector2).is_equal_approx(first_camera.get("focus_world_position", Vector2.ONE)), "travel camera must follow the same curve sample as the walker")
 	var target_position: Vector2 = (boundary.get("position_by_id", {}) as Dictionary).get(target_id, Vector2.INF)
-	_expect((boundary_camera.get("visible_world_rect", Rect2()) as Rect2).has_point(target_position), "the 2.537x effective crop must retain the next destination")
-	_expect((boundary.get("content_rect", Rect2()) as Rect2).grow(-1.0).has_point(boundary_focus), "lower-boundary walker must remain on screen after intro zoom")
+	_expect((boundary_camera.get("visible_world_rect", Rect2()) as Rect2).has_point(target_position), "the zoomed-out intro boundary must retain the next destination")
+	var boundary_view: Rect2 = boundary.get("camera_view_rect", Rect2())
+	_expect(
+		boundary_view.grow(-1.0).has_point(boundary_focus),
+		"lower-boundary walker must remain inside the fullscreen camera after intro zoom (focus=%s view=%s camera=%s)"
+		% [boundary_focus, boundary_view, boundary_camera]
+	)
 	_expect(bool(boundary_camera.get("at_lower_boundary", false)), "intro zoom must retain the bottom-floor clamp")
 	_model_at_elapsed(
 		flow,

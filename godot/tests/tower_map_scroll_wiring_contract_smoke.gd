@@ -257,7 +257,11 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	_expect(bool(background.get("ready", false)), "the live fullscreen model must select approved opaque bands")
 	var tiles: Array = background.get("tiles", [])
 	var draw_chunks: Array = background.get("draw_chunks", [])
-	_expect(tiles.size() == flow.get_graph_floors().size(), "S3 must retain one approved band-art contract per active floor")
+	_expect(
+		tiles.size() == (model.get("floor_bands", []) as Array).size()
+		and tiles.size() == 12,
+		"the default overview must retain one approved band-art contract for floors 1 through 12"
+	)
 	_expect(draw_chunks.size() >= tiles.size(), "expanded segments must expose every opaque repeated/cropped draw chunk")
 	var world_rect: Rect2 = model.get("world_rect", Rect2())
 	var tile_world_rect: Rect2 = background.get("world_rect", Rect2())
@@ -274,13 +278,20 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var map_scale := float(model.get("map_scale", 0.0))
 	var previous_key := ""
 	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "the M-key scroll world must fit the live content width")
-	_expect(camera_render_zoom >= float(model.get("minimum_cover_zoom", INF)), "the M-key camera must use its viewport-derived cover floor")
+	var expected_default_zoom := clampf(
+		float(model.get("minimum_cover_zoom", 0.0))
+			/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(model.get("minimum_fit_all_zoom", 0.0)),
+		float(model.get("minimum_cover_zoom", 0.0))
+	)
+	_expect(is_equal_approx(camera_render_zoom, expected_default_zoom), "the M-key camera must derive four wheel-down notches from its viewport cover")
+	_expect(bool(model.get("subcover_active", false)), "the M-key default must activate the explicit scroll surround")
 	_expect(
-		projected_camera_world.position.x <= camera_view_rect.position.x + 0.01
-			and projected_camera_world.end.x >= camera_view_rect.end.x - 0.01
+		projected_camera_world.position.x > camera_view_rect.position.x + 0.01
+			and projected_camera_world.end.x < camera_view_rect.end.x - 0.01
 			and projected_camera_world.position.y <= camera_view_rect.position.y + 0.01
 			and projected_camera_world.end.y >= camera_view_rect.end.y - 0.01,
-		"the scaled M-key scroll art must cover every fullscreen edge without relying on padding"
+		"the default scroll must expose only horizontal surround while retaining vertical art coverage"
 	)
 	for index in range(tiles.size()):
 		var tile := tiles[index] as Dictionary
@@ -567,8 +578,13 @@ func _verify_fullscreen_medal_node_contract() -> void:
 		)
 		var gameplay_camera: Dictionary = gameplay_model.get("camera", {})
 		var gameplay_base_zoom := float(gameplay_camera.get("base_zoom_multiplier", 0.0))
-		_expect(is_equal_approx(gameplay_base_zoom, float(gameplay_model.get("preferred_camera_zoom", -1.0))), "the walking transition must use the cached viewport-derived preferred zoom")
-		_expect(gameplay_base_zoom >= TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM, "the walking transition must preserve 2.15x as a preference without letting it undercut fullscreen cover")
+		var gameplay_default_zoom := clampf(
+			float(gameplay_model.get("minimum_cover_zoom", 0.0))
+				/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+			float(gameplay_model.get("minimum_fit_all_zoom", 0.0)),
+			float(gameplay_model.get("minimum_cover_zoom", 0.0))
+		)
+		_expect(is_equal_approx(gameplay_base_zoom, gameplay_default_zoom), "the walking transition must begin at the four-notch-out base")
 		_expect(is_equal_approx(float(gameplay_camera.get("zoom_multiplier", 0.0)), 1.0), "the existing 1.0 to 1.18 walker intro multiplier must remain separate from the cover-aware base zoom")
 	_leg_count += 1
 

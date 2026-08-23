@@ -141,8 +141,12 @@ func _verify_fullscreen_projection_and_existing_art_slots() -> void:
 	var viewport_rect := Rect2(Vector2.ZERO, Vector2(1280.0, 800.0))
 	var model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
 	_expect(model.get("viewport_rect", Rect2()) == viewport_rect, "fullscreen model must preserve the full screen rect")
-	_expect((model.get("nodes", []) as Array).size() == flow.get_graph_nodes().size(), "fullscreen map must project every disclosed node")
-	_expect((model.get("floor_bands", []) as Array).size() == 9, "human-realm castle must expose one visible tier per active floor")
+	_expect(
+		(model.get("nodes", []) as Array).size()
+			== (model.get("overview_nodes", []) as Array).size(),
+		"the default fullscreen map must project every full-tower overview node"
+	)
+	_expect((model.get("floor_bands", []) as Array).size() == 12, "the default overview must expose one visible tier for floors 1 through 12")
 	_expect(str(model.get("realm_kind", "")) == "human_realm", "phase-1 fullscreen projection must own the human-realm treatment")
 	_expect((model.get("locked_phase_hints", []) as Array).size() == 1, "phase-1 fullscreen projection must carry the 10 through 12 lock hint")
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
@@ -207,7 +211,14 @@ func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 		"visible_world_rect",
 		Rect2()
 	)
-	_expect(live_zoom >= float(live_model.get("minimum_cover_zoom", INF)), "the tracked map zoom must stay at or above its screen-derived cover floor")
+	var expected_default_zoom := clampf(
+		float(live_model.get("minimum_cover_zoom", 0.0))
+			/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(live_model.get("minimum_fit_all_zoom", 0.0)),
+		float(live_model.get("minimum_cover_zoom", 0.0))
+	)
+	_expect(is_equal_approx(live_zoom, expected_default_zoom), "the tracked map default must equal four wheel-down notches from cover")
+	_expect(bool(live_model.get("subcover_active", false)), "the default overview must enable its scroll surround")
 	_expect(live_world.size.y >= live_content.size.y * 2.0, "the map world must be cropped vertically instead of fitted into one screen")
 	_expect(is_equal_approx(visible_world.size.y, live_camera_view.size.y / live_zoom), "the camera window must be the full live viewport divided by effective zoom")
 	var visible_node_count := 0
@@ -216,6 +227,21 @@ func _verify_live_resolution_map_uses_tracked_zoom() -> void:
 			if visible_world.has_point((node_variant as Dictionary).get("world_position", Vector2.ZERO)):
 				visible_node_count += 1
 	_expect(visible_node_count > 0 and visible_node_count < (live_model.get("nodes", []) as Array).size(), "v1.13 camera must reveal only a cropped subset of the graph")
+	var cache_state: Dictionary = renderer.get_render_cache_debug_state()
+	_expect(
+		int(cache_state.get("total_map_draw_call_budget", 0))
+			<= TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET,
+		"GRT-043: default overview routes plus 12-floor clouds must stay inside the cached draw budget"
+	)
+	print(
+		"tower_ascent_map_overlay_render_smoke: default_overview nodes=%d edges=%d path_draw_calls=%d cloud_draw_calls=%d total_draw_calls=%d" % [
+			(live_model.get("nodes", []) as Array).size(),
+			(live_model.get("edges", []) as Array).size(),
+			int(cache_state.get("path_draw_call_budget", 0)),
+			int(cache_state.get("cloud_draw_call_budget", 0)),
+			int(cache_state.get("total_map_draw_call_budget", 0)),
+		]
+	)
 
 
 func _world_node_x_span(model: Dictionary) -> float:
@@ -276,8 +302,8 @@ func _verify_tracked_camera_boundaries() -> void:
 	var upper_world: Rect2 = upper_model.get("camera_world_rect", Rect2())
 	var upper_zoom := float(upper_camera.get("render_zoom_multiplier", 1.0))
 	var upper_offset := float((upper_camera.get("offset", Vector2.ZERO) as Vector2).y)
-	_expect(bool(upper_camera.get("at_upper_boundary", false)), "the final floor must clamp at the upper camera boundary")
-	_expect(is_equal_approx(upper_world.position.y * upper_zoom + upper_offset, upper_content.position.y), "the upper clamp must expose no empty space above the map world")
+	_expect(not bool(upper_camera.get("at_upper_boundary", true)), "active floor 9 must not impersonate the full-tower upper boundary while floors 10 through 12 are visible")
+	_expect(upper_world.position.y * upper_zoom + upper_offset < upper_content.position.y, "the default overview must retain scroll world above active floor 9")
 
 
 func _verify_seeded_curve_geometry_preserves_connections() -> void:
@@ -413,6 +439,7 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	var zoom_model: Dictionary = timeline.get_map_transition_visual_model()
 	_expect(str(zoom_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_CAMERA_ZOOM_IN, "the inserted 2-b window must sit between map reveal and travel")
 	_expect(is_zero_approx(float(zoom_model.get("travel_progress", -1.0))), "the walker must stay at the source throughout the camera intro window")
+	_expect(is_zero_approx(float(zoom_model.get("camera_zoom_progress", -1.0))), "the intro multiplier must run before travel begins restoring the preferred base")
 	var zoom_mid_multiplier := float(zoom_model.get("camera_zoom_multiplier", 0.0))
 	_expect(is_equal_approx(zoom_mid_multiplier, lerpf(TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER, TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER, 0.5)), "the intro midpoint must use the symmetric smoothstep midpoint")
 	var zoom_quarter_elapsed := zoom_mid_elapsed - TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC * 0.25
@@ -429,10 +456,18 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	var middle_model: Dictionary = timeline.get_map_transition_visual_model()
 	_expect(str(middle_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_TRAVEL, "progress 0.5 must land in the travel beat")
 	_expect(bool(middle_model.get("map_visible", false)) and float(middle_model.get("travel_progress", 0.0)) > 0.0, "travel beat must show the fullscreen map and eased walker")
+	_expect(
+		is_equal_approx(
+			float(middle_model.get("camera_zoom_progress", -1.0)),
+			float(middle_model.get("travel_progress", -2.0))
+		),
+		"travel progress must own the continuing base-camera zoom"
+	)
 	timeline.set_map_transition_progress_for_qa(1.0)
 	var end_model: Dictionary = timeline.get_map_transition_visual_model()
 	_expect(str(end_model.get("segment", "")) == TowerAscentTransitionFadeState.SEGMENT_MAP_FADE_OUT, "progress 1 must end on the map blackout beat")
 	_expect(is_equal_approx(float(end_model.get("blackout_alpha", 0.0)), 1.0) and is_zero_approx(float(end_model.get("marker_alpha", 1.0))), "arrival must vanish before the fully black handoff")
+	_expect(is_equal_approx(float(end_model.get("camera_zoom_progress", 0.0)), 1.0), "arrival and fade-out must retain the completed preferred camera base")
 	timeline.begin_node_modal_fade()
 	_expect(is_zero_approx(timeline.get_node_modal_fade_progress()), "noncombat arrival surface must begin fully covered")
 	timeline.update_node_modal_fade(TowerAscentTuning.TEMP_NODE_MODAL_FADE_IN_SEC)

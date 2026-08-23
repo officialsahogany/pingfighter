@@ -29,7 +29,7 @@ func _init() -> void:
 
 func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	_verify_m_key_cover_and_r10_width_contract()
+	_verify_m_key_default_subcover_and_r10_width_contract()
 	_verify_walking_minimum_and_closeup_cover()
 	_verify_reverse_viewport_derives_a_distinct_floor()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -42,7 +42,7 @@ func _run() -> void:
 	quit(1)
 
 
-func _verify_m_key_cover_and_r10_width_contract() -> void:
+func _verify_m_key_default_subcover_and_r10_width_contract() -> void:
 	var flow := _new_flow("cover-m-key")
 	var model: Dictionary = TowerAscentFlowRenderer.new().build_fullscreen_map_model(
 		flow,
@@ -55,24 +55,23 @@ func _verify_m_key_cover_and_r10_width_contract() -> void:
 		),
 		"R10-2: M-key scroll world must retain its content-width scaling"
 	)
-	_assert_cover(model, FULLSCREEN_RECT, "M-key minimum zoom")
+	_assert_default_subcover(model, FULLSCREEN_RECT, "M-key default zoom")
 	var camera: Dictionary = model.get("camera", {})
+	var expected_default_zoom := _expected_default_zoom(model)
 	_expect(
 		is_equal_approx(
 			float(camera.get("render_zoom_multiplier", 0.0)),
-			float(model.get("minimum_cover_zoom", -1.0))
+			expected_default_zoom
 		),
-		"M-key entry framing must remain exactly at the established cover zoom"
+		"M-key entry framing must equal the derived four-notch-out default"
 	)
 	var negative_model := model.duplicate(true)
 	var negative_camera: Dictionary = negative_model.get("camera", {})
-	negative_camera["render_zoom_multiplier"] = float(
-		model.get("minimum_fit_all_zoom", 0.0)
-	)
+	negative_camera["render_zoom_multiplier"] = float(model.get("minimum_cover_zoom", 0.0))
 	negative_model["camera"] = negative_camera
 	_expect(
-		not _cover_violation_reason(negative_model, FULLSCREEN_RECT).is_empty(),
-		"negative leg: an entry default below cover must turn this seal RED"
+		not _default_subcover_violation_reason(negative_model).is_empty(),
+		"negative leg: restoring the old cover default must turn the four-notch seal RED"
 	)
 
 
@@ -91,13 +90,16 @@ func _verify_walking_minimum_and_closeup_cover() -> void:
 	var zoom_end_elapsed := (
 		zoom_start_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
 	)
+	var travel_end_elapsed := (
+		zoom_end_elapsed + TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+	)
 	var total := _transition_duration_sec()
 	flow.set_transition_progress_for_qa(zoom_start_elapsed / total)
 	var minimum_model: Dictionary = renderer.build_fullscreen_map_model(flow, FULLSCREEN_RECT)
-	_assert_cover(minimum_model, FULLSCREEN_RECT, "walking minimum zoom")
-	flow.set_transition_progress_for_qa(zoom_end_elapsed / total)
+	_assert_default_subcover(minimum_model, FULLSCREEN_RECT, "walking start zoom")
+	flow.set_transition_progress_for_qa(travel_end_elapsed / total)
 	var closeup_model: Dictionary = renderer.build_fullscreen_map_model(flow, FULLSCREEN_RECT)
-	_assert_cover(closeup_model, FULLSCREEN_RECT, "walking closeup zoom")
+	_assert_cover(closeup_model, FULLSCREEN_RECT, "walking travel-end closeup")
 	var minimum_camera: Dictionary = minimum_model.get("camera", {})
 	var closeup_camera: Dictionary = closeup_model.get("camera", {})
 	_expect(
@@ -112,7 +114,7 @@ func _verify_reverse_viewport_derives_a_distinct_floor() -> void:
 	var renderer := TowerAscentFlowRenderer.new()
 	var fullscreen_model := renderer.build_fullscreen_map_model(flow, FULLSCREEN_RECT)
 	var reverse_model := renderer.build_fullscreen_map_model(flow, REVERSE_RECT)
-	_assert_cover(reverse_model, REVERSE_RECT, "reverse viewport")
+	_assert_default_subcover(reverse_model, REVERSE_RECT, "reverse viewport default")
 	_expect(
 		not is_equal_approx(
 			float(fullscreen_model.get("minimum_cover_zoom", 0.0)),
@@ -120,6 +122,48 @@ func _verify_reverse_viewport_derives_a_distinct_floor() -> void:
 		),
 		"cover floor must be derived from each viewport instead of a fixed literal"
 	)
+
+
+func _assert_default_subcover(model: Dictionary, expected_view: Rect2, label: String) -> void:
+	var camera_view_rect: Rect2 = model.get("camera_view_rect", Rect2())
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var expected_zoom := _expected_default_zoom(model)
+	_expect(camera_view_rect == expected_view, "%s must target the full screen rect" % label)
+	_expect(
+		is_equal_approx(zoom, expected_zoom),
+		"%s must derive cover / wheel-step^4 with fit-all clamping" % label
+	)
+	_expect(
+		zoom + EPSILON < float(model.get("minimum_cover_zoom", 0.0)),
+		"%s must remain materially below the old cover default" % label
+	)
+	_expect(bool(model.get("subcover_active", false)), "%s must render the explicit surround" % label)
+	_expect(
+		_default_subcover_violation_reason(model).is_empty(),
+		"%s must keep the four-notch default seal GREEN" % label
+	)
+
+
+func _expected_default_zoom(model: Dictionary) -> float:
+	var cover_zoom := float(model.get("minimum_cover_zoom", 0.0))
+	return clampf(
+		cover_zoom / TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(model.get("minimum_fit_all_zoom", 0.0)),
+		cover_zoom
+	)
+
+
+func _default_subcover_violation_reason(model: Dictionary) -> String:
+	var camera: Dictionary = model.get("camera", {})
+	if not is_equal_approx(
+		float(camera.get("render_zoom_multiplier", 0.0)),
+		_expected_default_zoom(model)
+	):
+		return "default_not_four_notches_out"
+	if not bool(model.get("subcover_active", false)):
+		return "default_surround_disabled"
+	return ""
 
 
 func _assert_cover(model: Dictionary, expected_view: Rect2, label: String) -> void:

@@ -102,6 +102,7 @@ func get_map_transition_visual_model() -> Dictionary:
 	var marker_scale := 0.0
 	var marker_alpha := 0.0
 	var camera_zoom_multiplier := TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER
+	var camera_zoom_progress := 1.0
 	if _is_before_segment_boundary(elapsed, battle_fade_end):
 		segment = SEGMENT_BATTLE_FADE_OUT
 		local_progress = _ratio(elapsed, TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC)
@@ -111,6 +112,7 @@ func get_map_transition_visual_model() -> Dictionary:
 		marker_scale = 1.0
 		marker_alpha = 1.0
 		camera_zoom_multiplier = TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER
+		camera_zoom_progress = 0.0
 	elif _is_before_segment_boundary(elapsed, map_fade_end):
 		segment = SEGMENT_MAP_FADE_IN
 		local_progress = _ratio(
@@ -122,6 +124,7 @@ func get_map_transition_visual_model() -> Dictionary:
 		marker_scale = 1.0
 		marker_alpha = 1.0
 		camera_zoom_multiplier = TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_START_MULTIPLIER
+		camera_zoom_progress = 0.0
 	elif _is_before_segment_boundary(elapsed, camera_zoom_end):
 		segment = SEGMENT_CAMERA_ZOOM_IN
 		local_progress = _ratio(
@@ -137,6 +140,7 @@ func get_map_transition_visual_model() -> Dictionary:
 			TowerAscentTuning.TEMP_MAP_CAMERA_INTRO_END_MULTIPLIER,
 			smoothstep(0.0, 1.0, local_progress)
 		)
+		camera_zoom_progress = 0.0
 	elif _is_before_segment_boundary(elapsed, travel_end):
 		segment = SEGMENT_TRAVEL
 		local_progress = _ratio(
@@ -147,6 +151,7 @@ func get_map_transition_visual_model() -> Dictionary:
 		travel_progress = smoothstep(0.0, 1.0, local_progress)
 		marker_scale = 1.0
 		marker_alpha = 1.0
+		camera_zoom_progress = travel_progress
 	elif _is_before_segment_boundary(elapsed, vanish_end):
 		segment = SEGMENT_ARRIVE_VANISH
 		local_progress = _ratio(
@@ -167,6 +172,7 @@ func get_map_transition_visual_model() -> Dictionary:
 		"marker_scale": clampf(marker_scale, 0.0, 1.0),
 		"marker_alpha": clampf(marker_alpha, 0.0, 1.0),
 		"camera_zoom_multiplier": maxf(1.0, camera_zoom_multiplier),
+		"camera_zoom_progress": clampf(camera_zoom_progress, 0.0, 1.0),
 	}
 
 

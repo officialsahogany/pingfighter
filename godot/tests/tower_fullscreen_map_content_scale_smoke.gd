@@ -58,10 +58,16 @@ func _verify_m_key_content_scale_and_walking_zoom_reverse_leg() -> void:
 	_expect(
 		is_equal_approx(
 			float((map_model.get("camera", {}) as Dictionary).get("render_zoom_multiplier", 0.0)),
-			float(map_model.get("minimum_cover_zoom", 0.0))
+			clampf(
+				float(map_model.get("minimum_cover_zoom", 0.0))
+					/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+				float(map_model.get("minimum_fit_all_zoom", 0.0)),
+				float(map_model.get("minimum_cover_zoom", 0.0))
+			)
 		),
-		"M-key overview must apply only its screen-derived cover floor"
+		"M-key overview must derive its default from four wheel-down notches"
 	)
+	_expect(bool(map_model.get("subcover_active", false)), "M-key default must enable the scroll surround")
 	var plaque_size: Vector2 = map_model.get("plaque_size", Vector2.ZERO)
 	_expect(plaque_size.is_equal_approx(SOURCE_PLAQUE_SIZE * expected_scale), "floor plaques must follow the same fullscreen map scale")
 	_expect(is_equal_approx(float(map_model.get("art_size", 0.0)), SOURCE_ART_SIZE * expected_scale), "node icons must follow the same fullscreen map scale")
@@ -97,12 +103,14 @@ func _verify_m_key_content_scale_and_walking_zoom_reverse_leg() -> void:
 	var walking_camera: Dictionary = walking_model.get("camera", {})
 	_expect(is_equal_approx(float(walking_model.get("map_scale", 0.0)), 1.0), "walking path must retain the approved source-art coordinate scale instead of inheriting M-key expansion")
 	_expect(is_equal_approx(float((walking_model.get("world_rect", Rect2()) as Rect2).size.x), SOURCE_TILE_SIZE.x), "walking path must retain the approved 692px source band before camera zoom")
-	var expected_walking_zoom := maxf(
-		float(walking_model.get("minimum_cover_zoom", 0.0)),
-		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM
+	var expected_walking_zoom := clampf(
+		float(walking_model.get("minimum_cover_zoom", 0.0))
+			/ TowerAscentTuning.TEMP_MAP_DEFAULT_ZOOMOUT_DIVISOR,
+		float(walking_model.get("minimum_fit_all_zoom", 0.0)),
+		float(walking_model.get("minimum_cover_zoom", 0.0))
 	)
-	_expect(is_equal_approx(float(walking_camera.get("render_zoom_multiplier", 0.0)), expected_walking_zoom), "walking transition must keep 2.15x as its preferred zoom without falling below cover")
-	_expect(is_equal_approx(float(walking_model.get("art_size", 0.0)) * expected_walking_zoom, SOURCE_ART_SIZE * expected_walking_zoom), "walking icon scale must follow the effective cover-safe camera zoom")
+	_expect(is_equal_approx(float(walking_camera.get("render_zoom_multiplier", 0.0)), expected_walking_zoom), "walking transition must begin at the same four-notch-out base")
+	_expect(is_equal_approx(float(walking_model.get("art_size", 0.0)) * expected_walking_zoom, SOURCE_ART_SIZE * expected_walking_zoom), "walking icon scale must follow the effective default camera zoom")
 
 
 func _verify_live_viewport_wins_over_fallback() -> void:

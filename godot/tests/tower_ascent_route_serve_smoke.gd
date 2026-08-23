@@ -35,6 +35,7 @@ const TowerAscentRouteWindPolicy := preload(
 const PHYSICS_GATE_COORDINATOR_PATH := (
 	"res://scripts/core/battle_physics_gate_coordinator.gd"
 )
+const FEEDBACK3_ADOPTED_WIND_FORCE_PER_FRAME := 0.009
 
 var _failures: Array[String] = []
 var _legacy_serve_calls := 0
@@ -771,6 +772,13 @@ func _verify_wind_production_flight_reachability_and_materiality() -> void:
 	# 비행을 재현하지 못한다. 세기 1~3·양방향 전부를 생산 파생 속도로
 	# 게이지 유효각 안에서 끝까지 날려 두 표적의 실제 HIT 도달성과, 무풍
 	# 최적각이 강풍에서 빗나가는 바람 실질성(역반증)을 봉인한다.
+	_expect(
+		is_equal_approx(
+			TowerAscentTuning.TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME,
+			FEEDBACK3_ADOPTED_WIND_FORCE_PER_FRAME
+		),
+		"feedback 3 must retain the highest full-flight-reachable wind force"
+	)
 	var flight_targets: Array[Dictionary] = [
 		{
 			"id": "left",
@@ -805,15 +813,25 @@ func _verify_wind_production_flight_reachability_and_materiality() -> void:
 				int(wind_strength)
 			)
 			for target_id in ["left", "right"]:
+				var hitting_angle := _first_hitting_angle(
+					wind_model,
+					flight_targets,
+					str(target_id)
+				)
 				_expect(
-					not is_nan(_first_hitting_angle(
-						wind_model,
-						flight_targets,
-						str(target_id)
-					)),
+					not is_nan(hitting_angle),
 					"wind dir=%d strength=%d must keep the %s target reachable in a full production flight"
 					% [wind_direction, wind_strength, str(target_id)]
 				)
+				if wind_strength == 3 and target_id == "left":
+					print(
+						"tower_ascent_route_serve_smoke: wind_sweep force=%.3f direction=%d strength=3 target=left correction_angle=%.1f"
+						% [
+							TowerAscentTuning.TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME,
+							wind_direction,
+							hitting_angle,
+						]
+					)
 	if not is_nan(calm_left_angle):
 		var strong_tailwind := TowerAscentRouteWindPolicy.build_model(1, 3)
 		var bent := _fly_production_angle(
