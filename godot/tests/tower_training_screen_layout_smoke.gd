@@ -6,6 +6,9 @@ const TowerAscentNodeModalState := preload(
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
 const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
@@ -25,6 +28,7 @@ func _run() -> void:
 	_verify_layout_cache_is_size_owned()
 	_verify_bonus_badge_four_row_budget()
 	_verify_compact_hover_detail_lane_geometry()
+	_verify_training_hanji_chrome_assets_and_gate()
 	if _failures.is_empty():
 		print("tower_training_screen_layout_smoke: ok")
 		quit(0)
@@ -331,6 +335,37 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 	_expect(
 		not RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(true, 2),
 		"a two-row compact hover detail must leave the timing badge visible"
+	)
+
+
+func _verify_training_hanji_chrome_assets_and_gate() -> void:
+	# 피드백2 10항: 수련장 모달 한지 크롬 자산 프리웜과 게이트 봉인.
+	var renderer := TowerAscentFlowRenderer.new()
+	var chrome: Dictionary = renderer.get_training_hanji_chrome_debug_state()
+	_expect(
+		bool(chrome.get("surface_loaded", false)),
+		"training hanji surface texture must prewarm through the flow renderer"
+	)
+	_expect(
+		bool(chrome.get("frame_loaded", false)),
+		"training ledger frame texture must prewarm through the flow renderer"
+	)
+	_expect(
+		str(chrome.get("render_mode", "")) == "hanji",
+		"training modal must select the hanji chrome route with both assets live"
+	)
+	var source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var chrome_gate := source.find("training_hanji_chrome := (")
+	_expect(
+		chrome_gate >= 0
+		and source.find("LAYOUT_FLAG_TRAINING_STAGE", chrome_gate) > chrome_gate,
+		"hanji chrome must gate on the training layout flag"
+	)
+	_expect(
+		source.find("canvas.draw_rect(modal_rect, Color(\"f7e9c8\"), true)") >= 0,
+		"non-training node modals must retain the flat chrome fallback"
 	)
 
 

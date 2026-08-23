@@ -33,6 +33,9 @@ const TowerAscentMapCloudLayer := preload(
 const TowerAscentFloorTitleCatalog := preload(
 	"res://scripts/tower_ascent/tower_ascent_floor_title_catalog.gd"
 )
+const CharacterInfoOverlayTextureDrawer := preload(
+	"res://scripts/hud/character_info_overlay_texture_drawer.gd"
+)
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
@@ -74,6 +77,16 @@ const ROUTE_PICKUP_BAG_TEXTURE := preload(
 )
 const TRAINING_DUMMY_TEXTURE_PATH := (
 	"res://assets/sprites/tower/noncombat/training_dummy_imagegen_v1.png"
+)
+# 피드백2 10항: 수련장 모달 크롬을 캐릭터 정보창의 한지+족자 액자 계열로.
+# 자산은 정보창 정본 경로를 그대로 공유하고(GRT-042: 무거운 오버레이 코어를
+# 콜드 생성하지 않고 텍스처만 직접 로드), static setter 주입식 공용 드로어를
+# 재사용한다.
+const TRAINING_HANJI_SURFACE_TEXTURE_PATH := (
+	"res://assets/sprites/hud/stage1_layered_cyber_hanji_base_imagegen_v1.png"
+)
+const TRAINING_LEDGER_FRAME_TEXTURE_PATH := (
+	"res://assets/ui/character_select_chrome/hwangyeokjeon/scroll_frame_9p.png"
 )
 const TRAINING_DUMMY_TEXTURE_SIZE := Vector2i(256, 256)
 const TRAINING_DUMMY_TEXTURE_PIVOT := Vector2(128.0, 236.0)
@@ -157,6 +170,8 @@ var _map_iconography := TowerAscentMapIconography.new()
 var _map_cloud_layer := TowerAscentMapCloudLayer.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
 var _training_dummy_texture: Texture2D = null
+var _training_hanji_surface_texture: Texture2D = null
+var _training_ledger_frame_texture: Texture2D = null
 var _route_wind_effect_renderer: Object = WeatherEventRenderer.new()
 
 
@@ -168,6 +183,42 @@ func _init() -> void:
 	)
 	_route_wind_effect_renderer.prewarm_wind_assets()
 	prewarm_training_dummy_asset()
+	prewarm_training_hanji_chrome_assets()
+
+
+func prewarm_training_hanji_chrome_assets() -> void:
+	# Flow state owns this renderer before a node modal can draw, so the hanji
+	# chrome textures resolve here (GRT-028: no draw-frame prep) and feed the
+	# shared static drawer used by the character info overlay.
+	_training_hanji_surface_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_HANJI_SURFACE_TEXTURE_PATH,
+		"Training hanji surface texture is missing; keeping the flat modal chrome",
+		"Training hanji surface texture failed to load; keeping the flat modal chrome"
+	)
+	_training_ledger_frame_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_LEDGER_FRAME_TEXTURE_PATH,
+		"Training ledger frame texture is missing; keeping the flat modal chrome",
+		"Training ledger frame texture failed to load; keeping the flat modal chrome"
+	)
+	CharacterInfoOverlayTextureDrawer.set_hanji_surface_texture(
+		_training_hanji_surface_texture
+	)
+	CharacterInfoOverlayTextureDrawer.set_ornate_ledger_frame_texture(
+		_training_ledger_frame_texture
+	)
+
+
+func get_training_hanji_chrome_debug_state() -> Dictionary:
+	return {
+		"surface_loaded": _training_hanji_surface_texture != null,
+		"frame_loaded": _training_ledger_frame_texture != null,
+		"render_mode": (
+			"hanji"
+			if _training_hanji_surface_texture != null
+				and _training_ledger_frame_texture != null
+			else "flat_fallback"
+		),
+	}
 
 
 func prewarm_training_dummy_asset() -> void:
@@ -3330,9 +3381,36 @@ func _draw_node_modal(
 	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
 	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
 	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
-	canvas.draw_rect(modal_rect, Color("f7e9c8"), true)
-	canvas.draw_rect(modal_rect, CINNABAR_DARK, false, 5.0 * content_scale)
-	canvas.draw_rect(modal_rect.grow(-13.0 * content_scale), GOLD, false, 2.0 * content_scale)
+	var layout_flags_value: Variant = model.get("layout_flags", {})
+	var layout_flags: Dictionary = (
+		layout_flags_value as Dictionary
+		if layout_flags_value is Dictionary
+		else {}
+	)
+	var training_hanji_chrome := (
+		bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false))
+		and _training_hanji_surface_texture != null
+		and _training_ledger_frame_texture != null
+	)
+	if training_hanji_chrome:
+		# 피드백2 10항: 수련장은 캐릭터 정보창과 같은 한지 표면 + 족자 액자
+		# 크롬을 쓴다. 채움은 액자 실루엣 안쪽에만 깔린다(GRT-057).
+		canvas.draw_rect(modal_rect, Color("f2e6c6"), true)
+		CharacterInfoOverlayTextureDrawer.draw_hanji_surface(
+			canvas,
+			modal_rect.grow(-3.0 * content_scale),
+			0.62
+		)
+		CharacterInfoOverlayTextureDrawer.draw_ornate_ledger_frame(
+			canvas,
+			modal_rect,
+			31.0 * content_scale,
+			11.0 * content_scale
+		)
+	else:
+		canvas.draw_rect(modal_rect, Color("f7e9c8"), true)
+		canvas.draw_rect(modal_rect, CINNABAR_DARK, false, 5.0 * content_scale)
+		canvas.draw_rect(modal_rect.grow(-13.0 * content_scale), GOLD, false, 2.0 * content_scale)
 	var font := ThemeDB.fallback_font
 	canvas.draw_string(
 		font,
@@ -3373,12 +3451,6 @@ func _draw_node_modal(
 			str(model.get("gold_text", "")),
 			content_scale
 		)
-	var layout_flags_value: Variant = model.get("layout_flags", {})
-	var layout_flags: Dictionary = (
-		layout_flags_value as Dictionary
-		if layout_flags_value is Dictionary
-		else {}
-	)
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
 		_draw_training_stage_layout(canvas, model, content_scale, render_context)
 	var actions: Array = model.get("actions", [])
