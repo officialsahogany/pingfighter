@@ -239,7 +239,10 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var action := _training_card_action(0)
 	var choice: Dictionary = action.get("payload", {}).get("choice", {})
+	choice["name"] = "유운보"
 	choice["bonus_badge_text"] = "고정 +1칸"
+	action["enabled"] = false
+	action["unavailable_reason"] = "효과 한계"
 	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
 		var card_rect := modal.get_action_rects(view_size)[0] as Rect2
 		var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
@@ -252,6 +255,22 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 		var description_start := card_rect.position.y + 64.0 * compact_scale
 		var description_step := 12.0 * compact_scale
 		var badge_lane_top := card_rect.end.y - 18.0 * compact_scale
+		var training_hover_layout := renderer.build_tower_node_hover_detail_layout(
+			action,
+			card_rect
+		)
+		var training_hover_rows: Array = training_hover_layout.get("rows", [])
+		_expect(
+			training_hover_rows.size() == 2,
+			"training hover must reach only target-cost and rejection rows at %s" % view_size
+		)
+		_expect(
+			not RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(
+				true,
+				training_hover_rows.size()
+			),
+			"two-row training hover must never consume the fixed-exception badge lane at %s" % view_size
+		)
 		for detail_index in range(3):
 			var baseline := RuntimePerkOverlayRenderer.tower_node_hover_detail_row_baseline(
 				card_rect,
@@ -298,7 +317,8 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 			"counterproof requires the legacy bottom-anchored lane to overprint an idle compact row at %s" % view_size
 		)
 	# GRT-021 whole-row yield policy: any visible hover detail owns the
-	# description grid, and only a full three-row detail consumes the fixed badge lane.
+	# description grid. Training now tops out at two rows; three-row sibling-node
+	# details still consume the fixed badge lane through the shared renderer.
 	_expect(
 		RuntimePerkOverlayRenderer.tower_node_compact_hover_owns_description_lane(true, 1),
 		"one visible hover detail row must own the compact description lane"

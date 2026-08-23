@@ -3652,8 +3652,7 @@ func _draw_node_modal(
 					icon_renderer,
 					index,
 					render_context.get("active_item_hud_visuals", null),
-					visual_state,
-					render_context.get("hover_detail_context", {})
+					visual_state
 				)
 			else:
 				card_renderer.call(

@@ -526,8 +526,6 @@ func _build_training_action(
 			"choice_id": choice_id,
 			"choice": live_choice,
 			"presentation": {
-				"current": _training_projection_value_text(live_choice, false),
-				"result": _training_projection_value_text(live_choice, true),
 				"target": display_name,
 			},
 		},
@@ -944,14 +942,6 @@ func _training_maximum_message(choice: Dictionary) -> String:
 	return TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
 	)
-
-
-func _training_projection_value_text(choice: Dictionary, projected: bool) -> String:
-	if str(choice.get("id", "")) == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
-		var level_key := "next_level" if projected else "current_level"
-		return "%d/3" % clampi(int(choice.get(level_key, 0)), 0, 3)
-	var value_key := "training_value_after" if projected else "training_value_before"
-	return _format_training_value(float(choice.get(value_key, 0.0)), choice)
 
 
 func _training_base_increment(choice: Dictionary) -> float:

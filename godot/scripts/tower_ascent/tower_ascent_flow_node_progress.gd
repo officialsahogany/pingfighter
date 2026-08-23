@@ -92,19 +92,6 @@ func get_node_modal_render_context() -> Dictionary:
 			"active_item_hud_visuals"
 		),
 	}
-	# GRT-043: runtime stat projection is not even requested until a training
-	# card has pointer prevalence. The invariant modal path keeps its old three
-	# warmed render-module reads and adds zero detail lookups.
-	if (
-		_node_modal_kind == "training"
-		and _node_modal_state != null
-		and _node_modal_state.has_hover_visuals()
-	):
-		context["hover_detail_context"] = {
-			"runtime_state": _get_cached_node_modal_render_module("runtime_perk_state"),
-			"owner": _active_owner,
-			"registry": _active_registry,
-		}
 	if (
 		_node_modal_kind == "training"
 		and _node_modal_state != null

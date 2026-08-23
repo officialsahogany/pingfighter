@@ -81,7 +81,6 @@ class CardDrawProbe:
 				null,
 				index,
 				null,
-				{},
 				{}
 			)
 
@@ -372,7 +371,6 @@ func _verify_no_hover_draw_gate(fixture: Dictionary) -> void:
 	await process_frame
 	var counters: Dictionary = renderer.get_tower_node_feedback_debug_counters()
 	_expect(int(counters.get("hover_layout_build_count", -1)) == 0, "GRT-043 Spring/Rest idle draw must build zero hover layouts")
-	_expect(int(counters.get("hover_detail_build_count", -1)) == 0, "GRT-043 Spring/Rest idle draw must execute zero hover projections")
 	_expect(int(counters.get("dynamic_layer_draw_count", -1)) == 0, "GRT-043 Spring/Rest idle draw must append zero dynamic feedback layers")
 	probe.queue_free()
 

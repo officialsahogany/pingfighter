@@ -194,9 +194,6 @@ var _stats_character_runtime: Object = PlayerCharacterRuntime.new()
 var _training_stat_preview: Object = RuntimePerkTrainingStatPreview.new()
 var _training_stat_preview_signature := 0
 var _training_stat_preview_model: Dictionary = {}
-var _tower_node_hover_detail_signature := 0
-var _tower_node_hover_detail_preview: Dictionary = {}
-var _tower_node_hover_detail_build_count := 0
 var _tower_node_hover_layout_signature := 0
 var _tower_node_hover_layout_model: Dictionary = {}
 var _tower_node_hover_layout_build_count := 0
@@ -756,8 +753,7 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 
 func build_tower_node_hover_detail_layout(
 	action: Dictionary,
-	rect: Rect2,
-	detail_context: Dictionary = {}
+	rect: Rect2
 ) -> Dictionary:
 	_prepare_text_caches()
 	var payload_value: Variant = action.get("payload", {})
@@ -769,11 +765,9 @@ func build_tower_node_hover_detail_layout(
 		else {}
 	)
 	var choice := _tower_node_card_choice(action)
-	var preview := _tower_node_training_hover_preview(action, choice, detail_context)
 	var layout_signature := hash([
 		action,
 		rect.size,
-		preview,
 		LanguageSettings.get_language(),
 	])
 	if (
@@ -783,9 +777,6 @@ func build_tower_node_hover_detail_layout(
 		return _tower_node_hover_layout_model.duplicate(true)
 	_tower_node_hover_layout_signature = layout_signature
 	_tower_node_hover_layout_build_count += 1
-	if bool(preview.get("visible", false)):
-		presentation["current"] = str(preview.get("current_value", presentation.get("current", "")))
-		presentation["result"] = str(preview.get("projected_value", presentation.get("result", "")))
 	var current_text := str(presentation.get("current", "")).strip_edges()
 	var result_text := str(presentation.get("result", "")).strip_edges()
 	var target_text := str(presentation.get(
@@ -851,7 +842,6 @@ func build_tower_node_hover_detail_layout(
 		"appended_hover_row_count": rows.size(),
 		"source_hover_semantic_row_count": source_rows.size(),
 		"hidden_by_budget": hidden_by_budget,
-		"preview": preview,
 	}
 	return _tower_node_hover_layout_model.duplicate(true)
 
@@ -925,8 +915,7 @@ func draw_tower_node_card(
 	icon_renderer: Object,
 	paper_variant: int = 0,
 	active_item_hud_visuals: Object = null,
-	visual_state: Dictionary = {},
-	detail_context: Dictionary = {}
+	visual_state: Dictionary = {}
 ) -> Dictionary:
 	if canvas == null or not rect.has_area():
 		return {}
@@ -943,7 +932,6 @@ func draw_tower_node_card(
 			paper_variant,
 			active_item_hud_visuals,
 			visual_state,
-			detail_context,
 			text_layout
 		)
 	var compact_card := bool(text_layout.get("compact_card", false))
@@ -1105,7 +1093,7 @@ func draw_tower_node_card(
 		rejection_progress
 	)
 	if hover_blend > 0.0 and not suppress_hover_detail:
-		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
+		detail_layout = build_tower_node_hover_detail_layout(action, rect)
 	var detail_rows: Array = detail_layout.get("rows", [])
 	var compact_hover_detail_active := tower_node_compact_hover_owns_description_lane(
 		compact_card,
@@ -1254,7 +1242,6 @@ func _draw_tower_node_hero_card(
 	paper_variant: int,
 	active_item_hud_visuals: Object,
 	visual_state: Dictionary,
-	detail_context: Dictionary,
 	text_layout: Dictionary
 ) -> Dictionary:
 	var choice: Dictionary = text_layout.get("choice", {})
@@ -1384,7 +1371,7 @@ func _draw_tower_node_hero_card(
 		rejection_progress
 	)
 	if hover_blend > 0.0 and not suppress_hover_detail:
-		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
+		detail_layout = build_tower_node_hover_detail_layout(action, rect)
 		var detail_rows: Array = detail_layout.get("rows", [])
 		var detail_font_size := int(detail_layout.get("font_size", 11))
 		for detail_index in range(detail_rows.size()):
@@ -1496,10 +1483,7 @@ func build_tower_node_card_visual_plan(visual_state: Dictionary) -> Dictionary:
 
 
 func reset_tower_node_feedback_debug_counters() -> void:
-	_tower_node_hover_detail_build_count = 0
 	_tower_node_feedback_dynamic_layer_draw_count = 0
-	_tower_node_hover_detail_signature = 0
-	_tower_node_hover_detail_preview.clear()
 	_tower_node_hover_layout_signature = 0
 	_tower_node_hover_layout_model.clear()
 	_tower_node_hover_layout_build_count = 0
@@ -1508,41 +1492,9 @@ func reset_tower_node_feedback_debug_counters() -> void:
 func get_tower_node_feedback_debug_counters() -> Dictionary:
 	return {
 		"hover_layout_build_count": _tower_node_hover_layout_build_count,
-		"hover_detail_build_count": _tower_node_hover_detail_build_count,
 		"dynamic_layer_draw_count": _tower_node_feedback_dynamic_layer_draw_count,
 		"training_preview_build_count": int(_training_stat_preview.get("build_count")),
 	}
-
-
-func _tower_node_training_hover_preview(
-	action: Dictionary,
-	choice: Dictionary,
-	detail_context: Dictionary
-) -> Dictionary:
-	var runtime_state: Object = detail_context.get("runtime_state", null)
-	var owner: Object = detail_context.get("owner", null)
-	var registry: Object = detail_context.get("registry", null)
-	if runtime_state == null or owner == null or registry == null:
-		return {}
-	var signature := hash([
-		str(action.get("id", "")),
-		int(choice.get("current_level", 0)),
-		int(choice.get("next_level", 0)),
-		runtime_state.get_instance_id(),
-		owner.get_instance_id(),
-		registry.get_instance_id(),
-	])
-	if signature != _tower_node_hover_detail_signature:
-		_tower_node_hover_detail_signature = signature
-		_tower_node_hover_detail_build_count += 1
-		_tower_node_hover_detail_preview = _training_stat_preview.build_preview(
-			runtime_state,
-			choice,
-			owner,
-			registry,
-			_stats_character_runtime
-		)
-	return _tower_node_hover_detail_preview.duplicate(true)
 
 
 func _draw_tower_node_success_receipt(

@@ -78,8 +78,7 @@ class CardDrawProbe:
 			null,
 			0,
 			null,
-			visual_state,
-			{}
+			visual_state
 		)
 
 
@@ -175,15 +174,15 @@ func _verify_visual_plan_and_longest_hover_rows() -> void:
 	var hover_plan := renderer.build_tower_node_card_visual_plan({"hover_blend": 1.0})
 	_expect(is_equal_approx(float(hover_plan.get("icon_scale", 0.0)), 1.08), "full hover must enlarge the icon by 8 percent")
 	var longest_action := _action_fixture()
-	longest_action["unavailable_reason"] = "무혼 999 필요, 999 부족하여 현재 체질 수련을 진행할 수 없습니다."
+	longest_action["unavailable_reason"] = "효과 한계"
 	var layout := renderer.build_tower_node_hover_detail_layout(
 		longest_action,
 		Rect2(0.0, 0.0, 212.0, 212.0)
 	)
 	var rows: Array = layout.get("rows", [])
 	_expect(int(layout.get("appended_hover_row_count", -1)) == rows.size(), "GRT-021 must report the actual appended hover row count")
-	_expect(rows.size() == 3, "the longest Korean hover detail must consume exactly its three-row budget")
-	_expect(str(rows[2]).contains("거부"), "the longest disabled hover copy must retain its rejection row")
+	_expect(rows.size() == 2, "training hover detail must consume exactly its target-cost and rejection rows")
+	_expect(str(rows[1]).contains("거부"), "the longest disabled training hover copy must retain its rejection row")
 
 
 func _verify_no_hover_lookup_gate() -> void:
@@ -195,12 +194,23 @@ func _verify_no_hover_lookup_gate() -> void:
 	flow.set("_node_modal_kind", "training")
 	var modal: Object = flow.get("_node_modal_state")
 	modal.open("no-hover-gate", "training", {"muhon": 8}, [_action_fixture()])
-	flow.get_node_modal_render_context()
+	var idle_context := flow.get_node_modal_render_context()
 	_expect(registry.runtime_state_requests == 0, "GRT-043 no-hover frame must request zero training runtime projections")
+	_expect(not idle_context.has("hover_detail_context"), "idle training context must expose no retired hover projection payload")
 	var corner := (modal.get_action_rects()[0] as Rect2).position + Vector2(2.0, 2.0)
 	modal.update_hover_at_position(corner)
-	flow.get_node_modal_render_context()
-	_expect(registry.runtime_state_requests == 1, "training detail context may be requested only after hover")
+	var hover_context := flow.get_node_modal_render_context()
+	_expect(registry.runtime_state_requests == 0, "GRT-043 hovered training card must also request zero runtime projections")
+	_expect(not hover_context.has("hover_detail_context"), "hovered training context must expose no retired projection payload")
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+	)
+	var context_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_node_progress.gd"
+	)
+	_expect(not renderer_source.contains("_tower_node_training_hover_preview"), "retired training hover preview builder must be removed")
+	_expect(not renderer_source.contains("_tower_node_hover_detail_preview"), "retired training hover preview cache must be removed")
+	_expect(not context_source.contains("hover_detail_context"), "flow render context must remove the retired training hover projection injection")
 
 
 func _verify_shop_presentation_adapter() -> void:
@@ -251,9 +261,17 @@ func _verify_training_presentation_adapter() -> void:
 	}, 2, {"muhon": 8})
 	var action: Dictionary = action_value as Dictionary
 	var presentation: Dictionary = action.get("payload", {}).get("presentation", {})
-	_expect(str(presentation.get("current", "")) == "Lv.4", "training adapter must expose the current live level")
-	_expect(str(presentation.get("result", "")) == "Lv.5", "training adapter must expose the next live level")
+	_expect(not presentation.has("current"), "training adapter must omit the retired current-value hover row")
+	_expect(not presentation.has("result"), "training adapter must omit the retired result-value hover row")
 	_expect(str(presentation.get("target", "")) == "검증 체질", "training adapter must expose its stat target")
+	var layout := RuntimePerkOverlayRenderer.new().build_tower_node_hover_detail_layout(
+		action,
+		Rect2(0.0, 0.0, 212.0, 212.0)
+	)
+	var rows: Array = layout.get("rows", [])
+	_expect(rows.size() == 1, "enabled training hover must expose only its target-cost row")
+	if rows.size() == 1:
+		_expect(not str(rows[0]).contains("→"), "training hover must not recreate a current-to-result row")
 
 
 func _verify_fallen_monk_presentation_adapter() -> void:
@@ -305,7 +323,7 @@ func _verify_no_hover_dynamic_layer_gate() -> void:
 	await process_frame
 	var idle_counters := renderer.get_tower_node_feedback_debug_counters()
 	_expect(int(idle_counters.get("hover_layout_build_count", -1)) == 0, "GRT-043 idle draw must build zero hover layouts")
-	_expect(int(idle_counters.get("hover_detail_build_count", -1)) == 0, "GRT-043 idle draw must append zero hover-detail builds")
+	_expect(not idle_counters.has("hover_detail_build_count"), "retired training projection counter must be removed")
 	_expect(int(idle_counters.get("dynamic_layer_draw_count", -1)) == 0, "GRT-043 idle draw must add zero dynamic layers")
 	renderer.reset_tower_node_feedback_debug_counters()
 	probe.visual_state = {"hover_blend": 1.0, "node_accent": Color(0.84, 0.61, 0.28)}
@@ -348,7 +366,7 @@ func _action_fixture() -> Dictionary:
 				"next_level": 3,
 				"level_text": "Lv.2 → Lv.3",
 			},
-			"presentation": {"current": "Lv.2", "result": "Lv.3", "target": "철산공"},
+			"presentation": {"target": "철산공"},
 		},
 	}
 
