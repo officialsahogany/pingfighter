@@ -875,6 +875,19 @@ static func tower_node_compact_hover_consumes_badge_lane(
 	return compact_card and hover_detail_row_count >= TOWER_NODE_HOVER_DETAIL_ROW_LIMIT
 
 
+static func tower_node_hover_detail_alpha(
+	compact_card: bool,
+	hover_blend: float
+) -> float:
+	# 코덱스 리뷰(8/23): compact 카드는 설명 행이 통째로 양보하므로 상세가
+	# 블렌드로 떠오르면 진입 120ms·이탈 90ms 동안 레인이 비어 보인다.
+	# 콘텐츠 교체는 원자적으로 — 호버가 살아 있는 동안 상세는 완전 불투명,
+	# 하강 페이드는 양보 없는 레거시 프로파일만 유지한다.
+	if compact_card:
+		return 1.0 if hover_blend > 0.0 else 0.0
+	return clampf(hover_blend, 0.0, 1.0)
+
+
 static func tower_node_hover_detail_row_baseline(
 	rect: Rect2,
 	compact_card: bool,
@@ -1156,7 +1169,7 @@ func draw_tower_node_card(
 			detail_font_size = mini(detail_font_size, description_font_size)
 		for detail_index in range(detail_rows.size()):
 			var detail_color := Color(0.30, 0.20, 0.10).lerp(node_accent, 0.35)
-			detail_color.a = hover_blend
+			detail_color.a = tower_node_hover_detail_alpha(compact_card, hover_blend)
 			_draw_text_fitted(
 				canvas,
 				str(detail_rows[detail_index]),

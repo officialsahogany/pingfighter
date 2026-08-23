@@ -336,6 +336,29 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 		not RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(true, 2),
 		"a two-row compact hover detail must leave the timing badge visible"
 	)
+	# 코덱스 리뷰(8/23): 진입 120ms·이탈 90ms 블렌드 동안 설명은 이미
+	# 양보했으므로 compact 상세는 원자 교체(완전 불투명)여야 한다.
+	_expect(
+		is_equal_approx(
+			RuntimePerkOverlayRenderer.tower_node_hover_detail_alpha(true, 0.05), 1.0
+		)
+		and is_equal_approx(
+			RuntimePerkOverlayRenderer.tower_node_hover_detail_alpha(true, 1.0), 1.0
+		),
+		"compact hover detail must swap in fully opaque at any live blend"
+	)
+	_expect(
+		is_equal_approx(
+			RuntimePerkOverlayRenderer.tower_node_hover_detail_alpha(true, 0.0), 0.0
+		),
+		"an idle compact card must not draw a hover detail surface"
+	)
+	_expect(
+		is_equal_approx(
+			RuntimePerkOverlayRenderer.tower_node_hover_detail_alpha(false, 0.4), 0.4
+		),
+		"the tall legacy profile keeps its fade because its rows never yield"
+	)
 
 
 func _verify_training_hanji_chrome_assets_and_gate() -> void:
