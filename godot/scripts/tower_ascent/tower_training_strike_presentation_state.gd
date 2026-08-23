@@ -29,7 +29,9 @@ const CRITICAL_PRELUDE_HITSTOP_MSEC := 200
 const CRITICAL_AURA_LEAD_MSEC := 60
 const AURA_EFFECT_MSEC := 320
 const MESSAGE_DELAY_AFTER_CONTACT_MSEC := DUMMY_AWAY_MSEC
-const MESSAGE_EFFECT_MSEC := 520
+# 피드백2 3항: 520ms left under 0.3s of fully readable copy once the fade
+# envelope was subtracted; 1000ms holds the judgment promise readable.
+const MESSAGE_EFFECT_MSEC := 1000
 const PADDLE_HIT_AUDIO_SOURCE_X := 504.0
 
 var _character_runtime: Object = PlayerCharacterRuntime.new()

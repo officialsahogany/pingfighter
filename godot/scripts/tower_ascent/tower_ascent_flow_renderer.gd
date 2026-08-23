@@ -3762,22 +3762,42 @@ func _draw_training_judgment_message(
 	if message_text.is_empty():
 		return
 	var t := clampf(progress, 0.0, 1.0)
-	var rise := (8.0 + 24.0 * t) * content_scale
-	var baseline := Vector2(stage_rect.position.x, stage_rect.end.y - 18.0 * content_scale - rise)
+	# 피드백2 3항: the old bottom-band baseline sat straight on the dummy trunk
+	# (orange copy on ochre wood). Float the copy in the upper stage clear of
+	# the gauge band, and guarantee contrast with an ink outline.
+	var rise := 12.0 * t * content_scale
+	var baseline := Vector2(
+		stage_rect.position.x,
+		stage_rect.position.y + 80.0 * content_scale - rise
+	)
 	var color := Color(0.94, 0.84, 0.62, 1.0)
 	if judgment_kind == "critical":
 		color = Color(1.0, 0.38, 0.18, 1.0)
 	elif judgment_kind == "great":
 		color = Color(0.38, 0.78, 1.0, 1.0)
-	var alpha := minf(1.0, t * 6.0) * (1.0 - pow(maxf(0.0, t - 0.72) / 0.28, 2.0))
+	var alpha := minf(1.0, t * 8.0) * (1.0 - pow(maxf(0.0, t - 0.85) / 0.15, 2.0))
+	var font_size := maxi(
+		12,
+		int(round((22.0 if judgment_kind == "critical" else 20.0) * content_scale))
+	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
 		baseline + Vector2(1.5, 2.0) * content_scale,
 		message_text,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		stage_rect.size.x,
-		maxi(11, int(round(16.0 * content_scale))),
+		font_size,
 		Color(0.02, 0.012, 0.008, 0.72 * alpha)
+	)
+	canvas.draw_string_outline(
+		ThemeDB.fallback_font,
+		baseline,
+		message_text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		stage_rect.size.x,
+		font_size,
+		maxi(3, int(round(6.0 * content_scale))),
+		Color(0.05, 0.028, 0.018, 0.92 * alpha)
 	)
 	canvas.draw_string(
 		ThemeDB.fallback_font,
@@ -3785,7 +3805,7 @@ func _draw_training_judgment_message(
 		message_text,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		stage_rect.size.x,
-		maxi(11, int(round(16.0 * content_scale))),
+		font_size,
 		Color(color, alpha)
 	)
 
