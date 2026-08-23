@@ -375,6 +375,9 @@ func get_map_pointer_selected_node_id() -> String:
 
 
 func update_selective(delta: float, owner: Object = null) -> void:
+	# 피드백2 5항: 구름 상시 드리프트용 단조증가 앰비언트 클록. 걷힘 타이머와
+	# 합류해 하나의 시간원만 소비되므로 걷힘 시작/종료에 구름이 스냅하지 않는다.
+	_map_ambient_drift_sec += maxf(0.0, delta)
 	if _map_overlay_active or _map_overlay_closing:
 		var overlay_finished: bool = bool(
 			_transition_fade_state.update_map_overlay(maxf(0.0, delta))
@@ -440,7 +443,13 @@ func _complete_pending_floor_reveal() -> void:
 
 
 func get_floor_reveal_visual_model() -> Dictionary:
-	return _floor_reveal_state.get_visual_model(_run_state.get_revealed_floor())
+	var model: Dictionary = _floor_reveal_state.get_visual_model(
+		_run_state.get_revealed_floor()
+	)
+	# The reveal-owned clock ran 0 -> 2s and reset, so clouds froze at idle and
+	# snapped around each reveal. The ambient clock is monotone across both.
+	model["drift_time_sec"] = _map_ambient_drift_sec
+	return model
 
 
 func is_floor_reveal_pending() -> bool:

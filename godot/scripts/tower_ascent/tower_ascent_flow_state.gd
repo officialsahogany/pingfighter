@@ -157,6 +157,9 @@ var _selector_velocity := Vector2.ZERO
 var _selector_launched := false
 var _aim_target_x := 220.0
 var _map_transition_progress := 0.0
+# 피드백2 5항: 구름 상시 드리프트 앰비언트 클록. 표현 전용이며 게임플레이
+# 상태·RNG에 절대 쓰지 않는다.
+var _map_ambient_drift_sec := 0.0
 var _map_render_revision := 0
 var _finish_callback := Callable()
 var _renderer: Object = TowerAscentFlowRenderer.new()

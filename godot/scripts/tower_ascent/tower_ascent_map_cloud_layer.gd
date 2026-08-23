@@ -8,7 +8,14 @@ const CLOUD_LAYER_COUNT := 3
 const CLOUD_SAMPLE_COUNT := 48
 const BITMAP_PARALLAX_LAYER_COUNT := 2
 const BITMAP_FRONT_CLOUD_COUNT := 4
-const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 10
+const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 11
+# 피드백2 5항: the near-opaque mist fog owns spatial concealment of locked
+# floors; the haze band and motifs above it only supply cloud texture. The
+# tone is deliberately distinct from the scroll chrome paper (f1dfb8) so a
+# fogged floor reads as mist, not as an unpainted panel (the zoom QA probe
+# classifies chrome-paper pixels as blank background).
+const FOG_COVER_OPACITY := 0.97
+const FOG_COVER_COLOR := Color("ece4cd")
 const PRESENTATION_SEED_SALT := 0x434c4f5544
 const PAPER_LIGHT := Color("f1dfb8")
 const PAPER_DEEP := Color("d7bd88")
@@ -33,10 +40,11 @@ static func estimate_draw_calls(nodes_value: Variant) -> int:
 				"segment_floor",
 				(node_variant as Dictionary).get("floor", 0)
 			))] = true
-	# Reserve the bitmap worst case even when assets are unavailable. One
-	# tileable haze band needs two clipped copies, and four feathered foreground
-	# motifs may each straddle one horizontal wrap edge (2 + 4 * 2 = 10). The
-	# route builder widens dot spacing against this reserve before draw.
+	# Reserve the bitmap worst case even when assets are unavailable. One flat
+	# fog cover, one tileable haze band as two clipped copies, and four
+	# feathered foreground motifs that may each straddle one horizontal wrap
+	# edge (1 + 2 + 4 * 2 = 11). The route builder widens dot spacing against
+	# this reserve before draw.
 	return floors.size() * BITMAP_MAX_DRAW_CALLS_PER_FLOOR
 
 
@@ -289,6 +297,14 @@ func _draw_bitmap_floor(
 		if not (spec_variant is Dictionary):
 			continue
 		var spec := spec_variant as Dictionary
+		if str(spec.get("kind", "cloud")) == "fog":
+			var fog_color: Color = spec.get("color", FOG_COVER_COLOR)
+			canvas.draw_rect(
+				floor_rect,
+				Color(fog_color, alpha_multiplier * float(spec.get("opacity", 1.0))),
+				true
+			)
+			continue
 		var asset_value: Variant = bitmap_assets.get(str(spec.get("asset_key", "")), null)
 		if not (asset_value is Dictionary):
 			continue
@@ -476,6 +492,15 @@ static func _build_bitmap_specs(
 		{}
 	)
 	var haze_world_size: Vector2 = haze_asset.get("world_size", Vector2.ZERO)
+	# 피드백2 5항: locked floors must be genuinely unreadable, like the pre-S7
+	# fog. One flat paper cover per floor (one draw call) sits under the
+	# textured haze/motif layers and fades with the same reveal multiplier.
+	result.append({
+		"kind": "fog",
+		"depth_layer": 0,
+		"color": FOG_COVER_COLOR,
+		"opacity": FOG_COVER_OPACITY,
+	})
 	result.append({
 		"kind": "haze",
 		"asset_key": TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND,
@@ -484,7 +509,7 @@ static func _build_bitmap_specs(
 		"center_y": floor_rect.position.y + floor_rect.size.y * rng.randf_range(0.46, 0.56),
 		"phase_offset": rng.randf_range(0.0, floor_rect.size.x),
 		"drift_direction": -1.0 if rng.randi() % 2 == 0 else 1.0,
-		"drift_speed": 6.0 * safe_scale * rng.randf_range(0.86, 1.16),
+		"drift_speed": 2.2 * safe_scale * rng.randf_range(0.86, 1.16),
 		"opacity": 1.0,
 	})
 	for cloud_index in range(BITMAP_FRONT_CLOUD_COUNT):
@@ -514,7 +539,7 @@ static func _build_bitmap_specs(
 				0.92
 			),
 			"drift_direction": -1.0 if rng.randi() % 2 == 0 else 1.0,
-			"drift_speed": 12.0 * safe_scale * rng.randf_range(0.86, 1.42),
+			"drift_speed": 4.6 * safe_scale * rng.randf_range(0.86, 1.42),
 			"opacity": rng.randf_range(0.90, 1.0),
 		})
 	return result

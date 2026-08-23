@@ -189,7 +189,7 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 	_expect(str(cloud_model.get("render_mode", "")) == "bitmap", "all four prewarmed cloud assets must select bitmap rendering")
 	_expect(int(cloud_model.get("bitmap_asset_count", 0)) == 4, "bitmap rendering must bind all four approved assets")
 	_expect(int(cloud_model.get("parallax_layer_count", 0)) == 2, "locked clouds must retain slow haze plus faster foreground depth")
-	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 10, "each locked floor must reserve the exact two-wrap haze plus four two-wrap motif worst case")
+	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 11, "each locked floor must reserve the exact fog cover plus two-wrap haze plus four two-wrap motif worst case")
 
 	var visual: Dictionary = flow.get_floor_reveal_visual_model()
 	_expect(
@@ -213,6 +213,7 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		var floor_number := int(floor_spec.get("floor", 0))
 		if floor_number <= int(visual.get("revealed_floor", 0)):
 			continue
+		var fog_count := 0
 		var haze_count := 0
 		var front_count := 0
 		var haze_speed := INF
@@ -222,7 +223,13 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 			if not (spec_variant is Dictionary):
 				continue
 			var spec := spec_variant as Dictionary
-			if str(spec.get("kind", "")) == "haze":
+			if str(spec.get("kind", "")) == "fog":
+				fog_count += 1
+				_expect(
+					float(spec.get("opacity", 0.0)) >= 0.9,
+					"the locked-floor fog cover must be near-opaque to conceal upper nodes"
+				)
+			elif str(spec.get("kind", "")) == "haze":
 				haze_count += 1
 				haze_speed = minf(haze_speed, float(spec.get("drift_speed", INF)))
 			else:
@@ -239,7 +246,10 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 						)
 						_expect(is_equal_approx(start_x, cycle_x), "one full continuous drift cycle must wrap to the same cloud center without a seam")
 						wrapped_motion_checked = true
-		_expect(haze_count == 1 and front_count == 4, "each locked floor must overlap one full-width haze band with four seeded swirl/wisp motifs")
+		_expect(
+			fog_count == 1 and haze_count == 1 and front_count == 4,
+			"each locked floor must stack one fog cover, one full-width haze band, and four seeded swirl/wisp motifs"
+		)
 		_expect(minimum_front_speed > haze_speed, "foreground motifs must drift faster than the rear haze layer")
 		var midpoint_visual := {
 			"revealed_floor": floor_number - 1,
