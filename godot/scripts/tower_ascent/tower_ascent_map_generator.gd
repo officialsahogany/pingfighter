@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v9_sparse_boss_branching_routes"
+const GENERATOR_VERSION := "tower_map_v10_floor_one_boss_choices"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -34,23 +34,46 @@ const NONCOMBAT_NODE_KINDS := [
 	"guardian_spring",
 	"rest",
 ]
+const FLOOR_ONE_EXPANSION_ROW_ROLES: Array[String] = [
+	"npc_separator",
+	"boss_encounter",
+	"npc_separator",
+	"optional_boss_encounter",
+]
+const FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT := 1
+const FLOOR_ONE_OPTIONAL_ENCOUNTER_SEED_SALT := 0x31464C52
 
 
 func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	var active_clear_floor := TowerAuditionBuildConfig.get_clear_floor()
+	var audition_enabled := TowerAuditionBuildConfig.is_enabled()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
 	var total_rows := 1 + (TOWER_FLOOR_COUNT - 1) * (
 		TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
 	)
-	if TowerAuditionBuildConfig.is_enabled():
+	if audition_enabled:
 		total_rows += TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR
+	else:
+		# The existing floor-2 optional row is already the final full-NPC
+		# separator before the 2F gate. These four rows extend segment_floor 1
+		# without moving the floor gate out of the final-row boundary slot.
+		total_rows += FLOOR_ONE_EXPANSION_ROW_ROLES.size()
+	var floor_one_rng := RandomNumberGenerator.new()
+	floor_one_rng.seed = int(
+		(map_seed ^ FLOOR_ONE_OPTIONAL_ENCOUNTER_SEED_SALT) & 0x7fffffff
+	)
+	var floor_one_optional_encounter := (
+		_floor_one_optional_encounter_enabled(floor_one_rng)
+		if not audition_enabled
+		else false
+	)
 	var global_row_index := 0
 	var floor_specs: Array[Dictionary] = []
 	for floor_number in range(1, TOWER_FLOOR_COUNT + 1):
 		var rows: Array[Dictionary] = []
 		var floor_one_audition_route := (
-			floor_number == 1 and TowerAuditionBuildConfig.is_enabled()
+			floor_number == 1 and audition_enabled
 		)
 		if floor_one_audition_route:
 			rows.append(_build_gatekeeper_row(
@@ -62,6 +85,61 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 			))
 			global_row_index += 1
 		if floor_number > 1 or floor_one_audition_route:
+			if floor_number == 2 and not audition_enabled:
+				var floor_one_encounter_index := 0
+				for expansion_index in range(FLOOR_ONE_EXPANSION_ROW_ROLES.size()):
+					var expansion_role := FLOOR_ONE_EXPANSION_ROW_ROLES[expansion_index]
+					var creates_boss_choice := (
+						expansion_role == "boss_encounter"
+						or (
+							expansion_role == "optional_boss_encounter"
+							and floor_one_optional_encounter
+						)
+					)
+					var lane_count := ROUTE_CANDIDATE_COUNT
+					if expansion_role == "npc_separator" and expansion_index > 0:
+						# A 2 -> 3 -> 2 alternation lets both boss-choice
+						# lanes branch while keeping every separator a full NPC
+						# row. It also avoids introducing two consecutive
+						# single-choice transitions into the existing S3 graph.
+						lane_count = MAP_LANE_COUNT_MIN
+					var node_kinds: Array[String] = []
+					var labels: Array[String] = []
+					if creates_boss_choice:
+						floor_one_encounter_index += 1
+						var npc_kind := _draw_unique_noncombat_kinds(
+							floor_one_rng,
+							1
+						)[0]
+						node_kinds.assign(["boss", npc_kind])
+						labels.assign(["1층 선택 보스", _label_for_kind(npc_kind)])
+					else:
+						for node_kind in _draw_unique_noncombat_kinds(
+							floor_one_rng,
+							lane_count
+						):
+							node_kinds.append(node_kind)
+							labels.append(_label_for_kind(node_kind))
+					var row_id := "floor_01_expansion_route_%02d" % (
+						expansion_index + 1
+					)
+					rows.append({
+						"id": row_id,
+						"segment_floor": 1,
+						"candidate_count": lane_count,
+						"node_ids": _lane_node_ids(row_id, lane_count),
+						"kinds": node_kinds,
+						"labels": labels,
+						"display_y": _map_y(global_row_index, total_rows),
+						"route_locked": false,
+						"content_state": "generated",
+						"floor_one_expansion_row": true,
+						"floor_one_boss_choice_row": creates_boss_choice,
+						"floor_one_encounter_index": (
+							floor_one_encounter_index if creates_boss_choice else 0
+						),
+					})
+					global_row_index += 1
 			for optional_index in range(TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR):
 				var segment_floor := _segment_floor_for_optional_row(
 					floor_number,
@@ -74,6 +152,11 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 					previous_lane_count,
 					active_clear_floor
 				)
+				if floor_number == 2 and not audition_enabled:
+					# This is still segment_floor 1: three NPC lanes receive
+					# both lanes of the optional boss choice, then hand off to
+					# the unchanged three-lane 2F gate without a single-chain.
+					lane_count = MAP_LANE_COUNT_MIN
 				var node_kinds: Array[String] = []
 				var labels: Array[String] = []
 				# A complete NPC row separates every pair of generated boss rows.
@@ -93,6 +176,9 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 					"display_y": _map_y(global_row_index, total_rows),
 					"route_locked": floor_number > active_clear_floor,
 					"content_state": "registry_only" if floor_number > active_clear_floor else "generated",
+					"floor_one_expansion_support_row": (
+						floor_number == 2 and not audition_enabled
+					),
 				})
 				global_row_index += 1
 		if not floor_one_audition_route:
@@ -128,6 +214,10 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	phase["entry_node_id"] = entry_node_id
 	phase["initial_route_candidate_ids"] = initial_route_candidate_ids
 	generated["phases"] = [phase]
+	generated["floor_one_expansion_row_count"] = (
+		0 if audition_enabled else FLOOR_ONE_EXPANSION_ROW_ROLES.size()
+	)
+	generated["floor_one_optional_boss_encounter"] = floor_one_optional_encounter
 	var boss_decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
 	var decorated := TowerAscentEnragedPolicy.new().decorate_graph(
 		boss_decorated,
@@ -158,7 +248,10 @@ func generate(map_seed: int, floor_specs: Array) -> Dictionary:
 		# normalizes boss placeholders to unique bosses or NPCs before applying
 		# the S3 distribution contract.
 		var integrity := analyze_graph_integrity(candidate, false, false)
-		if bool(integrity.get("valid", false)):
+		if (
+			bool(integrity.get("valid", false))
+			and _has_floor_one_boss_avoidance_path(candidate)
+		):
 			candidate["generation_attempt"] = generation_attempt
 			candidate["integrity"] = integrity
 			return candidate
@@ -374,6 +467,9 @@ func analyze_graph_integrity(
 		total_degree_two_nodes,
 		total_raw_outgoing_nodes
 	)
+	var floor_one_boss_avoidance_path := _has_floor_one_boss_avoidance_path(graph)
+	if not floor_one_boss_avoidance_path:
+		issues.append("floor_one_boss_avoidance_path_missing")
 	return {
 		"valid": issues.is_empty(),
 		"issues": issues,
@@ -400,6 +496,7 @@ func analyze_graph_integrity(
 		"raw_degree_two_ratio": raw_degree_two_ratio,
 		"consecutive_single_transition_count": total_consecutive_single_transitions,
 		"singleton_row_count": total_singleton_rows,
+		"floor_one_boss_avoidance_path": floor_one_boss_avoidance_path,
 	}
 
 
@@ -568,7 +665,10 @@ func _analyze_phase_integrity(
 				)
 				if not allowed_final_boss_chain:
 					consecutive_single_transition_count += 1
-					issues.append("consecutive_single_transition=%s>%s" % [node_id, target_id])
+					issues.append(
+						"consecutive_single_transition=%s>%s"
+						% [node_id, target_id]
+					)
 		if in_degree == 0 and out_degree == 0:
 			isolated_count += 1
 		if not last_row.has(node_id) and out_degree == 0:
@@ -764,6 +864,50 @@ func _walk_adjacency(start_ids: Array, adjacency: Dictionary) -> Dictionary:
 			visited[target_id] = true
 			pending.append(target_id)
 	return visited
+
+
+func _has_floor_one_boss_avoidance_path(graph: Dictionary) -> bool:
+	var phases: Array = graph.get("phases", [])
+	if phases.is_empty() or not (phases[0] is Dictionary):
+		return false
+	var phase := phases[0] as Dictionary
+	var entry_id := str(phase.get("entry_node_id", ""))
+	var blocked_ids: Dictionary = {}
+	var target_ids: Dictionary = {}
+	var has_floor_one_choice := false
+	for node_variant in phase.get("nodes", []):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var node_id := str(node.get("id", ""))
+		if entry_id.is_empty() and int(node.get("global_row", -1)) == 0:
+			entry_id = node_id
+		if bool(node.get("floor_one_boss_choice", false)):
+			has_floor_one_choice = true
+			blocked_ids[node_id] = true
+		if int(node.get("floor", 0)) == 2 and bool(node.get("gatekeeper", false)):
+			target_ids[node_id] = true
+	if not has_floor_one_choice:
+		return true
+	if entry_id.is_empty() or target_ids.is_empty():
+		return false
+	var adjacency: Dictionary = {}
+	for edge_variant in phase.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var from_id := str(edge.get("from", ""))
+		var to_id := str(edge.get("to", ""))
+		if blocked_ids.has(from_id) or blocked_ids.has(to_id):
+			continue
+		var targets: Array = adjacency.get(from_id, [])
+		targets.append(to_id)
+		adjacency[from_id] = targets
+	var visited := _walk_adjacency([entry_id], adjacency)
+	for target_id_variant in target_ids.keys():
+		if visited.has(str(target_id_variant)):
+			return true
+	return false
 
 
 func _count_crossing_edges(edges: Array, node_by_id: Dictionary) -> int:
@@ -1048,6 +1192,7 @@ func _build_row_nodes(
 			else "floor_%02d_row_%02d_lane_%02d" % [floor_number, floor_row_index + 1, lane + 1]
 		)
 		var position := _lane_position(candidate_count, lane, display_y)
+		var node_kind := kinds[(kind_offset + lane) % kinds.size()]
 		result.append({
 			"id": node_id,
 			"floor": floor_number,
@@ -1055,7 +1200,7 @@ func _build_row_nodes(
 			"row": floor_row_index + 1,
 			"global_row": global_row_index,
 			"lane": lane,
-			"kind": kinds[(kind_offset + lane) % kinds.size()],
+			"kind": node_kind,
 			"label": labels[(label_offset + lane) % labels.size()],
 			"position": [int(position.x), int(position.y)],
 			"completed": false,
@@ -1064,6 +1209,29 @@ func _build_row_nodes(
 			"floor_boundary": bool(row_spec.get("floor_boundary", false)),
 			"route_locked": bool(row_spec.get("route_locked", false)),
 			"content_state": str(row_spec.get("content_state", "generated")),
+			"floor_one_expansion_row": bool(row_spec.get(
+				"floor_one_expansion_row",
+				false
+			)),
+			"floor_one_boss_choice_row": bool(row_spec.get(
+				"floor_one_boss_choice_row",
+				false
+			)),
+			"floor_one_boss_choice": (
+				bool(row_spec.get("floor_one_boss_choice_row", false))
+				and node_kind in COMBAT_NODE_KINDS
+			),
+			"floor_one_encounter_index": int(row_spec.get(
+				"floor_one_encounter_index",
+				0
+			)),
+			"floor_one_expansion_added_node": (
+				bool(row_spec.get("floor_one_expansion_row", false))
+				or (
+					bool(row_spec.get("floor_one_expansion_support_row", false))
+					and lane >= ROUTE_CANDIDATE_COUNT
+				)
+			),
 			"generation_roll": rng.randi(),
 		})
 	return result
@@ -1198,6 +1366,23 @@ func _draw_unique_noncombat_kinds(
 		result.append(available[chosen_index])
 		available.remove_at(chosen_index)
 	return result
+
+
+func _floor_one_optional_encounter_enabled(
+	rng: RandomNumberGenerator
+) -> bool:
+	var stage_one_pool_size := TowerAscentBossRegistry.new().get_floor_slots(1).size()
+	var remaining_after_required := maxi(
+		0,
+		stage_one_pool_size - 1 - FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT
+	)
+	if remaining_after_required <= 0:
+		return false
+	# One equally weighted skip outcome competes with every still-unique slot.
+	# The current three-boss pool leaves one slot after the start boss and the
+	# guaranteed encounter, so the second encounter is derived as 1 / (1 + 1)
+	# = 50%, without a detached tuning literal.
+	return rng.randi_range(0, remaining_after_required) < remaining_after_required
 
 
 func _shuffle_ints(values: Array[int], rng: RandomNumberGenerator) -> void:

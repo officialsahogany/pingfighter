@@ -136,8 +136,9 @@ const TEMP_MAP_PATH_DOT_GAP_ART_RATIO := 0.32
 const TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO := 0.072
 const TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO := 0.030
 const TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS := 10
-# Each dot is two polygon draws. Dense v7 lane graphs keep every edge and
-# adapt dot spacing once during cached projection instead of dropping paths.
+# The frame-cost ceiling is 768 visible route dots * two polygon draws. Bitmap
+# clouds reserve their ten-per-floor worst case from the same 1536 ceiling;
+# cached projection widens dot spacing while preserving every stable edge ID.
 const TEMP_MAP_PATH_DRAW_CALL_BUDGET := 1536
 
 # TEMP: v1.12 keeps the exhausted reward board visible briefly before the

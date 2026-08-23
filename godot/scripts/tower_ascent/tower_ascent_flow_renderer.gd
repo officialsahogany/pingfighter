@@ -903,6 +903,19 @@ func _build_static_fullscreen_map_model(
 	_path_cached_dot_count = TowerAscentMapPathGeometry.dot_count(projected_edges)
 	_path_cached_dot_gap = dot_gap
 	_path_cached_brush_segment_count = _route_brush_segment_count(projected_edges)
+	var segment_y_bounds: Dictionary = {}
+	for node in projected_nodes:
+		var segment_floor := int(node.get("segment_floor", node.get("floor", 0)))
+		if segment_floor <= 0:
+			continue
+		var node_y := float((node.get("world_position", Vector2.ZERO) as Vector2).y)
+		var y_bounds: Vector2 = segment_y_bounds.get(
+			segment_floor,
+			Vector2(node_y, node_y)
+		)
+		y_bounds.x = minf(y_bounds.x, node_y)
+		y_bounds.y = maxf(y_bounds.y, node_y)
+		segment_y_bounds[segment_floor] = y_bounds
 	var floor_bands: Array[Dictionary] = []
 	for floor_variant in base.get("floors", []):
 		if not (floor_variant is Dictionary):
@@ -916,6 +929,19 @@ func _build_static_fullscreen_map_model(
 			continue
 		var floor_number := int(floor_data.get("floor", 0))
 		var band_y := float((position_by_id[str(gate_ids[0])] as Vector2).y)
+		var segment_bounds: Vector2 = segment_y_bounds.get(
+			floor_number,
+			Vector2(band_y, band_y)
+		)
+		# Segment ownership is half-open at the midpoint between adjacent
+		# rows. A normal two-row floor remains one native 320px band, while
+		# the expanded first-floor segment grows from its actual row extent.
+		var band_rect := Rect2(
+			world_rect.position.x,
+			segment_bounds.x - scaled_row_pitch * 0.5,
+			scaled_tile_size.x,
+			segment_bounds.y - segment_bounds.x + scaled_row_pitch
+		)
 		floor_bands.append({
 			"floor": floor_number,
 			"segment_floor": floor_number,
@@ -928,12 +954,16 @@ func _build_static_fullscreen_map_model(
 				true
 			)),
 			"y": band_y,
+			# `rect` remains the approved 692:320 art tile contract.
+			# `segment_rect` is the authoritative half-open ownership band and
+			# may span multiple native tiles when a floor gains more rows.
 			"rect": Rect2(
 				world_rect.position.x,
 				band_y - scaled_tile_size.y * 0.5,
 				scaled_tile_size.x,
 				scaled_tile_size.y
 			),
+			"segment_rect": band_rect,
 		})
 	var active_floor_bands: Array[Dictionary] = []
 	var active_camera_world_rect := Rect2()
@@ -945,7 +975,7 @@ func _build_static_fullscreen_map_model(
 		if not bool(band.get("overview_active_phase", true)):
 			continue
 		active_floor_bands.append(band)
-		var band_rect: Rect2 = band.get("rect", Rect2())
+		var band_rect: Rect2 = band.get("segment_rect", band.get("rect", Rect2()))
 		active_camera_world_rect = (
 			active_camera_world_rect.merge(band_rect)
 			if has_active_camera_world_rect
@@ -1960,43 +1990,84 @@ func build_scroll_background_model(
 	if not bool(paper_resolution.get("ready", false)) or paper_texture == null:
 		return {"ready": false, "reason": "paper_unavailable", "tiles": []}
 	var tiles: Array[Dictionary] = []
+	var draw_chunks: Array[Dictionary] = []
 	var previous_asset_key := ""
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
 		var floor_number := int(band.get("segment_floor", band.get("floor", 0)))
 		var band_realm_kind := str(band.get("realm_kind", realm_kind))
-		var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
-			band_realm_kind,
-			floor_number,
-			previous_asset_key
-		)
-		var resolution: Dictionary = resolution_by_key.get(asset_key, {})
-		var texture := resolution.get("texture", null) as Texture2D
-		if not bool(resolution.get("ready", false)) or texture == null:
-			return {
-				"ready": false,
-				"reason": "band_unavailable",
-				"missing_asset_key": asset_key,
-				"tiles": [],
-			}
-		var center_y := float(band.get("y", world_rect.get_center().y))
-		tiles.append({
-			"floor": floor_number,
-			"realm_kind": band_realm_kind,
-			"asset_key": asset_key,
-			"rect": Rect2(
-				Vector2(
-					world_rect.position.x,
-					center_y - tile_size.y * 0.5
-				),
-				tile_size
+		var band_rect: Rect2 = band.get("segment_rect", band.get("rect", Rect2(
+			Vector2(
+				world_rect.position.x,
+				float(band.get("y", world_rect.get_center().y)) - tile_size.y * 0.5
 			),
-			"paper_texture": paper_texture,
-			"texture": texture,
-		})
-		previous_asset_key = asset_key
-	var first_tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
-	var last_tile_rect: Rect2 = (tiles[-1] as Dictionary).get("rect", Rect2())
+			tile_size
+		)))
+		if not band_rect.has_area():
+			continue
+		var first_band_asset_key := ""
+		var first_band_texture: Texture2D = null
+		var chunk_y := band_rect.position.y
+		while chunk_y < band_rect.end.y - 0.001:
+			var chunk_height := minf(tile_size.y, band_rect.end.y - chunk_y)
+			var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
+				band_realm_kind,
+				floor_number,
+				previous_asset_key
+			)
+			var resolution: Dictionary = resolution_by_key.get(asset_key, {})
+			var texture := resolution.get("texture", null) as Texture2D
+			if not bool(resolution.get("ready", false)) or texture == null:
+				return {
+					"ready": false,
+					"reason": "band_unavailable",
+					"missing_asset_key": asset_key,
+					"tiles": [],
+				}
+			if first_band_texture == null:
+				first_band_asset_key = asset_key
+				first_band_texture = texture
+			draw_chunks.append({
+				"floor": floor_number,
+				"realm_kind": band_realm_kind,
+				"asset_key": asset_key,
+				"rect": Rect2(
+					Vector2(world_rect.position.x, chunk_y),
+					Vector2(tile_size.x, chunk_height)
+				),
+				"normalized_source_rect": Rect2(
+					Vector2.ZERO,
+					Vector2(1.0, chunk_height / tile_size.y)
+				),
+				"paper_texture": paper_texture,
+				"texture": texture,
+			})
+			previous_asset_key = asset_key
+			chunk_y += chunk_height
+		if first_band_texture != null:
+			tiles.append({
+				"floor": floor_number,
+				"realm_kind": band_realm_kind,
+				"asset_key": first_band_asset_key,
+				# `tiles` remains the one-approved-art-per-floor contract used
+				# by content-scale seals. Rendering consumes draw_chunks so an
+				# expanded segment repeats/crops art instead of stretching it.
+				"rect": Rect2(
+					Vector2(
+						world_rect.position.x,
+						float(band.get("y", band_rect.get_center().y))
+							- tile_size.y * 0.5
+					),
+					tile_size
+				),
+				"band_rect": band_rect,
+				"paper_texture": paper_texture,
+				"texture": first_band_texture,
+			})
+	if tiles.is_empty() or draw_chunks.is_empty():
+		return {"ready": false, "reason": "missing_band_tiles", "tiles": []}
+	var first_tile_rect: Rect2 = (draw_chunks[0] as Dictionary).get("rect", Rect2())
+	var last_tile_rect: Rect2 = (draw_chunks[-1] as Dictionary).get("rect", Rect2())
 	var tile_world_rect := Rect2(
 		Vector2(world_rect.position.x, first_tile_rect.position.y),
 		Vector2(tile_size.x, last_tile_rect.end.y - first_tile_rect.position.y)
@@ -2007,6 +2078,7 @@ func build_scroll_background_model(
 		"world_rect": tile_world_rect,
 		"realm_kind": realm_kind,
 		"tiles": tiles,
+		"draw_chunks": draw_chunks,
 	}
 
 
@@ -2023,13 +2095,16 @@ func resolve_segment_floor_for_world_y(
 	var maximum_bottom := -INF
 	for band_variant in floor_bands:
 		if band_variant is Dictionary:
-			var band_rect: Rect2 = (band_variant as Dictionary).get("rect", Rect2())
+			var band_rect: Rect2 = (band_variant as Dictionary).get(
+				"segment_rect",
+				(band_variant as Dictionary).get("rect", Rect2())
+			)
 			maximum_bottom = maxf(maximum_bottom, band_rect.end.y)
 	for band_variant in floor_bands:
 		if not (band_variant is Dictionary):
 			continue
 		var band := band_variant as Dictionary
-		var band_rect: Rect2 = band.get("rect", Rect2())
+		var band_rect: Rect2 = band.get("segment_rect", band.get("rect", Rect2()))
 		if not band_rect.has_area():
 			continue
 		var inside_half_open := (
@@ -2462,7 +2537,7 @@ func _draw_scroll_background_model(
 ) -> void:
 	if not bool(model.get("ready", false)):
 		return
-	for tile_variant in model.get("tiles", []):
+	for tile_variant in model.get("draw_chunks", model.get("tiles", [])):
 		if not (tile_variant is Dictionary):
 			continue
 		var tile := tile_variant as Dictionary
@@ -2472,14 +2547,16 @@ func _draw_scroll_background_model(
 			tile.get("paper_texture", null) as Texture2D,
 			world_target,
 			clip_rect,
-			camera_model
+			camera_model,
+			tile.get("normalized_source_rect", Rect2(0.0, 0.0, 1.0, 1.0))
 		)
 		_draw_scroll_texture_region(
 			canvas,
 			tile.get("texture", null) as Texture2D,
 			world_target,
 			clip_rect,
-			camera_model
+			camera_model,
+			tile.get("normalized_source_rect", Rect2(0.0, 0.0, 1.0, 1.0))
 		)
 
 
@@ -2488,7 +2565,8 @@ func _draw_scroll_texture_region(
 	texture: Texture2D,
 	world_target: Rect2,
 	clip_rect: Rect2,
-	camera_model: Dictionary
+	camera_model: Dictionary,
+	normalized_source_rect: Rect2 = Rect2(0.0, 0.0, 1.0, 1.0)
 ) -> void:
 	if texture == null or world_target.size.x <= 0.0 or world_target.size.y <= 0.0:
 		return
@@ -2499,7 +2577,14 @@ func _draw_scroll_texture_region(
 	var texture_size := texture.get_size()
 	var relative_position := (visible_target.position - projected_target.position) / projected_target.size
 	var relative_size := visible_target.size / projected_target.size
-	var source_rect := Rect2(texture_size * relative_position, texture_size * relative_size)
+	var normalized_source_size := normalized_source_rect.size
+	var source_rect := Rect2(
+		texture_size * (
+			normalized_source_rect.position
+			+ normalized_source_size * relative_position
+		),
+		texture_size * normalized_source_size * relative_size
+	)
 	canvas.draw_texture_rect_region(
 		texture,
 		visible_target,

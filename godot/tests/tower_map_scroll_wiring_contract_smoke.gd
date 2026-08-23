@@ -256,7 +256,9 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var background: Dictionary = model.get("scroll_background", {})
 	_expect(bool(background.get("ready", false)), "the live fullscreen model must select approved opaque bands")
 	var tiles: Array = background.get("tiles", [])
-	_expect(tiles.size() == flow.get_graph_floors().size(), "S3 must assign one contiguous band tile per active floor")
+	var draw_chunks: Array = background.get("draw_chunks", [])
+	_expect(tiles.size() == flow.get_graph_floors().size(), "S3 must retain one approved band-art contract per active floor")
+	_expect(draw_chunks.size() >= tiles.size(), "expanded segments must expose every opaque repeated/cropped draw chunk")
 	var world_rect: Rect2 = model.get("world_rect", Rect2())
 	var tile_world_rect: Rect2 = background.get("world_rect", Rect2())
 	var camera: Dictionary = model.get("camera", {})
@@ -271,7 +273,6 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
 	var map_scale := float(model.get("map_scale", 0.0))
 	var previous_key := ""
-	var previous_end_y := tile_world_rect.position.y
 	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "the M-key scroll world must fit the live content width")
 	_expect(camera_render_zoom >= float(model.get("minimum_cover_zoom", INF)), "the M-key camera must use its viewport-derived cover floor")
 	_expect(
@@ -290,9 +291,31 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		_expect(asset_key != previous_key, "adjacent rendered floors must not repeat one variant")
 		_expect(is_equal_approx(tile_rect.position.x, tile_world_rect.position.x) and is_equal_approx(tile_rect.size.x, tile_world_rect.size.x), "every band must span the scroll width")
 		_expect(tile_rect.size.is_equal_approx(Vector2(692.0, 320.0) * map_scale), "each opaque band must preserve its approved aspect ratio at M-key content scale: floor=%d size=%s" % [int(tile.get("floor", 0)), str(tile_rect.size)])
-		_expect(is_equal_approx(tile_rect.position.y, previous_end_y), "opaque floor tiles must meet without overlap or alpha gaps")
-		previous_end_y = tile_rect.end.y
 		previous_key = asset_key
+	var previous_end_y := tile_world_rect.position.y
+	for chunk_variant in draw_chunks:
+		var chunk := chunk_variant as Dictionary
+		var chunk_rect: Rect2 = chunk.get("rect", Rect2())
+		var source_rect: Rect2 = chunk.get(
+			"normalized_source_rect",
+			Rect2(0.0, 0.0, 1.0, 1.0)
+		)
+		_expect(chunk.get("texture", null) is Texture2D, "every opaque draw chunk must own its cached band texture")
+		_expect(chunk.get("paper_texture", null) is Texture2D, "every opaque draw chunk must retain the common paper underlay")
+		_expect(
+			is_equal_approx(chunk_rect.position.x, tile_world_rect.position.x)
+			and is_equal_approx(chunk_rect.size.x, tile_world_rect.size.x),
+			"every repeated band chunk must span the scroll width"
+		)
+		_expect(is_equal_approx(chunk_rect.position.y, previous_end_y), "opaque draw chunks must meet without overlap or alpha gaps")
+		_expect(
+			is_equal_approx(
+				source_rect.size.y,
+				chunk_rect.size.y / (320.0 * map_scale)
+			),
+			"partial band chunks must crop source art instead of stretching it"
+		)
+		previous_end_y = chunk_rect.end.y
 	_expect(is_equal_approx(previous_end_y, tile_world_rect.end.y), "the opaque tile stack must cover the complete scroll world")
 	var legacy: Dictionary = renderer.build_render_model(flow).get("legacy_scroll_background", {})
 	_expect(bool(legacy.get("ready", false)), "the transformed legacy surface must use the same approved tiles")
@@ -474,7 +497,18 @@ func _verify_three_route_brush_states_and_geometry() -> void:
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
 	_expect(renderer_source.find("canvas.draw_polygon(") >= 0, "S4 must actually draw the approved brush textures")
-	_expect(renderer_source.find("draw_set_transform") < 0, "S4 must not erase the parent playfield transform with draw_set_transform resets")
+	# The training-dummy floor-pivot wobble (862a27477) legitimately rotates via
+	# a temporary draw transform. The playfield-transform contract is therefore
+	# balance, not absence: every non-identity draw_set_transform must pair with
+	# an immediate identity restore so map drawing never inherits a stale matrix.
+	var transform_call_count := renderer_source.count("canvas.draw_set_transform(")
+	var identity_restore_count := renderer_source.count(
+		"canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)"
+	)
+	_expect(
+		transform_call_count == identity_restore_count * 2,
+		"every non-identity draw_set_transform in the map renderer must pair with an identity restore"
+	)
 	var fullscreen_draw_start := renderer_source.find("func _draw_fullscreen_map_model(")
 	var fullscreen_edge_start := renderer_source.find("for edge_variant in model.get(\"edges\", [])", fullscreen_draw_start)
 	var fullscreen_plaque_redraw := renderer_source.find("_draw_fullscreen_floor_guides(", fullscreen_edge_start)

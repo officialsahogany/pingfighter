@@ -49,7 +49,13 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 	all_floors.append_array(immortal_phase.floors)
 	for floor_index in range(all_floors.size()):
 		var floor_data: Dictionary = all_floors[floor_index]
-		var expected_rows := 1 if int(floor_data.floor) == 1 else 2
+		var expected_rows := (
+			1
+			if int(floor_data.floor) == 1
+			else 2 + TowerAscentMapGenerator.FLOOR_ONE_EXPANSION_ROW_ROLES.size()
+			if int(floor_data.floor) == 2
+			else 2
+		)
 		_expect(floor_data.rows.size() == expected_rows, "floor %d must keep its temporary row allocation" % int(floor_data.floor))
 		var gate_row: Dictionary = floor_data.rows[floor_data.rows.size() - 1]
 		_expect(bool(gate_row.gatekeeper), "each floor must end at an unavoidable gatekeeper row")
@@ -116,7 +122,13 @@ func _verify_flow_exposes_only_the_next_two_candidates() -> void:
 		_expect(int(node.get("floor", 0)) <= 9, "phase-1 disclosure must not leak phase-2 nodes")
 	_expect((flow.get_locked_phase_hints() as Array).size() == 1, "phase 1 must preserve one locked immortal-realm hint")
 	var targets := flow.get_route_target_ids()
-	_expect(targets == ["floor_02_route_01_lane_01", "floor_02_route_01_lane_02"], "only the next generated row may be targeted after floor 1")
+	_expect(
+		targets == [
+			"floor_01_expansion_route_01_lane_01",
+			"floor_01_expansion_route_01_lane_02",
+		],
+		"only the next expanded first-floor NPC row may be targeted after the start boss"
+	)
 
 
 func _verify_flag_off_remains_legacy() -> void:

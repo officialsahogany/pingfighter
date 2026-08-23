@@ -87,6 +87,31 @@ func _run() -> void:
 	):
 		return
 	var cursor := VIEWPORT_RECT.get_center()
+	var floor_one_model: Dictionary = cover_model
+	for _index in range(24):
+		if _floor_one_route_is_visible(floor_one_model):
+			break
+		flow.handle_input(_wheel(cursor, false))
+		canvas.queue_redraw()
+		await process_frame
+		floor_one_model = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	if not _floor_one_route_is_visible(floor_one_model):
+		_fail("expanded first-floor route did not fit inside the Vulkan viewport")
+		return
+	var floor_one_image: Image = await _capture(canvas, viewport)
+	if not _save(floor_one_image, output_dir.path_join("floor_one_expanded.png")):
+		_fail("expanded first-floor route capture failed")
+		return
+	print(
+		"[TowerMapZoomCloudVisualQA] floor_one_expanded zoom=%.6f rows=%d"
+		% [
+			float((floor_one_model.get("camera", {}) as Dictionary).get(
+				"render_zoom_multiplier",
+				0.0
+			)),
+			_count_floor_one_rows(floor_one_model),
+		]
+	)
 	for _index in range(24):
 		flow.handle_input(_wheel(cursor, false))
 		canvas.queue_redraw()
@@ -276,6 +301,44 @@ func _capture(canvas: CanvasItem, viewport: SubViewport) -> Image:
 	if image == null or image.is_empty() or image.get_size() != GAME_SIZE:
 		return null
 	return image
+
+
+func _floor_one_route_is_visible(model: Dictionary) -> bool:
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var inset_view := VIEWPORT_RECT.grow(-24.0)
+	var saw_floor_one := false
+	var saw_floor_two_gate := false
+	for node_variant in model.get("overview_nodes", model.get("nodes", [])):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var belongs_to_route := int(node.get("segment_floor", 0)) == 1
+		var is_floor_two_gate := (
+			int(node.get("floor", 0)) == 2
+			and bool(node.get("gatekeeper", false))
+		)
+		if not belongs_to_route and not is_floor_two_gate:
+			continue
+		var screen_position := (
+			(node.get("world_position", Vector2.ZERO) as Vector2) * zoom + offset
+		)
+		if not inset_view.has_point(screen_position):
+			return false
+		saw_floor_one = saw_floor_one or belongs_to_route
+		saw_floor_two_gate = saw_floor_two_gate or is_floor_two_gate
+	return saw_floor_one and saw_floor_two_gate
+
+
+func _count_floor_one_rows(model: Dictionary) -> int:
+	var rows: Dictionary = {}
+	for node_variant in model.get("overview_nodes", model.get("nodes", [])):
+		if node_variant is Dictionary and int(
+			(node_variant as Dictionary).get("segment_floor", 0)
+		) == 1:
+			rows[int((node_variant as Dictionary).get("global_row", -1))] = true
+	return rows.size()
 
 
 func _save_and_assert_cover(image: Image, path: String, label: String) -> bool:

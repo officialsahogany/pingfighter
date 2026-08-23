@@ -209,6 +209,25 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 		)
 		used_generated_encounter_keys[terminal_key] = true
 		assigned_generated_boss_count = 1
+	if int(result.get("floor_one_expansion_row_count", 0)) > 0:
+		var floor_one_assignment_count := _assign_floor_one_generated_encounters(
+			nodes,
+			map_seed,
+			used_generated_encounter_keys
+		)
+		if floor_one_assignment_count < 0:
+			return {}
+		assigned_generated_boss_count += floor_one_assignment_count
+		# The 20% figure is a ceiling, not a reason to add unrelated bosses
+		# when first-floor NPC rows enlarge the denominator. Preserve the
+		# pre-expansion budget and add only the actual optional encounters.
+		generated_boss_budget = mini(
+			generated_boss_budget,
+			_generated_boss_budget(nodes, active_clear_floor, true)
+				+ maxi(0, floor_one_assignment_count - 1)
+		)
+		if assigned_generated_boss_count > generated_boss_budget:
+			return {}
 	var generated_candidates := _generated_boss_candidate_indexes(
 		nodes,
 		active_clear_floor,
@@ -386,7 +405,11 @@ func analyze_visible_boss_contract(
 	}
 
 
-func _generated_boss_budget(nodes: Array, active_clear_floor: int) -> int:
+func _generated_boss_budget(
+	nodes: Array,
+	active_clear_floor: int,
+	exclude_floor_one_added_nodes: bool = false
+) -> int:
 	var generated_node_count := 0
 	for node_variant in nodes:
 		if not (node_variant is Dictionary):
@@ -395,6 +418,10 @@ func _generated_boss_budget(nodes: Array, active_clear_floor: int) -> int:
 		if (
 			str(node.get("content_state", "")) == CONTENT_GENERATED
 			and int(node.get("segment_floor", node.get("floor", 0))) <= active_clear_floor
+			and (
+				not exclude_floor_one_added_nodes
+				or not bool(node.get("floor_one_expansion_added_node", false))
+			)
 		):
 			generated_node_count += 1
 	return maxi(
@@ -423,6 +450,7 @@ func _generated_boss_candidate_indexes(
 			or floor_number > active_clear_floor
 			or str(node.get("content_state", "")) != CONTENT_GENERATED
 			or str(node.get("kind", "")) not in COMBAT_NODE_KINDS
+			or str(node.get("boss_assignment_state", "")) == "assigned"
 		):
 			continue
 		var floor_indexes: Array = indexes_by_floor.get(floor_number, [])
@@ -452,6 +480,60 @@ func _generated_boss_candidate_indexes(
 			if lane_round < floor_indexes.size():
 				result.append(int(floor_indexes[lane_round]))
 	return result
+
+
+func _assign_floor_one_generated_encounters(
+	nodes: Array,
+	map_seed: int,
+	used_generated_encounter_keys: Dictionary
+) -> int:
+	var start_gate_index := -1
+	var encounter_indexes: Array[int] = []
+	for node_index in range(nodes.size()):
+		if not (nodes[node_index] is Dictionary):
+			continue
+		var node := nodes[node_index] as Dictionary
+		if (
+			int(node.get("segment_floor", node.get("floor", 0))) != 1
+			or str(node.get("content_state", "")) != CONTENT_GENERATED
+			or str(node.get("kind", "")) not in COMBAT_NODE_KINDS
+		):
+			continue
+		if bool(node.get("gatekeeper", false)):
+			start_gate_index = node_index
+		elif bool(node.get("floor_one_boss_choice", false)):
+			encounter_indexes.append(node_index)
+	if start_gate_index < 0 or encounter_indexes.is_empty():
+		return -1
+	var ordered_indexes: Array[int] = [start_gate_index]
+	ordered_indexes.append_array(encounter_indexes)
+	var slots := _get_shuffled_generation_slots(1, map_seed)
+	if slots.size() < ordered_indexes.size():
+		return -1
+	var assigned_count := 0
+	for node_index in ordered_indexes:
+		var assigned := false
+		for slot in slots:
+			var slot_id := str(slot.get("slot_id", ""))
+			var encounter_key := canonical_encounter_key(get_standin(slot_id))
+			if (
+				encounter_key.is_empty()
+				or used_generated_encounter_keys.has(encounter_key)
+			):
+				continue
+			_assign_boss_slot(
+				nodes[node_index] as Dictionary,
+				slot,
+				slots,
+				encounter_key
+			)
+			used_generated_encounter_keys[encounter_key] = true
+			assigned_count += 1
+			assigned = true
+			break
+		if not assigned:
+			return -1
+	return assigned_count
 
 
 func _register_visible_encounter(

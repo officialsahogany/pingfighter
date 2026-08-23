@@ -19,7 +19,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v9_sparse_boss_branching_routes"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v10_floor_one_boss_choices"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
@@ -295,19 +295,23 @@ func _verify_cached_budget_and_static_indices() -> void:
 	var cache_after: Dictionary = renderer.get_render_cache_debug_state()
 	var source_signature := TowerAscentMapPathGeometry.connection_signature(flow.get_graph_edges())
 	var projected_signature := TowerAscentMapPathGeometry.connection_signature(model.get("edges", []))
-	var draw_calls := int(cache_after.get("path_draw_call_budget", 0))
+	var path_draw_calls := int(cache_after.get("path_draw_call_budget", 0))
+	var cloud_draw_calls := int(cache_after.get("cloud_draw_call_budget", 0))
+	var draw_calls := int(cache_after.get("total_map_draw_call_budget", 0))
 	_expect(source_signature == projected_signature, "budget adaptation must preserve every generated edge")
-	_expect(draw_calls <= MAX_DOTTED_PATH_DRAW_CALLS, "maximum sampled graph must stay inside the dotted-path draw budget")
+	_expect(draw_calls <= MAX_DOTTED_PATH_DRAW_CALLS, "maximum sampled graph must keep dotted paths plus clouds inside the map draw budget")
 	_expect(
 		int(cache_before.get("path_build_count", 0)) == int(cache_after.get("path_build_count", -1)),
 		"unchanged frames must reuse cached path geometry"
 	)
 	print(
-		"tower_ascent_map_topology_smoke: dotted_path_budget seed=%d edges=%d dots=%d draw_calls=%d limit=%d"
+		"tower_ascent_map_topology_smoke: map_draw_budget seed=%d edges=%d dots=%d path=%d clouds=%d total=%d limit=%d"
 		% [
 			_max_human_edge_seed,
 			(flow.get_graph_edges() as Array).size(),
 			int(cache_after.get("path_dot_count", 0)),
+			path_draw_calls,
+			cloud_draw_calls,
 			draw_calls,
 			MAX_DOTTED_PATH_DRAW_CALLS,
 		]
