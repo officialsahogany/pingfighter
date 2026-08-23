@@ -33,6 +33,12 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 		return
 	var view_size: Vector2 = _get_vector2(surface, "view_size", Vector2.ZERO)
 	var layout: Dictionary = surface.get("layout", {})
+	var loot_state: Object = _get_instance(registry, "victory_loot_phase_state")
+	var reward_pick_external_modal_active := (
+		loot_state != null
+		and loot_state.has_method("is_reward_pick_external_modal_active")
+		and bool(loot_state.is_reward_pick_external_modal_active())
+	)
 	VictoryHighlightPillarTrace.trace_draw_pass("battle_scene", canvas, registry, view_size, layout)
 	sample_start = _perf_begin(perf_logger)
 	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), BACKGROUND_COLOR)
@@ -56,11 +62,16 @@ func draw(canvas: CanvasItem, registry: Object, config: Dictionary = {}) -> void
 	_draw_perk_hud_strip(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.perk_hud_strip", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	_draw_hud_overlays(canvas, registry, view_size, layout)
+	if not reward_pick_external_modal_active:
+		_draw_hud_overlays(canvas, registry, view_size, layout)
 	_perf_end(perf_logger, "draw.scene.hud_overlays", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_tower_reward_pick(canvas, registry, view_size)
 	_perf_end(perf_logger, "draw.scene.tower_reward_pick", sample_start)
+	if reward_pick_external_modal_active:
+		sample_start = _perf_begin(perf_logger)
+		_draw_hud_overlays(canvas, registry, view_size, layout)
+		_perf_end(perf_logger, "draw.scene.reward_external_modal", sample_start)
 	sample_start = _perf_begin(perf_logger)
 	_draw_tower_ascent_fullscreen_map(canvas, registry, view_size)
 	_perf_end(perf_logger, "draw.scene.tower_fullscreen_map", sample_start)

@@ -119,6 +119,7 @@ $focusedSmoke = @(
     "res://tests/tower_ascent_floor_one_expansion_contract_smoke.gd",
     "res://tests/tower_ascent_boss_floor_contract_smoke.gd",
     "res://tests/tower_reward_pick_smoke.gd",
+    "res://tests/battle_scene_victory_modal_draw_order_smoke.gd",
     "res://tests/battle_scene_modal_overlap_input_smoke.gd",
     "res://tests/battle_reward_modal_input_router_owner_smoke.gd",
     "res://tests/mythic_perk_acquisition_cinematic_smoke.gd",
