@@ -3,6 +3,9 @@ extends SceneTree
 const ActiveItemRaritySchema := preload(
 	"res://scripts/items/active_item_rarity_schema.gd"
 )
+const LingpetItemOfferPolicy := preload(
+	"res://scripts/lingpet/lingpet_item_offer_policy.gd"
+)
 const TowerAscentActiveItemAcquisitionPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
 )
@@ -20,6 +23,12 @@ const TowerAscentNodeActionTransaction := preload(
 )
 const TowerAscentRunState := preload(
 	"res://scripts/tower_ascent/tower_ascent_run_state.gd"
+)
+const TowerAscentShopInventory := preload(
+	"res://scripts/tower_ascent/tower_ascent_shop_inventory.gd"
+)
+const TowerAscentShopShelfBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_shop_shelf_builder.gd"
 )
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
@@ -117,7 +126,21 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakeLingpetOfferRuntime:
+	extends RefCounted
+
+	var allow_egg := false
+	var allow_spirit_water := false
+
+	func can_offer_egg_item(_owner: Object, _registry: Object) -> bool:
+		return allow_egg
+
+	func can_offer_spirit_water_item(_owner: Object, _registry: Object) -> bool:
+		return allow_spirit_water
+
+
 func _init() -> void:
+	_verify_candidate_shelves_exclude_guardian_products_and_obey_offer_gate()
 	_verify_inventory_contract_purchase_and_snapshot()
 	_verify_insufficient_funds_and_capacity_fail_without_transaction()
 	_verify_chance_gem_cap_blocks_payment()
@@ -133,6 +156,35 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_candidate_shelves_exclude_guardian_products_and_obey_offer_gate() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var offer_runtime := FakeLingpetOfferRuntime.new()
+	var registry := _build_registry(FakeActiveItemRuntime.new())
+	registry.instances["lingpet_egg_runtime"] = offer_runtime
+	var shelf_builder := TowerAscentShopShelfBuilder.new()
+	var blocked_shelves: Dictionary = shelf_builder.build_candidate_shelves(registry, FakeOwner.new())
+	var blocked_names := _collect_shelf_item_names(blocked_shelves)
+	for generated_item in ["milk_bottle", "cheddar_cheese", "camembert_cheese", "emmental_cheese"]:
+		_expect(not blocked_names.has(generated_item), "%s must stay exclusive to Guardian Spirit production" % generated_item)
+	for gated_item in [LingpetItemOfferPolicy.LINGPET_EGG, LingpetItemOfferPolicy.LINGPET_SPIRIT_WATER]:
+		_expect(not blocked_names.has(gated_item), "%s must not consume a shop shelf when its Guardian Spirit gate rejects" % gated_item)
+
+	offer_runtime.allow_egg = true
+	offer_runtime.allow_spirit_water = true
+	var allowed_shelves: Dictionary = shelf_builder.build_candidate_shelves(registry, FakeOwner.new())
+	var allowed_names := _collect_shelf_item_names(allowed_shelves)
+	_expect(allowed_names.has(LingpetItemOfferPolicy.LINGPET_EGG), "shop shelves must retain the egg when its offer gate allows it")
+	_expect(allowed_names.has(LingpetItemOfferPolicy.LINGPET_SPIRIT_WATER), "shop shelves must retain spirit water when its offer gate allows it")
+	var inventory := TowerAscentShopInventory.new().build_inventory(
+		"shop-gated-pool-budget",
+		20260824,
+		FakeOwner.new(),
+		registry
+	)
+	_expect(bool(inventory.get("accepted", false)), "gated shelf must still satisfy regular and premium stock budgets")
+	_expect(str(inventory.get("inventory_version", "")) == TowerAscentShopInventory.INVENTORY_VERSION, "shop inventory must publish the bumped seeded-pool generation")
 
 
 func _verify_inventory_contract_purchase_and_snapshot() -> void:
@@ -369,6 +421,21 @@ func _count_stock_kinds(stock: Array) -> Dictionary:
 		if value is Dictionary:
 			var kind := str((value as Dictionary).get("kind", ""))
 			result[kind] = int(result.get(kind, 0)) + 1
+	return result
+
+
+func _collect_shelf_item_names(shelves: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for shelf_name in ["regular", "premium"]:
+		var shelf_value: Variant = shelves.get(shelf_name, [])
+		if not (shelf_value is Array):
+			continue
+		for item_value in shelf_value as Array:
+			if not (item_value is Dictionary):
+				continue
+			var item_name := str((item_value as Dictionary).get("name", ""))
+			if not item_name.is_empty() and not result.has(item_name):
+				result.append(item_name)
 	return result
 
 

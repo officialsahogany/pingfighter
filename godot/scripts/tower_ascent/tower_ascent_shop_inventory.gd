@@ -20,7 +20,7 @@ const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
 
-const INVENTORY_VERSION := "tower_shop_inventory_v1"
+const INVENTORY_VERSION := "tower_shop_inventory_v2"
 const REGULAR_STOCK_COUNT := 3
 const PREMIUM_STOCK_COUNT := 1
 

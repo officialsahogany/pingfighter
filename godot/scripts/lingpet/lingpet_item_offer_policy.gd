@@ -8,7 +8,8 @@ extends RefCounted
 # from spending a card / capsule / drop slot on an item the player cannot use.
 #
 # Known consumers: pandora_legacy_pool_builder (금기개함 selection cards),
-# plaza_gacha_transactions (광장 액티브 캡슐), and — through
+# plaza_gacha_transactions (광장 액티브 캡슐), tower_ascent_shop_shelf_builder
+# (탑 상점 regular/premium shelves), and — through
 # lingpet_egg_runtime.can_offer_spirit_water_drop / .can_offer_egg_item —
 # active_item_field_spawn_pool (field drops + stage-clear reward candidates).
 #
