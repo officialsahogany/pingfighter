@@ -51,11 +51,13 @@ var size_shift_active := false
 var size_shift_timer := 0.0
 var size_shift_cooldown := 0.0
 var size_shift_scale := 1.0
+var size_shift_pity_failures := 0
 var original_ball_size := DEFAULT_BALL_SIZE
 
 var rabbit_active := false
 var rabbit_windup := 0.0
 var rabbit_cooldown := 0.0
+var rabbit_pity_failures := 0
 var rabbit_projectiles: Array = []
 var perched_rabbits: Array = []
 var rabbit_burst_particles: Array = []
@@ -67,6 +69,8 @@ func _init() -> void:
 
 func reset() -> void:
 	boss_special_gauge = 0.0
+	size_shift_pity_failures = 0
+	rabbit_pity_failures = 0
 	_reset_round_effects()
 	mirror_cooldown = MIRROR_INITIAL_COOLDOWN_SEC
 	size_shift_cooldown = SIZE_SHIFT_INITIAL_COOLDOWN_SEC
@@ -142,21 +146,35 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 		and not size_shift_active
 		and size_shift_cooldown <= 0.0
 		and not mirror_active
-		and rng.randf() <= SIZE_SHIFT_CHANCE
 	):
-		_activate_size_shift(context, deps)
-		boss_special_gauge = maxf(0.0, boss_special_gauge - SIZE_SHIFT_COST)
-		size_triggered = true
+		var effective_chance := minf(
+			1.0,
+			SIZE_SHIFT_CHANCE * (1.0 + float(size_shift_pity_failures))
+		)
+		if rng.randf() <= effective_chance:
+			_activate_size_shift(context, deps)
+			boss_special_gauge = maxf(0.0, boss_special_gauge - SIZE_SHIFT_COST)
+			size_shift_pity_failures = 0
+			size_triggered = true
+		else:
+			size_shift_pity_failures += 1
 	if (
 		boss_special_gauge >= RABBIT_COST
 		and not rabbit_active
 		and rabbit_windup <= 0.0
 		and rabbit_cooldown <= 0.0
-		and rng.randf() <= RABBIT_CHANCE
 	):
-		_activate_rabbits()
-		boss_special_gauge = maxf(0.0, boss_special_gauge - RABBIT_COST)
-		rabbit_triggered = true
+		var effective_chance := minf(
+			1.0,
+			RABBIT_CHANCE * (1.0 + float(rabbit_pity_failures))
+		)
+		if rng.randf() <= effective_chance:
+			_activate_rabbits()
+			boss_special_gauge = maxf(0.0, boss_special_gauge - RABBIT_COST)
+			rabbit_pity_failures = 0
+			rabbit_triggered = true
+		else:
+			rabbit_pity_failures += 1
 	status = _resolve_status()
 	return {
 		"stage3_boss_gauge": boss_special_gauge,
@@ -383,9 +401,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage3_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage3_boss_skill_hud_show_boss_gauge": true,
 		"stage3_boss_skill_hud_skills": [
-			_build_skill("mirror_world", "경화수월", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, Color("c8d9ff")),
-			_build_skill("size_shift", "여의변화", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, Color("79e7ff")),
-			_build_skill("rabbit_projectile", "옥토비탄", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, Color("ffc2df")),
+			_build_skill("mirror_world", "경화수월", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, MIRROR_COST, Color("c8d9ff")),
+			_build_skill("size_shift", "여의변화", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, SIZE_SHIFT_COST, Color("79e7ff")),
+			_build_skill("rabbit_projectile", "옥토비탄", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, RABBIT_COST, Color("ffc2df")),
 		],
 	}
 
@@ -429,16 +447,22 @@ func _get_mirror_fade_ratio() -> float:
 	return minf(1.0, minf(mirror_elapsed / MIRROR_FADE_SEC, mirror_timer / MIRROR_FADE_SEC))
 
 
-func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, color: Color) -> Dictionary:
-	var skill_status := "casting" if active else ("ready" if cooldown <= 0.0 else "charging")
+func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, gauge_cost: float, color: Color) -> Dictionary:
+	var cooldown_progress := clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0)
+	var gauge_progress := clampf(boss_special_gauge / maxf(gauge_cost, 0.001), 0.0, 1.0)
+	var ready := not active and cooldown <= 0.0 and boss_special_gauge >= gauge_cost
+	var skill_status := "casting" if active else ("ready" if ready else "charging")
 	return {
 		"id": id,
 		"label": label,
 		"status": skill_status,
 		"cooldown_remaining": cooldown,
 		"cooldown_total": total,
-		"progress": 1.0 if active else clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0),
-		"ready": skill_status == "ready",
+		"progress": 1.0 if active else minf(cooldown_progress, gauge_progress),
+		"ready": ready,
+		"activation_gauge_current": boss_special_gauge,
+		"activation_gauge_cost": gauge_cost,
+		"activation_gauge_progress": gauge_progress,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
 		"trigger_type": "boss_hit",

@@ -190,6 +190,12 @@ func _verify_every_reset_and_update() -> void:
 			% [producer_id, producer.get("skill_ids", []), discovered_ids]
 		)
 
+		# Additive activation-gauge fields make card fill the conjunction of the
+		# cooldown and resource gates. Prime only that optional gate so this GRT-060
+		# leg continues to isolate the live cooldown owner's forward progress;
+		# producers without the new fields retain the exact historical path.
+		_prime_optional_activation_gates(state, initial_skills)
+		initial_skills = _skill_map(path, state, context, background)
 		var initial_progress := _progress_map(initial_skills)
 		_advance_initial_contracts(path, state, context, background, initial_skills)
 		var advanced_skills := _skill_map(path, state, context, background)
@@ -205,6 +211,17 @@ func _verify_every_reset_and_update() -> void:
 				"%s/%s progress must advance through its live owner (%.6f -> %.6f)"
 				% [producer_id, skill_id, before, after]
 			)
+
+
+func _prime_optional_activation_gates(state: Object, skills: Dictionary) -> void:
+	var required_gauge := 0.0
+	for skill_value in skills.values():
+		var skill: Dictionary = skill_value if skill_value is Dictionary else {}
+		if skill.has("activation_gauge_cost"):
+			required_gauge = maxf(required_gauge, float(skill.get("activation_gauge_cost", 0.0)))
+	if required_gauge <= 0.0:
+		return
+	state.set("boss_special_gauge", required_gauge)
 
 
 func _validate_initial_skill(producer_id: String, skill_id: String, skill: Dictionary) -> void:

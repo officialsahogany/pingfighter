@@ -95,6 +95,7 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 	var _selection_result: Dictionary = state.update(0.0, live_context, {})
 	if stage in [2, 3]:
 		_expect(str(state.active_variant) == variant_id, "%s visual QA must select its production variant state" % variant_id)
+	_prime_optional_activation_gauge(state, live_context, variant_id)
 
 	var images: Array[Image] = []
 	var progress_samples: Array[Dictionary] = []
@@ -139,6 +140,15 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 		"[BossSkillCardCooldownMotionQA] variant=%s frames=%d first=%s last=%s adjacent_rgb_delta=%s"
 		% [variant_id, CAPTURE_COUNT, JSON.stringify(progress_samples[0]), JSON.stringify(progress_samples[-1]), JSON.stringify(adjacent_differences)]
 	)
+
+
+func _prime_optional_activation_gauge(state: Object, live_context: Dictionary, variant_id: String) -> void:
+	var hud_context: Dictionary = state.get_hud_context(null, live_context)
+	var gauge_max := float(hud_context.get("stage3_boss_skill_hud_boss_gauge_max", 0.0))
+	if variant_id == "teddy_bear":
+		state.teddy_bear_state.boss_special_gauge = gauge_max
+	elif variant_id == "alice":
+		state.alice_state.boss_special_gauge = gauge_max
 
 
 func _build_live_context(stage: int, variant_id: String) -> Dictionary:
