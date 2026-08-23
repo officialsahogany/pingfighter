@@ -13,6 +13,7 @@ const Stage1PododaejangArrestRopeSkillState := preload("res://scripts/stages/sta
 const Stage1PododaejangBossSkillCooldownState := preload("res://scripts/stages/stage1/stage1_pododaejang_boss_skill_cooldown_state.gd")
 const Stage1PododaejangBossSkillHudRenderer := preload("res://scripts/stages/stage1/stage1_pododaejang_boss_skill_hud_renderer.gd")
 const Stage1PododaejangPatrolGuardsSkillState := preload("res://scripts/stages/stage1/stage1_pododaejang_patrol_guards_skill_state.gd")
+const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascent_boss_registry.gd")
 
 const VIEW_SIZE := Vector2i(1280, 750)
 const GAME_OFFSET := Vector2(260.0, 0.0)
@@ -42,12 +43,22 @@ class CaptureCanvas:
 		draw_set_transform(Vector2.ZERO)
 		if hud_renderer != null:
 			hud_renderer.draw(self, hud_context)
-		header_renderer.draw(self, Rect2(300.0, 6.0, 680.0, 60.0), 0.96, draw_context)
+		header_renderer.draw(
+			self,
+			Rect2(300.0, 6.0, 680.0, 60.0),
+			0.96,
+			"",
+			1,
+			draw_context
+		)
 
 
 var _canvas: CaptureCanvas
 var _variant := ""
 var _expected_name := ""
+var _floor_one_second_encounter := false
+var _floor_one_map_seed := 0
+var _floor_one_opening_variant := ""
 
 
 func _init() -> void:
@@ -64,6 +75,12 @@ func _run() -> void:
 	_variant = _get_variant_argument()
 	if _variant not in ["dalji", "gaksi", "podo"]:
 		_fail("unsupported Stage 1 visual QA variant: %s" % _variant)
+		return
+	_floor_one_second_encounter = OS.get_environment(
+		"STAGE1_QA_FLOOR_ONE_SECOND_ENCOUNTER"
+	) == "1"
+	if _floor_one_second_encounter and not _resolve_floor_one_second_encounter():
+		_fail("could not resolve %s as a seeded second Floor 1 encounter" % _variant)
 		return
 	_expected_name = {"dalji": "달지", "gaksi": "각시탈", "podo": "포도대장"}[_variant]
 	get_root().size = VIEW_SIZE
@@ -98,7 +115,10 @@ func _run() -> void:
 	if image == null or image.is_empty() or image.get_size() != VIEW_SIZE:
 		_fail("Stage 1 variant QA did not capture an exact 1280x750 window image")
 		return
-	var output_path := OUTPUT_DIR.path_join("stage1_%s_combat.png" % _variant)
+	var output_name := "stage1_%s_combat.png" % _variant
+	if _floor_one_second_encounter:
+		output_name = "floor_one_second_encounter_%s.png" % _variant
+	var output_path := OUTPUT_DIR.path_join(output_name)
 	if image.save_png(output_path) != OK:
 		_fail("Stage 1 variant QA failed to save %s" % output_path)
 		return
@@ -122,6 +142,12 @@ func _run() -> void:
 		FileAccess.get_sha256(ProjectSettings.globalize_path(output_path)),
 		output_path,
 	])
+	if _floor_one_second_encounter:
+		print("[Stage1VariantRoutingVulkanQA] floor_one_map_seed=%d opening_variant=%s second_variant=%s" % [
+			_floor_one_map_seed,
+			_floor_one_opening_variant,
+			_variant,
+		])
 	print("stage1_variant_routing_vulkan_qa: ok")
 	quit(0)
 
@@ -233,6 +259,22 @@ func _get_variant_argument() -> String:
 		if value.begins_with("--stage1-variant="):
 			return value.trim_prefix("--stage1-variant=").strip_edges().to_lower()
 	return ""
+
+
+func _resolve_floor_one_second_encounter() -> bool:
+	var registry := TowerAscentBossRegistry.new()
+	for map_seed in range(1, 4097):
+		var slots: Array[Dictionary] = registry.get_seeded_floor_slots(1, map_seed)
+		if slots.size() < 2:
+			continue
+		var opening_variant := str(slots[0].get("variant", ""))
+		var second_variant := str(slots[1].get("variant", ""))
+		if second_variant != _variant or opening_variant == _variant:
+			continue
+		_floor_one_map_seed = map_seed
+		_floor_one_opening_variant = opening_variant
+		return true
+	return false
 
 
 func _fail(message: String) -> void:

@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateSet("dalji", "gaksi", "podo")]
     [string]$Variant,
+    [switch]$FloorOneSecondEncounter,
     [string]$GodotExe = "",
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 )
@@ -25,6 +26,8 @@ try {
     $logPath = Join-Path $logDir ("stage1_variant_routing_vulkan_qa_{0}_{1}_{2}.log" -f $Variant, $PID, [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfff"))
 
     $previousErrorActionPreference = $ErrorActionPreference
+    $previousFloorOneSecondEncounter = $env:STAGE1_QA_FLOOR_ONE_SECOND_ENCOUNTER
+    $env:STAGE1_QA_FLOOR_ONE_SECOND_ENCOUNTER = if ($FloorOneSecondEncounter) { "1" } else { "0" }
     $ErrorActionPreference = "Continue"
     try {
         $output = & $godot `
@@ -41,6 +44,7 @@ try {
     }
     finally {
         $ErrorActionPreference = $previousErrorActionPreference
+        $env:STAGE1_QA_FLOOR_ONE_SECOND_ENCOUNTER = $previousFloorOneSecondEncounter
     }
 
     $output | ForEach-Object { Write-Host $_ }

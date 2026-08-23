@@ -173,6 +173,55 @@ func canonical_encounter_key(route: Dictionary) -> String:
 	return "%d:%s" % [stage_id, encounter_id]
 
 
+func analyze_boss_node_identity(
+	node: Dictionary,
+	opening_stage1_variant: String = ""
+) -> Dictionary:
+	var issues: Array[String] = []
+	var node_id := str(node.get("id", ""))
+	var assigned_key := str(node.get("boss_encounter_key", ""))
+	var standin_variant: Variant = node.get("standin", {})
+	var standin: Dictionary = standin_variant if standin_variant is Dictionary else {}
+	var standin_key := canonical_encounter_key(standin)
+	var slot_id := str(node.get("boss_slot_id", ""))
+	var slot_key := canonical_encounter_key(get_standin(slot_id))
+	if assigned_key.is_empty():
+		issues.append("assigned_key_missing")
+	if standin_key != assigned_key:
+		issues.append(
+			"standin_key_mismatch=%s:assigned_%s:standin_%s"
+			% [node_id, assigned_key, standin_key]
+		)
+	if slot_key != assigned_key:
+		issues.append(
+			"slot_key_mismatch=%s:assigned_%s:slot_%s"
+			% [node_id, assigned_key, slot_key]
+		)
+	var normalized_opening := _normalize_stage1_variant(opening_stage1_variant)
+	if (
+		not normalized_opening.is_empty()
+		and int(node.get("segment_floor", node.get("floor", 0))) == 1
+		and bool(node.get("gatekeeper", false))
+	):
+		var opening_key := canonical_encounter_key({
+			"stage": 1,
+			"variant": normalized_opening,
+		})
+		if opening_key != assigned_key:
+			issues.append(
+				"opening_gate_mismatch=%s:opening_%s:gate_%s"
+				% [node_id, opening_key, assigned_key]
+			)
+	return {
+		"valid": issues.is_empty(),
+		"node_id": node_id,
+		"assigned_key": assigned_key,
+		"standin_key": standin_key,
+		"slot_key": slot_key,
+		"issues": issues,
+	}
+
+
 func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 	var result := graph.duplicate(true)
 	var phases_variant: Variant = result.get("phases", [])
@@ -660,6 +709,17 @@ func _get_shuffled_generation_slots(
 	rng.seed = map_seed ^ 0x4D4150 ^ (floor_number * 0x45D9F3B)
 	_shuffle_slots(slots, rng)
 	return slots
+
+
+func _normalize_stage1_variant(value: String) -> String:
+	var normalized := value.strip_edges().to_lower()
+	if normalized in ["gaksi", "gaksital", "talkwangdae"]:
+		return "gaksi"
+	if normalized in ["podo", "pododaejang", "podo_daejang"]:
+		return "podo"
+	if normalized == "dalji":
+		return "dalji"
+	return ""
 
 
 func _assign_boss_slot(

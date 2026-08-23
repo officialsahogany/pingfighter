@@ -88,6 +88,13 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	if not _build_generated_graph(current_stage):
 		push_warning("[TowerAscent] prepare rejected: generated_graph_invalid")
 		return false
+	if not restore_existing_progress and current_stage == 1 and owner != null:
+		var opening_variant_value: Variant = owner.get("stage1_boss_variant")
+		if opening_variant_value != null:
+			_warn_boss_identity_mismatch(
+				_get_node(_route_source_node_id),
+				str(opening_variant_value)
+			)
 	_prewarm_map_scroll_assets()
 	_route_pickup_state.prewarm_candidates()
 	if restore_existing_progress and not _restore_reentry_progress(existing_progress):

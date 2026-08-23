@@ -22,6 +22,7 @@ const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_overlay"
 const OUTPUT_NAME_PHASE_1 := "map_overlay_human_realm.png"
 const OUTPUT_NAME_PHASE_2 := "map_overlay_immortal_realm.png"
 const OUTPUT_NAME_ICON_ZOOM := "map_overlay_boss_icon_zoom8.png"
+const OUTPUT_NAME_FLOOR_ONE_ICONS := "map_overlay_floor_one_three_icons.png"
 const OUTPUT_NAME_MISSING_ICON := "map_overlay_missing_icon_fallback.png"
 
 
@@ -243,6 +244,11 @@ func _run() -> void:
 			_fail("map-overlay boss icon zoom capture failed: %s" % zoom_path)
 			return
 		capture_count += 1
+		var floor_one_icons_path := output_dir.path_join(OUTPUT_NAME_FLOOR_ONE_ICONS)
+		if not _save_floor_one_icon_contact(image, flow_owner, floor_one_icons_path):
+			_fail("Floor 1 icon contact capture failed: %s" % floor_one_icons_path)
+			return
+		capture_count += 1
 	print("[TowerMapOverlayVisualQA] %s" % output_path)
 	print("tower_ascent_map_overlay_visual_qa: phase=%s captures=%d" % [
 		capture_phase,
@@ -307,6 +313,64 @@ func _save_boss_icon_zoom(image: Image, flow_owner: Object, output_path: String)
 		zoom.resize(bounds.size.x * 8, bounds.size.y * 8, Image.INTERPOLATE_NEAREST)
 		return zoom.save_png(output_path) == OK
 	return false
+
+
+func _save_floor_one_icon_contact(
+	image: Image,
+	flow_owner: Object,
+	output_path: String
+) -> bool:
+	var renderer := TowerAscentFlowRenderer.new()
+	var model := renderer.build_fullscreen_map_model(
+		flow_owner,
+		Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
+	)
+	var camera: Dictionary = model.get("camera", {})
+	var camera_offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var camera_zoom := float(camera.get("render_zoom_multiplier", 1.0))
+	var floor_one_nodes: Array[Dictionary] = []
+	var boss_ids: Array[String] = []
+	for node_variant in model.get("nodes", []):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if int(node.get("segment_floor", node.get("floor", 0))) != 1:
+			continue
+		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
+			continue
+		var boss_id := str(renderer.build_map_icon_presentation(node).get("boss_id", ""))
+		if boss_id.is_empty() or boss_ids.has(boss_id):
+			return false
+		boss_ids.append(boss_id)
+		floor_one_nodes.append(node)
+	if floor_one_nodes.size() != 3 or boss_ids.size() != 3:
+		return false
+	floor_one_nodes.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return str(left.get("boss_slot_id", "")) < str(right.get("boss_slot_id", ""))
+	)
+	var contact := Image.create(768, 256, false, Image.FORMAT_RGBA8)
+	contact.fill(Color("17120f"))
+	for index in range(floor_one_nodes.size()):
+		var node: Dictionary = floor_one_nodes[index]
+		var world_art_rect: Rect2 = node.get("world_art_rect", Rect2())
+		var art_rect := Rect2(
+			world_art_rect.position * camera_zoom + camera_offset,
+			world_art_rect.size * camera_zoom
+		)
+		var bounds := Rect2i(art_rect.grow(6.0)).intersection(
+			Rect2i(Vector2i.ZERO, GAME_SIZE)
+		)
+		if bounds.size.x <= 0 or bounds.size.y <= 0:
+			return false
+		var icon := image.get_region(bounds)
+		icon.convert(Image.FORMAT_RGBA8)
+		icon.resize(248, 248, Image.INTERPOLATE_NEAREST)
+		contact.blit_rect(icon, Rect2i(Vector2i.ZERO, icon.get_size()), Vector2i(index * 256 + 4, 4))
+	print("[TowerMapOverlayVisualQA] floor_one_boss_ids=%s evidence=%s" % [
+		boss_ids,
+		output_path,
+	])
+	return contact.save_png(output_path) == OK
 
 
 func _decorate_state_evidence(flow_owner: Object) -> void:

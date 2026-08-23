@@ -367,6 +367,7 @@ func _complete_map_transition() -> void:
 		_open_node_modal()
 		_transition_fade_state.begin_node_modal_fade()
 		return
+	_warn_boss_identity_mismatch(arrived_node)
 	var encounter := TowerAscentBossRegistry.new().resolve_battle_encounter(
 		str(arrived_node.get("boss_slot_id", ""))
 	)

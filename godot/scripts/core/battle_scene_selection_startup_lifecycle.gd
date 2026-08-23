@@ -7,8 +7,8 @@ const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss
 const TowerAscentBossRegistry := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
 )
-const TowerAuditionBuildConfig := preload(
-	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
 const DEFAULT_LEAGUE_MODE := "junior"
 # Player-facing Stage 1 roulette pool. Each entry has a complete production
@@ -126,12 +126,24 @@ func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> Str
 		return "dalji"
 	if bool(selection.get("stage1_boss_variant_explicit", false)):
 		return normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
-	if TowerAuditionBuildConfig.is_enabled():
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
 		var map_seed := int(selection.get("tower_map_seed", 0))
 		if map_seed != 0:
 			var seeded_slots := TowerAscentBossRegistry.new().get_seeded_floor_slots(1, map_seed)
 			if not seeded_slots.is_empty():
-				return normalize_stage1_boss_variant(str(seeded_slots[0].get("variant", "dalji")))
+				var gate_slot: Dictionary = seeded_slots[0]
+				var opening_variant := normalize_stage1_boss_variant(
+					str(gate_slot.get("variant", "dalji"))
+				)
+				print(
+					"[TowerAscent] floor1_identity map_seed=%d opening_variant=%s gate_slot=%s"
+					% [
+						map_seed,
+						opening_variant,
+						str(gate_slot.get("slot_id", "")),
+					]
+				)
+				return opening_variant
 	return select_random_stage1_boss_variant()
 
 

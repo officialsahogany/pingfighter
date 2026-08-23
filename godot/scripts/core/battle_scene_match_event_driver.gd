@@ -304,7 +304,7 @@ func _begin_stage_transition_loading(owner: Object, registry: Object, next_stage
 	var resources: Object = _get_instance(registry, "battle_resources")
 	if resources != null and resources.has_method("reset_transition_texture_prewarm"):
 		resources.reset_transition_texture_prewarm()
-	_request_stage_transition_round_dep_scripts(registry, next_stage)
+	_request_stage_transition_round_dep_scripts(owner, registry, next_stage)
 	_prewarm_stage_transition_loading_assets(registry)
 	_queue_redraw(owner)
 
@@ -331,7 +331,7 @@ func _run_stage_transition_loading_work_step(owner: Object, registry: Object, ne
 		0:
 			_configure_ball_physics(owner, registry, next_stage)
 		1:
-			if not _prewarm_stage_transition_round_deps(registry, next_stage):
+			if not _prewarm_stage_transition_round_deps(owner, registry, next_stage):
 				return false
 		2:
 			_reset_match_for_stage_transition(owner, registry)
@@ -533,6 +533,7 @@ func _reload_battle_textures(owner: Object, registry: Object, stage_id: int) -> 
 	var context := {
 		"selected_character_type": str(_get_owner_value(owner, "selected_character_type", "smasher")),
 		"current_stage": stage_id,
+		"stage1_boss_variant": str(_get_owner_value(owner, "stage1_boss_variant", "dalji")),
 		"include_result_sheets": true,
 		"include_all_characters": false,
 		"include_all_stages": false,
@@ -566,11 +567,18 @@ func _prewarm_stage_transition_loading_assets(registry: Object) -> void:
 		loading_renderer.prewarm_assets()
 
 
-func _prewarm_stage_transition_round_deps(registry: Object, next_stage: int) -> bool:
+func _prewarm_stage_transition_round_deps(
+	owner: Object,
+	registry: Object,
+	next_stage: int
+) -> bool:
 	if registry == null or not registry.has_method("get_instance"):
 		return true
 	if _stage_transition_round_dep_prewarm_keys.is_empty() and _stage_transition_round_dep_prewarm_index <= 0:
-		_stage_transition_round_dep_prewarm_keys = BallDependencyContext.get_stage_round_dep_keys(next_stage)
+		_stage_transition_round_dep_prewarm_keys = BallDependencyContext.get_stage_round_dep_keys(
+			next_stage,
+			_stage1_boss_variant_for_stage(owner, next_stage)
+		)
 	if _stage_transition_round_dep_prewarm_index >= _stage_transition_round_dep_prewarm_keys.size():
 		return true
 
@@ -591,11 +599,24 @@ func _prewarm_stage_transition_round_deps(registry: Object, next_stage: int) -> 
 	return _stage_transition_round_dep_prewarm_index >= _stage_transition_round_dep_prewarm_keys.size()
 
 
-func _request_stage_transition_round_dep_scripts(registry: Object, next_stage: int) -> void:
+func _request_stage_transition_round_dep_scripts(
+	owner: Object,
+	registry: Object,
+	next_stage: int
+) -> void:
 	if registry == null or not registry.has_method("request_threaded_script"):
 		return
-	for module_key in BallDependencyContext.get_stage_round_dep_keys(next_stage):
+	for module_key in BallDependencyContext.get_stage_round_dep_keys(
+		next_stage,
+		_stage1_boss_variant_for_stage(owner, next_stage)
+	):
 		registry.request_threaded_script(str(module_key))
+
+
+func _stage1_boss_variant_for_stage(owner: Object, stage_id: int) -> String:
+	if stage_id != 1:
+		return "dalji"
+	return str(_get_owner_value(owner, "stage1_boss_variant", "dalji"))
 
 
 func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object) -> bool:

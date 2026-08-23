@@ -389,6 +389,23 @@ func _get_owner_int(owner: Object, property_name: String, fallback: int) -> int:
 	var value: Variant = owner.get(property_name)
 	return fallback if value == null else int(value)
 
+
+func _warn_boss_identity_mismatch(
+	node: Dictionary,
+	opening_stage1_variant: String = ""
+) -> bool:
+	var report := TowerAscentBossRegistry.new().analyze_boss_node_identity(
+		node,
+		opening_stage1_variant
+	)
+	if bool(report.get("valid", false)):
+		return false
+	push_warning(
+		"[TowerAscent] boss identity mismatch node=%s issues=%s"
+		% [str(report.get("node_id", "")), str(report.get("issues", []))]
+	)
+	return true
+
 func _is_confirm_event(event: InputEvent) -> bool:
 	if event is InputEventKey:
 		var key_event := event as InputEventKey

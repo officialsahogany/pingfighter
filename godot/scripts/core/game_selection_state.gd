@@ -5,8 +5,8 @@ signal selection_changed(selection: Dictionary)
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
-const TowerAuditionBuildConfig := preload(
-	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
 
 const DEFAULT_CHARACTER_ID := "ufo_player"
@@ -147,10 +147,14 @@ func consume_character_prologue_entry_request() -> bool:
 
 func request_tower_start_card_entry() -> void:
 	_tower_start_card_entry_requested = true
-	if TowerAuditionBuildConfig.is_enabled():
+	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var previous_seed := tower_map_seed
 		var rng := RandomNumberGenerator.new()
 		rng.randomize()
-		tower_map_seed = rng.randi_range(1, 0x7FFFFFFF)
+		var next_seed := rng.randi_range(1, 0x7FFFFFFF)
+		if next_seed == previous_seed:
+			next_seed = 1 if previous_seed >= 0x7FFFFFFF else previous_seed + 1
+		tower_map_seed = next_seed
 	else:
 		tower_map_seed = 0
 

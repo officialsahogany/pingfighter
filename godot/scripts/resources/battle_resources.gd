@@ -369,7 +369,7 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		reset_transition_texture_prewarm()
 		return true
 
-	var prewarm_key := "%s:%d:%s:%s" % [character_type, current_stage, stage1_boss_variant, str(include_result_sheets)]
+	var prewarm_key := build_transition_texture_prewarm_key(context)
 	if _transition_texture_prewarm_key != prewarm_key:
 		_transition_texture_prewarm_key = prewarm_key
 		_transition_texture_prewarm_step_index = 0
@@ -411,6 +411,15 @@ func prewarm_transition_textures_step(context: Dictionary = {}) -> bool:
 		reset_transition_texture_prewarm()
 		return true
 	return false
+
+
+func build_transition_texture_prewarm_key(context: Dictionary = {}) -> String:
+	return "%s:%d:%s:%s" % [
+		_get_selected_character_type(context),
+		_get_current_stage(context),
+		_get_stage1_boss_variant(context),
+		str(_should_include_result_sheets(context)),
+	]
 
 
 func ensure_result_textures(
