@@ -856,6 +856,42 @@ func build_tower_node_hover_detail_layout(
 	return _tower_node_hover_layout_model.duplicate(true)
 
 
+static func tower_node_compact_hover_owns_description_lane(
+	compact_card: bool,
+	hover_detail_row_count: int
+) -> bool:
+	# GRT-021 whole-row yield: the compact training card has no reserved bottom
+	# hover lane, so while any hover detail row is visible it owns the
+	# description grid whole-row instead of overprinting the idle rows.
+	return compact_card and hover_detail_row_count > 0
+
+
+static func tower_node_compact_hover_consumes_badge_lane(
+	compact_card: bool,
+	hover_detail_row_count: int
+) -> bool:
+	# A full three-row hover detail spills into the compact footer lane, so the
+	# timing badge yields as a whole for that frame rather than overprinting.
+	return compact_card and hover_detail_row_count >= TOWER_NODE_HOVER_DETAIL_ROW_LIMIT
+
+
+static func tower_node_hover_detail_row_baseline(
+	rect: Rect2,
+	compact_card: bool,
+	compact_scale: float,
+	detail_index: int
+) -> float:
+	# Compact cards route the hover detail through the scaled description grid;
+	# only the tall legacy profile keeps the reserved bottom-anchored 58px lane.
+	if compact_card:
+		return (
+			rect.position.y
+			+ 64.0 * compact_scale
+			+ float(detail_index) * 10.0 * compact_scale
+		)
+	return rect.end.y - 58.0 + float(detail_index) * 17.0
+
+
 static func should_draw_tower_node_bonus_badge(
 	text_layout: Dictionary,
 	visual_state: Dictionary
@@ -1049,29 +1085,49 @@ func draw_tower_node_card(
 	var text_font_value: Variant = text_layout.get("text_font", null)
 	var text_font: Font = text_font_value as Font if text_font_value is Font else _get_font()
 	var description_row_step := 10.0 * compact_scale if compact_card else 16.0
-	for row_index in range(description_rows.size()):
-		_draw_text_fitted(
-			canvas,
-			str(description_rows[row_index]),
-			Vector2(
-				rect.position.x + (11.0 * compact_scale if compact_card else 14.0),
-					rect.position.y
-					+ (64.0 * compact_scale if compact_card else 96.0)
-					+ float(row_index) * description_row_step
-					+ content_offset.y
-			),
-			description_font_size,
-			Color(0.24, 0.19, 0.14, 0.96),
-			rect.size.x - (22.0 * compact_scale if compact_card else 28.0),
-			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10,
-			text_font
-		)
+	var detail_layout := {}
+	var suppress_hover_detail := _tower_node_strict_receipt_owns_detail_area(
+		action,
+		success_progress,
+		rejection_progress
+	)
+	if hover_blend > 0.0 and not suppress_hover_detail:
+		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
+	var detail_rows: Array = detail_layout.get("rows", [])
+	var compact_hover_detail_active := tower_node_compact_hover_owns_description_lane(
+		compact_card,
+		detail_rows.size()
+	)
+	if not compact_hover_detail_active:
+		for row_index in range(description_rows.size()):
+			_draw_text_fitted(
+				canvas,
+				str(description_rows[row_index]),
+				Vector2(
+					rect.position.x + (11.0 * compact_scale if compact_card else 14.0),
+						rect.position.y
+						+ (64.0 * compact_scale if compact_card else 96.0)
+						+ float(row_index) * description_row_step
+						+ content_offset.y
+				),
+				description_font_size,
+				Color(0.24, 0.19, 0.14, 0.96),
+				rect.size.x - (22.0 * compact_scale if compact_card else 28.0),
+				clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10,
+				text_font
+			)
 	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])
 	# The compact rail has one shared footer lane. A success/rejection receipt
 	# temporarily owns that lane, so keep the steady timing badge intact at idle
 	# but remove it as a whole while the authoritative receipt is visible
 	# (GRT-021). Drawing both makes two complete Korean promises collide.
-	var bonus_badge_drawn := should_draw_tower_node_bonus_badge(text_layout, visual_state)
+	var bonus_badge_drawn := (
+		should_draw_tower_node_bonus_badge(text_layout, visual_state)
+		and not tower_node_compact_hover_consumes_badge_lane(
+			compact_card,
+			detail_rows.size()
+		)
+	)
 	if bonus_badge_drawn:
 		# The old footer baseline sat on the lower brass edge at the live Vulkan
 		# scale. An 18-unit bottom inset leaves the complete fourth row above the
@@ -1094,16 +1150,10 @@ func draw_tower_node_card(
 		)
 
 	var reason := str(action.get("unavailable_reason", "")).strip_edges()
-	var detail_layout := {}
-	var suppress_hover_detail := _tower_node_strict_receipt_owns_detail_area(
-		action,
-		success_progress,
-		rejection_progress
-	)
-	if hover_blend > 0.0 and not suppress_hover_detail:
-		detail_layout = build_tower_node_hover_detail_layout(action, rect, detail_context)
-		var detail_rows: Array = detail_layout.get("rows", [])
+	if detail_rows.size() > 0:
 		var detail_font_size := int(detail_layout.get("font_size", 11))
+		if compact_card:
+			detail_font_size = mini(detail_font_size, description_font_size)
 		for detail_index in range(detail_rows.size()):
 			var detail_color := Color(0.30, 0.20, 0.10).lerp(node_accent, 0.35)
 			detail_color.a = hover_blend
@@ -1111,13 +1161,21 @@ func draw_tower_node_card(
 				canvas,
 				str(detail_rows[detail_index]),
 				Vector2(
-					rect.position.x + 12.0 + content_offset.x,
-					rect.end.y - 58.0 + float(detail_index) * 17.0 + content_offset.y
+					rect.position.x
+						+ (11.0 * compact_scale if compact_card else 12.0)
+						+ content_offset.x,
+					tower_node_hover_detail_row_baseline(
+						rect,
+						compact_card,
+						compact_scale,
+						detail_index
+					) + content_offset.y
 				),
 				detail_font_size,
 				detail_color,
-				rect.size.x - 24.0,
-				9
+				rect.size.x - (22.0 * compact_scale if compact_card else 24.0),
+				clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 9,
+				text_font if compact_card else null
 			)
 		_tower_node_feedback_dynamic_layer_draw_count += detail_rows.size()
 	if not enabled and hover_blend <= 0.0:

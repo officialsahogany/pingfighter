@@ -24,6 +24,7 @@ func _run() -> void:
 	_verify_training_stage_reservations()
 	_verify_layout_cache_is_size_owned()
 	_verify_bonus_badge_four_row_budget()
+	_verify_compact_hover_detail_lane_geometry()
 	if _failures.is_empty():
 		print("tower_training_screen_layout_smoke: ok")
 		quit(0)
@@ -245,6 +246,91 @@ func _verify_bonus_badge_four_row_budget() -> void:
 	_expect(
 		bool(insufficient_layout.get("bonus_badge_hidden_by_budget", false)),
 		"the builder must report the whole-badge budget rejection"
+	)
+
+
+func _verify_compact_hover_detail_lane_geometry() -> void:
+	var modal := _build_six_card_modal("training")
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var action := _training_card_action(0)
+	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
+		var card_rect := modal.get_action_rects(view_size)[0] as Rect2
+		var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
+		_expect(
+			bool(layout.get("compact_card", false)),
+			"hover lane geometry leg requires the compact training profile at %s" % view_size
+		)
+		var compact_scale := float(layout.get("compact_scale", 0.0))
+		var description_font := int(layout.get("description_font_size", 0))
+		var description_start := card_rect.position.y + 64.0 * compact_scale
+		var description_step := 10.0 * compact_scale
+		var badge_lane_top := card_rect.end.y - 18.0 * compact_scale
+		for detail_index in range(3):
+			var baseline := RuntimePerkOverlayRenderer.tower_node_hover_detail_row_baseline(
+				card_rect,
+				true,
+				compact_scale,
+				detail_index
+			)
+			_expect(
+				is_equal_approx(
+					baseline,
+					description_start + float(detail_index) * description_step
+				),
+				"compact hover detail row %d must land on the scaled description grid at %s" % [detail_index, view_size]
+			)
+		var two_row_last := RuntimePerkOverlayRenderer.tower_node_hover_detail_row_baseline(
+			card_rect,
+			true,
+			compact_scale,
+			1
+		)
+		_expect(
+			two_row_last < badge_lane_top,
+			"a two-row compact hover detail must stay above the badge lane at %s" % view_size
+		)
+		# RED counterproof: the retired bottom-anchored raw-pixel lane collides
+		# with an idle compact row (Lv baseline or a description baseline) — the
+		# overlap this slice removes must stay refutable.
+		var idle_baselines: Array[float] = [card_rect.position.y + 45.0 * compact_scale]
+		for row_index in range(3):
+			idle_baselines.append(description_start + float(row_index) * description_step)
+		var legacy_collides := false
+		for detail_index in range(2):
+			var legacy_baseline := RuntimePerkOverlayRenderer.tower_node_hover_detail_row_baseline(
+				card_rect,
+				false,
+				compact_scale,
+				detail_index
+			)
+			for idle_baseline in idle_baselines:
+				if absf(legacy_baseline - idle_baseline) < float(description_font):
+					legacy_collides = true
+		_expect(
+			legacy_collides,
+			"counterproof requires the legacy bottom-anchored lane to overprint an idle compact row at %s" % view_size
+		)
+	# GRT-021 whole-row yield policy: any visible hover detail owns the
+	# description grid, and only a full three-row detail consumes the badge lane.
+	_expect(
+		RuntimePerkOverlayRenderer.tower_node_compact_hover_owns_description_lane(true, 1),
+		"one visible hover detail row must own the compact description lane"
+	)
+	_expect(
+		not RuntimePerkOverlayRenderer.tower_node_compact_hover_owns_description_lane(true, 0),
+		"an idle compact card must keep drawing its description rows"
+	)
+	_expect(
+		not RuntimePerkOverlayRenderer.tower_node_compact_hover_owns_description_lane(false, 2),
+		"the tall legacy profile must never yield its description rows to hover"
+	)
+	_expect(
+		RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(true, 3),
+		"a three-row compact hover detail must consume the badge lane whole"
+	)
+	_expect(
+		not RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(true, 2),
+		"a two-row compact hover detail must leave the timing badge visible"
 	)
 
 
