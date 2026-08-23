@@ -581,6 +581,7 @@ func _init() -> void:
 	_verify_route_wind_probability_and_strength_table()
 	_verify_route_wind_indicator_calm_and_directional_states()
 	_verify_wind_bias_reachability_and_flight_drift()
+	_verify_wind_production_flight_reachability_and_materiality()
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_free_movement_while_waiting_and_in_flight()
@@ -762,6 +763,118 @@ func _verify_wind_bias_reachability_and_flight_drift() -> void:
 	upwind_runtime.cancel()
 	calm_runtime.cancel()
 	windy_runtime.cancel()
+
+
+func _verify_wind_production_flight_reachability_and_materiality() -> void:
+	# 코덱스 리뷰(8/23): 0.25초 단위 드리프트 레그만으로는 생산 속도(274px/s,
+	# 구 픽스처 522 대비 비행이 길어 바람 변위가 제곱으로 커진다)의 전체
+	# 비행을 재현하지 못한다. 세기 1~3·양방향 전부를 생산 파생 속도로
+	# 게이지 유효각 안에서 끝까지 날려 두 표적의 실제 HIT 도달성과, 무풍
+	# 최적각이 강풍에서 빗나가는 바람 실질성(역반증)을 봉인한다.
+	var flight_targets: Array[Dictionary] = [
+		{
+			"id": "left",
+			"position": Vector2(
+				TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X,
+				TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+			),
+			"hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS,
+		},
+		{
+			"id": "right",
+			"position": Vector2(
+				TowerAscentTuning.TEMP_ROUTE_TARGET_RIGHT_X,
+				TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+			),
+			"hit_radius": TowerAscentTuning.TEMP_ROUTE_TARGET_HIT_RADIUS,
+		},
+	]
+	var calm_left_angle := _first_hitting_angle(
+		TowerAscentRouteWindPolicy.calm_model(),
+		flight_targets,
+		"left"
+	)
+	_expect(
+		not is_nan(calm_left_angle),
+		"calm production flight must find a left-target hitting angle"
+	)
+	for wind_direction in [-1, 1]:
+		for wind_strength in [1, 2, 3]:
+			var wind_model := TowerAscentRouteWindPolicy.build_model(
+				int(wind_direction),
+				int(wind_strength)
+			)
+			for target_id in ["left", "right"]:
+				_expect(
+					not is_nan(_first_hitting_angle(
+						wind_model,
+						flight_targets,
+						str(target_id)
+					)),
+					"wind dir=%d strength=%d must keep the %s target reachable in a full production flight"
+					% [wind_direction, wind_strength, str(target_id)]
+				)
+	if not is_nan(calm_left_angle):
+		var strong_tailwind := TowerAscentRouteWindPolicy.build_model(1, 3)
+		var bent := _fly_production_angle(
+			strong_tailwind,
+			flight_targets,
+			calm_left_angle
+		)
+		_expect(
+			str(bent.get("status", "")) != TowerAscentRouteServeRuntime.STATUS_HIT
+				or str(bent.get("target_id", "")) != "left",
+			"a strength-3 tailwind must bend the calm left-target angle off its mark"
+		)
+
+
+func _first_hitting_angle(
+	wind_model: Dictionary,
+	flight_targets: Array[Dictionary],
+	target_id: String
+) -> float:
+	var bounds_runtime := TowerAscentRouteServeRuntime.new()
+	bounds_runtime.begin(null, null, wind_model)
+	var gauge_model: Dictionary = bounds_runtime.get_aim_gauge_model()
+	var minimum_angle := float(gauge_model.get("min_degrees", -55.0))
+	var maximum_angle := float(gauge_model.get("max_degrees", 55.0))
+	bounds_runtime.cancel()
+	var angle := minimum_angle
+	while angle <= maximum_angle:
+		var outcome := _fly_production_angle(wind_model, flight_targets, angle)
+		if (
+			str(outcome.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT
+			and str(outcome.get("target_id", "")) == target_id
+		):
+			return angle
+		angle += 0.5
+	return NAN
+
+
+func _fly_production_angle(
+	wind_model: Dictionary,
+	flight_targets: Array[Dictionary],
+	angle_degrees: float
+) -> Dictionary:
+	var runtime := TowerAscentRouteServeRuntime.new()
+	runtime.begin(null, null, wind_model)
+	var origin: Vector2 = TowerAscentTuning.TEMP_ROUTE_PICKUP_ROUTE_ORIGIN
+	var direction := Vector2(
+		sin(deg_to_rad(angle_degrees)),
+		-cos(deg_to_rad(angle_degrees))
+	)
+	runtime.debug_serve_toward(origin + direction * 120.0)
+	var outcome: Dictionary = {}
+	for _tick in range(600):
+		outcome = runtime.update(1.0 / 60.0, flight_targets)
+		var status := str(outcome.get("status", ""))
+		if (
+			status == TowerAscentRouteServeRuntime.STATUS_HIT
+			or status == TowerAscentRouteServeRuntime.STATUS_MISS
+		):
+			break
+	runtime.cancel()
+	return outcome
 
 
 func _verify_route_target_uses_map_icon_without_name_text() -> void:

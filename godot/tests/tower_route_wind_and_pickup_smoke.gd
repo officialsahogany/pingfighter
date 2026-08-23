@@ -559,7 +559,13 @@ func _verify_retry_preserves_layout_and_cleanup_owns_clear() -> void:
 	runtime.debug_serve_miss()
 	var no_targets: Array[Dictionary] = []
 	var status := ""
-	for _frame in range(240):
+	# GRT-054 형제: 미스 왕복(상단 반사 포함 최대 약 1,500px)의 틱 예산은
+	# 생산 발사 속도에서 파생한다 — 고정 240은 구 522px/s 시절 값이다.
+	var miss_frame_budget := int(ceil(
+		1500.0
+		/ maxf(1.0, TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0)
+	))
+	for _frame in range(miss_frame_budget):
 		var result: Dictionary = runtime.update(1.0 / 60.0, no_targets, state.get_pickups())
 		status = str(result.get("status", ""))
 		if status == TowerAscentRouteServeRuntime.STATUS_MISS:

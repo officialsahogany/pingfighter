@@ -22,7 +22,12 @@ const STATUS_WAITING := "waiting"
 const STATUS_FLIGHT := "flight"
 const STATUS_MISS := "miss"
 const STATUS_HIT := "hit"
-const DEBUG_SERVE_SPEED_PER_FRAME := 8.7
+# 코덱스 리뷰(8/23): 픽스처 비행이 구 522px/s 잔존 리터럴로 날면 생산
+# 속도(더 긴 비행 = 제곱으로 커지는 바람 변위)를 재현하지 못한다. 항상
+# 생산 튜닝에서 파생한다.
+const DEBUG_SERVE_SPEED_PER_FRAME := (
+	TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+)
 
 var _active := false
 var _fixture_mode := false
