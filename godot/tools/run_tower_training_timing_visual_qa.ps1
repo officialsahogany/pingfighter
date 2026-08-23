@@ -57,6 +57,7 @@ try {
         -or -not $outputText.Contains("tower_training_timing_visual_qa: dummy_bitmap_and_fallback=ok") `
         -or -not $outputText.Contains("tower_training_timing_visual_qa: gauge_bitmap_and_fallback=ok") `
         -or -not $outputText.Contains("tower_training_timing_visual_qa: critical_zone_readable=ok") `
+        -or -not $outputText.Contains("tower_training_timing_visual_qa: gauge_luck_variants=3") `
         -or -not $outputText.Contains("tower_training_timing_visual_qa: ok")
     ) {
         Write-Host "Tower training timing visual QA log preserved for triage: $logPath"

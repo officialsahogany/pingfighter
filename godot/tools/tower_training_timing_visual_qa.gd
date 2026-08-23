@@ -177,6 +177,7 @@ var _stats_same_frame_count := 0
 var _dummy_bitmap_comparison_ok := false
 var _gauge_bitmap_comparison_ok := false
 var _critical_zone_readable := false
+var _gauge_luck_variant_count := 0
 
 
 func _init() -> void:
@@ -269,6 +270,13 @@ func _run() -> void:
 			output_dir,
 			tier_spec
 		)
+	if not _failed:
+		await _capture_gauge_luck_variants(
+			viewport,
+			canvas,
+			flow,
+			output_dir
+		)
 
 	_finish_flags(original_conversion_flag)
 	if _failed:
@@ -288,6 +296,9 @@ func _run() -> void:
 	))
 	print("tower_training_timing_visual_qa: critical_zone_readable=%s" % (
 		"ok" if _critical_zone_readable else "failed"
+	))
+	print("tower_training_timing_visual_qa: gauge_luck_variants=%d" % (
+		_gauge_luck_variant_count
 	))
 	print("tower_training_timing_visual_qa: ok")
 	quit(0)
@@ -493,6 +504,126 @@ func _capture_tier_sequence(
 		_fail("%s sequence strip save failed" % kind)
 
 
+func _capture_gauge_luck_variants(
+	viewport: SubViewport,
+	canvas: CanvasItem,
+	flow: Object,
+	output_dir: String
+) -> void:
+	var modal_state: Object = flow.get("_node_modal_state")
+	if modal_state == null:
+		_fail("training modal state was unavailable for gauge Luck variants")
+		return
+	var variants: Array[Dictionary] = [
+		{"label": "minimum_1_percent", "luck_percent": 1.0},
+		{"label": "base_2_percent", "luck_percent": 2.0},
+		{"label": "maximum_8_percent", "luck_percent": 8.0},
+	]
+	for index in range(variants.size()):
+		var variant: Dictionary = variants[index]
+		var luck_percent := float(variant.get("luck_percent", 2.0))
+		var label := str(variant.get("label", "unknown"))
+		flow.set_training_stage_clock_msec_for_tests(30000 + index * 1000)
+		if not bool(modal_state.begin_training_timing(
+			{"id": "visual_qa_%s" % label},
+			{
+				"roll_count": 1,
+				"target_position": 0.5,
+				"luck_percent": luck_percent,
+			}
+		)):
+			_fail("%s gauge Luck variant did not start" % label)
+			return
+		var image := await _capture_frame(
+			viewport,
+			canvas,
+			output_dir.path_join(
+				"training_timing_gauge_luck_%s_full.png" % label
+			)
+		)
+		if image == null:
+			_fail("%s gauge Luck variant capture failed" % label)
+			return
+		if not _verify_and_save_gauge_luck_variant(
+			flow,
+			modal_state,
+			image,
+			output_dir,
+			label,
+			luck_percent
+		):
+			return
+		_gauge_luck_variant_count += 1
+	modal_state.cancel_training_timing()
+
+
+func _verify_and_save_gauge_luck_variant(
+	flow: Object,
+	modal_state: Object,
+	image: Image,
+	output_dir: String,
+	label: String,
+	luck_percent: float
+) -> bool:
+	var model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
+	var gauge_rect := Rect2(
+		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
+		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
+	)
+	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	var timing_model: Dictionary = modal_state.get_training_timing_visual_model_for_tests()
+	var target := float(timing_model.get("target_position", -1.0))
+	var critical_start := float(timing_model.get("critical_start", -1.0))
+	var critical_end := float(timing_model.get("critical_end", -1.0))
+	var expected_cell_width := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
+		luck_percent
+	)
+	if (
+		not is_equal_approx(target, 0.5)
+		or not is_equal_approx(critical_end - critical_start, expected_cell_width)
+	):
+		_fail("%s gauge Luck variant drifted from the state-model cell" % label)
+		return false
+	var critical_rect := Rect2(
+		Vector2(
+			track_rect.position.x + track_rect.size.x * critical_start,
+			track_rect.position.y
+		),
+		Vector2(track_rect.size.x * expected_cell_width, track_rect.size.y)
+	)
+	var sample_rect := Rect2i(critical_rect).intersection(
+		Rect2i(Vector2i.ZERO, image.get_size())
+	)
+	if not sample_rect.has_area():
+		_fail("%s gauge Luck critical cell fell outside the Vulkan capture" % label)
+		return false
+	var red_pixel_count := 0
+	for y in range(sample_rect.position.y, sample_rect.end.y):
+		for x in range(sample_rect.position.x, sample_rect.end.x):
+			var pixel := image.get_pixel(x, y)
+			if pixel.r >= 0.34 and pixel.r > pixel.g * 1.35 and pixel.r > pixel.b * 1.35:
+				red_pixel_count += 1
+	if red_pixel_count < sample_rect.size.y:
+		_fail("%s gauge Luck critical cell was hidden by its target tick" % label)
+		return false
+	var crop_rect := Rect2i(gauge_rect.grow(14.0 * content_scale)).intersection(
+		Rect2i(Vector2i.ZERO, image.get_size())
+	)
+	if not crop_rect.has_area():
+		_fail("%s gauge Luck crop fell outside the Vulkan capture" % label)
+		return false
+	var crop := image.get_region(crop_rect)
+	crop.resize(crop.get_width() * 4, crop.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	if crop.save_png(output_dir.path_join(
+		"training_timing_gauge_luck_%s_4x.png" % label
+	)) != OK:
+		_fail("%s gauge Luck 4x proof save failed" % label)
+		return false
+	return true
+
+
 func _capture_timing_gauge_bitmap_and_fallback(
 	viewport: SubViewport,
 	canvas: CanvasItem,
@@ -510,11 +641,12 @@ func _capture_timing_gauge_bitmap_and_fallback(
 		or str(bitmap_state.get("render_mode", "")) != "bitmap"
 		or Vector2i(bitmap_state.get("frame_size", Vector2i.ZERO)) != Vector2i(1593, 156)
 		or Vector2i(bitmap_state.get("tick_size", Vector2i.ZERO)) != Vector2i(123, 517)
+		or Vector2i(bitmap_state.get("blue_tick_size", Vector2i.ZERO)) != Vector2i(123, 517)
 		or Vector2i(bitmap_state.get("pointer_size", Vector2i.ZERO)) != Vector2i(218, 918)
 	):
-		_fail("approved timing-gauge bitmap set was not prewarmed for Vulkan capture")
+		_fail("approved four-piece timing-gauge bitmap set was not prewarmed for Vulkan capture")
 		return
-	renderer.debug_set_training_timing_gauge_textures(null, null, null)
+	renderer.debug_set_training_timing_gauge_textures(null, null, null, null)
 	var fallback_image := await _capture_frame(
 		viewport,
 		canvas,
