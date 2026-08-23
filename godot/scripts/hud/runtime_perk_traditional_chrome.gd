@@ -327,6 +327,38 @@ static func draw_stats_ledger(canvas: CanvasItem, rect: Rect2, alpha: float = 1.
 	return rect.grow(-11.0)
 
 
+# 수련장 우하단 원장은 목업의 한지/목재 어휘만 가져오고 닫힌 둘레선을
+# 덧그리지 않는다. 바깥 목재와 안쪽 종이를 모두 채움 면으로 쌓아 실루엣을
+# 만들며, 프레젠터가 그리는 열린 행 규칙선은 그대로 통과시킨다.
+static func draw_training_stats_ledger(
+	canvas: CanvasItem,
+	rect: Rect2,
+	alpha: float = 1.0
+) -> Rect2:
+	var shadow := Rect2(rect.position + Vector2(2.0, 4.0), rect.size)
+	canvas.draw_rect(shadow, Color(0.0, 0.0, 0.0, 0.26 * alpha), true)
+	canvas.draw_rect(rect, Color(DARK_WOOD.r, DARK_WOOD.g, DARK_WOOD.b, 0.96 * alpha), true)
+	var brass_fill := rect.grow(-3.0)
+	canvas.draw_rect(
+		brass_fill,
+		Color(AGED_BRASS.r, AGED_BRASS.g, AGED_BRASS.b, 0.58 * alpha),
+		true
+	)
+	var paper_rect := rect.grow(-7.0)
+	canvas.draw_rect(paper_rect, Color(HANJI.r, HANJI.g, HANJI.b, 0.98 * alpha), true)
+	_draw_paper_tone_variation(canvas, paper_rect, 1, alpha * 0.82)
+	var wash_rect := Rect2(
+		paper_rect.position + Vector2(0.0, 31.0),
+		Vector2(paper_rect.size.x, maxf(0.0, paper_rect.size.y - 31.0))
+	)
+	canvas.draw_rect(
+		wash_rect,
+		Color(HANJI_SHADOW.r, HANJI_SHADOW.g, HANJI_SHADOW.b, 0.055 * alpha),
+		true
+	)
+	return paper_rect.grow(-4.0)
+
+
 static func draw_talisman_slot(canvas: CanvasItem, rect: Rect2, filled: bool, accent: Color, alpha: float = 1.0) -> Rect2:
 	canvas.draw_rect(Rect2(rect.position + Vector2(1.0, 2.0), rect.size), Color(0.0, 0.0, 0.0, 0.30 * alpha))
 	canvas.draw_rect(rect, Color(11.0 / 255.0, 18.0 / 255.0, 24.0 / 255.0, 0.94 * alpha))

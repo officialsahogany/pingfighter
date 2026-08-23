@@ -12,6 +12,9 @@ const RuntimePerkOverlayRenderer := preload(
 const RuntimePerkIconRenderer := preload(
 	"res://scripts/hud/runtime_perk_icon_renderer.gd"
 )
+const RuntimePerkState := preload(
+	"res://scripts/characters/runtime_perk_state.gd"
+)
 
 const VIEW_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_training_lucky_bonus_s4"
@@ -63,6 +66,23 @@ class CaptureCanvas:
 		)
 
 
+class CaptureOwner:
+	extends RefCounted
+	var selected_character_type := "smasher"
+	var special_gauge_max := 500.0
+
+
+class CaptureRegistry:
+	extends RefCounted
+	var instances: Dictionary = {}
+
+	func get_instance(key: String) -> Variant:
+		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Variant:
+		return instances.get(key, null)
+
+
 var _modal := TowerAscentNodeModalState.new()
 var _card_renderer := RuntimePerkOverlayRenderer.new()
 var _icon_renderer := RuntimePerkIconRenderer.new()
@@ -83,6 +103,10 @@ func _run() -> void:
 	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
 		_fail("capture directory creation failed")
 		return
+	var runtime_state := RuntimePerkState.new()
+	var registry := CaptureRegistry.new()
+	registry.instances["runtime_perk_state"] = runtime_state
+	_card_renderer.prepare_tower_training_stats_panel(CaptureOwner.new(), registry)
 	var flow := CaptureFlow.new(_modal, _card_renderer, _icon_renderer)
 	var viewport := SubViewport.new()
 	viewport.size = VIEW_SIZE
@@ -135,14 +159,14 @@ func _run() -> void:
 		(model.get("actions", []) as Array)[0],
 		first_rect
 	)
-	if int(text_layout.get("appended_text_row_count", -1)) != 4:
-		_fail("production badge boundary did not append exactly four rows")
+	if int(text_layout.get("appended_text_row_count", -1)) != 3:
+		_fail("wide production badge boundary did not append exactly three rows")
 		return
 	var crop_rect := Rect2i(first_rect.grow(8.0)).intersection(
 		Rect2i(Vector2i.ZERO, lucky_image.get_size())
 	)
 	var badge_crop := lucky_image.get_region(crop_rect)
-	var badge_path := output_dir.path_join("training_lucky_badge_four_row_boundary.png")
+	var badge_path := output_dir.path_join("training_lucky_badge_three_row_boundary.png")
 	if badge_crop.save_png(badge_path) != OK:
 		_fail("badge boundary crop save failed")
 		return
@@ -152,7 +176,7 @@ func _run() -> void:
 	print("[TowerTrainingLuckyBonusVisualQA] %s" % comparison_path)
 	print("[TowerTrainingLuckyBonusVisualQA] %s" % badge_path)
 	print("tower_training_lucky_bonus_visual_qa: captures=2")
-	print("tower_training_lucky_bonus_visual_qa: badge_rows=4")
+	print("tower_training_lucky_bonus_visual_qa: badge_rows=3")
 	print("tower_training_lucky_bonus_visual_qa: comparison=ok")
 	print("tower_training_lucky_bonus_visual_qa: ok")
 	quit(0)

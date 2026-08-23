@@ -22,6 +22,7 @@ func _run() -> void:
 	_verify_training_layout_flag_owns_render_and_hit_rects()
 	_verify_shared_six_card_layouts_are_unchanged()
 	_verify_training_stage_reservations()
+	_verify_layout_cache_is_size_owned()
 	_verify_bonus_badge_four_row_budget()
 	if _failures.is_empty():
 		print("tower_training_screen_layout_smoke: ok")
@@ -44,7 +45,7 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 	var card_grid_rect: Rect2 = layout.get("card_grid_rect", Rect2())
 	_expect(
 		card_grid_rect.is_equal_approx(TowerAscentNodeModalState.TRAINING_CARD_GRID_RECT),
-		"training build_screen_layout must resolve the compact top card grid"
+		"training build_screen_layout must resolve the left card rail"
 	)
 	var rects: Array = model.get("action_rects", [])
 	var direct_rects: Array = modal.get_action_rects(BASE_VIEW_SIZE, layout_flags)
@@ -52,26 +53,26 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 	_expect(direct_rects == rects, "render model and direct hit-test rect builder must consume the same layout flags")
 	var card_width := (
 		card_grid_rect.size.x
-		- TowerAscentNodeModalState.GRID_COLUMN_GAP
-		* float(TowerAscentNodeModalState.CARD_GRID_COLUMNS - 1)
-	) / float(TowerAscentNodeModalState.CARD_GRID_COLUMNS)
+		- TowerAscentNodeModalState.TRAINING_GRID_COLUMN_GAP
+		* float(TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS - 1)
+	) / float(TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS)
 	var card_height := (
 		card_grid_rect.size.y
-		- TowerAscentNodeModalState.GRID_ROW_GAP
-		* float(TowerAscentNodeModalState.CARD_GRID_ROWS - 1)
-	) / float(TowerAscentNodeModalState.CARD_GRID_ROWS)
-	_expect(is_equal_approx(card_width, 216.66667), "S2 training card width must resolve to 216.66667px")
-	_expect(is_equal_approx(card_height, 106.0), "S2 training card height must resolve to 106px")
+		- TowerAscentNodeModalState.TRAINING_GRID_ROW_GAP
+		* float(TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS - 1)
+	) / float(TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS)
+	_expect(is_equal_approx(card_width, 245.0), "training rail card width must resolve to 245px")
+	_expect(is_equal_approx(card_height, 74.333336), "training rail card height must derive from six rows")
 	for index in range(6):
-		var expected_column := index % TowerAscentNodeModalState.CARD_GRID_COLUMNS
-		var expected_row := index / TowerAscentNodeModalState.CARD_GRID_COLUMNS
+		var expected_column := index % TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
+		var expected_row := index / TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
 		var expected_rect := Rect2(
 			card_grid_rect.position + Vector2(
 				float(expected_column) * (
-					card_width + TowerAscentNodeModalState.GRID_COLUMN_GAP
+					card_width + TowerAscentNodeModalState.TRAINING_GRID_COLUMN_GAP
 				),
 				float(expected_row) * (
-					card_height + TowerAscentNodeModalState.GRID_ROW_GAP
+					card_height + TowerAscentNodeModalState.TRAINING_GRID_ROW_GAP
 				)
 			),
 			Vector2(card_width, card_height)
@@ -85,19 +86,18 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 			"training card %d top-corner hit must select the rendered action" % index
 		)
 
-	# GRT-022 counterproof: the old second-row top corner is not a center sample.
-	# It lands in the newly exposed stage, so a legacy hit grid would execute a
-	# card while the flagged production layout must reject it.
+	# GRT-022 counterproof: use the old S2 grid's third-column top corner, not a
+	# center sample. It sits above the new right stage and outside the left rail.
 	var legacy_flags := {TowerAscentNodeModalState.LAYOUT_FLAG_TRAINING_STAGE: false}
 	var legacy_rects: Array = modal.get_action_rects(BASE_VIEW_SIZE, legacy_flags)
-	var legacy_second_row_top_corner := (legacy_rects[3] as Rect2).position + Vector2(2.0, 2.0)
+	var legacy_third_column_top_corner := (legacy_rects[2] as Rect2).position + Vector2(2.0, 2.0)
 	_expect(
-		not (rects[3] as Rect2).has_point(legacy_second_row_top_corner),
-		"counterproof requires the old second-row top corner to miss the new drawn card"
+		not (rects[2] as Rect2).has_point(legacy_third_column_top_corner),
+		"counterproof requires the old third-column top corner to miss the new drawn card"
 	)
 	_expect(
-		not modal.select_at_position(legacy_second_row_top_corner, BASE_VIEW_SIZE),
-		"production hit testing must reject the legacy second-row top corner"
+		not modal.select_at_position(legacy_third_column_top_corner, BASE_VIEW_SIZE),
+		"production hit testing must reject the legacy third-column top corner"
 	)
 
 	var live_model: Dictionary = modal.build_view_model(LIVE_VIEW_SIZE)
@@ -141,17 +141,31 @@ func _verify_training_stage_reservations() -> void:
 	var stage: Rect2 = model.get("training_stage_rect", Rect2())
 	var player_slot: Rect2 = model.get("training_player_slot_rect", Rect2())
 	var dummy_slot: Rect2 = model.get("training_dummy_slot_rect", Rect2())
+	var stats: Rect2 = model.get("training_stats_rect", Rect2())
 	var rects: Array = model.get("action_rects", [])
 	var end_work: Rect2 = rects[6] as Rect2
-	_expect(stage.is_equal_approx(TowerAscentNodeModalState.TRAINING_STAGE_RECT), "training stage must use the S2 674x236 reservation")
+	_expect(stage.is_equal_approx(TowerAscentNodeModalState.TRAINING_STAGE_RECT), "training stage must use the approved upper-right reservation")
+	_expect(stats.is_equal_approx(TowerAscentNodeModalState.TRAINING_STATS_RECT), "stats panel must use the approved lower-right reservation")
 	_expect(stage.encloses(player_slot), "training stage must enclose the player character slot")
 	_expect(stage.encloses(dummy_slot), "training stage must enclose the dummy slot")
 	_expect(player_slot.end.x < dummy_slot.position.x, "player slot must sit immediately left of the dummy slot")
-	_expect(card_grid.end.y < stage.position.y, "top card grid must not overlap the lower training stage")
-	_expect(stage.end.y < end_work.position.y, "training stage must not overlap the end-work footer")
+	_expect(card_grid.end.x < stage.position.x, "left card rail must not overlap the right training stage")
+	_expect(card_grid.end.x < stats.position.x, "left card rail must not overlap the right stats panel")
+	_expect(stage.end.y < stats.position.y, "upper training stage must not overlap the lower stats panel")
+	_expect(stats.end.y < end_work.position.y, "stats panel must not overlap the end-work footer")
+	_expect(stage.get_center().y < TowerAscentNodeModalState.MODAL_RECT.get_center().y, "training stage must occupy the upper half")
+	_expect(stats.get_center().y > stage.get_center().y, "stats panel must sit below the training stage")
 	_expect(
 		TowerAscentNodeModalState.MODAL_RECT.encloses(stage),
 		"training stage must remain inside the modal safe rect"
+	)
+	_expect(
+		TowerAscentNodeModalState.MODAL_RECT.encloses(stats),
+		"training stats panel must remain inside the modal safe rect"
+	)
+	_expect(
+		RuntimePerkOverlayRenderer.tower_training_stats_visible_capacity(stats) == 10,
+		"GRT-021 accepted stats panel height must budget all ten canonical rows"
 	)
 	_expect(
 		(model.get("interaction_visuals", []) as Array).is_empty(),
@@ -161,6 +175,20 @@ func _verify_training_stage_reservations() -> void:
 		not bool(model.get("has_pointer_visuals", true)),
 		"GRT-043 idle training layout must remain outside the dynamic pointer path"
 	)
+
+
+func _verify_layout_cache_is_size_owned() -> void:
+	var modal := _build_six_card_modal("training")
+	_expect(modal.get_layout_build_count_for_tests() == 0, "layout cache must be cold before its first consumer")
+	var first_model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
+	_expect(first_model.get("action_rects", []).size() == 7, "first layout build must expose all training actions")
+	_expect(modal.get_layout_build_count_for_tests() == 1, "first viewport size must build layout exactly once")
+	for frame in range(8):
+		modal.build_view_model(BASE_VIEW_SIZE)
+		modal.get_action_rects(BASE_VIEW_SIZE)
+	_expect(modal.get_layout_build_count_for_tests() == 1, "GRT-028 repeated idle frames must reuse retained layout rects")
+	modal.build_view_model(LIVE_VIEW_SIZE)
+	_expect(modal.get_layout_build_count_for_tests() == 2, "viewport size change must rebuild layout exactly once")
 
 
 func _verify_bonus_badge_four_row_budget() -> void:
@@ -189,8 +217,12 @@ func _verify_bonus_badge_four_row_budget() -> void:
 		"large Vulkan viewport must keep the same aspect-ratio compact card profile"
 	)
 	_expect(
-		int(live_layout.get("appended_text_row_count", -1)) == 4,
-		"large Vulkan viewport must retain the exact four-row text budget"
+		int(live_layout.get("appended_description_row_count", -1)) == 2,
+		"wide Vulkan training rail must append exactly two description rows"
+	)
+	_expect(
+		int(live_layout.get("appended_text_row_count", -1)) == 3,
+		"wide Vulkan training rail must append exactly two description rows plus one badge row"
 	)
 	var live_badge_rows: Array = live_layout.get("bonus_badge_rows", [])
 	_expect(live_badge_rows.size() == 1, "large Vulkan viewport must append one complete badge row")

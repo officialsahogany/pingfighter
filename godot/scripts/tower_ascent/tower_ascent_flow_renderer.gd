@@ -3145,6 +3145,7 @@ func _draw_node_modal(
 	var interaction_visuals: Array = model.get("interaction_visuals", [])
 	var has_pointer_visuals := bool(model.get("has_pointer_visuals", false))
 	var selected_index := int(model.get("selected_index", 0))
+	var training_card_ordinal := 0
 	var node_accent := GOLD
 	if has_pointer_visuals:
 		node_accent = build_node_modal_backdrop_model(
@@ -3164,6 +3165,17 @@ func _draw_node_modal(
 			)
 		)
 		var action := actions[index] as Dictionary
+		if (
+			bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false))
+			and str(action.get("id", "")) != "end_work"
+		):
+			training_card_ordinal += 1
+			_draw_training_card_ordinal(
+				canvas,
+				row_rect,
+				training_card_ordinal,
+				content_scale
+			)
 		var card_renderer: Object = render_context.get("card_renderer", null)
 		var icon_renderer: Object = render_context.get("icon_renderer", null)
 		var draws_card := (
@@ -3220,6 +3232,8 @@ func _draw_node_modal(
 				index == selected_index,
 				content_scale
 			)
+	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
+		_draw_training_stats_panel(canvas, model, render_context)
 	if bool(layout_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false)):
 		_draw_node_modal_page_controls(canvas, model, node_accent, content_scale)
 	var status_baseline: Vector2 = model.get(
@@ -3324,7 +3338,7 @@ func _draw_training_stage_layout(
 	var shaken_stage_rect := Rect2(stage_rect.position + shake_offset, stage_rect.size)
 	# S3 remains inside the existing fullscreen renderer. There is no Node host,
 	# so GRT-039 cannot acquire a (0,0) spawn transform or physics interpolation;
-	# only the lower-stage coordinates below receive the bounded shake offset.
+	# only the training-stage coordinates below receive the bounded shake offset.
 	canvas.draw_rect(shaken_stage_rect, Color(0.12, 0.075, 0.052, 0.94), true)
 	for band_index in range(4):
 		var band_progress := float(band_index) / 3.0
@@ -3385,6 +3399,73 @@ func _draw_training_stage_layout(
 			visual_model.get("impact_directions", []),
 			visual_model.get("impact_point_offsets", [])
 		)
+
+
+func _draw_training_card_ordinal(
+	canvas: CanvasItem,
+	card_rect: Rect2,
+	ordinal: int,
+	content_scale: float
+) -> void:
+	if not card_rect.has_area() or ordinal <= 0:
+		return
+	var center := Vector2(
+		card_rect.position.x - 6.0 * content_scale,
+		card_rect.get_center().y
+	)
+	var radius := 10.0 * content_scale
+	var shadow_center := center + Vector2(1.5, 2.0) * content_scale
+	var shadow_points := PackedVector2Array([
+		shadow_center + Vector2(0.0, -radius),
+		shadow_center + Vector2(radius, 0.0),
+		shadow_center + Vector2(0.0, radius),
+		shadow_center + Vector2(-radius, 0.0),
+	])
+	canvas.draw_colored_polygon(shadow_points, Color(0.02, 0.015, 0.01, 0.34))
+	var wood_points := PackedVector2Array([
+		center + Vector2(0.0, -radius),
+		center + Vector2(radius, 0.0),
+		center + Vector2(0.0, radius),
+		center + Vector2(-radius, 0.0),
+	])
+	canvas.draw_colored_polygon(wood_points, Color(0.20, 0.105, 0.048, 0.98))
+	var inset := radius * 0.68
+	var brass_points := PackedVector2Array([
+		center + Vector2(0.0, -inset),
+		center + Vector2(inset, 0.0),
+		center + Vector2(0.0, inset),
+		center + Vector2(-inset, 0.0),
+	])
+	canvas.draw_colored_polygon(brass_points, Color(0.62, 0.42, 0.18, 0.78))
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(
+		font,
+		center + Vector2(-radius, radius * 0.37),
+		str(ordinal),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		radius * 2.0,
+		maxi(8, int(round(10.0 * content_scale))),
+		Color(0.97, 0.90, 0.72, 0.98)
+	)
+
+
+func _draw_training_stats_panel(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var renderer: Object = render_context.get("card_renderer", null)
+	if renderer == null or not renderer.has_method("draw_tower_training_stats_panel"):
+		return
+	renderer.call(
+		"draw_tower_training_stats_panel",
+		canvas,
+		model.get("training_stats_rect", Rect2()),
+		model.get("pointer_position", Vector2(-1.0, -1.0)),
+		model.get("view_size", Vector2(760.0, 750.0)),
+		render_context.get("icon_renderer", null),
+		render_context.get("training_stats_tooltip_overlay", null)
+	)
 
 
 func _draw_training_slot_shadow(

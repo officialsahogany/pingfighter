@@ -93,6 +93,16 @@ func get_node_modal_render_context() -> Dictionary:
 			"owner": _active_owner,
 			"registry": _active_registry,
 		}
+	if (
+		_node_modal_kind == "training"
+		and _node_modal_state != null
+		and _node_modal_state.has_training_stats_hover()
+	):
+		# The canonical character-info tooltip host is requested only while a
+		# retained stats row can actually consume it (GRT-043).
+		context["training_stats_tooltip_overlay"] = (
+			_get_cached_node_modal_render_module("character_info_overlay")
+		)
 	if _node_modal_kind == "training" and _node_modal_state != null:
 		var training_stage_presentation: Object = (
 			_node_modal_state.get_training_stage_presentation()
@@ -160,6 +170,7 @@ func _open_node_modal() -> void:
 		_build_node_modal_actions()
 	)
 	_configure_training_stage_presentation()
+	_prepare_training_stats_panel()
 	if _node_modal_kind == "shop" and _get_shop_inventory_entry().is_empty():
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE

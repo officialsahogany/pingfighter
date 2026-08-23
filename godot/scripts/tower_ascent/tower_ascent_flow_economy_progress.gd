@@ -614,6 +614,10 @@ func _execute_training_action(
 	build_entries.append(record.duplicate(true))
 	_build_state["training"] = build_entries
 	var success_message := _build_training_receipt_message(live_choice, effect_receipt)
+	# The authoritative training commit has already crossed into runtime state.
+	# Refresh the canonical character-info row projection now so the very next
+	# draw frame shows the applied value instead of a one-frame stale receipt.
+	_prepare_training_stats_panel()
 	_refresh_training_modal(success_message)
 	transaction_result["training"] = record.duplicate(true)
 	transaction_result["message"] = success_message
@@ -827,3 +831,20 @@ func _refresh_training_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_training_actions())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
+
+
+func _prepare_training_stats_panel() -> Dictionary:
+	if _node_modal_kind != "training" or _active_owner == null or _active_registry == null:
+		return {"prepared": false, "row_count": 0}
+	var renderer := _get_registry_instance(_active_registry, "runtime_perk_overlay_renderer")
+	if renderer == null or not renderer.has_method("prepare_tower_training_stats_panel"):
+		return {"prepared": false, "row_count": 0}
+	var result: Variant = renderer.call(
+		"prepare_tower_training_stats_panel",
+		_active_owner,
+		_active_registry
+	)
+	return result as Dictionary if result is Dictionary else {
+		"prepared": false,
+		"row_count": 0,
+	}

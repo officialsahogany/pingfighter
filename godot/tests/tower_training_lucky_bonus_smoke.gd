@@ -37,6 +37,7 @@ class FakeOwner:
 	extends RefCounted
 	var current_stage := 4
 	var selected_character_type := "smasher"
+	var special_gauge_max := 500.0
 	var redraw_requests := 0
 
 	func request_battle_redraw() -> void:
@@ -48,6 +49,31 @@ class FakeUnlockStore:
 
 	func is_unlocked(_content_type: String, content_id: String) -> bool:
 		return ALLOWED_TRAINING_IDS.has(content_id)
+
+
+class FakeMythicItemRuntime:
+	extends RefCounted
+	var runtime_state: Object = null
+
+	func _init(runtime_state_value: Object) -> void:
+		runtime_state = runtime_state_value
+
+	func refresh_runtime_perk_scaling(owner: Object, _registry: Object) -> void:
+		if owner == null or runtime_state == null:
+			return
+		var training_bonus := 0.0
+		if runtime_state.has_method("get_physique_training_bonus"):
+			training_bonus = float(runtime_state.get_physique_training_bonus("max_gauge_flat"))
+		owner.set("special_gauge_max", 500.0 + training_bonus)
+
+	func calculate_bluetooth_ring_gauge_charge(base_charge: float) -> float:
+		if runtime_state == null or not runtime_state.has_method("get_physique_training_bonus"):
+			return base_charge
+		var bonus_pct := float(runtime_state.get_physique_training_bonus("hit_gauge_bonus_pct"))
+		return base_charge * (1.0 + bonus_pct / 100.0)
+
+	func get_player_paddle_scale() -> float:
+		return 1.0
 
 
 class FakeRuntimePerkState:
@@ -124,6 +150,7 @@ func _run() -> void:
 	_verify_lucky_and_non_lucky_final_consumers()
 	_verify_click_roll_gates_and_storage_exception()
 	_verify_badge_and_saturation_copy()
+	_verify_six_card_stats_panel_sync()
 	_verify_presentation_rng_source_boundary()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(original_conversion_flag)
@@ -288,6 +315,17 @@ func _verify_badge_and_saturation_copy() -> void:
 	_expect(int(layout.get("appended_description_row_count", -1)) == 3, "production longest Korean training copy must append exactly three description rows")
 	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "production lucky badge must append exactly one whole row")
 	_expect(int(layout.get("appended_text_row_count", -1)) == 4, "GRT-021 production card must append exactly four rows")
+	_expect(
+		renderer.should_draw_tower_node_bonus_badge(layout, {}),
+		"idle training card must draw its complete lucky badge"
+	)
+	_expect(
+		not renderer.should_draw_tower_node_bonus_badge(
+			layout,
+			{"success_progress": 0.5}
+		),
+		"GRT-021 success receipt must temporarily replace the whole badge row"
+	)
 
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
@@ -332,11 +370,63 @@ func _verify_presentation_rng_source_boundary() -> void:
 	)
 
 
+func _verify_six_card_stats_panel_sync() -> void:
+	var runtime := RuntimePerkState.new()
+	var flow := _open_training_flow(runtime, 20)
+	var registry: Object = flow.get("_active_registry")
+	var renderer: Object = registry.get_cached_instance("runtime_perk_overlay_renderer")
+	var opening_snapshot: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
+	_expect(int(opening_snapshot.get("row_count", 0)) == 10, "training modal must prepare all ten canonical character-info rows")
+	_expect(int(opening_snapshot.get("prepare_count", 0)) == 1, "training stats panel must prepare once on modal open")
+	for idle_frame in range(12):
+		flow.get_node_modal_view_model()
+		flow.get_node_modal_render_context()
+	_expect(
+		int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0)) == 1,
+		"GRT-028 idle frames must perform zero additional stats-panel preparation"
+	)
+
+	for card_index in range(6):
+		var before: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
+		var before_values: Array = before.get("values", [])
+		var model: Dictionary = flow.get_node_modal_view_model()
+		var actions: Array = model.get("actions", [])
+		var rects: Array = model.get("action_rects", [])
+		_expect(actions.size() == 7 and rects.size() == 7, "training rail must keep six offers plus end work")
+		var action := actions[card_index] as Dictionary
+		var rect := rects[card_index] as Rect2
+		var top_corner := rect.position + Vector2(2.0, 2.0)
+		flow.handle_input(_mouse_button(true, top_corner))
+		flow.handle_input(_mouse_button(false, top_corner))
+		var after: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
+		_expect(
+			flow.get_training_history().size() == card_index + 1,
+			"card %d top-corner click must commit exactly one training action" % (card_index + 1)
+		)
+		_expect(
+			int(after.get("prepare_count", 0)) == card_index + 2,
+			"card %d commit must refresh the canonical stats cache in the same input frame" % (card_index + 1)
+		)
+		_expect(
+			var_to_bytes(after.get("values", [])) != var_to_bytes(before_values),
+			"card %d (%s) commit must change a final-consumer stat row immediately: %s -> %s" % [
+				card_index + 1,
+				str(action.get("id", "")),
+				str(before_values),
+				str(after.get("values", [])),
+			]
+		)
+		_expect(
+			str(action.get("id", "")).begins_with("training_"),
+			"card %d must retain the production training action route" % (card_index + 1)
+		)
 func _open_training_flow(runtime_state: Object, muhon: int) -> Object:
 	var registry := FakeRegistry.new()
 	registry.instances = {
 		"runtime_perk_state": runtime_state,
 		"tower_ascent_unlock_store": FakeUnlockStore.new(),
+		"runtime_perk_overlay_renderer": RuntimePerkOverlayRenderer.new(),
+		"mythic_item_runtime": FakeMythicItemRuntime.new(runtime_state),
 	}
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()

@@ -31,12 +31,17 @@ const STATUS_BASELINE := Vector2(126.0, 680.0)
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
-const TRAINING_CARD_GRID_RECT := Rect2(43.0, 144.0, 674.0, 226.0)
-const TRAINING_STAGE_RECT := Rect2(43.0, 382.0, 674.0, 236.0)
-const TRAINING_PLAYER_SLOT_RECT := Rect2(190.0, 386.0, 168.0, 228.0)
-const TRAINING_DUMMY_SLOT_RECT := Rect2(402.0, 386.0, 168.0, 228.0)
-const TRAINING_END_WORK_RECT := Rect2(246.0, 630.0, 268.0, 40.0)
-const TRAINING_STATUS_BASELINE := Vector2(126.0, 700.0)
+const TRAINING_CARD_GRID_RECT := Rect2(52.0, 150.0, 245.0, 476.0)
+const TRAINING_CARD_GRID_COLUMNS := 1
+const TRAINING_CARD_GRID_ROWS := 6
+const TRAINING_GRID_COLUMN_GAP := 0.0
+const TRAINING_GRID_ROW_GAP := 6.0
+const TRAINING_STAGE_RECT := Rect2(312.0, 150.0, 405.0, 210.0)
+const TRAINING_PLAYER_SLOT_RECT := Rect2(329.0, 154.0, 174.0, 202.0)
+const TRAINING_DUMMY_SLOT_RECT := Rect2(526.0, 154.0, 174.0, 202.0)
+const TRAINING_STATS_RECT := Rect2(312.0, 372.0, 405.0, 254.0)
+const TRAINING_END_WORK_RECT := Rect2(246.0, 638.0, 268.0, 40.0)
+const TRAINING_STATUS_BASELINE := Vector2(126.0, 705.0)
 const HOVER_ENTER_MSEC := 120
 const HOVER_EXIT_MSEC := 90
 const SUCCESS_RECEIPT_MSEC := 420
@@ -57,6 +62,14 @@ var _hover_transitions: Dictionary = {}
 var _interaction_receipt: Dictionary = {}
 var _clock_override_msec := -1
 var _training_stage_presentation: Object = null
+var _pointer_position := Vector2(-1.0, -1.0)
+var _training_stats_hovered := false
+# GRT-028: layout geometry is a retained size/flag product. The fullscreen
+# renderer and pointer hit-test share this exact dictionary instead of rebuilding
+# their own rects every frame.
+var _layout_cache_signature := 0
+var _layout_cache: Dictionary = {}
+var _layout_build_count := 0
 
 
 func open(
@@ -80,6 +93,8 @@ func open(
 	_pressed_page_direction = 0
 	_hover_transitions.clear()
 	_interaction_receipt.clear()
+	_pointer_position = Vector2(-1.0, -1.0)
+	_training_stats_hovered = false
 	_status_text = TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_STATUS_READY
 	)
@@ -98,6 +113,8 @@ func close() -> void:
 	_status_text = ""
 	_hover_transitions.clear()
 	_interaction_receipt.clear()
+	_pointer_position = Vector2(-1.0, -1.0)
+	_training_stats_hovered = false
 
 
 func configure_training_stage_presentation(
@@ -218,6 +235,9 @@ func update_hover_at_position(
 	position: Vector2,
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
+	_pointer_position = position
+	var previous_stats_hovered := _training_stats_hovered
+	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	var next_hovered_index := _action_index_at_position(position, view_size)
 	var next_page_direction := (
 		_page_direction_at_position(position, view_size)
@@ -228,7 +248,7 @@ func update_hover_at_position(
 		next_hovered_index == _hovered_index
 		and next_page_direction == _hovered_page_direction
 	):
-		return false
+		return previous_stats_hovered != _training_stats_hovered
 	var now_msec := _now_msec()
 	var previous_action_id := _action_id_at_index(_hovered_index)
 	if not previous_action_id.is_empty():
@@ -245,6 +265,8 @@ func begin_pointer_press(
 	position: Vector2,
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
+	_pointer_position = position
+	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	_pressed_index = _action_index_at_position(position, view_size)
 	_pressed_page_direction = (
 		_page_direction_at_position(position, view_size)
@@ -258,6 +280,8 @@ func release_pointer_at_position(
 	position: Vector2,
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> Dictionary:
+	_pointer_position = position
+	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	var armed_index := _pressed_index
 	var armed_page_direction := _pressed_page_direction
 	_pressed_index = -1
@@ -379,6 +403,18 @@ func get_pressed_page_direction() -> int:
 func has_hover_visuals() -> bool:
 	_prune_hover_transitions(_now_msec())
 	return not _hover_transitions.is_empty() or _hovered_page_direction != 0
+
+
+func has_training_stats_hover() -> bool:
+	return _node_kind == "training" and _training_stats_hovered
+
+
+func get_pointer_position() -> Vector2:
+	return _pointer_position
+
+
+func get_layout_build_count_for_tests() -> int:
+	return _layout_build_count
 
 
 func get_action_index_by_id(action_id: String) -> int:
@@ -504,6 +540,8 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"training_stage_rect": layout.get("training_stage_rect", Rect2()),
 		"training_player_slot_rect": layout.get("training_player_slot_rect", Rect2()),
 		"training_dummy_slot_rect": layout.get("training_dummy_slot_rect", Rect2()),
+		"training_stats_rect": layout.get("training_stats_rect", Rect2()),
+		"pointer_position": _pointer_position,
 		"status_baseline": layout.get("status_baseline", STATUS_BASELINE),
 	}
 
@@ -522,6 +560,9 @@ func build_screen_layout(
 	)
 	var content_offset := (safe_view_size - BASE_VIEW_SIZE * content_scale) * 0.5
 	var resolved_flags := _resolve_layout_flags(layout_flags)
+	var layout_signature := hash([safe_view_size, resolved_flags])
+	if layout_signature == _layout_cache_signature and not _layout_cache.is_empty():
+		return _layout_cache
 	var uses_training_stage := bool(resolved_flags.get(
 		LAYOUT_FLAG_TRAINING_STAGE,
 		false
@@ -530,7 +571,9 @@ func build_screen_layout(
 	var uses_page_controls := bool(resolved_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false))
 	var card_grid_source := TRAINING_CARD_GRID_RECT if uses_training_stage else CARD_GRID_RECT
 	var end_work_source := TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
-	return {
+	_layout_cache_signature = layout_signature
+	_layout_build_count += 1
+	_layout_cache = {
 		"content_scale": content_scale,
 		"content_offset": content_offset,
 		"modal_rect": _scale_rect(MODAL_RECT, content_scale, content_offset),
@@ -541,10 +584,16 @@ func build_screen_layout(
 			if uses_hero_card
 			else Rect2()
 		),
-		"card_grid_columns": CARD_GRID_COLUMNS,
-		"card_grid_rows": CARD_GRID_ROWS,
-		"grid_column_gap": GRID_COLUMN_GAP * content_scale,
-		"grid_row_gap": GRID_ROW_GAP * content_scale,
+		"card_grid_columns": (
+			TRAINING_CARD_GRID_COLUMNS if uses_training_stage else CARD_GRID_COLUMNS
+		),
+		"card_grid_rows": TRAINING_CARD_GRID_ROWS if uses_training_stage else CARD_GRID_ROWS,
+		"grid_column_gap": (
+			TRAINING_GRID_COLUMN_GAP if uses_training_stage else GRID_COLUMN_GAP
+		) * content_scale,
+		"grid_row_gap": (
+			TRAINING_GRID_ROW_GAP if uses_training_stage else GRID_ROW_GAP
+		) * content_scale,
 		"end_work_rect": _scale_rect(end_work_source, content_scale, content_offset),
 		"page_previous_rect": (
 			_scale_rect(PAGE_PREVIOUS_RECT, content_scale, content_offset)
@@ -576,12 +625,18 @@ func build_screen_layout(
 			if uses_training_stage
 			else Rect2()
 		),
+		"training_stats_rect": (
+			_scale_rect(TRAINING_STATS_RECT, content_scale, content_offset)
+			if uses_training_stage
+			else Rect2()
+		),
 		"status_baseline": _scale_point(
 			TRAINING_STATUS_BASELINE if uses_training_stage else STATUS_BASELINE,
 			content_scale,
 			content_offset
 		),
 	}
+	return _layout_cache
 
 
 func _scale_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
@@ -625,6 +680,15 @@ func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
 		if (rects[index] as Rect2).has_point(position):
 			return index
 	return -1
+
+
+func _training_stats_rect(view_size: Vector2) -> Rect2:
+	if _node_kind != "training":
+		return Rect2()
+	return build_screen_layout(view_size, _build_layout_flags()).get(
+		"training_stats_rect",
+		Rect2()
+	)
 
 
 func _page_direction_at_position(position: Vector2, view_size: Vector2) -> int:

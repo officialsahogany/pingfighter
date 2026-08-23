@@ -147,6 +147,7 @@ const TOWER_NODE_OTHER_DIM_ALPHA := 0.10
 const TOWER_NODE_HOVER_DETAIL_ROW_LIMIT := 3
 const TOWER_NODE_COMPACT_CARD_MAX_ASPECT := 0.70
 const TOWER_NODE_COMPACT_CARD_BASE_WIDTH := 216.66667
+const TOWER_NODE_COMPACT_CARD_BASE_HEIGHT := 106.0
 const TOWER_NODE_DESCRIPTION_ROW_LIMIT := 3
 const TOWER_NODE_BONUS_BADGE_ROW_LIMIT := 1
 
@@ -213,6 +214,18 @@ var _stats_value_width_font_id_cache: Array[int] = []
 # 매 프레임 비운다.
 var _stats_hover_row_rects: Array = []
 var _stats_hover_data: Dictionary = {}
+var _tower_training_stats_rows: Array = []
+var _tower_training_stats_row_cache: Array = []
+var _tower_training_stats_label_cache: Array[String] = []
+var _tower_training_stats_value_cache: Array[String] = []
+var _tower_training_stats_color_cache: Array[Color] = []
+var _tower_training_stats_value_width_cache: Array[float] = []
+var _tower_training_stats_value_width_text_cache: Array[String] = []
+var _tower_training_stats_value_width_size_cache: Array[int] = []
+var _tower_training_stats_value_width_font_id_cache: Array[int] = []
+var _tower_training_stats_hover_row_rects: Array = []
+var _tower_training_stats_hover_data: Dictionary = {}
+var _tower_training_stats_prepare_count := 0
 
 
 # 시스템 카드 모달 전용 렌더러(오버레이 소유 — draw 밖 prewarm_assets에서
@@ -654,7 +667,10 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		<= TOWER_NODE_COMPACT_CARD_MAX_ASPECT
 	)
 	var compact_scale := (
-		maxf(0.01, rect.size.x / TOWER_NODE_COMPACT_CARD_BASE_WIDTH)
+		maxf(0.01, minf(
+			rect.size.x / TOWER_NODE_COMPACT_CARD_BASE_WIDTH,
+			rect.size.y / TOWER_NODE_COMPACT_CARD_BASE_HEIGHT
+		))
 		if compact_card
 		else 1.0
 	)
@@ -819,6 +835,18 @@ func build_tower_node_hover_detail_layout(
 		"preview": preview,
 	}
 	return _tower_node_hover_layout_model.duplicate(true)
+
+
+static func should_draw_tower_node_bonus_badge(
+	text_layout: Dictionary,
+	visual_state: Dictionary
+) -> bool:
+	return (
+		bool(text_layout.get("compact_card", false))
+		and (text_layout.get("bonus_badge_rows", []) as Array).size() == 1
+		and float(visual_state.get("success_progress", -1.0)) < 0.0
+		and float(visual_state.get("rejection_progress", -1.0)) < 0.0
+	)
 
 
 func draw_tower_node_card(
@@ -1016,7 +1044,12 @@ func draw_tower_node_card(
 			clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10
 		)
 	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])
-	if compact_card and bonus_badge_rows.size() == 1:
+	# The compact rail has one shared footer lane. A success/rejection receipt
+	# temporarily owns that lane, so keep the steady lucky badge intact at idle
+	# but remove it as a whole while the authoritative receipt is visible
+	# (GRT-021). Drawing both makes two complete Korean promises collide.
+	var bonus_badge_drawn := should_draw_tower_node_bonus_badge(text_layout, visual_state)
+	if bonus_badge_drawn:
 		var badge_rect := Rect2(
 			Vector2(
 				rect.position.x + 10.0 * compact_scale,
@@ -1109,6 +1142,7 @@ func draw_tower_node_card(
 	if other_dim_amount > 0.0:
 		canvas.draw_rect(rect.grow(-2.0), Color(0.03, 0.025, 0.02, other_dim_amount), true)
 		_tower_node_feedback_dynamic_layer_draw_count += 1
+	text_layout["bonus_badge_drawn"] = bonus_badge_drawn
 	text_layout["hover_detail_layout"] = detail_layout
 	return text_layout
 
@@ -3526,6 +3560,149 @@ func _collect_perk_slot_keys(acquired: Array) -> Array[String]:
 
 func _get_perk_slot_key(skill: Dictionary) -> String:
 	return str(skill.get("id", skill.get("skill_id", "")))
+
+
+# 수련장 능력치 패널은 캐릭터 정보창의 10행 정본을 이벤트 시점에만 복제한다.
+# 모달 열기와 성공한 수련 직후에 이 함수를 호출하고, draw는 아래의 표시 캐시만
+# 읽는다(GRT-017/GRT-028). 따라서 같은 프레임에 값이 갱신되면서도 대기 프레임에는
+# 레지스트리 조회나 행 조립이 없다.
+func prepare_tower_training_stats_panel(owner: Object, registry: Object) -> Dictionary:
+	if owner == null or registry == null:
+		return {"prepared": false, "row_count": 0}
+	var runtime_state: Object = null
+	if registry.has_method("get_cached_instance"):
+		var cached_value: Variant = registry.call("get_cached_instance", "runtime_perk_state")
+		if cached_value is Object:
+			runtime_state = cached_value as Object
+	if runtime_state == null and registry.has_method("get_instance"):
+		var instance_value: Variant = registry.call("get_instance", "runtime_perk_state")
+		if instance_value is Object:
+			runtime_state = instance_value as Object
+	_tower_training_stats_rows = CharacterInfoOverlayStatsPresenter.build_player_stat_rows(
+		owner,
+		registry,
+		_stats_character_runtime,
+		runtime_state,
+		null,
+		null,
+		"",
+		[],
+		-1,
+		null,
+		CharacterInfoOverlayState.SPECIAL_GAUGE_MAX,
+		CharacterInfoOverlayState.PLAYER_BASE_PADDLE_WIDTH,
+		CharacterInfoOverlayState.BASE_ACTIVE_ITEM_SLOT_COUNT,
+		CharacterInfoOverlayState.STAT_BUFF_COLOR,
+		CharacterInfoOverlayState.STAT_DEBUFF_COLOR,
+		true
+	)
+	CharacterInfoOverlayStatsPresenter.refresh_player_stat_cache(
+		_tower_training_stats_rows,
+		CharacterInfoOverlayState.STAT_ROW_COUNT,
+		true,
+		_tower_training_stats_row_cache,
+		_tower_training_stats_label_cache,
+		_tower_training_stats_value_cache,
+		_tower_training_stats_color_cache,
+		_tower_training_stats_value_width_cache,
+		_tower_training_stats_value_width_text_cache,
+		_tower_training_stats_value_width_size_cache,
+		_tower_training_stats_value_width_font_id_cache
+	)
+	_tower_training_stats_prepare_count += 1
+	return {
+		"prepared": not _tower_training_stats_rows.is_empty(),
+		"row_count": _tower_training_stats_rows.size(),
+		"prepare_count": _tower_training_stats_prepare_count,
+	}
+
+
+func draw_tower_training_stats_panel(
+	canvas: CanvasItem,
+	rect: Rect2,
+	mouse_pos: Vector2,
+	view_size: Vector2,
+	icon_renderer: Object = null,
+	tooltip_overlay: Object = null
+) -> Dictionary:
+	if canvas == null or not rect.has_area() or _tower_training_stats_rows.is_empty():
+		return {"drawn": false, "visible_row_count": 0}
+	var font := _get_font()
+	if font == null:
+		return {"drawn": false, "visible_row_count": 0}
+	var inner := RuntimePerkTraditionalChrome.draw_training_stats_ledger(canvas, rect)
+	var row_count := mini(
+		CharacterInfoOverlayState.STAT_ROW_COUNT,
+		_tower_training_stats_rows.size()
+	)
+	var visible_capacity := CharacterInfoOverlayStatsPresenter.player_stat_rows_visible_capacity(
+		inner,
+		row_count
+	)
+	# Canonical order is also the character-info priority order. If a future
+	# viewport cannot hold all rows, draw only the highest-priority prefix with a
+	# freshly derived row budget; never enter the presenter's clipping branch.
+	var draw_row_count := mini(row_count, visible_capacity)
+	_tower_training_stats_hover_row_rects.clear()
+	_tower_training_stats_hover_data.clear()
+	CharacterInfoOverlayStatsPresenter.draw_cached_player_stat_rows(
+		canvas,
+		font,
+		"플레이어 능력치",
+		inner,
+		draw_row_count,
+		_tower_training_stats_label_cache,
+		_tower_training_stats_value_cache,
+		_tower_training_stats_color_cache,
+		_tower_training_stats_value_width_cache,
+		_tower_training_stats_value_width_text_cache,
+		_tower_training_stats_value_width_size_cache,
+		_tower_training_stats_value_width_font_id_cache,
+		CharacterInfoOverlayState.ACCENT_BLUE,
+		CharacterInfoOverlayState.TEXT_DIM,
+		CharacterInfoOverlayState.OVERLAY_GRID_EMPTY_TEXT,
+		CharacterInfoOverlayState.UI_TEXT_SCALE,
+		mouse_pos,
+		_tower_training_stats_hover_data,
+		_tower_training_stats_hover_row_rects
+	)
+	if (
+		not _tower_training_stats_hover_data.is_empty()
+		and view_size.x > 0.0
+		and tooltip_overlay != null
+		and tooltip_overlay.has_method("_draw_tooltip")
+	):
+		tooltip_overlay._draw_tooltip(
+			canvas,
+			_tower_training_stats_hover_data,
+			mouse_pos,
+			view_size,
+			font,
+			icon_renderer
+		)
+	return {
+		"drawn": true,
+		"visible_row_count": draw_row_count,
+		"compacted_by_priority": draw_row_count < row_count,
+	}
+
+
+func get_tower_training_stats_snapshot_for_tests() -> Dictionary:
+	return {
+		"prepare_count": _tower_training_stats_prepare_count,
+		"row_count": _tower_training_stats_rows.size(),
+		"labels": _tower_training_stats_label_cache.duplicate(),
+		"values": _tower_training_stats_value_cache.duplicate(),
+		"colors": _tower_training_stats_color_cache.duplicate(),
+	}
+
+
+static func tower_training_stats_visible_capacity(rect: Rect2) -> int:
+	var inner := rect.grow(-11.0)
+	return CharacterInfoOverlayStatsPresenter.player_stat_rows_visible_capacity(
+		inner,
+		CharacterInfoOverlayState.STAT_ROW_COUNT
+	)
 
 
 # 하단 능력치 원장(2026-08-06 요청): "어디가 부족한지 보고 수련/무공을 고를 수
