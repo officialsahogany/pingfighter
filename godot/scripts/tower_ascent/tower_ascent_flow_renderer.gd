@@ -945,7 +945,9 @@ func _build_static_fullscreen_map_model(
 		projected_nodes,
 		fit_all_camera_world_rect,
 		int(base.get("map_seed", 0)),
-		art_size
+		art_size,
+		base.get("map_scroll_assets", {}),
+		map_scale
 	)
 	return {
 		"viewport_rect": viewport_rect,

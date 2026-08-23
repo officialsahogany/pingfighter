@@ -16,7 +16,9 @@ const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
 
-const EXPECTED_ASSET_COUNT := 11
+const EXPECTED_ASSET_COUNT := 15
+const EXPECTED_UPSCALE_MANIFEST_ASSET_COUNT := 11
+const EXPECTED_CLOUD_ASSET_COUNT := 4
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -29,6 +31,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_approved_asset_catalog_and_dimensions()
 	_verify_x4_manifest_and_import_policy()
+	_verify_cloud_bitmap_import_policy()
 	_verify_negative_cache_and_missing_asset_fallback()
 	_verify_deterministic_nonrepeating_floor_variants()
 	_verify_production_prewarm_order_and_draw_peek_contract()
@@ -61,7 +64,10 @@ func _verify_x4_manifest_and_import_policy() -> void:
 	_expect(str(manifest.get("model", "")) == "realesrgan-x4plus", "S5 must pin the conservative Real-ESRGAN model selected by the art gate")
 	_expect(int(manifest.get("scale", 0)) == 4, "S5 must pin the approved x4 scale")
 	var records: Array = manifest.get("assets", [])
-	_expect(records.size() == EXPECTED_ASSET_COUNT, "the manifest must account for every promoted bitmap")
+	_expect(
+		records.size() == EXPECTED_UPSCALE_MANIFEST_ASSET_COUNT,
+		"the Real-ESRGAN manifest must retain its original 11 promoted bitmaps"
+	)
 	var alpha_asset_count := 0
 	for record_value in records:
 		var record := record_value as Dictionary
@@ -94,10 +100,48 @@ func _verify_x4_manifest_and_import_policy() -> void:
 	_leg_count += 1
 
 
+func _verify_cloud_bitmap_import_policy() -> void:
+	var catalog := TowerMapScrollAssetCatalog.new()
+	_expect(
+		TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS.size() == EXPECTED_CLOUD_ASSET_COUNT,
+		"the bitmap cloud family must declare four independently sliced assets"
+	)
+	var expected_world_sizes := {
+		TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE: Vector2i(260, 160),
+		TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM: Vector2i(196, 112),
+		TowerMapScrollAssetCatalog.CLOUD_WISP: Vector2i(152, 64),
+		TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND: Vector2i(692, 144),
+	}
+	var expected_texture_sizes := {
+		TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE: Vector2i(1040, 640),
+		TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM: Vector2i(784, 448),
+		TowerMapScrollAssetCatalog.CLOUD_WISP: Vector2i(608, 256),
+		TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND: Vector2i(2768, 576),
+	}
+	for asset_key in TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS:
+		var path := catalog.resolve_declared_path(asset_key)
+		_expect(path.ends_with("_imagegen_v1_x4.png"), "%s must bind the approved versioned imagegen bitmap" % asset_key)
+		_expect(ResourceLoader.exists(path, "Texture2D"), "%s must own an imported Texture2D" % asset_key)
+		_expect(catalog.get_expected_size(asset_key) == expected_world_sizes[asset_key], "%s must preserve its authored world size" % asset_key)
+		_expect(catalog.get_expected_texture_size(asset_key) == expected_texture_sizes[asset_key], "%s must preserve exact x4 texture density" % asset_key)
+		var image := Image.new()
+		var image_error := image.load_png_from_buffer(
+			FileAccess.get_file_as_bytes(path)
+		)
+		_expect(image_error == OK and not image.is_empty(), "%s source bitmap must decode" % asset_key)
+		if image_error == OK and not image.is_empty():
+			_expect(image.detect_alpha() != Image.ALPHA_NONE, "%s must retain soft source alpha" % asset_key)
+		var import_source := FileAccess.get_file_as_string(path + ".import")
+		_expect(import_source.find("compress/mode=2") >= 0, "%s must use offline VRAM compression" % asset_key)
+		_expect(import_source.find("compress/high_quality=true") >= 0, "%s must use high-quality VRAM compression" % asset_key)
+		_expect(import_source.find("mipmaps/generate=true") >= 0, "%s must generate mipmaps for fit-all downscaling" % asset_key)
+	_leg_count += 1
+
+
 func _verify_approved_asset_catalog_and_dimensions() -> void:
 	var catalog := TowerMapScrollAssetCatalog.new()
 	var keys := catalog.get_asset_keys()
-	_expect(keys.size() == EXPECTED_ASSET_COUNT, "the catalog must declare all 11 approved files")
+	_expect(keys.size() == EXPECTED_ASSET_COUNT, "the catalog must declare all 15 approved files")
 	var declared_paths: Dictionary = {}
 	for asset_key in keys:
 		var path := catalog.resolve_declared_path(asset_key)
@@ -111,7 +155,7 @@ func _verify_approved_asset_catalog_and_dimensions() -> void:
 		_expect(not bool(cold.get("cached", true)), "%s cold draw peek must not touch the filesystem" % asset_key)
 	var prewarm := catalog.prewarm_all()
 	_expect(bool(prewarm.get("ready", false)), "all approved files must prewarm")
-	_expect(int(prewarm.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prewarm must cache all 11 approved files")
+	_expect(int(prewarm.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prewarm must cache all 15 approved files")
 	for asset_key in keys:
 		var resolution := catalog.get_cached_resolution(asset_key)
 		var texture := resolution.get("texture", null) as Texture2D
@@ -126,6 +170,8 @@ func _verify_approved_asset_catalog_and_dimensions() -> void:
 			var expected_world_size := (
 				Vector2i(620, 48)
 				if asset_key == TowerMapScrollAssetCatalog.FLOOR_GATE_PLAQUE
+				else catalog.get_expected_size(asset_key)
+				if asset_key in TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS
 				else Vector2i(72, 320)
 				if asset_key in [
 					TowerMapScrollAssetCatalog.ROUTE_BRUSH_UNSELECTED,
@@ -287,7 +333,7 @@ func _verify_production_prewarm_order_and_draw_peek_contract() -> void:
 		"map_seed": 83521,
 	}), "the production flow fixture must begin")
 	var debug_state := flow.get_map_scroll_asset_debug_state()
-	_expect(int(debug_state.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prepare must prewarm all 11 files before map draw")
+	_expect(int(debug_state.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prepare must prewarm all 15 files before map draw")
 	_expect(int(debug_state.get("ready_count", 0)) == EXPECTED_ASSET_COUNT, "production prewarm must retain all approved textures")
 	var map_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_map_progress.gd"

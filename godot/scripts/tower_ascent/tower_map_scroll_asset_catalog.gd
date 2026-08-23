@@ -10,6 +10,26 @@ const FLOOR_GATE_PLAQUE := "floor_gate_plaque"
 const ROUTE_BRUSH_UNSELECTED := "route_brush_unselected"
 const ROUTE_BRUSH_AVAILABLE := "route_brush_available"
 const ROUTE_BRUSH_COMPLETED_GOLD := "route_brush_completed_gold"
+const CLOUD_SWIRL_LARGE := "cloud_swirl_large"
+const CLOUD_SWIRL_MEDIUM := "cloud_swirl_medium"
+const CLOUD_WISP := "cloud_wisp"
+const CLOUD_HAZE_BAND := "cloud_haze_band"
+
+const CLOUD_SWIRL_LARGE_WORLD_SIZE := Vector2i(260, 160)
+const CLOUD_SWIRL_LARGE_TEXTURE_SIZE := Vector2i(1040, 640)
+const CLOUD_SWIRL_MEDIUM_WORLD_SIZE := Vector2i(196, 112)
+const CLOUD_SWIRL_MEDIUM_TEXTURE_SIZE := Vector2i(784, 448)
+const CLOUD_WISP_WORLD_SIZE := Vector2i(152, 64)
+const CLOUD_WISP_TEXTURE_SIZE := Vector2i(608, 256)
+const CLOUD_HAZE_BAND_WORLD_SIZE := Vector2i(692, 144)
+const CLOUD_HAZE_BAND_TEXTURE_SIZE := Vector2i(2768, 576)
+
+const CLOUD_ASSET_KEYS: Array[String] = [
+	CLOUD_SWIRL_LARGE,
+	CLOUD_SWIRL_MEDIUM,
+	CLOUD_WISP,
+	CLOUD_HAZE_BAND,
+]
 
 const HUMAN_BAND_ASSET_KEYS: Array[String] = [
 	"human_realm_01_mountain_rev2",
@@ -47,6 +67,26 @@ const ASSET_SPECS := {
 		"path": MAP_SCROLL_ROOT + "/route_brush_completed_gold_x4.png",
 		"size": Vector2i(72, 320),
 		"texture_size": Vector2i(288, 1280),
+	},
+	CLOUD_SWIRL_LARGE: {
+		"path": MAP_SCROLL_ROOT + "/cloud_swirl_large_imagegen_v1_x4.png",
+		"size": CLOUD_SWIRL_LARGE_WORLD_SIZE,
+		"texture_size": CLOUD_SWIRL_LARGE_TEXTURE_SIZE,
+	},
+	CLOUD_SWIRL_MEDIUM: {
+		"path": MAP_SCROLL_ROOT + "/cloud_swirl_medium_imagegen_v1_x4.png",
+		"size": CLOUD_SWIRL_MEDIUM_WORLD_SIZE,
+		"texture_size": CLOUD_SWIRL_MEDIUM_TEXTURE_SIZE,
+	},
+	CLOUD_WISP: {
+		"path": MAP_SCROLL_ROOT + "/cloud_wisp_imagegen_v1_x4.png",
+		"size": CLOUD_WISP_WORLD_SIZE,
+		"texture_size": CLOUD_WISP_TEXTURE_SIZE,
+	},
+	CLOUD_HAZE_BAND: {
+		"path": MAP_SCROLL_ROOT + "/cloud_haze_band_imagegen_v1_x4.png",
+		"size": CLOUD_HAZE_BAND_WORLD_SIZE,
+		"texture_size": CLOUD_HAZE_BAND_TEXTURE_SIZE,
 	},
 	"human_realm_01_mountain_rev2": {
 		"path": MAP_SCROLL_ROOT + "/human_realm_01_mountain_rev2_x4.png",

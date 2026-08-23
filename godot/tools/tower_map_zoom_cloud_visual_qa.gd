@@ -205,7 +205,23 @@ func _run() -> void:
 	(flow.get("_map_drag_state") as Object).reset_surface()
 	canvas.queue_redraw()
 	await process_frame
-	flow.update_selective(1.0, canvas)
+	var drift_hashes: Dictionary = {}
+	for drift_frame_index in range(8):
+		var drift_image: Image = await _capture(canvas, viewport)
+		var drift_path := output_dir.path_join(
+			"cloud_drift_%02d.png" % drift_frame_index
+		)
+		if not _save(drift_image, drift_path):
+			_fail("continuous cloud drift frame %d failed" % drift_frame_index)
+			return
+		drift_hashes[FileAccess.get_sha256(drift_path)] = true
+		flow.update_selective(0.125, canvas)
+	if drift_hashes.size() != 8:
+		_fail("all eight continuous drift frames must differ before the reveal completes")
+		return
+	if not bool(flow.is_floor_reveal_pending()):
+		_fail("the eight-frame drift strip must remain inside the two-second reveal")
+		return
 	var revealing_image: Image = await _capture(canvas, viewport)
 	if not _save(revealing_image, output_dir.path_join("cloud_revealing.png")):
 		_fail("revealing cloud capture failed")
@@ -239,7 +255,7 @@ func _run() -> void:
 	if not travel_seen:
 		_fail("continuous sequence never reached walker movement after reveal")
 		return
-	print("[TowerMapZoomCloudVisualQA] output=%s sequence_frames=18" % output_dir)
+	print("[TowerMapZoomCloudVisualQA] output=%s drift_frames=8 sequence_frames=18" % output_dir)
 	print("tower_map_zoom_cloud_visual_qa: ok")
 	flow.call("_finish_vertical_slice")
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()

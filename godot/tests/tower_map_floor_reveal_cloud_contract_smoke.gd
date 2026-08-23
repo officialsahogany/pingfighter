@@ -9,6 +9,12 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentMapCloudLayer := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
+)
+const TowerMapScrollAssetCatalog := preload(
+	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
+)
 
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 const TICK_SEC := 1.0 / 72.0
@@ -23,6 +29,7 @@ func _init() -> void:
 func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_reveal_sequence_persistence_and_rng()
+	_verify_bitmap_density_wrap_parallax_and_fallback()
 	_verify_skip_reset_and_hot_path_contracts()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -158,9 +165,137 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 		"GRT-003: cloud draw must consume cached specs without RNG or array construction"
 	)
 	_expect(
+		draw_body.find("texture.get_size") < 0,
+		"GRT-053: cloud draw must consume declared texture sizes instead of inferring geometry"
+	)
+	_expect(
 		cloud_source.find("draw_set_transform") >= 0,
 		"cloud drift must use stable-owner time offsets without spawning interpolated overlay nodes"
 	)
+	var bitmap_draw_body := _function_body(cloud_source, "func _draw_bitmap_floor(")
+	_expect(
+		bitmap_draw_body.find("sin(") < 0 and bitmap_draw_body.find("fposmod(") >= 0,
+		"bitmap clouds must flow continuously through wrap coordinates instead of oscillating"
+	)
+
+
+func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
+	var flow := _new_flow("cloud-bitmap-density")
+	if flow == null:
+		return
+	var renderer: Object = flow.get("_renderer")
+	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var cloud_model: Dictionary = model.get("cloud_layer", {})
+	_expect(str(cloud_model.get("render_mode", "")) == "bitmap", "all four prewarmed cloud assets must select bitmap rendering")
+	_expect(int(cloud_model.get("bitmap_asset_count", 0)) == 4, "bitmap rendering must bind all four approved assets")
+	_expect(int(cloud_model.get("parallax_layer_count", 0)) == 2, "locked clouds must retain slow haze plus faster foreground depth")
+	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 10, "each locked floor must reserve the exact two-wrap haze plus four two-wrap motif worst case")
+
+	var visual: Dictionary = flow.get_floor_reveal_visual_model()
+	_expect(
+		TowerAscentMapCloudLayer.estimate_visible_draw_calls(cloud_model, visual) > 0,
+		"a new run must visibly cover locked floors"
+	)
+	var public_visual := visual.duplicate(true)
+	public_visual["revealed_floor"] = 999
+	public_visual["pending"] = false
+	_expect(
+		TowerAscentMapCloudLayer.estimate_visible_draw_calls(cloud_model, public_visual) == 0,
+		"revealed floors must schedule zero cloud draws"
+	)
+
+	var inspected_density := false
+	var wrapped_motion_checked := false
+	for floor_variant in cloud_model.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_spec := floor_variant as Dictionary
+		var floor_number := int(floor_spec.get("floor", 0))
+		if floor_number <= int(visual.get("revealed_floor", 0)):
+			continue
+		var haze_count := 0
+		var front_count := 0
+		var haze_speed := INF
+		var minimum_front_speed := INF
+		var floor_rect: Rect2 = floor_spec.get("floor_rect", Rect2())
+		for spec_variant in floor_spec.get("bitmap_specs", []):
+			if not (spec_variant is Dictionary):
+				continue
+			var spec := spec_variant as Dictionary
+			if str(spec.get("kind", "")) == "haze":
+				haze_count += 1
+				haze_speed = minf(haze_speed, float(spec.get("drift_speed", INF)))
+			else:
+				front_count += 1
+				minimum_front_speed = minf(minimum_front_speed, float(spec.get("drift_speed", INF)))
+				if not wrapped_motion_checked:
+					var speed := float(spec.get("drift_speed", 0.0))
+					if speed > 0.001 and floor_rect.size.x > 0.001:
+						var start_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(spec, floor_rect, 0.0)
+						var cycle_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(
+							spec,
+							floor_rect,
+							floor_rect.size.x / speed
+						)
+						_expect(is_equal_approx(start_x, cycle_x), "one full continuous drift cycle must wrap to the same cloud center without a seam")
+						wrapped_motion_checked = true
+		_expect(haze_count == 1 and front_count == 4, "each locked floor must overlap one full-width haze band with four seeded swirl/wisp motifs")
+		_expect(minimum_front_speed > haze_speed, "foreground motifs must drift faster than the rear haze layer")
+		var midpoint_visual := {
+			"revealed_floor": floor_number - 1,
+			"target_floor": floor_number,
+			"pending": true,
+			"progress": 0.5,
+		}
+		_expect(
+			is_equal_approx(TowerAscentMapCloudLayer.floor_alpha_multiplier(floor_number, midpoint_visual), 0.5),
+			"the two-second reveal fade must remove the complete dense bitmap composition as one layer"
+		)
+		inspected_density = true
+		break
+	_expect(inspected_density and wrapped_motion_checked, "the production fixture must expose one inspectable locked bitmap floor")
+
+	var build_args_nodes: Variant = model.get("overview_nodes", [])
+	var build_world_rect: Rect2 = model.get("fit_all_camera_world_rect", Rect2())
+	var build_seed := int(model.get("map_seed", 0))
+	var build_art_size := float(model.get("art_size", 0.0))
+	var build_map_scale := float(model.get("map_scale", 1.0))
+	var asset_resolutions: Dictionary = model.get("map_scroll_assets", {})
+	var cloud_layer := TowerAscentMapCloudLayer.new()
+	var same_seed := cloud_layer.build(
+		build_args_nodes,
+		build_world_rect,
+		build_seed,
+		build_art_size,
+		asset_resolutions,
+		build_map_scale
+	)
+	var different_seed := cloud_layer.build(
+		build_args_nodes,
+		build_world_rect,
+		build_seed + 1,
+		build_art_size,
+		asset_resolutions,
+		build_map_scale
+	)
+	_expect(
+		_bitmap_layout_signature(cloud_model) == _bitmap_layout_signature(same_seed),
+		"the same presentation seed must reproduce cloud placement, direction, speed, and phase"
+	)
+	_expect(
+		_bitmap_layout_signature(cloud_model) != _bitmap_layout_signature(different_seed),
+		"a different presentation seed must change cached cloud drift without touching gameplay RNG"
+	)
+	var fallback := cloud_layer.build(
+		build_args_nodes,
+		build_world_rect,
+		build_seed,
+		build_art_size,
+		{},
+		build_map_scale
+	)
+	_expect(str(fallback.get("render_mode", "")) == "procedural", "missing bitmap assets must retain the procedural cloud fallback")
+	_expect(not (fallback.get("floors", []) as Array).is_empty(), "procedural fallback geometry must remain precomputed")
 
 
 func _new_flow(run_id: String) -> Object:
@@ -206,6 +341,40 @@ func _left_button(position: Vector2, pressed: bool) -> InputEventMouseButton:
 	event.position = position
 	event.pressed = pressed
 	return event
+
+
+func _bitmap_layout_signature(model: Dictionary) -> PackedStringArray:
+	var signature := PackedStringArray()
+	for floor_variant in model.get("floors", []):
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_spec := floor_variant as Dictionary
+		for spec_variant in floor_spec.get("bitmap_specs", []):
+			if not (spec_variant is Dictionary):
+				continue
+			var spec := spec_variant as Dictionary
+			signature.append("%d:%s:%s:%s:%s:%s:%s" % [
+				int(floor_spec.get("floor", 0)),
+				str(spec.get("asset_key", "")),
+				str(spec.get("size", Vector2.ZERO)),
+				str(spec.get("base_center_x", 0.0)),
+				str(spec.get("center_y", 0.0)),
+				str(spec.get("drift_direction", 0.0)),
+				str(spec.get("drift_speed", 0.0)),
+			])
+	return signature
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next_func := source.find("\nfunc ", start + signature.length())
+	var next_static := source.find("\nstatic func ", start + signature.length())
+	var next_boundary := next_func
+	if next_static >= 0 and (next_boundary < 0 or next_static < next_boundary):
+		next_boundary = next_static
+	return source.substr(start) if next_boundary < 0 else source.substr(start, next_boundary - start)
 
 
 func _expect(condition: bool, message: String) -> void:

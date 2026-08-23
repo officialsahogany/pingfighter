@@ -1,0 +1,111 @@
+{
+  "stage": "A_candidate_only",
+  "runtime_wired": false,
+  "world_band_size": [
+    692,
+    320
+  ],
+  "texture_density": "x4",
+  "assets": {
+    "cloud_swirl_large": {
+      "texture_size": [
+        1040,
+        640
+      ],
+      "visible_pixels": 327309,
+      "intermediate_alpha_pixels": 327309,
+      "intermediate_alpha_ratio_of_visible": 1.0,
+      "thin_alpha_pixels_le_96": 233274,
+      "thin_alpha_ratio_of_visible": 0.712703,
+      "alpha_min_visible": 1,
+      "alpha_max": 172,
+      "alpha_unique_levels": 173,
+      "green_fringe_pixels": 0,
+      "magenta_fringe_pixels": 0,
+      "exact_00ff00_pixels": 0,
+      "world_size": [
+        260,
+        160
+      ],
+      "source_raw": "images/tower_map_cloud_bitmap_candidates_cc3b/source_raw/cloud_swirl_large_imagegen_raw.png"
+    },
+    "cloud_swirl_medium": {
+      "texture_size": [
+        784,
+        448
+      ],
+      "visible_pixels": 140620,
+      "intermediate_alpha_pixels": 140620,
+      "intermediate_alpha_ratio_of_visible": 1.0,
+      "thin_alpha_pixels_le_96": 110303,
+      "thin_alpha_ratio_of_visible": 0.784405,
+      "alpha_min_visible": 1,
+      "alpha_max": 157,
+      "alpha_unique_levels": 158,
+      "green_fringe_pixels": 0,
+      "magenta_fringe_pixels": 0,
+      "exact_00ff00_pixels": 0,
+      "world_size": [
+        196,
+        112
+      ],
+      "source_raw": "images/tower_map_cloud_bitmap_candidates_cc3b/source_raw/cloud_swirl_medium_imagegen_raw.png"
+    },
+    "cloud_wisp": {
+      "texture_size": [
+        608,
+        256
+      ],
+      "visible_pixels": 26478,
+      "intermediate_alpha_pixels": 26478,
+      "intermediate_alpha_ratio_of_visible": 1.0,
+      "thin_alpha_pixels_le_96": 25418,
+      "thin_alpha_ratio_of_visible": 0.959967,
+      "alpha_min_visible": 1,
+      "alpha_max": 121,
+      "alpha_unique_levels": 122,
+      "green_fringe_pixels": 0,
+      "magenta_fringe_pixels": 0,
+      "exact_00ff00_pixels": 0,
+      "world_size": [
+        152,
+        64
+      ],
+      "source_raw": "images/tower_map_cloud_bitmap_candidates_cc3b/source_raw/cloud_wisp_imagegen_raw.png"
+    },
+    "cloud_haze_band": {
+      "texture_size": [
+        2768,
+        576
+      ],
+      "visible_pixels": 1535184,
+      "intermediate_alpha_pixels": 1535184,
+      "intermediate_alpha_ratio_of_visible": 1.0,
+      "thin_alpha_pixels_le_96": 1486461,
+      "thin_alpha_ratio_of_visible": 0.968262,
+      "alpha_min_visible": 1,
+      "alpha_max": 116,
+      "alpha_unique_levels": 117,
+      "green_fringe_pixels": 0,
+      "magenta_fringe_pixels": 0,
+      "exact_00ff00_pixels": 0,
+      "world_size": [
+        692,
+        144
+      ],
+      "source_raw": "images/tower_map_cloud_bitmap_candidates_cc3b/source_raw/cloud_haze_band_imagegen_raw.png",
+      "tile_edge": {
+        "edge_mean_abs_rgba_delta": 0.0,
+        "edge_max_abs_rgba_delta": 0,
+        "first_interior_mean_abs_rgba_delta": 3.25217
+      }
+    }
+  },
+  "terrain_visibility": {
+    "covered_pixels": 1236992,
+    "thin_cloud_pixels": 1072472,
+    "terrain_luma_correlation_under_all_cloud": 0.835243,
+    "terrain_luma_correlation_under_thin_cloud": 0.944132,
+    "mean_abs_luma_change_under_thin_cloud": 8.573226
+  }
+}

@@ -1,11 +1,27 @@
 extends RefCounted
 
+const TowerMapScrollAssetCatalog := preload(
+	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
+)
+
 const CLOUD_LAYER_COUNT := 3
 const CLOUD_SAMPLE_COUNT := 48
+const BITMAP_PARALLAX_LAYER_COUNT := 2
+const BITMAP_FRONT_CLOUD_COUNT := 4
+const BITMAP_MAX_DRAW_CALLS_PER_FLOOR := 10
 const PRESENTATION_SEED_SALT := 0x434c4f5544
 const PAPER_LIGHT := Color("f1dfb8")
 const PAPER_DEEP := Color("d7bd88")
 const INK := Color("30271f")
+const FRONT_CLOUD_ASSET_KEYS: Array[String] = [
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE,
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM,
+	TowerMapScrollAssetCatalog.CLOUD_WISP,
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM,
+]
+const FRONT_CLOUD_CENTER_Y_RATIOS: Array[float] = [0.30, 0.67, 0.45, 0.80]
+const FRONT_CLOUD_SCALE_MINIMUMS: Array[float] = [1.10, 1.00, 1.18, 0.82]
+const FRONT_CLOUD_SCALE_MAXIMUMS: Array[float] = [1.28, 1.18, 1.48, 1.02]
 
 
 static func estimate_draw_calls(nodes_value: Variant) -> int:
@@ -17,14 +33,20 @@ static func estimate_draw_calls(nodes_value: Variant) -> int:
 				"segment_floor",
 				(node_variant as Dictionary).get("floor", 0)
 			))] = true
-	return floors.size() * CLOUD_LAYER_COUNT
+	# Reserve the bitmap worst case even when assets are unavailable. One
+	# tileable haze band needs two clipped copies, and four feathered foreground
+	# motifs may each straddle one horizontal wrap edge (2 + 4 * 2 = 10). The
+	# route builder widens dot spacing against this reserve before draw.
+	return floors.size() * BITMAP_MAX_DRAW_CALLS_PER_FLOOR
 
 
 func build(
 	nodes_value: Variant,
 	world_rect: Rect2,
 	map_seed: int,
-	art_size: float
+	art_size: float,
+	resolution_by_key_value: Variant = {},
+	map_scale: float = 1.0
 ) -> Dictionary:
 	var bounds_by_floor: Dictionary = {}
 	var nodes: Array = nodes_value if nodes_value is Array else []
@@ -49,6 +71,10 @@ func build(
 	# This RNG is intentionally local and presentation-only. It never receives or
 	# returns the authoritative gameplay RNG state.
 	presentation_rng.seed = int((map_seed ^ PRESENTATION_SEED_SALT) & 0x7fffffff)
+	var bitmap_assets := _build_bitmap_asset_models(resolution_by_key_value)
+	var bitmap_ready := (
+		bitmap_assets.size() == TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS.size()
+	)
 	var floor_specs: Array[Dictionary] = []
 	var vertical_padding := maxf(art_size * 1.35, 20.0)
 	for floor_value in floor_numbers:
@@ -78,14 +104,27 @@ func build(
 			})
 		floor_specs.append({
 			"floor": floor_number,
+			"floor_rect": floor_rect,
 			"layers": layers,
+			"bitmap_specs": _build_bitmap_specs(
+				floor_rect,
+				presentation_rng,
+				bitmap_assets,
+				map_scale
+			) if bitmap_ready else [],
 			"drift_amplitude": art_size * presentation_rng.randf_range(0.08, 0.18),
 			"drift_speed": presentation_rng.randf_range(0.38, 0.62),
 			"drift_phase": presentation_rng.randf_range(0.0, TAU),
 		})
 	return {
 		"floors": floor_specs,
-		"draw_call_count": floor_specs.size() * CLOUD_LAYER_COUNT,
+		"render_mode": "bitmap" if bitmap_ready else "procedural",
+		"bitmap_assets": bitmap_assets,
+		"bitmap_asset_count": bitmap_assets.size(),
+		"parallax_layer_count": BITMAP_PARALLAX_LAYER_COUNT if bitmap_ready else 1,
+		"maximum_draw_calls_per_floor": BITMAP_MAX_DRAW_CALLS_PER_FLOOR,
+		"draw_call_count": floor_specs.size() * BITMAP_MAX_DRAW_CALLS_PER_FLOOR,
+		"procedural_draw_call_count": floor_specs.size() * CLOUD_LAYER_COUNT,
 		"presentation_seed": presentation_rng.seed,
 	}
 
@@ -113,41 +152,372 @@ func draw(
 		clampf(float(reveal_visual.get("progress", 0.0)), 0.0, 1.0)
 	)
 	var drift_time := float(reveal_visual.get("drift_time_sec", 0.0))
-	for floor_variant in model.get("floors", []):
+	var bitmap_mode := str(model.get("render_mode", "procedural")) == "bitmap"
+	var bitmap_assets_value: Variant = model.get("bitmap_assets", null)
+	if bitmap_mode and not (bitmap_assets_value is Dictionary):
+		bitmap_mode = false
+	if bitmap_mode:
+		canvas.draw_set_transform(camera_offset, 0.0, Vector2.ONE * zoom)
+	var floors_value: Variant = model.get("floors", null)
+	if not (floors_value is Array):
+		canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+	for floor_variant in floors_value:
 		if not (floor_variant is Dictionary):
 			continue
 		var floor_spec := floor_variant as Dictionary
 		var floor_number := int(floor_spec.get("floor", 0))
-		if floor_number <= revealed_floor:
-			continue
-		var alpha_multiplier := 1.0
-		if reveal_pending and floor_number <= target_floor:
-			alpha_multiplier = 1.0 - reveal_progress
+		var alpha_multiplier := _floor_alpha_multiplier_from_values(
+			floor_number,
+			revealed_floor,
+			target_floor,
+			reveal_pending,
+			reveal_progress
+		)
 		if alpha_multiplier <= 0.001:
 			continue
-		var drift := sin(
-			drift_time * float(floor_spec.get("drift_speed", 0.0))
-			+ float(floor_spec.get("drift_phase", 0.0))
-		) * float(floor_spec.get("drift_amplitude", 0.0))
-		canvas.draw_set_transform(
-			camera_offset + Vector2(drift * zoom, 0.0),
-			0.0,
-			Vector2.ONE * zoom
-		)
-		for layer_variant in floor_spec.get("layers", []):
-			if not (layer_variant is Dictionary):
-				continue
-			var layer := layer_variant as Dictionary
-			var color: Color = layer.get("color", PAPER_LIGHT)
-			color.a *= alpha_multiplier
-			var points_value: Variant = layer.get("points", null)
-			if not (points_value is PackedVector2Array):
-				continue
-			canvas.draw_colored_polygon(
-				points_value as PackedVector2Array,
-				color
+		if bitmap_mode:
+			_draw_bitmap_floor(
+				canvas,
+				floor_spec,
+				bitmap_assets_value as Dictionary,
+				drift_time,
+				alpha_multiplier
+			)
+		else:
+			_draw_procedural_floor(
+				canvas,
+				floor_spec,
+				zoom,
+				camera_offset,
+				drift_time,
+				alpha_multiplier
 			)
 	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+static func estimate_visible_draw_calls(
+	model_value: Variant,
+	reveal_visual: Dictionary
+) -> int:
+	if not (model_value is Dictionary):
+		return 0
+	var model := model_value as Dictionary
+	var floors_value: Variant = model.get("floors", null)
+	if not (floors_value is Array):
+		return 0
+	var calls_per_floor := (
+		BITMAP_MAX_DRAW_CALLS_PER_FLOOR
+		if str(model.get("render_mode", "procedural")) == "bitmap"
+		else CLOUD_LAYER_COUNT
+	)
+	var visible_floor_count := 0
+	for floor_variant in floors_value:
+		if not (floor_variant is Dictionary):
+			continue
+		var floor_number := int((floor_variant as Dictionary).get("floor", 0))
+		if floor_alpha_multiplier(floor_number, reveal_visual) > 0.001:
+			visible_floor_count += 1
+	return visible_floor_count * calls_per_floor
+
+
+static func floor_alpha_multiplier(
+	floor_number: int,
+	reveal_visual: Dictionary
+) -> float:
+	return _floor_alpha_multiplier_from_values(
+		floor_number,
+		int(reveal_visual.get("revealed_floor", 0)),
+		int(reveal_visual.get("target_floor", 0)),
+		bool(reveal_visual.get("pending", false)),
+		smoothstep(
+			0.0,
+			1.0,
+			clampf(float(reveal_visual.get("progress", 0.0)), 0.0, 1.0)
+		)
+	)
+
+
+static func wrapped_cloud_center_x(
+	spec: Dictionary,
+	floor_rect: Rect2,
+	drift_time: float
+) -> float:
+	if floor_rect.size.x <= 0.001:
+		return floor_rect.get_center().x
+	var travel := (
+		float(spec.get("drift_direction", 1.0))
+		* float(spec.get("drift_speed", 0.0))
+		* maxf(0.0, drift_time)
+	)
+	return floor_rect.position.x + fposmod(
+		float(spec.get("base_center_x", floor_rect.get_center().x))
+			- floor_rect.position.x
+			+ travel,
+		floor_rect.size.x
+	)
+
+
+static func _floor_alpha_multiplier_from_values(
+	floor_number: int,
+	revealed_floor: int,
+	target_floor: int,
+	reveal_pending: bool,
+	reveal_progress: float
+) -> float:
+	if floor_number <= revealed_floor:
+		return 0.0
+	if reveal_pending and floor_number <= target_floor:
+		return 1.0 - reveal_progress
+	return 1.0
+
+
+func _draw_bitmap_floor(
+	canvas: CanvasItem,
+	floor_spec: Dictionary,
+	bitmap_assets: Dictionary,
+	drift_time: float,
+	alpha_multiplier: float
+) -> void:
+	var floor_rect: Rect2 = floor_spec.get("floor_rect", Rect2())
+	if floor_rect.size.x <= 0.001 or floor_rect.size.y <= 0.001:
+		return
+	var specs_value: Variant = floor_spec.get("bitmap_specs", null)
+	if not (specs_value is Array):
+		return
+	for spec_variant in specs_value:
+		if not (spec_variant is Dictionary):
+			continue
+		var spec := spec_variant as Dictionary
+		var asset_value: Variant = bitmap_assets.get(str(spec.get("asset_key", "")), null)
+		if not (asset_value is Dictionary):
+			continue
+		var asset := asset_value as Dictionary
+		var texture := asset.get("texture", null) as Texture2D
+		var source_size: Vector2 = asset.get("texture_size", Vector2.ZERO)
+		var target_size: Vector2 = spec.get("size", Vector2.ZERO)
+		if texture == null or source_size.x <= 0.0 or target_size.x <= 0.0:
+			continue
+		var modulate := Color(1.0, 1.0, 1.0, alpha_multiplier * float(spec.get(
+			"opacity",
+			1.0
+		)))
+		if str(spec.get("kind", "cloud")) == "haze":
+			var travel := (
+				float(spec.get("drift_direction", 1.0))
+				* float(spec.get("drift_speed", 0.0))
+				* maxf(0.0, drift_time)
+				+ float(spec.get("phase_offset", 0.0))
+			)
+			var wrap_offset := fposmod(travel, floor_rect.size.x)
+			var first_rect := Rect2(
+				Vector2(
+					floor_rect.position.x + wrap_offset - floor_rect.size.x,
+					float(spec.get("center_y", floor_rect.get_center().y))
+						- target_size.y * 0.5
+				),
+				target_size
+			)
+			_draw_texture_clipped(
+				canvas,
+				texture,
+				first_rect,
+				floor_rect,
+				source_size,
+				modulate
+			)
+			first_rect.position.x += floor_rect.size.x
+			_draw_texture_clipped(
+				canvas,
+				texture,
+				first_rect,
+				floor_rect,
+				source_size,
+				modulate
+			)
+			continue
+		var center_x := wrapped_cloud_center_x(spec, floor_rect, drift_time)
+		var target_rect := Rect2(
+			Vector2(
+				center_x - target_size.x * 0.5,
+				float(spec.get("center_y", floor_rect.get_center().y))
+					- target_size.y * 0.5
+			),
+			target_size
+		)
+		_draw_texture_clipped(
+			canvas,
+			texture,
+			target_rect,
+			floor_rect,
+			source_size,
+			modulate
+		)
+		if target_rect.position.x < floor_rect.position.x:
+			target_rect.position.x += floor_rect.size.x
+			_draw_texture_clipped(
+				canvas,
+				texture,
+				target_rect,
+				floor_rect,
+				source_size,
+				modulate
+			)
+		elif target_rect.end.x > floor_rect.end.x:
+			target_rect.position.x -= floor_rect.size.x
+			_draw_texture_clipped(
+				canvas,
+				texture,
+				target_rect,
+				floor_rect,
+				source_size,
+				modulate
+			)
+
+
+static func _draw_texture_clipped(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	target_rect: Rect2,
+	clip_rect: Rect2,
+	source_size: Vector2,
+	modulate: Color
+) -> void:
+	var clipped_rect := target_rect.intersection(clip_rect)
+	if clipped_rect.size.x <= 0.001 or clipped_rect.size.y <= 0.001:
+		return
+	var source_per_world := Vector2(
+		source_size.x / target_rect.size.x,
+		source_size.y / target_rect.size.y
+	)
+	var source_rect := Rect2(
+		(clipped_rect.position - target_rect.position) * source_per_world,
+		clipped_rect.size * source_per_world
+	)
+	canvas.draw_texture_rect_region(
+		texture,
+		clipped_rect,
+		source_rect,
+		modulate
+	)
+
+
+func _draw_procedural_floor(
+	canvas: CanvasItem,
+	floor_spec: Dictionary,
+	zoom: float,
+	camera_offset: Vector2,
+	drift_time: float,
+	alpha_multiplier: float
+) -> void:
+	var drift := sin(
+		drift_time * float(floor_spec.get("drift_speed", 0.0))
+		+ float(floor_spec.get("drift_phase", 0.0))
+	) * float(floor_spec.get("drift_amplitude", 0.0))
+	canvas.draw_set_transform(
+		camera_offset + Vector2(drift * zoom, 0.0),
+		0.0,
+		Vector2.ONE * zoom
+	)
+	var layers_value: Variant = floor_spec.get("layers", null)
+	if not (layers_value is Array):
+		return
+	for layer_variant in layers_value:
+		if not (layer_variant is Dictionary):
+			continue
+		var layer := layer_variant as Dictionary
+		var color: Color = layer.get("color", PAPER_LIGHT)
+		color.a *= alpha_multiplier
+		var points_value: Variant = layer.get("points", null)
+		if not (points_value is PackedVector2Array):
+			continue
+		canvas.draw_colored_polygon(
+			points_value as PackedVector2Array,
+			color
+		)
+
+
+static func _build_bitmap_asset_models(
+	resolution_by_key_value: Variant
+) -> Dictionary:
+	if not (resolution_by_key_value is Dictionary):
+		return {}
+	var resolution_by_key := resolution_by_key_value as Dictionary
+	var result: Dictionary = {}
+	for asset_key in TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS:
+		var resolution_value: Variant = resolution_by_key.get(asset_key, null)
+		if not (resolution_value is Dictionary):
+			return {}
+		var resolution := resolution_value as Dictionary
+		var texture := resolution.get("texture", null) as Texture2D
+		if not bool(resolution.get("ready", false)) or texture == null:
+			return {}
+		result[asset_key] = {
+			"texture": texture,
+			"world_size": Vector2(resolution.get("world_size", Vector2i.ZERO)),
+			"texture_size": Vector2(resolution.get(
+				"expected_texture_size",
+				Vector2i.ZERO
+			)),
+		}
+	return result
+
+
+static func _build_bitmap_specs(
+	floor_rect: Rect2,
+	rng: RandomNumberGenerator,
+	bitmap_assets: Dictionary,
+	map_scale: float
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var safe_scale := maxf(0.001, map_scale)
+	var haze_asset: Dictionary = bitmap_assets.get(
+		TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND,
+		{}
+	)
+	var haze_world_size: Vector2 = haze_asset.get("world_size", Vector2.ZERO)
+	result.append({
+		"kind": "haze",
+		"asset_key": TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND,
+		"depth_layer": 0,
+		"size": Vector2(floor_rect.size.x, haze_world_size.y * safe_scale),
+		"center_y": floor_rect.position.y + floor_rect.size.y * rng.randf_range(0.46, 0.56),
+		"phase_offset": rng.randf_range(0.0, floor_rect.size.x),
+		"drift_direction": -1.0 if rng.randi() % 2 == 0 else 1.0,
+		"drift_speed": 6.0 * safe_scale * rng.randf_range(0.86, 1.16),
+		"opacity": 1.0,
+	})
+	for cloud_index in range(BITMAP_FRONT_CLOUD_COUNT):
+		var asset_key := FRONT_CLOUD_ASSET_KEYS[cloud_index]
+		var asset: Dictionary = bitmap_assets.get(asset_key, {})
+		var world_size: Vector2 = asset.get("world_size", Vector2.ZERO)
+		var scale_multiplier := rng.randf_range(
+			FRONT_CLOUD_SCALE_MINIMUMS[cloud_index],
+			FRONT_CLOUD_SCALE_MAXIMUMS[cloud_index]
+		)
+		var center_zone := (float(cloud_index) + 0.5) / float(BITMAP_FRONT_CLOUD_COUNT)
+		result.append({
+			"kind": "cloud",
+			"asset_key": asset_key,
+			"depth_layer": 1,
+			"stable_id": cloud_index,
+			"size": world_size * safe_scale * scale_multiplier,
+			"base_center_x": floor_rect.position.x + floor_rect.size.x * clampf(
+				center_zone + rng.randf_range(-0.075, 0.075),
+				0.04,
+				0.96
+			),
+			"center_y": floor_rect.position.y + floor_rect.size.y * clampf(
+				FRONT_CLOUD_CENTER_Y_RATIOS[cloud_index]
+					+ rng.randf_range(-0.055, 0.055),
+				0.08,
+				0.92
+			),
+			"drift_direction": -1.0 if rng.randi() % 2 == 0 else 1.0,
+			"drift_speed": 12.0 * safe_scale * rng.randf_range(0.86, 1.42),
+			"opacity": rng.randf_range(0.90, 1.0),
+		})
+	return result
 
 
 static func _build_soft_band_points(
