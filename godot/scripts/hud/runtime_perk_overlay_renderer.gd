@@ -678,7 +678,7 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		else 1.0
 	)
 	var font_size := (
-		clampi(int(round(9.0 * compact_scale)), 9, 18)
+		clampi(int(round(12.0 * compact_scale)), 11, 18)
 		if compact_card
 		else clampi(int(round(rect.size.x * 0.056)), 11, 13)
 	)
@@ -900,7 +900,7 @@ static func tower_node_hover_detail_row_baseline(
 		return (
 			rect.position.y
 			+ 64.0 * compact_scale
-			+ float(detail_index) * 10.0 * compact_scale
+			+ float(detail_index) * 12.0 * compact_scale
 		)
 	return rect.end.y - 58.0 + float(detail_index) * 17.0
 
@@ -1097,7 +1097,7 @@ func draw_tower_node_card(
 	var description_font_size := int(text_layout.get("description_font_size", 12))
 	var text_font_value: Variant = text_layout.get("text_font", null)
 	var text_font: Font = text_font_value as Font if text_font_value is Font else _get_font()
-	var description_row_step := 10.0 * compact_scale if compact_card else 16.0
+	var description_row_step := 12.0 * compact_scale if compact_card else 16.0
 	var detail_layout := {}
 	var suppress_hover_detail := _tower_node_strict_receipt_owns_detail_area(
 		action,
@@ -1126,7 +1126,7 @@ func draw_tower_node_card(
 				description_font_size,
 				Color(0.24, 0.19, 0.14, 0.96),
 				rect.size.x - (22.0 * compact_scale if compact_card else 28.0),
-				clampi(int(round(9.0 * compact_scale)), 9, 16) if compact_card else 10,
+				clampi(int(round(11.0 * compact_scale)), 11, 16) if compact_card else 10,
 				text_font
 			)
 	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])

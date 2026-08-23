@@ -206,6 +206,7 @@ func _verify_compact_description_three_row_budget() -> void:
 	var description_rows: Array = layout.get("description_rows", [])
 	var badge_rows: Array = layout.get("bonus_badge_rows", [])
 	_expect(bool(layout.get("compact_card", false)), "production training card rect must select the compact card builder")
+	_expect(int(layout.get("description_font_size", 0)) == 11, "base training rail must raise its compact description floor to 11px")
 	_expect(description_rows.size() == 3, "longest compact training description must append exactly three rows")
 	_expect(int(layout.get("appended_description_row_count", -1)) == 3, "description append count must be the actual three drawn rows")
 	_expect(badge_rows.is_empty(), "ordinary training cards must reserve no bonus-badge row")
@@ -216,6 +217,10 @@ func _verify_compact_description_three_row_budget() -> void:
 	_expect(
 		bool(live_layout.get("compact_card", false)),
 		"large Vulkan viewport must keep the same aspect-ratio compact card profile"
+	)
+	_expect(
+		int(live_layout.get("description_font_size", 0)) == 14,
+		"wide Vulkan training rail must scale its compact description font to 14px"
 	)
 	_expect(
 		int(live_layout.get("appended_description_row_count", -1)) == 2,
@@ -245,7 +250,7 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 		var compact_scale := float(layout.get("compact_scale", 0.0))
 		var description_font := int(layout.get("description_font_size", 0))
 		var description_start := card_rect.position.y + 64.0 * compact_scale
-		var description_step := 10.0 * compact_scale
+		var description_step := 12.0 * compact_scale
 		var badge_lane_top := card_rect.end.y - 18.0 * compact_scale
 		for detail_index in range(3):
 			var baseline := RuntimePerkOverlayRenderer.tower_node_hover_detail_row_baseline(
