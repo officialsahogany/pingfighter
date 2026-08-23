@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v10_floor_one_boss_choices"
+const GENERATOR_VERSION := "tower_map_v11_floor_one_full_roster"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -1369,20 +1369,19 @@ func _draw_unique_noncombat_kinds(
 
 
 func _floor_one_optional_encounter_enabled(
-	rng: RandomNumberGenerator
+	_rng: RandomNumberGenerator
 ) -> bool:
 	var stage_one_pool_size := TowerAscentBossRegistry.new().get_floor_slots(1).size()
 	var remaining_after_required := maxi(
 		0,
 		stage_one_pool_size - 1 - FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT
 	)
-	if remaining_after_required <= 0:
-		return false
-	# One equally weighted skip outcome competes with every still-unique slot.
-	# The current three-boss pool leaves one slot after the start boss and the
-	# guaranteed encounter, so the second encounter is derived as 1 / (1 + 1)
-	# = 50%, without a detached tuning literal.
-	return rng.randi_range(0, remaining_after_required) < remaining_after_required
+	# 피드백2 4항: the S8 derived 50% skip made whole runs where one roster
+	# boss never appeared on the map. The second encounter now spawns whenever
+	# a unique slot remains, so the full first-floor roster (start + both
+	# choice rows) is visible on every seed. Still pool-derived: a larger
+	# future pool keeps exactly one optional row here (row roles are fixed).
+	return remaining_after_required > 0
 
 
 func _shuffle_ints(values: Array[int], rng: RandomNumberGenerator) -> void:

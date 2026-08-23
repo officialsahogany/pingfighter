@@ -179,12 +179,15 @@ func _verify_standard_seeds() -> void:
 		if _negative_fixture.is_empty():
 			_negative_fixture = graph.duplicate(true)
 		_verify_fit_all_budget(map_seed)
-	_expect(_guaranteed_only_count > 0, "128 seeds must exercise the one-extra-boss outcome")
-	_expect(_optional_second_count > 0, "128 seeds must exercise the two-extra-boss outcome")
-	var optional_ratio := _safe_ratio(_optional_second_count, SAMPLE_SEED_COUNT)
+	# 피드백2 4항: the derived 50% skip is retired — the full roster contract
+	# requires the second encounter on every seed while a unique slot remains.
 	_expect(
-		optional_ratio >= 0.35 and optional_ratio <= 0.65,
-		"derived optional encounter should remain near its current 1/(1+1) share"
+		_guaranteed_only_count == 0,
+		"full roster: no seed may skip the second first-floor encounter"
+	)
+	_expect(
+		_optional_second_count == SAMPLE_SEED_COUNT,
+		"full roster: all 128 seeds must spawn both first-floor encounters"
 	)
 	_expect(
 		_safe_ratio(_combat_node_count, _generated_node_count)
@@ -260,8 +263,8 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 		"seed %d must retain exactly four scoped expansion rows" % map_seed
 	)
 	_expect(
-		boss_choice_rows.size() in [1, 2],
-		"seed %d must expose one or two selectable first-floor boss rows" % map_seed
+		boss_choice_rows.size() == 2,
+		"seed %d must expose both selectable first-floor boss rows" % map_seed
 	)
 	_expect(
 		floor_one_keys.size() == boss_choice_rows.size() + 1,
