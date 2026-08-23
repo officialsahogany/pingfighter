@@ -228,6 +228,53 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 		)
 		if assigned_generated_boss_count > generated_boss_budget:
 			return {}
+	# 피드백2 8항: 모든 생성 관문은 초크포인트 조우다. 예산·라운드로빈보다
+	# 먼저 층 풀에서 배정을 예약하며, 유니크 키가 소진된 층(셸 스탠드인이
+	# 층간 중복 키를 공유)은 첫 유효 슬롯을 중복 표식과 함께 배정한다 —
+	# 관문은 반드시 그 층 보스가 지켜야 하고, 실제 변형 보스가 포팅되면
+	# 중복 표식은 자연 소멸한다.
+	for gate_index in range(nodes.size()):
+		if gate_index == terminal_node_index or not (nodes[gate_index] is Dictionary):
+			continue
+		var gate_node := nodes[gate_index] as Dictionary
+		var gate_floor := int(
+			gate_node.get("segment_floor", gate_node.get("floor", 0))
+		)
+		if (
+			not bool(gate_node.get("gatekeeper", false))
+			or gate_floor > active_clear_floor
+			or str(gate_node.get("content_state", "")) != CONTENT_GENERATED
+			or str(gate_node.get("kind", "")) not in COMBAT_NODE_KINDS
+			or str(gate_node.get("boss_assignment_state", "")) == "assigned"
+		):
+			continue
+		var gate_slots := _get_shuffled_generation_slots(gate_floor, map_seed)
+		var gate_assigned := false
+		for gate_slot in gate_slots:
+			var gate_key := canonical_encounter_key(
+				get_standin(str(gate_slot.get("slot_id", "")))
+			)
+			if gate_key.is_empty() or used_generated_encounter_keys.has(gate_key):
+				continue
+			_assign_boss_slot(gate_node, gate_slot, gate_slots, gate_key)
+			used_generated_encounter_keys[gate_key] = true
+			assigned_generated_boss_count += 1
+			gate_assigned = true
+			break
+		if not gate_assigned:
+			for gate_slot in gate_slots:
+				var gate_key := canonical_encounter_key(
+					get_standin(str(gate_slot.get("slot_id", "")))
+				)
+				if gate_key.is_empty():
+					continue
+				_assign_boss_slot(gate_node, gate_slot, gate_slots, gate_key)
+				gate_node["standin_duplicate_gate"] = true
+				assigned_generated_boss_count += 1
+				gate_assigned = true
+				break
+		if not gate_assigned:
+			return {}
 	var generated_candidates := _generated_boss_candidate_indexes(
 		nodes,
 		active_clear_floor,
@@ -239,6 +286,8 @@ func decorate_graph(graph: Dictionary, map_seed: int) -> Dictionary:
 		if assigned_generated_boss_count >= generated_boss_budget:
 			break
 		var candidate_node := nodes[candidate_index] as Dictionary
+		if str(candidate_node.get("boss_assignment_state", "")) == "assigned":
+			continue
 		var floor_number := int(
 			candidate_node.get("segment_floor", candidate_node.get("floor", 0))
 		)
@@ -393,7 +442,8 @@ func analyze_visible_boss_contract(
 				segment_floor,
 				str(node.get("id", "")),
 				used_encounter_keys,
-				issues
+				issues,
+				bool(node.get("standin_duplicate_gate", false))
 			)
 			visible_encounter_count += 1
 	return {
@@ -541,7 +591,8 @@ func _register_visible_encounter(
 	segment_floor: int,
 	node_id: String,
 	used_encounter_keys: Dictionary,
-	issues: Array[String]
+	issues: Array[String],
+	allow_standin_duplicate: bool = false
 ) -> void:
 	var slot := get_slot(slot_id)
 	if slot.is_empty():
@@ -559,6 +610,12 @@ func _register_visible_encounter(
 		return
 	if segment_floor == 1 and int(get_standin(slot_id).get("stage", 0)) != 1:
 		issues.append("floor_1_forbidden_encounter=%s:%s" % [node_id, encounter_key])
+	# 피드백2 8항: 초크포인트 관문은 층 풀의 유니크 키가 소진되어도 그 층
+	# 보스가 지켜야 하므로, 명시적 스탠드인 중복 표식이 있는 관문은 런 전체
+	# 유니크 계약에서 대체 조우로 취급된다 — 키를 소비하지도, 등록 순서와
+	# 무관하게 충돌을 일으키지도 않는다(실 변형 보스가 포팅되면 소멸).
+	if allow_standin_duplicate:
+		return
 	if used_encounter_keys.has(encounter_key):
 		issues.append(
 			"duplicate_encounter_key=%s:first_%s:again_%s"

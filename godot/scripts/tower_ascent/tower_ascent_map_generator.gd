@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v11_floor_one_full_roster"
+const GENERATOR_VERSION := "tower_map_v12_gate_chokepoint"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -612,11 +612,28 @@ func _analyze_phase_integrity(
 			node_by_id
 		):
 			issues.append("forbidden_singleton_row=%d" % row_index)
-		if row_index > 0 and (ordered_rows[row_index - 1] as Array).size() < 2:
+		# 피드백2 8항: 허용 싱글턴끼리의 인접(신선계 진입 단일로 -> 단일
+		# 관문)은 의도된 회랑이다. 비허용 싱글턴이 낀 협로만 계약 위반.
+		if (
+			row_index > 0
+			and (ordered_rows[row_index - 1] as Array).size() < 2
+			and not _is_allowed_singleton_row(
+				phase,
+				row_index - 1,
+				ordered_rows,
+				node_by_id
+			)
+		):
 			issues.append("singleton_previous_row_too_narrow=%d" % row_index)
 		if (
 			row_index + 1 < ordered_rows.size()
 			and (ordered_rows[row_index + 1] as Array).size() < 2
+			and not _is_allowed_singleton_row(
+				phase,
+				row_index + 1,
+				ordered_rows,
+				node_by_id
+			)
 		):
 			issues.append("singleton_next_row_too_narrow=%d" % row_index)
 	var reachable_from_entry := _walk_adjacency([entry_id], outgoing)
@@ -659,8 +676,13 @@ func _analyze_phase_integrity(
 			if target_outgoing.size() == 1:
 				var final_target_id := str(target_outgoing[0])
 				var final_target: Dictionary = node_by_id.get(final_target_id, {})
+				# 피드백2 8항: 단일 선택 체인은 보스 관문으로 수렴할 때만
+				# 허용된다(초크포인트 의도). 기존 최종보스 체인 면제의 일반화.
 				var allowed_final_boss_chain := (
-					last_row.has(final_target_id)
+					(
+						last_row.has(final_target_id)
+						or bool(final_target.get("gatekeeper", false))
+					)
 					and str(final_target.get("kind", "")) in COMBAT_NODE_KINDS
 				)
 				if not allowed_final_boss_chain:
@@ -766,7 +788,7 @@ func _is_generated_combat_node(node: Dictionary) -> bool:
 
 
 func _is_allowed_singleton_row(
-	phase: Dictionary,
+	_phase: Dictionary,
 	row_index: int,
 	ordered_rows: Array,
 	node_by_id: Dictionary
@@ -777,14 +799,9 @@ func _is_allowed_singleton_row(
 	if row_ids.size() != 1:
 		return false
 	var node: Dictionary = node_by_id.get(str(row_ids[0]), {})
-	var segment_floor := int(node.get("segment_floor", node.get("floor", 0)))
-	if bool(node.get("gatekeeper", false)) and segment_floor in [11, TOWER_FLOOR_COUNT]:
-		return true
-	return (
-		row_index == ordered_rows.size() - 1
-		and bool(node.get("gatekeeper", false))
-		and segment_floor == int(phase.get("standard_clear_floor", STANDARD_CLEAR_FLOOR))
-	)
+	# 피드백2 8항: 모든 관문 행은 단일 레인 초크포인트로 허용된다. 비관문
+	# 싱글턴은 여전히 금지(첫 행 제외).
+	return bool(node.get("gatekeeper", false))
 
 
 func _count_boss_spacing_violations(
@@ -1287,22 +1304,15 @@ func _choose_route_lane_count(
 
 func _choose_gatekeeper_lane_count(
 	_rng: RandomNumberGenerator,
-	floor_number: int,
-	previous_lane_count: int,
-	active_clear_floor: int
+	_floor_number: int,
+	_previous_lane_count: int,
+	_active_clear_floor: int
 ) -> int:
-	if (
-		floor_number == 1
-		or floor_number == active_clear_floor
-		or floor_number in [11, TOWER_FLOOR_COUNT]
-	):
-		return 1
-	if previous_lane_count <= 1:
-		return ROUTE_CANDIDATE_COUNT
-	# Lane width belongs to graph topology. Boss availability is normalized later
-	# by the registry with deterministic NPC fills, so audition filtering and
-	# sparse content pools can never collapse a route into a one-lane chain.
-	return MAP_LANE_COUNT_MIN
+	# 피드백2 8항: 모든 층 관문은 단일 레인 초크포인트다. NPC 레인으로 관문을
+	# 우회해 보스 없이 층을 넘던 경로가 사라지고, 층당 최소 1회 보스 조우가
+	# 구조적으로 보장된다(선택 보스는 1층 확장 행이 담당). 관문 다음 행은
+	# _choose_route_lane_count의 prev<=1 규칙이 2레인으로 되살린다.
+	return 1
 
 
 func _segment_floor_for_optional_row(

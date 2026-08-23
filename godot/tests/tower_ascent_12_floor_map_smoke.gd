@@ -60,10 +60,11 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 		var gate_row: Dictionary = floor_data.rows[floor_data.rows.size() - 1]
 		_expect(bool(gate_row.gatekeeper), "each floor must end at an unavoidable gatekeeper row")
 		var floor_number := int(floor_data.floor)
-		var expected_singleton_gate := floor_number in [1, 9, 11, 12]
+		# 피드백2 8항: 모든 관문은 단일 레인 초크포인트다 — NPC 레인으로
+		# 관문을 우회하는 경로가 존재하지 않는다.
 		_expect(
-			gate_row.node_ids.size() == 1 if expected_singleton_gate else gate_row.node_ids.size() in [2, 3],
-			"floor %d gate width must preserve branches except at true realm/group endpoints" % floor_number
+			gate_row.node_ids.size() == 1,
+			"floor %d gate must be the single-lane chokepoint" % floor_number
 		)
 		for gate_node_id_variant in gate_row.node_ids:
 			var gate_node: Dictionary = node_by_id.get(str(gate_node_id_variant), {})
@@ -76,8 +77,10 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 		if floor_index > 0:
 			var route_row: Dictionary = floor_data.rows[0]
 			var route_width: int = (route_row.get("node_ids", []) as Array).size()
-			var expected_route_widths: Array = [1] if floor_number == 10 else ([2] if floor_number in [2, 12] else [3, 4])
-			_expect(route_width in expected_route_widths, "floor %d route width must follow the seeded narrow/wide rhythm" % floor_number)
+			# 단일 관문(prev=1) 다음 경로 행은 2레인으로 되살아나고, 신선계
+			# 진입(클리어+1)만 의도된 단일로다.
+			var expected_route_widths: Array = [1] if floor_number == 10 else [2]
+			_expect(route_width in expected_route_widths, "floor %d route width must follow the chokepoint rhythm" % floor_number)
 		for row_variant in floor_data.rows:
 			for node_id_variant in (row_variant as Dictionary).node_ids:
 				var node: Dictionary = node_by_id.get(str(node_id_variant), {})
@@ -101,7 +104,7 @@ func _verify_standard_distribution_for_many_seeds() -> void:
 		_expect(
 			float(integrity.get("boss_ratio", 1.0))
 			<= TowerAscentTuning.TEMP_GENERATED_BOSS_NODE_MAX_RATIO + 0.000001,
-			"generated boss density must stay at or below twenty percent for seed %d" % map_seed
+			"generated boss density must stay at or below the tuned ceiling for seed %d" % map_seed
 		)
 		_expect(
 			int(integrity.get("npc_node_count", 0))

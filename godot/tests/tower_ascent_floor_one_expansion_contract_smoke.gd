@@ -133,6 +133,7 @@ func _verify_standard_seeds() -> void:
 		)
 		var added_node_count := 0
 		var floor_one_choice_count := 0
+		var gatekeeper_boss_count := 0
 		for node_variant in human_phase.get("nodes", []):
 			if not (node_variant is Dictionary):
 				continue
@@ -141,18 +142,28 @@ func _verify_standard_seeds() -> void:
 				added_node_count += 1
 			if bool(node.get("floor_one_boss_choice", false)):
 				floor_one_choice_count += 1
+			if (
+				bool(node.get("gatekeeper", false))
+				and str(node.get("content_state", "")) == "generated"
+				and str(node.get("kind", ""))
+					in TowerAscentMapGenerator.COMBAT_NODE_KINDS
+			):
+				gatekeeper_boss_count += 1
 		_expect(
 			added_node_count == 10,
 			"seed %d must identify exactly ten first-floor-added nodes" % map_seed
 		)
-		var baseline_boss_budget := floori(
-			float(int(integrity.get("generated_node_count", 0)) - added_node_count)
-			* TowerAscentTuning.TEMP_GENERATED_BOSS_NODE_MAX_RATIO
+		# 피드백2 8항: 보스 수는 예산 파생이 아니라 구조 고정이다 — 층당
+		# 단일 레인 초크포인트 관문(1..클리어층) + 1층 선택 조우 2.
+		_expect(
+			gatekeeper_boss_count == TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR,
+			"seed %d must keep every human-realm floor gate a chokepoint boss"
+			% map_seed
 		)
 		_expect(
 			int(integrity.get("combat_node_count", 0))
-				== baseline_boss_budget + floor_one_choice_count,
-			"seed %d must add bosses only for actual first-floor encounter rows"
+				== gatekeeper_boss_count + floor_one_choice_count,
+			"seed %d combat count must be exactly the gates plus the first-floor choices"
 			% map_seed
 		)
 		_generated_node_count += int(integrity.get("generated_node_count", 0))

@@ -67,15 +67,28 @@ func _verify_arrival_routes_through_production_selector() -> void:
 	var owner := FakeOwner.new(selection)
 	var registry := FakeRegistry.new()
 	registry.instances["battle_scene_match_event_driver"] = BattleSceneMatchEventDriver.new()
-	var flow := TowerAscentFlowOwner.new()
-	_expect(flow.prepare_vertical_slice_combat(owner, {
-		"run_id": "routing-arrival",
-		"map_seed": 45190,
-		"current_stage": 1,
-	}), "tower combat must prepare before route arrival")
-	var target := _find_node_for_slot(flow, "floor_02_arachne")
-	_expect(not target.is_empty(), "fixture seed must expose the Arachne route node")
-	if target.is_empty():
+	# 피드백2 8항: 2층 관문 보스는 시드 셔플이 고르므로 고정 시드 대신
+	# 술어 탐색으로 아라크네 관문 시드를 찾는다(회피 스모크와 같은 규율).
+	var flow: Object = null
+	var target: Dictionary = {}
+	for seed_offset in range(64):
+		var probe_flow := TowerAscentFlowOwner.new()
+		if not probe_flow.prepare_vertical_slice_combat(owner, {
+			"run_id": "routing-arrival",
+			"map_seed": 45190 + seed_offset * 7919,
+			"current_stage": 1,
+		}):
+			continue
+		var probe_target := _find_node_for_slot(probe_flow, "floor_02_arachne")
+		if not probe_target.is_empty():
+			flow = probe_flow
+			target = probe_target
+			break
+	_expect(
+		flow != null and not target.is_empty(),
+		"a probed seed must expose the Arachne gate encounter"
+	)
+	if flow == null or target.is_empty():
 		return
 	flow.set("_active", true)
 	flow.set("_finish_callback", Callable(self, "_capture_route"))

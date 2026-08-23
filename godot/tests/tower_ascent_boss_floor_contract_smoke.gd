@@ -125,7 +125,9 @@ func _verify_configuration(audition_enabled: bool, map_seed: int) -> void:
 				terminal_boss_count += 1
 				terminal_slot_id = str(node.get("boss_slot_id", ""))
 	_expect(terminal_boss_count == 1, "%s must retain exactly one reachable terminal boss" % mode_name)
-	_expect(npc_fill_count > 0, "%s must exercise deterministic NPC normalization" % mode_name)
+	# 피드백2 8항: 단일 레인 초크포인트에서는 어떤 관문 레인도 NPC로
+	# 강등되지 않는다 — 강등 0이 구조 계약이다.
+	_expect(npc_fill_count == 0, "%s chokepoint gates must never normalize to NPCs" % mode_name)
 	if audition_enabled:
 		var human_phase := first.get("phases", [])[0] as Dictionary
 		for floor_number in range(4, active_clear_floor + 1):
@@ -134,8 +136,8 @@ func _verify_configuration(audition_enabled: bool, map_seed: int) -> void:
 			var gate_row: Dictionary = (floor_data.get("rows", []) as Array)[-1]
 			var gate_width := (gate_row.get("node_ids", []) as Array).size()
 			_expect(
-				gate_width == 1 if floor_number == active_clear_floor else gate_width >= 2,
-				"audition floor %d lane width must be topology-owned despite its one-slot boss pool" % floor_number
+				gate_width == 1,
+				"audition floor %d gate must be the single-lane chokepoint regardless of pool size" % floor_number
 			)
 	_configuration_summaries.append(
 		"%s:clear=%d:visible=%d:unique=%d:npc_fill=%d:terminal=%s"
