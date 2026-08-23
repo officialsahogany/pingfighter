@@ -23,6 +23,9 @@ const TowerAscentUnlockFilter := preload(
 )
 
 var _failures: Array[String] = []
+var _initial_route_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed(
+	"fallen_monk"
+)
 
 
 class FakeOwner:
@@ -315,7 +318,7 @@ func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-contract",
-		"map_seed": 3,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
@@ -408,7 +411,7 @@ func _verify_swap_rejection_rolls_back_without_payment() -> void:
 	var owner := FakeOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-rollback",
-		"map_seed": 3,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40},
 		"registry": fixture.registry,
@@ -449,7 +452,7 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 	var owner := FakeOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "fallen-monk-poor",
-		"map_seed": 3,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 2},
 		"registry": fixture.registry,

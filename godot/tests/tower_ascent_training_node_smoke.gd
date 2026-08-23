@@ -35,6 +35,9 @@ const LanguageSettings := preload(
 )
 
 var _failures: Array[String] = []
+var _initial_route_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed(
+	"training"
+)
 
 
 class FakeOwner:
@@ -205,7 +208,7 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "training-contract",
-		"map_seed": 5,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30, "gold": 0, "chance_gems": 3},
 		"registry": registry,
@@ -302,7 +305,7 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "training-maximum",
-		"map_seed": 5,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 10},
 		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new(), unlock_store),
@@ -408,7 +411,7 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 	var poor_owner := FakeOwner.new()
 	_expect(poor_flow.begin_vertical_slice(poor_owner, Callable(), {
 		"run_id": "training-poor",
-		"map_seed": 5,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 0},
 		"registry": _build_registry(poor_runtime, FakeRuntimePerkCatalog.new()),
@@ -429,7 +432,7 @@ func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
 	var rejected_owner := FakeOwner.new()
 	_expect(rejected_flow.begin_vertical_slice(rejected_owner, Callable(), {
 		"run_id": "training-rejected",
-		"map_seed": 5,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30},
 		"registry": _build_registry(rejected_runtime, FakeRuntimePerkCatalog.new()),

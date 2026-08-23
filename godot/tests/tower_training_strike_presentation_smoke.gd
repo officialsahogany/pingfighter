@@ -373,22 +373,7 @@ func _verify_source_and_host_contracts() -> void:
 
 
 func _find_initial_route_seed(expected_kind: String) -> int:
-	var generator := TowerAscentMapGenerator.new()
-	for map_seed in range(1, 513):
-		var graph: Dictionary = generator.generate_tower(map_seed)
-		if graph.is_empty():
-			continue
-		var phase: Dictionary = graph.get("phases", [])[0]
-		var node_by_id: Dictionary = {}
-		for node_variant in phase.get("nodes", []):
-			if node_variant is Dictionary:
-				var node := node_variant as Dictionary
-				node_by_id[str(node.get("id", ""))] = node
-		for node_id_variant in phase.get("initial_route_candidate_ids", []):
-			var node: Dictionary = node_by_id.get(str(node_id_variant), {})
-			if str(node.get("kind", "")) == expected_kind:
-				return map_seed
-	return 0
+	return TowerAscentNodeArrivalTestFixture.find_initial_route_seed(expected_kind)
 
 
 func _build_texture_cache() -> Dictionary:

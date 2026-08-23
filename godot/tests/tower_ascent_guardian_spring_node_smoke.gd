@@ -37,6 +37,9 @@ const TowerAscentTuning := preload(
 const CODEX_PATH := "user://tower_ascent_guardian_spring_smoke.cfg"
 
 var _failures: Array[String] = []
+var _initial_route_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed(
+	"guardian_spring"
+)
 
 
 class FakeOwner:
@@ -229,7 +232,7 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-contract",
-		"map_seed": 2,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 20, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
@@ -343,7 +346,7 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 	fixture.registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-poor",
-		"map_seed": 2,
+		"map_seed": _initial_route_seed,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 1},
 		"registry": fixture.registry,
