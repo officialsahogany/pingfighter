@@ -45,7 +45,7 @@ try {
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
-        -or -not $outputText.Contains("battle_scene_victory_modal_zorder_visual_qa: captures=2") `
+        -or -not $outputText.Contains("battle_scene_victory_modal_zorder_visual_qa: captures=5") `
         -or -not $outputText.Contains("battle_scene_victory_modal_zorder_visual_qa: ok")
     ) {
         Write-Host "Victory modal z-order visual QA log preserved for triage: $logPath"

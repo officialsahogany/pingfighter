@@ -343,6 +343,12 @@ func process_physics(
 
 	sample_start = _perf_begin(perf_logger)
 	if _should_block_battle_physics(module_getter, perf_logger):
+		# Mythic acquisition maintenance belongs immediately before the common
+		# modal-block return. The acquisition itself is a blocking modal, but its
+		# only production clock is the mythic item update path that this gate skips.
+		# Keep the modal registered and pump that path exactly once on blocked
+		# frames; a higher-priority perk/Angel modal retains exclusive ownership.
+		_update_blocked_mythic_acquisition(delta, owner, registry, module_getter)
 		_pause_modal_active_item_cooldowns(owner, registry, module_getter)
 		_stop_modal_blocked_gameplay_loop_audio(module_getter)
 		_perf_end(perf_logger, "physics.frame.gate.modal_block", sample_start)
@@ -1002,6 +1008,26 @@ func _should_block_battle_physics(module_getter: Callable, perf_logger: Object =
 	if modal_gate.has_method("should_block_battle_physics"):
 		return bool(modal_gate.should_block_battle_physics(module_getter))
 	return false
+
+
+func _update_blocked_mythic_acquisition(
+	delta: float,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable
+) -> void:
+	if not _call_modal_gate_bool(module_getter, "is_mythic_acquisition_cinematic_active"):
+		return
+	if (
+		_call_modal_gate_bool(module_getter, "is_runtime_perk_choice_active")
+		or _call_modal_gate_bool(module_getter, "is_angel_blessing_modal_active")
+	):
+		return
+	var item_driver: Object = _get_module(module_getter, "battle_scene_item_update_driver")
+	if item_driver == null or not item_driver.has_method("update_mythic_items"):
+		return
+	item_driver.update_mythic_items(owner, registry, delta)
+	_queue_redraw(owner)
 
 
 func _pause_modal_active_item_cooldowns(owner: Object, registry: Object, module_getter: Callable) -> void:
