@@ -26,6 +26,9 @@ const CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD := 3
 const FAILURE_REASON_ASYNC_CAPTURE_ERROR := "async_capture_error"
 const FAILURE_REASON_BYTE_SIZE_MISMATCH := "byte_size_mismatch"
 const FAILURE_REASON_CROP_SYNC_FAILURE := "crop_sync_failure"
+const ARM_RESULT_NOT_ARMED := 0
+const ARM_RESULT_ARMED := 1
+const ARM_RESULT_RETRY := 2
 const DEBUG_CAPTURE_ARG := "--victory-highlight-frame-capture-debug"
 const DEBUG_CAPTURE_PNG_PATH := "user://victory_highlight_frame_capture_debug.png"
 const NORMALIZED_CROP_SHADER_CODE := """
@@ -76,8 +79,10 @@ var _failed := false
 var _forced_startup_failure := false
 var _forced_runtime_failure := false
 var _forced_crop_sync_failure_once := false
+var _forced_viewport_degeneracy_once := false
 var _capture_failure_count := 0
 var _consecutive_capture_failure_count := 0
+var _viewport_retry_count := 0
 var _last_capture_failure_reason := ""
 var _last_capture_failure_detail := ""
 var _fallback_reason := ""
@@ -87,6 +92,7 @@ var _debug_capture_enabled := false
 var _debug_arm_logged := false
 var _debug_post_draw_logged := false
 var _debug_png_dumped := false
+var _prewarm_capture_armed := false
 
 
 func _init() -> void:
@@ -119,13 +125,21 @@ func prewarm_step(owner: Object) -> bool:
 			return true
 		_build_blit_viewport()
 		_connect_frame_signal()
-		if not _sync_blit_crop():
-			_fail_startup(FAILURE_REASON_CROP_SYNC_FAILURE, "prewarm crop synchronization failed")
-			return true
-		_blit_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		_prewarm_started = true
-		return false
 	if not _prewarm_draw_seen:
+		if not _prewarm_capture_armed:
+			var crop_sync := _sync_blit_crop()
+			if bool(crop_sync.get("retry", false)):
+				_record_viewport_retry("startup", str(crop_sync.get("detail", "viewport temporarily unavailable")))
+				return false
+			if not bool(crop_sync.get("synced", false)):
+				_fail_startup(
+					FAILURE_REASON_CROP_SYNC_FAILURE,
+					str(crop_sync.get("detail", "prewarm crop synchronization failed"))
+				)
+				return true
+			_blit_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+			_prewarm_capture_armed = true
 		return false
 	var source_texture := RenderingServer.viewport_get_texture(_blit_viewport.get_viewport_rid())
 	_source_rd_texture = RenderingServer.texture_get_rd_texture(source_texture, false)
@@ -159,8 +173,10 @@ func capture_visual(logical_time_sec: float) -> bool:
 	if not _pending_capture.is_empty() or _in_flight >= MAX_IN_FLIGHT:
 		_capture_dropped_count += 1
 		return false
+	var arm_result := _arm_capture(logical_time_sec, {})
+	if arm_result != ARM_RESULT_ARMED:
+		return false
 	_capture_armed_count += 1
-	_arm_capture(logical_time_sec, {})
 	return true
 
 
@@ -181,7 +197,7 @@ func request_goal_capture(state_clip: Dictionary, retained_clip_ids: Array[int])
 
 
 func attach_frame_payloads(selected_clips: Array[Dictionary]) -> bool:
-	if _failed or selected_clips.is_empty():
+	if selected_clips.is_empty():
 		return false
 	var attached_any := false
 	for clip in selected_clips:
@@ -211,9 +227,13 @@ func reset() -> void:
 	_forced_startup_failure = false
 	_forced_runtime_failure = false
 	_forced_crop_sync_failure_once = false
+	_forced_viewport_degeneracy_once = false
 
 
-func release_all(preserve_failure_diagnostics: bool = false) -> void:
+func release_all(
+	preserve_failure_diagnostics: bool = false,
+	preserve_promoted_clips: bool = false
+) -> void:
 	_capture_epoch += 1
 	_recording_enabled = false
 	_pending_capture.clear()
@@ -239,13 +259,14 @@ func release_all(preserve_failure_diagnostics: bool = false) -> void:
 	_ready = false
 	_prewarm_started = false
 	_prewarm_draw_seen = false
+	_prewarm_capture_armed = false
 	_next_capture_sec = -INF
 	_reset_capture_metrics()
 	_crop_uv_rect = Rect2(Vector2.ZERO, Vector2.ONE)
 	_debug_arm_logged = false
 	_debug_post_draw_logged = false
 	_debug_png_dumped = false
-	_clear_frame_storage()
+	_clear_frame_storage(preserve_promoted_clips)
 	if not preserve_failure_diagnostics:
 		_reset_failure_diagnostics()
 
@@ -282,6 +303,11 @@ func force_byte_size_mismatch_for_tests() -> void:
 
 func force_crop_sync_failure_for_tests() -> void:
 	_forced_crop_sync_failure_once = true
+	_arm_capture(0.0, {})
+
+
+func force_viewport_degeneracy_for_tests() -> void:
+	_forced_viewport_degeneracy_once = true
 	_arm_capture(0.0, {})
 
 
@@ -335,6 +361,7 @@ func get_debug_snapshot() -> Dictionary:
 		"capture_deadline_miss_count": _capture_deadline_miss_count,
 		"capture_failure_count": _capture_failure_count,
 		"consecutive_capture_failure_count": _consecutive_capture_failure_count,
+		"viewport_retry_count": _viewport_retry_count,
 		"failure_threshold": CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD,
 		"last_capture_failure_reason": _last_capture_failure_reason,
 		"last_capture_failure_detail": _last_capture_failure_detail,
@@ -396,20 +423,34 @@ func _disconnect_frame_signal() -> void:
 		RenderingServer.frame_post_draw.disconnect(callback)
 
 
-func _arm_capture(logical_time_sec: float, goal_descriptor: Dictionary) -> void:
+func _arm_capture(logical_time_sec: float, goal_descriptor: Dictionary) -> int:
 	if not _ready or _failed or _blit_viewport == null:
-		return
-	var crop_synced := _sync_blit_crop()
+		return ARM_RESULT_NOT_ARMED
+	var crop_sync := _sync_blit_crop()
 	if _forced_crop_sync_failure_once:
 		_forced_crop_sync_failure_once = false
-		crop_synced = false
-	if not crop_synced:
+		crop_sync = {
+			"synced": false,
+			"retry": false,
+			"detail": "normalized game crop synchronization failed",
+		}
+	if _forced_viewport_degeneracy_once:
+		_forced_viewport_degeneracy_once = false
+		crop_sync = {
+			"synced": false,
+			"retry": true,
+			"detail": "forced viewport degeneracy",
+		}
+	if bool(crop_sync.get("retry", false)):
+		_record_viewport_retry("runtime", str(crop_sync.get("detail", "viewport temporarily unavailable")))
+		return ARM_RESULT_RETRY
+	if not bool(crop_sync.get("synced", false)):
 		_register_capture_failure(
 			FAILURE_REASON_CROP_SYNC_FAILURE,
-			"normalized game crop synchronization failed",
+			str(crop_sync.get("detail", "normalized game crop synchronization failed")),
 			goal_descriptor
 		)
-		return
+		return ARM_RESULT_NOT_ARMED
 	_pending_capture = {
 		"epoch": _capture_epoch,
 		"logical_time_sec": logical_time_sec,
@@ -417,11 +458,17 @@ func _arm_capture(logical_time_sec: float, goal_descriptor: Dictionary) -> void:
 	}
 	_maybe_log_capture_geometry("arm")
 	_blit_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	return ARM_RESULT_ARMED
 
 
 func _on_frame_post_draw() -> void:
 	if _prewarm_started and not _ready and not _prewarm_draw_seen:
+		# A transiently degenerate root viewport never armed the prewarm draw.
+		# Ignore this unrelated frame signal so the next prewarm_step can retry.
+		if not _prewarm_capture_armed:
+			return
 		_prewarm_draw_seen = true
+		_prewarm_capture_armed = false
 		if _blit_viewport != null:
 			_blit_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		return
@@ -564,7 +611,9 @@ func _arm_queued_goal_if_possible() -> void:
 		return
 	var descriptor := _queued_goal.duplicate()
 	_queued_goal.clear()
-	_arm_capture(float(descriptor.get("goal_sec", 0.0)), descriptor)
+	var arm_result := _arm_capture(float(descriptor.get("goal_sec", 0.0)), descriptor)
+	if arm_result == ARM_RESULT_RETRY:
+		_queued_goal = descriptor
 
 
 func _prune_frame_clips() -> void:
@@ -609,18 +658,34 @@ func _reset_capture_metrics() -> void:
 	_capture_deadline_miss_count = 0
 
 
-func _sync_blit_crop() -> bool:
+func _sync_blit_crop() -> Dictionary:
 	if _root_viewport == null or _blit_rect == null or _blit_material == null:
-		return false
+		return {
+			"synced": false,
+			"retry": false,
+			"detail": "capture crop owners are unavailable",
+		}
 	var root_texture := _root_viewport.get_texture()
 	if root_texture == null:
-		return false
+		return {
+			"synced": false,
+			"retry": true,
+			"detail": "root viewport texture is null",
+		}
 	var canvas_size := _root_viewport.get_visible_rect().size
 	if canvas_size.x <= 0.0 or canvas_size.y <= 0.0:
-		return false
+		return {
+			"synced": false,
+			"retry": true,
+			"detail": "root viewport visible rect is degenerate: %s" % str(canvas_size),
+		}
 	var crop_uv_rect := _build_normalized_game_uv(canvas_size)
 	if not _is_valid_normalized_uv_rect(crop_uv_rect):
-		return false
+		return {
+			"synced": false,
+			"retry": false,
+			"detail": "normalized game crop is invalid: %s" % str(crop_uv_rect),
+		}
 	# The crop is expressed only in normalized source UVs. Canvas units,
 	# framebuffer pixels, and a temporarily stale ViewportTexture size therefore
 	# cannot produce an out-of-range absolute AtlasTexture.region.
@@ -630,7 +695,7 @@ func _sync_blit_crop() -> bool:
 		Vector4(crop_uv_rect.position.x, crop_uv_rect.position.y, crop_uv_rect.size.x, crop_uv_rect.size.y)
 	)
 	_crop_uv_rect = crop_uv_rect
-	return true
+	return {"synced": true, "retry": false, "detail": ""}
 
 
 func _build_normalized_game_uv(view_size: Vector2) -> Rect2:
@@ -720,6 +785,15 @@ func _register_capture_failure(reason: String, detail: String, goal_descriptor: 
 	_arm_queued_goal_if_possible()
 
 
+func _record_viewport_retry(phase: String, detail: String) -> void:
+	_viewport_retry_count += 1
+	if _debug_capture_enabled:
+		print(
+			"victory_highlight_frame_capture_retry: phase=%s action=skip reason=viewport_degenerate detail=%s retry_count=%d"
+			% [phase, detail, _viewport_retry_count]
+		)
+
+
 func _record_capture_success() -> void:
 	if _consecutive_capture_failure_count <= 0:
 		return
@@ -780,13 +854,14 @@ func _fail_runtime(reason: String, detail: String) -> void:
 	_last_failure_log = _build_failure_log("runtime", "fallback", reason, detail)
 	print(_last_failure_log)
 	_failed = true
-	release_all(true)
+	release_all(true, true)
 	_failed = true
 
 
 func _reset_failure_diagnostics() -> void:
 	_capture_failure_count = 0
 	_consecutive_capture_failure_count = 0
+	_viewport_retry_count = 0
 	_last_capture_failure_reason = ""
 	_last_capture_failure_detail = ""
 	_fallback_reason = ""
@@ -794,11 +869,12 @@ func _reset_failure_diagnostics() -> void:
 	_last_recovery_log = ""
 
 
-func _clear_frame_storage() -> void:
+func _clear_frame_storage(preserve_promoted_clips: bool = false) -> void:
 	for index in range(RING_SLOT_COUNT):
 		_ring_frames[index] = PackedByteArray()
 		_ring_times[index] = -INF
 	_ring_write_index = 0
 	_ring_count = 0
-	_frame_clips_by_id.clear()
-	_retained_clip_ids.clear()
+	if not preserve_promoted_clips:
+		_frame_clips_by_id.clear()
+		_retained_clip_ids.clear()

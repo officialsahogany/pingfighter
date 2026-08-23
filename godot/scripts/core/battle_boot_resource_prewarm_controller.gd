@@ -93,6 +93,7 @@ var stage_runtime_resources_prewarmed_for_stage: int = 0
 var stage_runtime_prewarm_step_stage: int = 0
 var stage_runtime_prewarm_step_index: int = 0
 var stage_runtime_prewarm_detail_label: String = ""
+var victory_highlight_frame_lane_prewarmed := false
 var battle_pso_prewarmer_attached: bool = false
 var battle_pso_prewarmer_stage_ids: Dictionary = {}
 
@@ -334,6 +335,11 @@ func get_stage_runtime_prewarm_debug_label(owner: Object) -> String:
 
 func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable, wait_for_frame_gated_pso: bool = true) -> bool:
 	var current_stage: int = _get_current_stage(owner)
+	# Frame capture owns match-scoped resources while this controller's stage
+	# cache is stage-scoped. Reattach and revive that lane before consulting the
+	# stage gate so a same-stage rematch cannot inherit an unavailable recorder.
+	if not prewarm_victory_highlight_frame_lane_step(owner, module_getter):
+		return false
 	if stage_runtime_resources_prewarmed_for_stage == current_stage:
 		return true
 	if stage_runtime_prewarm_step_stage != current_stage:
@@ -1248,24 +1254,40 @@ func prewarm_ball_update_runtime_resources_step(owner: Object, module_getter: Ca
 				return false
 		elif prewarm_driver.has_method("prewarm_ball_update"):
 			prewarm_driver.prewarm_ball_update(owner, registry)
+	return true
+
+
+func prewarm_victory_highlight_frame_lane_step(owner: Object, module_getter: Callable) -> bool:
 	var frame_capture: Object = _get_module(module_getter, "victory_highlight_frame_capture_state")
 	var recorder: Object = _get_module(module_getter, "victory_highlight_recorder")
 	if recorder != null and recorder.has_method("set_frame_capture_state"):
 		recorder.set_frame_capture_state(frame_capture)
-	if frame_capture != null and frame_capture.has_method("prewarm_step"):
-		if not bool(frame_capture.prewarm_step(owner)):
-			return false
-	var frame_renderer: Object = _get_module(module_getter, "victory_highlight_frame_renderer")
 	var frame_capture_available := (
 		frame_capture != null
 		and frame_capture.has_method("is_available")
 		and bool(frame_capture.is_available())
 	)
-	if frame_capture_available and frame_renderer != null:
+	if not frame_capture_available:
+		victory_highlight_frame_lane_prewarmed = false
+	if (
+		not frame_capture_available
+		and frame_capture != null
+		and frame_capture.has_method("prewarm_step")
+		and not bool(frame_capture.prewarm_step(owner))
+	):
+		return false
+	frame_capture_available = (
+		frame_capture != null
+		and frame_capture.has_method("is_available")
+		and bool(frame_capture.is_available())
+	)
+	var frame_renderer: Object = _get_module(module_getter, "victory_highlight_frame_renderer")
+	if frame_capture_available and not victory_highlight_frame_lane_prewarmed and frame_renderer != null:
 		if frame_renderer.has_method("configure_base_renderer"):
 			frame_renderer.configure_base_renderer(_get_module(module_getter, "victory_highlight_renderer"))
 		if frame_renderer.has_method("prewarm_assets"):
 			frame_renderer.prewarm_assets()
+		victory_highlight_frame_lane_prewarmed = true
 	return true
 
 

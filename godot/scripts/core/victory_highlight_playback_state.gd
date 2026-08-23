@@ -68,6 +68,7 @@ var _content_clip: Control = null
 var _content_draw_bridge: ReplayDrawBridge = null
 var _frame_content_draw_bridge: ReplayDrawBridge = null
 var _draw_bridge: ReplayDrawBridge = null
+var _last_payload_log := ""
 
 
 func start(
@@ -98,6 +99,8 @@ func start(
 	_registry = registry
 	_renderer = renderer
 	_renderer_key = renderer_key
+	_last_payload_log = _build_payload_log(clips, registry, renderer_key)
+	print(_last_payload_log)
 	if OS.is_debug_build():
 		print("victory_highlight_playback_renderer: %s" % _renderer_key)
 	_clips = clips.duplicate()
@@ -279,6 +282,7 @@ func get_host_debug_snapshot() -> Dictionary:
 		"clip_count": _clips.size(),
 		"timeline_speed": _timeline_speed,
 		"renderer_key": _renderer_key,
+		"payload_log": _last_payload_log,
 		"skip_hold_active": is_skip_hold_active(),
 		"skip_hold_progress": get_skip_hold_progress(),
 		"host_children": _debug_child_names(_host),
@@ -444,6 +448,27 @@ func _clips_include_frame_payload(clips: Array[Dictionary]) -> bool:
 		if not frames.is_empty():
 			return true
 	return false
+
+
+func _build_payload_log(clips: Array[Dictionary], registry: Object, renderer_key: String) -> String:
+	var payloads: Array[String] = []
+	for index in range(clips.size()):
+		var clip: Dictionary = clips[index]
+		var lane := "frame" if _clip_has_frame_payload(clip) else "state"
+		payloads.append("%d:%d:%s" % [index, int(clip.get("id", -1)), lane])
+	var fallback_reason := "none"
+	var frame_capture: Object = _get_instance(registry, "victory_highlight_frame_capture_state")
+	if frame_capture != null and frame_capture.has_method("get_debug_snapshot"):
+		var snapshot_value: Variant = frame_capture.get_debug_snapshot()
+		if snapshot_value is Dictionary:
+			var snapshot: Dictionary = snapshot_value
+			var recorded_reason := str(snapshot.get("fallback_reason", ""))
+			if not recorded_reason.is_empty():
+				fallback_reason = recorded_reason
+	return (
+		"victory_highlight_playback_payloads: clip_payloads=%s last_fallback_reason=%s renderer=%s"
+		% [",".join(payloads), fallback_reason, renderer_key]
+	)
 
 
 func _emit_goal_cue_if_needed() -> void:

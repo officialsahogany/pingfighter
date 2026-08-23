@@ -1,5 +1,6 @@
 extends SceneTree
 
+const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
 const BattleSceneMatchFlowDriver := preload("res://scripts/core/battle_scene_match_flow_driver.gd")
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
@@ -9,6 +10,7 @@ const VictoryHighlightPlaybackState := preload("res://scripts/core/victory_highl
 const VictoryHighlightRecorder := preload("res://scripts/core/victory_highlight_recorder.gd")
 
 var _failures: Array[String] = []
+var _rewarm_modules: Dictionary = {}
 
 
 class TestOwner:
@@ -56,6 +58,40 @@ class FakeFrameCapture:
 
 	func reset() -> void:
 		pass
+
+
+class FakeRewarmFrameCapture:
+	extends RefCounted
+	var available := false
+	var prewarm_calls := 0
+
+	func is_available() -> bool:
+		return available
+
+	func prewarm_step(_owner: Object) -> bool:
+		prewarm_calls += 1
+		if prewarm_calls < 2:
+			return false
+		available = true
+		return true
+
+
+class FakeRewarmRecorder:
+	extends RefCounted
+	var attached_capture: Object = null
+	var attach_calls := 0
+
+	func set_frame_capture_state(frame_capture: Object) -> void:
+		attached_capture = frame_capture
+		attach_calls += 1
+
+
+class FakeCaptureDiagnostics:
+	extends RefCounted
+	var fallback_reason := "async_capture_error"
+
+	func get_debug_snapshot() -> Dictionary:
+		return {"fallback_reason": fallback_reason}
 
 
 class FakeDrawRenderer:
@@ -136,6 +172,7 @@ func _run() -> void:
 	_test_goal_hold_metrics_negative_leg()
 	_test_shadow_lane_and_goal_promotion()
 	_test_partial_frame_payload_attachment()
+	_test_same_stage_frame_lane_rewarm()
 	_test_real_playback_renderer_selection()
 	_test_actual_frame_clip_promotion()
 	_test_frame_failure_state_replay_to_loot()
@@ -355,6 +392,7 @@ func _test_real_playback_renderer_selection() -> void:
 		"victory_highlight_frame_renderer": FakeDrawRenderer.new(),
 		"victory_highlight_renderer": FakeDrawRenderer.new(),
 		"victory_highlight_recorder": FakeSelectionRecorder.new(),
+		"victory_highlight_frame_capture_state": FakeCaptureDiagnostics.new(),
 	}
 	var playback := VictoryHighlightPlaybackState.new()
 	var state_clip := _fixture_clip()
@@ -364,6 +402,11 @@ func _test_real_playback_renderer_selection() -> void:
 	_expect(playback.start(owner, registry, frame_clips, Callable()), "real playback start must accept frame-backed clips")
 	_expect(str(playback.get_host_debug_snapshot().get("renderer_key", "")) == "victory_highlight_frame_renderer", "frame-backed clips must choose the frame renderer at the single start lookup")
 	var frame_host: Dictionary = playback.get_host_debug_snapshot()
+	_expect(
+		str(frame_host.get("payload_log", "")).contains("clip_payloads=0:1:frame")
+		and str(frame_host.get("payload_log", "")).contains("last_fallback_reason=async_capture_error"),
+		"playback start must expose per-clip payload presence and the last frame fallback reason"
+	)
 	_expect(
 		str(frame_host.get("current_content_mode", "")) == "frame_full_canvas"
 		and frame_host.get("frame_content_position", Vector2.ONE) == Vector2.ZERO
@@ -390,6 +433,42 @@ func _test_real_playback_renderer_selection() -> void:
 		"mixed playback must switch to the existing state-band mode on a state clip"
 	)
 	playback.reset()
+	owner.free()
+
+
+func _test_same_stage_frame_lane_rewarm() -> void:
+	var owner := TestOwner.new()
+	root.add_child(owner)
+	var capture := FakeRewarmFrameCapture.new()
+	var recorder := FakeRewarmRecorder.new()
+	_rewarm_modules = {
+		"victory_highlight_frame_capture_state": capture,
+		"victory_highlight_recorder": recorder,
+	}
+	var controller := BattleBootResourcePrewarmController.new()
+	controller.stage_runtime_resources_prewarmed_for_stage = owner.current_stage
+	var first_complete := controller.prewarm_stage_runtime_resources_step(
+		owner,
+		Callable(self, "_get_rewarm_module")
+	)
+	_expect(
+		not first_complete
+		and capture.prewarm_calls == 1
+		and recorder.attached_capture == capture,
+		"same-stage match entry must reattach and resume an unavailable frame lane before declaring prewarm complete"
+	)
+	var second_complete := controller.prewarm_stage_runtime_resources_step(
+		owner,
+		Callable(self, "_get_rewarm_module")
+	)
+	_expect(
+		second_complete
+		and capture.prewarm_calls == 2
+		and capture.available
+		and recorder.attach_calls >= 2,
+		"same-stage frame-lane rewarm must finish through the production staged prewarm API"
+	)
+	_rewarm_modules.clear()
 	owner.free()
 
 
@@ -530,8 +609,13 @@ func _test_forced_capture_failures() -> void:
 	runtime.force_runtime_failure_for_tests()
 	var runtime_debug: Dictionary = runtime.get_debug_snapshot()
 	_expect(bool(runtime_debug.get("failed", false)) and int(runtime_debug.get("owned_rid_count", -1)) == 0, "forced runtime failure must discard frame resources for state fallback")
-	_expect(int(runtime_debug.get("frame_clip_count", -1)) == 0, "forced runtime failure must discard every promoted frame clip")
+	_expect(int(runtime_debug.get("frame_clip_count", -1)) == 1, "forced runtime failure must preserve already-promoted frame clips")
 	owner.free()
+
+
+func _get_rewarm_module(key: String) -> Object:
+	var value: Variant = _rewarm_modules.get(key, null)
+	return value as Object if typeof(value) == TYPE_OBJECT else null
 
 
 func _record_goal(

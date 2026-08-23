@@ -19,7 +19,8 @@ func _initialize() -> void:
 func _run() -> void:
 	for reason in FAILURE_METHODS:
 		_test_single_failure_recovers(str(reason))
-		_test_consecutive_failures_discard(str(reason))
+		_test_consecutive_failures_preserve_promoted_clips(str(reason))
+	_test_viewport_degeneracy_retries_without_failure()
 	if _failures.is_empty():
 		print("victory_highlight_frame_failure_recovery_smoke: ok")
 		quit(0)
@@ -76,7 +77,7 @@ func _test_single_failure_recovers(reason: String) -> void:
 	capture.reset()
 
 
-func _test_consecutive_failures_discard(reason: String) -> void:
+func _test_consecutive_failures_preserve_promoted_clips(reason: String) -> void:
 	var capture := VictoryHighlightFrameCaptureState.new()
 	var frame := _make_frame()
 	_seed_healthy_capture(capture, frame, 200)
@@ -100,9 +101,15 @@ func _test_consecutive_failures_discard(reason: String) -> void:
 			)
 			_expect(
 				int(snapshot.get("ring_count", -1)) == 0
-				and int(snapshot.get("frame_clip_count", -1)) == 0
+				and int(snapshot.get("frame_clip_count", -1)) == 1
 				and int(snapshot.get("owned_rid_count", -1)) == 0,
-				"%s: threshold fallback must discard all frame resources and clips" % reason
+				"%s: threshold fallback must discard capture resources while preserving promoted clips" % reason
+			)
+			var selected: Array[Dictionary] = [{"id": 200}]
+			_expect(
+				capture.attach_frame_payloads(selected)
+				and not (selected[0].get("frame_frames", []) as Array).is_empty(),
+				"%s: a promoted clip must remain attachable after runtime capture closes" % reason
 			)
 			_expect(
 				str(snapshot.get("fallback_reason", "")) == reason
@@ -110,6 +117,32 @@ func _test_consecutive_failures_discard(reason: String) -> void:
 				and str(snapshot.get("last_failure_log", "")).contains("reason=%s" % reason),
 				"%s: threshold fallback log must retain its exact actionable reason" % reason
 			)
+	capture.reset()
+
+
+func _test_viewport_degeneracy_retries_without_failure() -> void:
+	var capture := VictoryHighlightFrameCaptureState.new()
+	var frame := _make_frame()
+	_seed_healthy_capture(capture, frame, 300)
+	if not capture.has_method("force_viewport_degeneracy_for_tests"):
+		_expect(false, "capture state must expose the viewport-degeneracy retry seam")
+		capture.reset()
+		return
+	capture.call("force_viewport_degeneracy_for_tests")
+	var snapshot: Dictionary = capture.get_debug_snapshot()
+	_expect(
+		capture.is_available()
+		and int(snapshot.get("capture_failure_count", -1)) == 0
+		and int(snapshot.get("consecutive_capture_failure_count", -1)) == 0,
+		"temporary viewport degeneracy must skip and retry without consuming the failure budget"
+	)
+	_expect(
+		int(snapshot.get("viewport_retry_count", -1)) == 1
+		and int(snapshot.get("ring_count", -1)) == 1
+		and int(snapshot.get("frame_clip_count", -1)) == 1
+		and int(snapshot.get("owned_rid_count", -1)) == 1,
+		"viewport retry must preserve the healthy ring, promoted clip, and capture viewport"
+	)
 	capture.reset()
 
 
