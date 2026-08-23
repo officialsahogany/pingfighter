@@ -175,6 +175,8 @@ var _failed := false
 var _capture_count := 0
 var _stats_same_frame_count := 0
 var _dummy_bitmap_comparison_ok := false
+var _gauge_bitmap_comparison_ok := false
+var _critical_zone_readable := false
 
 
 func _init() -> void:
@@ -280,6 +282,12 @@ func _run() -> void:
 	print("tower_training_timing_visual_qa: card_comparison=ok")
 	print("tower_training_timing_visual_qa: dummy_bitmap_and_fallback=%s" % (
 		"ok" if _dummy_bitmap_comparison_ok else "failed"
+	))
+	print("tower_training_timing_visual_qa: gauge_bitmap_and_fallback=%s" % (
+		"ok" if _gauge_bitmap_comparison_ok else "failed"
+	))
+	print("tower_training_timing_visual_qa: critical_zone_readable=%s" % (
+		"ok" if _critical_zone_readable else "failed"
 	))
 	print("tower_training_timing_visual_qa: ok")
 	quit(0)
@@ -416,6 +424,19 @@ func _capture_tier_sequence(
 	if running_image == null:
 		_fail("%s running gauge capture failed" % kind)
 		return
+	if kind == "critical":
+		_verify_training_timing_critical_zone_readable(flow, running_image, output_dir)
+		if _failed:
+			return
+		await _capture_timing_gauge_bitmap_and_fallback(
+			viewport,
+			canvas,
+			flow,
+			running_image,
+			output_dir
+		)
+		if _failed:
+			return
 	frames.append(running_image)
 
 	var before_values: Array = card_renderer.get_tower_training_stats_snapshot_for_tests().get(
@@ -470,6 +491,160 @@ func _capture_tier_sequence(
 		output_dir.path_join("training_timing_%s_sequence_strip.png" % kind)
 	):
 		_fail("%s sequence strip save failed" % kind)
+
+
+func _capture_timing_gauge_bitmap_and_fallback(
+	viewport: SubViewport,
+	canvas: CanvasItem,
+	flow: Object,
+	bitmap_image: Image,
+	output_dir: String
+) -> void:
+	var renderer: Object = canvas.get("renderer")
+	if renderer == null:
+		_fail("training renderer was unavailable for timing-gauge bitmap proof")
+		return
+	var bitmap_state: Dictionary = renderer.get_training_timing_gauge_asset_debug_state()
+	if (
+		not bool(bitmap_state.get("loaded", false))
+		or str(bitmap_state.get("render_mode", "")) != "bitmap"
+		or Vector2i(bitmap_state.get("frame_size", Vector2i.ZERO)) != Vector2i(1593, 156)
+		or Vector2i(bitmap_state.get("tick_size", Vector2i.ZERO)) != Vector2i(123, 517)
+		or Vector2i(bitmap_state.get("pointer_size", Vector2i.ZERO)) != Vector2i(218, 918)
+	):
+		_fail("approved timing-gauge bitmap set was not prewarmed for Vulkan capture")
+		return
+	renderer.debug_set_training_timing_gauge_textures(null, null, null)
+	var fallback_image := await _capture_frame(
+		viewport,
+		canvas,
+		output_dir.path_join("training_timing_gauge_procedural_fallback.png")
+	)
+	if fallback_image == null:
+		_fail("procedural timing-gauge fallback capture failed")
+		return
+	if (
+		str(renderer.get_training_timing_gauge_asset_debug_state().get("render_mode", ""))
+		!= "procedural_fallback"
+	):
+		_fail("forced missing timing-gauge textures did not select procedural fallback")
+		return
+	if bitmap_image.get_data() == fallback_image.get_data():
+		_fail("bitmap and procedural timing-gauge captures must differ visibly")
+		return
+	if not _save_timing_gauge_bitmap_comparison(
+		flow,
+		bitmap_image,
+		fallback_image,
+		output_dir
+	):
+		_fail("timing-gauge bitmap/fallback comparison board save failed")
+		return
+	renderer.prewarm_training_timing_gauge_assets()
+	if not bool(renderer.get_training_timing_gauge_asset_debug_state().get("loaded", false)):
+		_fail("timing-gauge bitmap prewarm did not recover after forced fallback")
+		return
+	_gauge_bitmap_comparison_ok = true
+
+
+func _save_timing_gauge_bitmap_comparison(
+	flow: Object,
+	bitmap_image: Image,
+	fallback_image: Image,
+	output_dir: String
+) -> bool:
+	var model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
+	var gauge_rect := Rect2(
+		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
+		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
+	)
+	var crop_rect := Rect2i(gauge_rect.grow(14.0 * content_scale)).intersection(
+		Rect2i(Vector2i.ZERO, bitmap_image.get_size())
+	)
+	if not crop_rect.has_area():
+		return false
+	var bitmap_crop := bitmap_image.get_region(crop_rect)
+	var fallback_crop := fallback_image.get_region(crop_rect)
+	bitmap_crop.convert(Image.FORMAT_RGBA8)
+	fallback_crop.convert(Image.FORMAT_RGBA8)
+	if bitmap_crop.save_png(output_dir.path_join("training_timing_gauge_bitmap.png")) != OK:
+		return false
+	if fallback_crop.save_png(output_dir.path_join("training_timing_gauge_fallback.png")) != OK:
+		return false
+	var gap := 12
+	var board := Image.create(
+		bitmap_crop.get_width() + gap + fallback_crop.get_width(),
+		maxi(bitmap_crop.get_height(), fallback_crop.get_height()),
+		false,
+		Image.FORMAT_RGBA8
+	)
+	board.fill(Color(0.035, 0.025, 0.018, 1.0))
+	board.blit_rect(
+		bitmap_crop,
+		Rect2i(Vector2i.ZERO, bitmap_crop.get_size()),
+		Vector2i.ZERO
+	)
+	board.blit_rect(
+		fallback_crop,
+		Rect2i(Vector2i.ZERO, fallback_crop.get_size()),
+		Vector2i(bitmap_crop.get_width() + gap, 0)
+	)
+	return board.save_png(
+		output_dir.path_join("training_timing_gauge_bitmap_vs_fallback.png")
+	) == OK
+
+
+func _verify_training_timing_critical_zone_readable(
+	flow: Object,
+	image: Image,
+	output_dir: String
+) -> void:
+	var model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
+	var gauge_rect := Rect2(
+		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
+		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
+	)
+	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	var timing_debug: Dictionary = flow.get_training_timing_debug_state()
+	var target := clampf(float(timing_debug.get("target_position", 0.5)), 0.0, 1.0)
+	var cell_width := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
+		float(timing_debug.get("luck_percent", 2.0))
+	)
+	var critical_rect := Rect2(
+		Vector2(
+			track_rect.position.x + track_rect.size.x * (target - cell_width * 0.5),
+			track_rect.position.y
+		),
+		Vector2(track_rect.size.x * cell_width, track_rect.size.y)
+	)
+	var sample_rect := Rect2i(critical_rect).intersection(
+		Rect2i(Vector2i.ZERO, image.get_size())
+	)
+	if not sample_rect.has_area():
+		_fail("critical-zone sample rect was outside the Vulkan capture")
+		return
+	var red_pixel_count := 0
+	for y in range(sample_rect.position.y, sample_rect.end.y):
+		for x in range(sample_rect.position.x, sample_rect.end.x):
+			var pixel := image.get_pixel(x, y)
+			if pixel.r >= 0.34 and pixel.r > pixel.g * 1.35 and pixel.r > pixel.b * 1.35:
+				red_pixel_count += 1
+	if red_pixel_count < 6:
+		_fail("2 percent critical zone was hidden by the bitmap frame")
+		return
+	var proof_rect := sample_rect.grow(10).intersection(
+		Rect2i(Vector2i.ZERO, image.get_size())
+	)
+	var proof := image.get_region(proof_rect)
+	proof.resize(proof.get_width() * 8, proof.get_height() * 8, Image.INTERPOLATE_NEAREST)
+	if proof.save_png(output_dir.path_join("training_timing_critical_zone_8x.png")) != OK:
+		_fail("critical-zone readability proof save failed")
+		return
+	_critical_zone_readable = true
 
 
 func _stop_position_for_tier(timing_debug: Dictionary, kind: String) -> float:

@@ -78,6 +78,15 @@ const ROUTE_PICKUP_BAG_TEXTURE := preload(
 const TRAINING_DUMMY_TEXTURE_PATH := (
 	"res://assets/sprites/tower/noncombat/training_dummy_imagegen_v1.png"
 )
+const TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH := (
+	"res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png"
+)
+const TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH := (
+	"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png"
+)
+const TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH := (
+	"res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png"
+)
 # 피드백2 10항: 수련장 모달 크롬을 캐릭터 정보창의 한지+족자 액자 계열로.
 # 자산은 정보창 정본 경로를 그대로 공유하고(GRT-042: 무거운 오버레이 코어를
 # 콜드 생성하지 않고 텍스처만 직접 로드), static setter 주입식 공용 드로어를
@@ -92,6 +101,15 @@ const TRAINING_DUMMY_TEXTURE_SIZE := Vector2i(256, 256)
 const TRAINING_DUMMY_TEXTURE_PIVOT := Vector2(128.0, 236.0)
 const TRAINING_DUMMY_VISIBLE_BOUNDS := Rect2i(54, 64, 148, 172)
 const TRAINING_DUMMY_FLOOR_OFFSET_PX := 13.0
+const TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE := Vector2(1593.0, 156.0)
+const TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT := 174.0
+const TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP := 60.0
+const TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT := 173.0
+const TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM := 51.0
+const TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE := Vector2(123.0, 517.0)
+const TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE := Vector2(218.0, 918.0)
+const TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO := 41.0 / 29.0
+const TRAINING_TIMING_GAUGE_POINTER_HEIGHT_RATIO := 43.0 / 29.0
 
 const NODE_ART_PATHS := {
 	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
@@ -170,6 +188,9 @@ var _map_iconography := TowerAscentMapIconography.new()
 var _map_cloud_layer := TowerAscentMapCloudLayer.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
 var _training_dummy_texture: Texture2D = null
+var _training_timing_gauge_frame_texture: Texture2D = null
+var _training_timing_gauge_tick_texture: Texture2D = null
+var _training_timing_gauge_pointer_texture: Texture2D = null
 var _training_hanji_surface_texture: Texture2D = null
 var _training_ledger_frame_texture: Texture2D = null
 var _route_wind_effect_renderer: Object = WeatherEventRenderer.new()
@@ -183,6 +204,7 @@ func _init() -> void:
 	)
 	_route_wind_effect_renderer.prewarm_wind_assets()
 	prewarm_training_dummy_asset()
+	prewarm_training_timing_gauge_assets()
 	prewarm_training_hanji_chrome_assets()
 
 
@@ -265,6 +287,97 @@ func get_training_dummy_asset_debug_state() -> Dictionary:
 
 func debug_set_training_dummy_texture(texture: Variant) -> void:
 	_training_dummy_texture = texture as Texture2D if texture is Texture2D else null
+
+
+func prewarm_training_timing_gauge_assets() -> void:
+	# The flow state constructs this renderer before the training modal can draw.
+	# Resolve all three approved pieces here so the active gauge only consumes
+	# cached textures and never performs file lookup or decoding in _draw.
+	_training_timing_gauge_frame_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH,
+		"Tower training timing-gauge frame is missing; using the procedural fallback",
+		"Tower training timing-gauge frame failed to load; using the procedural fallback"
+	)
+	_training_timing_gauge_tick_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH,
+		"Tower training timing-gauge tick is missing; using the procedural fallback",
+		"Tower training timing-gauge tick failed to load; using the procedural fallback"
+	)
+	_training_timing_gauge_pointer_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH,
+		"Tower training timing-gauge pointer is missing; using the procedural fallback",
+		"Tower training timing-gauge pointer failed to load; using the procedural fallback"
+	)
+
+
+func get_training_timing_gauge_asset_paths() -> PackedStringArray:
+	return PackedStringArray([
+		TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH,
+		TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH,
+		TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH,
+	])
+
+
+func get_training_timing_gauge_asset_contract() -> Dictionary:
+	return {
+		"frame_source_size": Vector2i(TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE),
+		"frame_slice_margins": Vector4(
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP,
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+		),
+		"tick_source_size": Vector2i(TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE),
+		"pointer_source_size": Vector2i(TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE),
+		"runtime_gauge_size": Vector2i(357, 29),
+		"tick_height_ratio": TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO,
+		"pointer_height_ratio": TRAINING_TIMING_GAUGE_POINTER_HEIGHT_RATIO,
+	}
+
+
+func get_training_timing_gauge_asset_debug_state() -> Dictionary:
+	return {
+		"loaded": _has_training_timing_gauge_assets(),
+		"render_mode": (
+			"bitmap"
+			if _has_training_timing_gauge_assets()
+			else "procedural_fallback"
+		),
+		"frame_loaded": _training_timing_gauge_frame_texture != null,
+		"tick_loaded": _training_timing_gauge_tick_texture != null,
+		"pointer_loaded": _training_timing_gauge_pointer_texture != null,
+		"frame_size": _texture_size(_training_timing_gauge_frame_texture),
+		"tick_size": _texture_size(_training_timing_gauge_tick_texture),
+		"pointer_size": _texture_size(_training_timing_gauge_pointer_texture),
+	}
+
+
+func debug_set_training_timing_gauge_textures(
+	frame_texture: Variant,
+	tick_texture: Variant,
+	pointer_texture: Variant
+) -> void:
+	_training_timing_gauge_frame_texture = (
+		frame_texture as Texture2D if frame_texture is Texture2D else null
+	)
+	_training_timing_gauge_tick_texture = (
+		tick_texture as Texture2D if tick_texture is Texture2D else null
+	)
+	_training_timing_gauge_pointer_texture = (
+		pointer_texture as Texture2D if pointer_texture is Texture2D else null
+	)
+
+
+func _has_training_timing_gauge_assets() -> bool:
+	return (
+		_training_timing_gauge_frame_texture != null
+		and _training_timing_gauge_tick_texture != null
+		and _training_timing_gauge_pointer_texture != null
+	)
+
+
+static func _texture_size(texture: Texture2D) -> Vector2i:
+	return Vector2i(texture.get_size()) if texture != null else Vector2i.ZERO
 
 
 func get_route_aim_gauge_asset_paths() -> PackedStringArray:
@@ -3779,9 +3892,16 @@ func _draw_training_timing_gauge(
 	if not gauge_rect.has_area():
 		return
 	var track_rect := gauge_rect.grow(-5.0 * content_scale)
-	canvas.draw_rect(gauge_rect.grow(3.0 * content_scale), Color(0.03, 0.018, 0.012, 0.34), true)
-	canvas.draw_rect(gauge_rect, Color(0.16, 0.095, 0.045, 0.98), true)
-	canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
+	var use_bitmap_chrome := _has_training_timing_gauge_assets()
+	if use_bitmap_chrome:
+		canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
+	else:
+		_draw_training_timing_gauge_procedural_frame(
+			canvas,
+			gauge_rect,
+			track_rect,
+			content_scale
+		)
 	# GRT-018 guard: consume the state's precomputed zone boundaries so the
 	# drawn cells can never drift from the judgment math; the fallbacks mirror
 	# the policy factors (great bands are GREAT_CELL_MULTIPLIER x the cell).
@@ -3837,6 +3957,8 @@ func _draw_training_timing_gauge(
 		false,
 		2.0 * content_scale
 	)
+	if use_bitmap_chrome:
+		_draw_training_timing_gauge_bitmap_frame(canvas, gauge_rect)
 	for boundary_ratio in [
 		great_left_start,
 		critical_start,
@@ -3844,20 +3966,305 @@ func _draw_training_timing_gauge(
 		great_right_end,
 	]:
 		var boundary_x := track_rect.position.x + track_rect.size.x * float(boundary_ratio)
-		canvas.draw_line(
-			Vector2(boundary_x, track_rect.position.y),
-			Vector2(boundary_x, track_rect.end.y),
-			Color(0.95, 0.77, 0.38, 0.34),
-			1.0 * content_scale
-		)
+		if use_bitmap_chrome:
+			_draw_training_timing_gauge_bitmap_tick(canvas, gauge_rect, boundary_x)
+		else:
+			_draw_training_timing_gauge_procedural_tick(
+				canvas,
+				track_rect,
+				boundary_x,
+				content_scale
+			)
 	var pendulum_position := clampf(float(model.get("pendulum_position", 0.0)), 0.0, 1.0)
 	var marker_x := track_rect.position.x + track_rect.size.x * pendulum_position
 	var marker_color := Color(0.98, 0.91, 0.70, 1.0)
+	var marker_modulate := Color.WHITE
 	match str(model.get("judgment_kind", "")):
 		"critical":
 			marker_color = Color(1.0, 0.35, 0.16, 1.0)
+			marker_modulate = marker_color
 		"great":
 			marker_color = Color(0.38, 0.78, 1.0, 1.0)
+			marker_modulate = marker_color
+	if use_bitmap_chrome:
+		_draw_training_timing_gauge_bitmap_pointer(
+			canvas,
+			gauge_rect,
+			marker_x,
+			marker_modulate
+		)
+	else:
+		_draw_training_timing_gauge_procedural_pointer(
+			canvas,
+			gauge_rect,
+			track_rect,
+			marker_x,
+			marker_color,
+			content_scale
+		)
+
+
+func _draw_training_timing_gauge_procedural_frame(
+	canvas: CanvasItem,
+	gauge_rect: Rect2,
+	track_rect: Rect2,
+	content_scale: float
+) -> void:
+	canvas.draw_rect(
+		gauge_rect.grow(3.0 * content_scale),
+		Color(0.03, 0.018, 0.012, 0.34),
+		true
+	)
+	canvas.draw_rect(gauge_rect, Color(0.16, 0.095, 0.045, 0.98), true)
+	canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
+
+
+func _draw_training_timing_gauge_bitmap_frame(
+	canvas: CanvasItem,
+	gauge_rect: Rect2
+) -> void:
+	# Manual nine-patch keeps the ornamental caps and rail thickness stable while
+	# only the approved quiet center spans stretch with the live gauge width.
+	var frame_scale := gauge_rect.size.y / TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
+	var left_width := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT * frame_scale,
+		gauge_rect.size.x * 0.45
+	)
+	var right_width := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT * frame_scale,
+		gauge_rect.size.x * 0.45
+	)
+	var top_height := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP * frame_scale,
+		gauge_rect.size.y * 0.45
+	)
+	var bottom_height := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM * frame_scale,
+		gauge_rect.size.y * 0.45
+	)
+	var center_width := maxf(0.0, gauge_rect.size.x - left_width - right_width)
+	var center_height := maxf(0.0, gauge_rect.size.y - top_height - bottom_height)
+	var source_center_width := (
+		TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.x
+		- TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT
+		- TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT
+	)
+	var source_center_height := (
+		TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
+		- TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
+		- TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+	)
+	var destination_center := gauge_rect.position + Vector2(left_width, top_height)
+	var source_center := Vector2(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(gauge_rect.position, Vector2(left_width, top_height)),
+		Rect2(Vector2.ZERO, Vector2(
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
+			TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
+		))
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			gauge_rect.position + Vector2(left_width, 0.0),
+			Vector2(center_width, top_height)
+		),
+		Rect2(
+			Vector2(TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT, 0.0),
+			Vector2(source_center_width, TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			Vector2(gauge_rect.end.x - right_width, gauge_rect.position.y),
+			Vector2(right_width, top_height)
+		),
+		Rect2(
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.x
+					- TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+				0.0
+			),
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
+			)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			gauge_rect.position + Vector2(0.0, top_height),
+			Vector2(left_width, center_height)
+		),
+		Rect2(
+			Vector2(0.0, TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP),
+			Vector2(TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT, source_center_height)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(destination_center, Vector2(center_width, center_height)),
+		Rect2(source_center, Vector2(source_center_width, source_center_height))
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			Vector2(gauge_rect.end.x - right_width, destination_center.y),
+			Vector2(right_width, center_height)
+		),
+		Rect2(
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.x
+					- TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
+			),
+			Vector2(TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT, source_center_height)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			Vector2(gauge_rect.position.x, gauge_rect.end.y - bottom_height),
+			Vector2(left_width, bottom_height)
+		),
+		Rect2(
+			Vector2(
+				0.0,
+				TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
+					- TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+			),
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+			)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			Vector2(destination_center.x, gauge_rect.end.y - bottom_height),
+			Vector2(center_width, bottom_height)
+		),
+		Rect2(
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
+				TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
+					- TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+			),
+			Vector2(source_center_width, TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM)
+		)
+	)
+	_draw_training_timing_gauge_frame_patch(
+		canvas,
+		Rect2(
+			gauge_rect.end - Vector2(right_width, bottom_height),
+			Vector2(right_width, bottom_height)
+		),
+		Rect2(
+			TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE - Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+			),
+			Vector2(
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
+				TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
+			)
+		)
+	)
+
+
+func _draw_training_timing_gauge_frame_patch(
+	canvas: CanvasItem,
+	destination_rect: Rect2,
+	source_rect: Rect2
+) -> void:
+	if not destination_rect.has_area() or not source_rect.has_area():
+		return
+	canvas.draw_texture_rect_region(
+		_training_timing_gauge_frame_texture,
+		destination_rect,
+		source_rect
+	)
+
+
+func _draw_training_timing_gauge_bitmap_tick(
+	canvas: CanvasItem,
+	gauge_rect: Rect2,
+	boundary_x: float
+) -> void:
+	var draw_height := gauge_rect.size.y * TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO
+	var draw_width := (
+		draw_height
+		* TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE.x
+		/ TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE.y
+	)
+	canvas.draw_texture_rect(
+		_training_timing_gauge_tick_texture,
+		Rect2(
+			Vector2(
+				boundary_x - draw_width * 0.5,
+				gauge_rect.get_center().y - draw_height * 0.5
+			),
+			Vector2(draw_width, draw_height)
+		),
+		false
+	)
+
+
+func _draw_training_timing_gauge_procedural_tick(
+	canvas: CanvasItem,
+	track_rect: Rect2,
+	boundary_x: float,
+	content_scale: float
+) -> void:
+	canvas.draw_line(
+		Vector2(boundary_x, track_rect.position.y),
+		Vector2(boundary_x, track_rect.end.y),
+		Color(0.95, 0.77, 0.38, 0.34),
+		1.0 * content_scale
+	)
+
+
+func _draw_training_timing_gauge_bitmap_pointer(
+	canvas: CanvasItem,
+	gauge_rect: Rect2,
+	marker_x: float,
+	marker_modulate: Color
+) -> void:
+	var draw_height := gauge_rect.size.y * TRAINING_TIMING_GAUGE_POINTER_HEIGHT_RATIO
+	var draw_width := (
+		draw_height
+		* TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE.x
+		/ TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE.y
+	)
+	canvas.draw_texture_rect(
+		_training_timing_gauge_pointer_texture,
+		Rect2(
+			Vector2(
+				marker_x - draw_width * 0.5,
+				gauge_rect.get_center().y - draw_height * 0.5
+			),
+			Vector2(draw_width, draw_height)
+		),
+		false,
+		marker_modulate
+	)
+
+
+func _draw_training_timing_gauge_procedural_pointer(
+	canvas: CanvasItem,
+	gauge_rect: Rect2,
+	track_rect: Rect2,
+	marker_x: float,
+	marker_color: Color,
+	content_scale: float
+) -> void:
 	canvas.draw_line(
 		Vector2(marker_x, track_rect.position.y - 3.0 * content_scale),
 		Vector2(marker_x, track_rect.end.y + 3.0 * content_scale),

@@ -12,9 +12,32 @@ const TowerTrainingStrikePresentationState := preload(
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 
 const TRACK_WIDTH_PX := 300.0
 const TARGET_X_PX := 150.0
+const TIMING_GAUGE_ASSET_SPECS := [
+	{
+		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png",
+		"sha256": "127019a4e3dd3b41351508c821088e529bf4670dc04f36e339e3db8fb9fe8401",
+		"size": Vector2i(1593, 156),
+		"imported_name": "tower_training_gauge_frame_imagegen_v1.png-73107fd70445e4ac76b5506d8fa38b40.ctex",
+	},
+	{
+		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png",
+		"sha256": "ce4f992983ac8cc9b8a01e64736ca64dd206dbac6c9e2576044fb976c6d17eb4",
+		"size": Vector2i(123, 517),
+		"imported_name": "tower_training_gauge_tick_imagegen_v1.png-cfb846a65982b33a635698224a7a1a46.ctex",
+	},
+	{
+		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png",
+		"sha256": "e69b3e712dc9b44b7bea500b3d920d6df1cba2354b51fb6d9d844722cffeb1f6",
+		"size": Vector2i(218, 918),
+		"imported_name": "tower_training_gauge_pointer_imagegen_v2.png-d64df188574f2c6ba1ec6dfc35de7c2e.ctex",
+	},
+]
 
 var _failures: Array[String] = []
 
@@ -28,6 +51,8 @@ func _run() -> void:
 	_verify_wall_clock_period_and_single_target_roll()
 	_verify_three_tier_presentation_sequence()
 	_verify_shared_timer_and_idle_ownership_sources()
+	_verify_training_timing_gauge_promoted_assets()
+	_verify_training_timing_gauge_asset_contract_and_fallback()
 	_verify_localization_and_retired_probability_copy()
 	if _failures.is_empty():
 		print("tower_training_timing_judgment_smoke: ok")
@@ -203,6 +228,124 @@ func _verify_shared_timer_and_idle_ownership_sources() -> void:
 	)
 
 
+func _verify_training_timing_gauge_asset_contract_and_fallback() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	var expected_paths := PackedStringArray([
+		"res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png",
+		"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png",
+		"res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png",
+	])
+	_expect(
+		renderer.get_training_timing_gauge_asset_paths() == expected_paths,
+		"timing-gauge prewarm exposes the three approved asset paths"
+	)
+	var contract: Dictionary = renderer.get_training_timing_gauge_asset_contract()
+	_expect(
+		Vector2i(contract.get("frame_source_size", Vector2i.ZERO)) == Vector2i(1593, 156)
+		and Vector2i(contract.get("tick_source_size", Vector2i.ZERO)) == Vector2i(123, 517)
+		and Vector2i(contract.get("pointer_source_size", Vector2i.ZERO)) == Vector2i(218, 918)
+		and Vector2i(contract.get("runtime_gauge_size", Vector2i.ZERO)) == Vector2i(357, 29),
+		"timing-gauge source and runtime dimensions match the approved art contract"
+	)
+	var bitmap_state: Dictionary = renderer.get_training_timing_gauge_asset_debug_state()
+	_expect(
+		bool(bitmap_state.get("loaded", false))
+		and str(bitmap_state.get("render_mode", "")) == "bitmap"
+		and Vector2i(bitmap_state.get("frame_size", Vector2i.ZERO)) == Vector2i(1593, 156)
+		and Vector2i(bitmap_state.get("tick_size", Vector2i.ZERO)) == Vector2i(123, 517)
+		and Vector2i(bitmap_state.get("pointer_size", Vector2i.ZERO)) == Vector2i(218, 918),
+		"all three approved textures are prewarmed before the timing gauge draws"
+	)
+	renderer.debug_set_training_timing_gauge_textures(null, null, null)
+	var fallback_state: Dictionary = renderer.get_training_timing_gauge_asset_debug_state()
+	_expect(
+		not bool(fallback_state.get("loaded", true))
+		and str(fallback_state.get("render_mode", "")) == "procedural_fallback",
+		"one missing timing-gauge set selects the complete procedural fallback"
+	)
+	renderer.prewarm_training_timing_gauge_assets()
+	_expect(
+		bool(renderer.get_training_timing_gauge_asset_debug_state().get("loaded", false)),
+		"timing-gauge prewarm recovers after the forced missing-texture leg"
+	)
+
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var gauge_start := renderer_source.find("func _draw_training_timing_gauge(")
+	var gauge_end := renderer_source.find("func _training_timing_segment_rect", gauge_start)
+	var gauge_source := renderer_source.substr(gauge_start, gauge_end - gauge_start)
+	_expect(
+		gauge_start >= 0
+		and gauge_end > gauge_start
+		and gauge_source.contains("var use_bitmap_chrome := _has_training_timing_gauge_assets()")
+		and gauge_source.contains("_draw_training_timing_gauge_procedural_frame")
+		and gauge_source.contains("_draw_training_timing_gauge_procedural_tick")
+		and gauge_source.contains("_draw_training_timing_gauge_procedural_pointer"),
+		"bitmap rendering keeps the complete procedural frame, tick, and pointer fallback"
+	)
+	_expect(
+		gauge_source.contains('model.get("critical_start"')
+		and gauge_source.contains('model.get("critical_end"')
+		and gauge_source.contains('model.get("great_left_start"')
+		and gauge_source.contains('model.get("great_right_end"')
+		and gauge_source.contains("track_rect.size.x * float(boundary_ratio)"),
+		"GRT-018 bitmap ticks still consume the state model's precomputed boundaries"
+	)
+	_expect(
+		gauge_source.contains("draw_texture_rect_region")
+		and gauge_source.contains("draw_texture_rect")
+		and gauge_source.contains("canvas.draw_rect(")
+		and gauge_source.contains("canvas.draw_line(")
+		and gauge_source.contains("canvas.draw_circle(")
+		and not gauge_source.contains("ProjectResourceLoader"),
+		"timing-gauge draw uses cached bitmaps while source-sealing the old procedural calls"
+	)
+
+
+func _verify_training_timing_gauge_promoted_assets() -> void:
+	for spec_variant in TIMING_GAUGE_ASSET_SPECS:
+		var spec: Dictionary = spec_variant
+		var asset_path := str(spec.get("path", ""))
+		var import_path := asset_path + ".import"
+		_expect(FileAccess.file_exists(asset_path), "%s must be promoted" % asset_path)
+		_expect(FileAccess.file_exists(import_path), "%s must carry its .import sidecar" % asset_path)
+		if not FileAccess.file_exists(asset_path):
+			continue
+		_expect(
+			FileAccess.get_sha256(asset_path).to_lower() == str(spec.get("sha256", "")),
+			"%s bytes must exactly match the approved candidate" % asset_path
+		)
+		var image := Image.load_from_file(ProjectSettings.globalize_path(asset_path))
+		_expect(image != null and not image.is_empty(), "%s must decode" % asset_path)
+		if image == null or image.is_empty():
+			continue
+		_expect(
+			image.get_size() == Vector2i(spec.get("size", Vector2i.ZERO)),
+			"%s canvas must match the approved source size" % asset_path
+		)
+		_expect(
+			_edge_alpha_count(image) == 0,
+			"%s transparent canvas edges must remain empty" % asset_path
+		)
+		if not FileAccess.file_exists(import_path):
+			continue
+		var import_source := FileAccess.get_file_as_string(import_path)
+		_expect(
+			import_source.contains('source_file="%s"' % asset_path),
+			"%s .import must target the promoted PNG" % asset_path
+		)
+		_expect(
+			import_source.contains(str(spec.get("imported_name", ""))),
+			"%s .import must name its deterministic materialized texture" % asset_path
+		)
+		_expect(
+			import_source.contains("compress/mode=0")
+			and import_source.contains("mipmaps/generate=false"),
+			"%s must retain lossless, no-mipmap UI import settings" % asset_path
+		)
+
+
 func _verify_localization_and_retired_probability_copy() -> void:
 	var timing_keys: Array[String] = [
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE,
@@ -253,6 +396,17 @@ func _judge_px(position_px: int) -> String:
 		TARGET_X_PX / TRACK_WIDTH_PX,
 		2.0
 	).get("judgment_kind", ""))
+
+
+func _edge_alpha_count(image: Image) -> int:
+	var count := 0
+	for x in range(image.get_width()):
+		count += int(image.get_pixel(x, 0).a > 0.0)
+		count += int(image.get_pixel(x, image.get_height() - 1).a > 0.0)
+	for y in range(1, image.get_height() - 1):
+		count += int(image.get_pixel(0, y).a > 0.0)
+		count += int(image.get_pixel(image.get_width() - 1, y).a > 0.0)
+	return count
 
 
 func _expect(condition: bool, message: String) -> void:
