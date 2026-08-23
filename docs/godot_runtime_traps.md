@@ -4026,11 +4026,20 @@ update 한 경로뿐이어야 한다. ball/effects 양쪽이 같은 state를 갱
 tick부터 한 번씩 줄여야 한다. 0 레일과 끝점 비교는 epsilon 밴드를 사용해 GRT-037의
 float 잔여 영구 정지를 피한다.
 
+**발동 분류 규칙.** 모든 보스 카드 payload는 공용 `instant` 또는
+`on_boss_hit` `trigger_type`을 게시한다. 이 값은 표시 metadata일 뿐 발동 분기를
+소유하지 않는다. 실동작 owner가 정본이며 선언이 어긋나면 씰이 RED다. 가득 찬
+`on_boss_hit` 카드에만 황동·먹색의 열린 타격 표식을 그려 "타격 대기"를 알리고,
+`instant` 카드는 무표식으로 둔다.
+
 **봉인.** `boss_skill_card_cooldown_contract_smoke.gd`는 catalog를 전수 원천으로
 사용하지 않는다. `scripts/stages/stage*/`의 실제 HUD producer를 자동 발견하므로 새
 보스가 payload를 게시하는 즉시 대상에 들어온다. 현재 1~8층 14보스·39스킬의 required
 keys, 양수 total, reset 비-ready, 여러 tick/event의 progress 변화, 실제 시전 owner,
 양수 재충전, production controller의 정확히 한 번 감소를 단언한다. 계약 분포도
 `TIME=32 DEFERRED_TIME=1 EVENT_CYCLE=1 SCORE_LATCHED=2 RESOURCE_GAUGE=2 PLACEHOLDER=1`로
-출력한다. 환경 변수 `BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 새 전수 범위인 아카무
+출력하며, 선언 39개와 실동작 일치(`instant=22`, `on_boss_hit=17`)도 함께 센다.
+환경 변수 `BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 새 전수 범위인 아카무
 그림자분신 초기값을 0으로 되돌려 즉시-ready와 progress 정지를 모두 RED로 만든다.
+`BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE=1`은 가득 찬 `instant` 카드의 자동 발동을
+차단해 선언과 실동작 불일치를 RED로 만든다.

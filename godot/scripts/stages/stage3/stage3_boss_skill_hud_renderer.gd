@@ -156,6 +156,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 		border = Color(0.36, 0.34, 0.38, 0.60)
 	canvas.draw_rect(rect, border, false, max(1.0, round(scale_factor)))
 	canvas.draw_rect(Rect2(rect.position + Vector2(0.0, 1.0), Vector2(max(1.0, 2.0 * scale_factor), rect.size.y - 2.0)), Color(1.0, 0.28, 0.58, 0.70))
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fill_ratio: float, fallback_color: Color) -> void:

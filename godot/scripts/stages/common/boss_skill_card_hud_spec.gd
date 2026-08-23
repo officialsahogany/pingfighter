@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const BASE_PILLAR_WIDTH := 80.0
 # 2026-07-21 카드 전체 확대(사용자 확정): 33.6x9(3.73:1) -> 38x12(3.17:1).
@@ -26,6 +27,8 @@ const SORT_ACTIVE_REMAINING := -0.001
 const SORT_INACTIVE_REMAINING := 100000000.0
 # 2분법 색 계약: 보스 스킬 카드 좌측 띠 = 붉은 띠(링펫 레일은 렌더러 쪽 청록).
 const BOSS_SKILL_STRIP_COLOR := Color(0.86, 0.22, 0.24, 0.95)
+const HIT_MARK_BRASS := Color(0.86, 0.67, 0.29, 0.98)
+const HIT_MARK_INK := Color(0.075, 0.055, 0.045, 0.96)
 
 
 static func get_scale_factor(pillar_width: float) -> float:
@@ -60,6 +63,41 @@ static func get_card_metrics(pillar_width: float) -> Dictionary:
 		"margin_x": get_right_margin(scale_factor),
 		"margin_y": get_left_pillar_y_margin(scale_factor),
 	}
+
+
+static func should_draw_trigger_marker(skill: Dictionary) -> bool:
+	return str(skill.get("trigger_type", "")) == BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT
+
+
+static func get_trigger_marker_bounds(card_rect: Rect2, scale_factor: float) -> Rect2:
+	var marker_size := maxf(7.0, round(7.0 * maxf(0.75, scale_factor)))
+	var inset := maxf(1.0, round(1.0 * maxf(0.75, scale_factor)))
+	return Rect2(
+		Vector2(card_rect.end.x - marker_size - inset, card_rect.position.y + inset),
+		Vector2(marker_size, marker_size)
+	)
+
+
+static func draw_trigger_marker(canvas: CanvasItem, skill: Dictionary, card_rect: Rect2, scale_factor: float) -> void:
+	if canvas == null or not should_draw_trigger_marker(skill):
+		return
+	var bounds := get_trigger_marker_bounds(card_rect, scale_factor)
+	var center := bounds.get_center()
+	var half := bounds.size.x * 0.5
+	var points := [
+		[center + Vector2(-half * 0.72, half * 0.56), center + Vector2(-half * 0.12, half * 0.08)],
+		[center + Vector2(-half * 0.18, -half * 0.64), center + Vector2(half * 0.04, -half * 0.08)],
+		[center + Vector2(half * 0.18, half * 0.08), center + Vector2(half * 0.72, -half * 0.58)],
+		[center + Vector2(half * 0.10, half * 0.22), center + Vector2(half * 0.62, half * 0.56)],
+	]
+	var ink_width := maxf(2.0, round(2.0 * maxf(0.75, scale_factor)))
+	var brass_width := maxf(1.0, round(0.85 * maxf(0.75, scale_factor)))
+	for segment_value in points:
+		var segment: Array = segment_value
+		canvas.draw_line(segment[0], segment[1], HIT_MARK_INK, ink_width, true)
+	for segment_value in points:
+		var segment: Array = segment_value
+		canvas.draw_line(segment[0], segment[1], HIT_MARK_BRASS, brass_width, true)
 
 
 static func get_commando_firearm_panel_gap(scale_factor: float) -> float:

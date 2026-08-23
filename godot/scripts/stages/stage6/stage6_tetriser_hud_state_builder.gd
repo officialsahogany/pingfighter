@@ -4,6 +4,7 @@ const TetriserGuardState := preload("res://scripts/stages/stage6/stage6_tetriser
 const TetriserSuperState := preload("res://scripts/stages/stage6/stage6_tetriser_super_state.gd")
 const TetriserTetrominoState := preload("res://scripts/stages/stage6/stage6_tetriser_tetromino_state.gd")
 const TetriserWallState := preload("res://scripts/stages/stage6/stage6_tetriser_wall_state.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const BOSS_NAME := "테트리서"
 
@@ -104,6 +105,7 @@ func _build_cost_skill(
 		"ready": ready,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"active": false,
 		"status": skill_status,
 	}
@@ -121,6 +123,7 @@ func _build_super_skill(boss_gauge: float, super_active: bool) -> Dictionary:
 		"cooldown_total": TetriserSuperState.ACTIVATE_GAUGE,
 		"cooldown_contract": "resource_gauge",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"ready": ready,
 		"active": super_active,
 		"status": "casting" if super_active else ("ready" if ready else "charging"),

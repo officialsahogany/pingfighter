@@ -1,13 +1,12 @@
 extends RefCounted
 
 const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const STAGE_ID := 1
 const BOSS_VARIANT := "gaksi"
 const SKILL_FAN_THROW := "fan_throw"
 const SKILL_FAN_WIND := "fan_wind"
-const TRIGGER_INSTANT := "instant"
-const TRIGGER_ON_BOSS_HIT := "on_boss_hit"
 const FAN_THROW_COOLDOWN_FRAMES := 960.0
 const FAN_WIND_COOLDOWN_FRAMES := 1200.0
 const READY_FLASH_FRAMES := 24.0
@@ -70,13 +69,13 @@ func get_hud_context() -> Dictionary:
 			_build_hud_skill(
 				SKILL_FAN_THROW,
 				"부채던지기",
-				TRIGGER_INSTANT,
+				BossSkillTriggerClass.TRIGGER_INSTANT,
 				Color(0.92, 0.24, 0.16)
 			),
 			_build_hud_skill(
 				SKILL_FAN_WIND,
 				"부채바람",
-				TRIGGER_ON_BOSS_HIT,
+				BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 				Color(0.26, 0.70, 0.92)
 			),
 		],
@@ -205,7 +204,7 @@ func _build_hud_skill(skill_id: String, label: String, trigger_type: String, col
 		"label": label,
 		"name": label,
 		"trigger_type": trigger_type,
-		"trigger_label": "즉시" if trigger_type == TRIGGER_INSTANT else "타격",
+		"trigger_label": BossSkillTriggerClass.get_label(trigger_type),
 		"progress": clamp(float(runtime.get("timer", 0.0)) / duration, 0.0, 1.0),
 		"cooldown_remaining": remaining_seconds,
 		"cooldown_total": duration_seconds,

@@ -3190,6 +3190,7 @@ const EXACT_TEXT_EN := {
 	"쿨타임 40초": "Cooldown 40s",
 	"봉인석을 내려쳐 전장을 뒤흔들고 낙석을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "Strikes the seal stone to shake the arena and cause rockfalls. Higher pressure adds more falling rocks.",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다.": "Draws up water from the dragon pool and fires a torrent across the arena.",
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Draws up water from the dragon pool and fires a torrent across the arena. Its charge is interrupted when the boss is hit.",
 	"용린의 호체를 둘러 이동과 반응이 빨라지고 상태 이상을 막습니다.": "Wraps itself in a scale ward, increasing movement and reaction while blocking status effects.",
 	"용린호체!": "Scale Ward!",
 	"분노 발구르기!": "Rage Stomp!",
@@ -3845,6 +3846,7 @@ const EXACT_TEXT_ZH := {
 	"쿨타임 40초": "冷却40秒",
 	"봉인석을 내려쳐 전장을 뒤흔들고 낙석을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "击打封印石震撼战场并引发落石。压迫阶段越高，落石越多。",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다.": "引出龙沼之水，发射横贯战场的激流。",
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "引出龙沼之水，发射横贯战场的激流。首领受到击打时会中断蓄力。",
 	"용린의 호체를 둘러 이동과 반응이 빨라지고 상태 이상을 막습니다.": "以龙鳞护体，提高移动与反应并抵挡异常状态。",
 	"용린호체!": "龙鳞护体！",
 	"분노 발구르기!": "愤怒践踏！",
@@ -4500,6 +4502,7 @@ const EXACT_TEXT_JA := {
 	"쿨타임 40초": "クールタイム40秒",
 	"봉인석을 내려쳐 전장을 뒤흔들고 낙석을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "封印石を打ちつけて戦場を揺らし、落石を起こします。圧迫段階が高いほど落石が増えます。",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다.": "龍沼の水を引き上げ、戦場を横切る激流を放ちます。",
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "龍沼の水を引き上げ、戦場を横切る激流を放ちます。ボスが攻撃を受けるとチャージが中断されます。",
 	"용린의 호체를 둘러 이동과 반응이 빨라지고 상태 이상을 막습니다.": "龍鱗の護体をまとい、移動と反応を速めて状態異常を防ぎます。",
 	"용린호체!": "龍鱗護体！",
 	"분노 발구르기!": "怒りの踏みつけ！",
@@ -5155,6 +5158,7 @@ const EXACT_TEXT_ES := {
 	"쿨타임 40초": "Recarga 40 s",
 	"봉인석을 내려쳐 전장을 뒤흔들고 낙석을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.": "Golpea la piedra de sello para sacudir la arena y provocar desprendimientos. Una presión mayor añade más rocas.",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다.": "Extrae agua del estanque dragón y lanza un torrente que cruza la arena.",
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Extrae agua del estanque dragón y lanza un torrente que cruza la arena. La carga se interrumpe cuando el jefe recibe un golpe.",
 	"용린의 호체를 둘러 이동과 반응이 빨라지고 상태 이상을 막습니다.": "Se cubre con una barrera de escamas, acelera su movimiento y reacción, y bloquea estados alterados.",
 	"용린호체!": "¡Barrera de escamas!",
 	"분노 발구르기!": "¡Pisotón de ira!",
@@ -5440,6 +5444,7 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Puxa a água do lago do dragão e lança uma torrente pela arena. A carga é interrompida quando o chefe é atingido.",
 	"클릭해 계속": "Clique para continuar",
 	"극정호신": "Guarda de Velocidade Extrema",
 	"초각성 해금 · 게이지 250": "Desbloqueio no Despertar · Medidor 250",
@@ -5726,6 +5731,7 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
+	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Поднимает воду из драконьего пруда и выпускает поток через всю арену. Заряд прерывается, когда босс получает удар.",
 	"클릭해 계속": "Щёлкните, чтобы продолжить",
 	"극정호신": "Сверхскоростная защита",
 	"초각성 해금 · 게이지 250": "Открывается после Пробуждения · Шкала 250",

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const LEGACY_FPS := 60.0
 const FIELD_WIDTH := 760.0
@@ -128,6 +129,7 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		# explicit unarmed state intentionally renders empty rather than ready.
 		"cooldown_contract": "deferred_time",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"next_activation_remaining": maxf(
 			cooldown_remaining_sec,
 			maxf(0.0, GAUGE_COST - boss_gauge)

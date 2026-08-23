@@ -2,6 +2,7 @@ extends RefCounted
 
 const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const STAGE_ID := 3
 const VARIANT_ID := "teddy_bear"
@@ -701,7 +702,7 @@ func _build_skill(id: String, label: String, active: bool, cooldown: float, tota
 		"activation_gauge_progress": gauge_progress,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "boss_hit",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"color": color,
 	}
 

@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+
 const LEGACY_FPS := 60.0
 const DURATION_SEC := 10.0
 const ACTIVATION_FREEZE_SEC := 0.350
@@ -277,6 +279,7 @@ func build_hud_skill(
 		"cooldown_total": COOLDOWN_SEC,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"duration_remaining": remaining_sec,
 		"duration_total": DURATION_SEC,
 		"next_activation_remaining": maxf(

@@ -9,6 +9,7 @@ extends RefCounted
 # so this module wires ZERO res:// paths — the placeholder is drawn code-native.
 
 const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const STAGE_ID := 8
 const BOSS_NAME := "미노타우로스"
@@ -293,6 +294,7 @@ func _placeholder_hud_skill(skill_id: String, skill_name: String, color: Color, 
 		"cooldown_total": 1.0,
 		"cooldown_contract": "placeholder",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"next_activation_remaining": maxf(0.0, cost - boss_special_gauge),
 		"ready": false,
 		"active": false,

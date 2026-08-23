@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+
 const FIELD_WIDTH := 760.0
 const FIELD_HEIGHT := 750.0
 const GAUGE_COST := 120.0
@@ -38,12 +40,14 @@ var field_elapsed_sec := 0.0
 var field_center := Vector2.ZERO
 var draw_context: Dictionary = {}
 var aura_draw_context: Dictionary = {}
+var pity_failures := 0
 
 
 func reset_full() -> void:
 	clear_round_transients()
 	cooldown_remaining_sec = INITIAL_COOLDOWN_SEC
 	cooldown_total_sec = INITIAL_COOLDOWN_SEC
+	pity_failures = 0
 
 
 func clear_round_transients() -> void:
@@ -103,6 +107,7 @@ func get_snapshot() -> Dictionary:
 		"field_elapsed_sec": field_elapsed_sec,
 		"field_center": field_center,
 		"field_alpha": get_field_alpha(),
+		"pity_failures": pity_failures,
 	}
 
 
@@ -134,6 +139,7 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		"cooldown_total": cooldown_total,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"next_activation_remaining": maxf(
 			cooldown_remaining_sec,
 			maxf(field_remaining, maxf(0.0, GAUGE_COST - boss_gauge))
@@ -164,8 +170,14 @@ func try_start(
 		or (not free_cast and boss_gauge < GAUGE_COST)
 	):
 		return {}
-	if not force_roll and rng.randf() > TRIGGER_CHANCE:
-		return {}
+	if not force_roll:
+		var effective_chance := minf(
+			1.0,
+			TRIGGER_CHANCE * (1.0 + float(pity_failures))
+		)
+		if rng.randf() > effective_chance:
+			pity_failures += 1
+			return {}
 
 	var boss_pos: Vector2 = _as_vector2(
 		context.get("boss_pos", Vector2(330.0, 25.0)),
@@ -199,6 +211,7 @@ func try_start(
 	home_boss_pos = origin_boss_pos
 	target_boss_pos = Vector2(center_x - boss_size.x * 0.5, target_center_y - boss_size.y * 0.5)
 	dash_active = true
+	pity_failures = 0
 	dash_phase = "pre"
 	phase_elapsed_sec = 0.0
 	invuln_buffer_remaining_sec = 0.0

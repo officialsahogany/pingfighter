@@ -15,7 +15,6 @@ const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.
 const Stage6TetriserBossSkillHudAssets := preload("res://scripts/stages/stage6/stage6_tetriser_boss_skill_hud_assets.gd")
 
 const SIDE_STRIP_BASE := 2.0
-const QUEUE_LERP_SPEED := 8.0
 const READY_BORDER := Color(0.48, 1.0, 0.64, 0.70)
 const ACTIVE_BORDER := Color(1.0, 0.55, 0.22, 0.95)
 const CHARGING_BORDER := Color(0.30, 0.36, 0.46, 0.66)
@@ -26,7 +25,7 @@ const PREWARM_SKILL_IDS := ["stage6_tetro_drop", "stage6_guard", "stage6_wall", 
 const TOOLTIP_INFO := {
 	"stage6_tetro_drop": {
 		"name": "낙하 테트로", "trigger": "자동(5~10초)", "cooldown": "게이지 30",
-		"description": "테트로미노 블록이 조립되어 낙하·정착합니다. 공/대시/연막으로 파괴.",
+		"description": "테트로미노 블록이 조립되어 낙하·정착합니다. 공/활주/연막으로 파괴.",
 	},
 	"stage6_guard": {
 		"name": "가드 블록", "trigger": "자동(7~15초)", "cooldown": "게이지 50/100",
@@ -141,10 +140,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		var entry: Dictionary = entries[idx]
 		var target_rect: Rect2 = _as_rect2(rects[idx])
 		var key: String = str(entry.get("id", "stage6_skill_%d" % idx))
-		var current_y: float = float(_queue_positions.get(key, target_rect.position.y))
-		current_y = lerpf(current_y, target_rect.position.y, minf(1.0, QUEUE_LERP_SPEED / 60.0))
-		_queue_positions[key] = current_y
-		var rect := Rect2(Vector2(target_rect.position.x, round(current_y)), target_rect.size)
+		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
+			_queue_positions, key, target_rect.position.x, target_rect.position.y, scale_factor, time_seconds
+		)
+		var rect := Rect2(Vector2(float(motion.get("x", target_rect.position.x)), round(float(motion.get("y", target_rect.position.y)))), target_rect.size)
 		_draw_card(canvas, rect, entry, scale_factor, time_seconds)
 		if rect.has_point(mouse_pos):
 			hovered = entry
@@ -209,6 +208,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 
 	var side_w: float = maxf(1.0, round(SIDE_STRIP_BASE * scale_factor))
 	canvas.draw_rect(Rect2(rect.position, Vector2(side_w, rect.size.y)), Color(color.r, color.g, color.b, 0.85))
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 	var font: Font = ThemeDB.fallback_font
 	if font != null and not has_texture:

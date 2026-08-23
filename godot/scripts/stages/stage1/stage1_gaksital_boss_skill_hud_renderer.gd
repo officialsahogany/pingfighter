@@ -8,7 +8,6 @@ const Stage1GaksitalBossSkillHudAssets := preload("res://scripts/stages/stage1/s
 
 const FAN_THROW_SKILLCARD_TEXTURE_PATH := Stage1GaksitalBossSkillHudAssets.FAN_THROW_SKILLCARD_TEXTURE_PATH
 const FAN_WIND_SKILLCARD_TEXTURE_PATH := Stage1GaksitalBossSkillHudAssets.FAN_WIND_SKILLCARD_TEXTURE_PATH
-const QUEUE_LERP_SPEED := 8.0
 const SIDE_STRIP_BASE := 2.0
 
 var _skillcard_texture: Texture2D = null
@@ -113,10 +112,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		var target_rect: Rect2 = Stage1DaljiBossSkillHudUtils.as_rect2(rects[i], Rect2())
 		var target_y: float = target_rect.position.y
 		var key: String = str(entry.get("id", "skill_%d" % i))
-		var current_y: float = float(_queue_positions.get(key, target_y))
-		current_y = lerp(current_y, target_y, min(1.0, QUEUE_LERP_SPEED / 60.0))
-		_queue_positions[key] = current_y
-		var card_rect := Rect2(Vector2(target_rect.position.x, round(current_y)), target_rect.size)
+		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
+			_queue_positions, key, target_rect.position.x, target_y, scale_factor, time_seconds
+		)
+		var card_rect := Rect2(Vector2(float(motion.get("x", target_rect.position.x)), round(float(motion.get("y", target_y)))), target_rect.size)
 		_draw_card(canvas, card_rect, entry, scale_factor, time_seconds)
 		if card_rect.has_point(mouse_pos):
 			hovered_skill = entry
@@ -190,6 +189,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 		Rect2(rect.position + Vector2(0.0, border_width), Vector2(side_w, max(1.0, rect.size.y - border_width * 2.0))),
 		Color(0.86, 0.20, 0.18, 0.72)
 	)
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skillcard_gauge(

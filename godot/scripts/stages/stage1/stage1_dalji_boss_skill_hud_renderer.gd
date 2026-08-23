@@ -9,13 +9,12 @@ const Stage1DaljiBossSkillHudAssets := preload("res://scripts/stages/stage1/stag
 
 const WHIP_SKILLCARD_TEXTURE_PATH := Stage1DaljiBossSkillHudAssets.WHIP_SKILLCARD_TEXTURE_PATH
 const SPINNING_TOP_SKILLCARD_TEXTURE_PATH := Stage1DaljiBossSkillHudAssets.SPINNING_TOP_SKILLCARD_TEXTURE_PATH
-const QUEUE_LERP_SPEED := 8.0
 const SIDE_STRIP_BASE := 2.0
 const TOOLTIP_WIDTH_BASE := 168.0
 const TOOLTIP_PADDING_BASE := 10.0
 const TOOLTIP_GAP_BASE := 8.0
 const TOOLTIP_LINE_SPACING_BASE := 4.0
-const TOOLTIP_MAX_DESC_LINES := 2
+const TOOLTIP_MAX_DESC_LINES := BossSkillCardHudSpec.TOOLTIP_MAX_DESC_LINES
 const TOOLTIP_SCALE_MIN := 0.85
 const TOOLTIP_SCALE_MAX := 1.15
 const TOOLTIP_MIN_LEFT_WIDTH := 120.0
@@ -128,10 +127,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		var target_rect: Rect2 = Stage1DaljiBossSkillHudUtils.as_rect2(rects[i], Rect2())
 		var target_y: float = target_rect.position.y
 		var key: String = str(entry.get("id", "skill_%d" % i))
-		var current_y: float = float(_queue_positions.get(key, target_y))
-		current_y = lerp(current_y, target_y, min(1.0, QUEUE_LERP_SPEED / 60.0))
-		_queue_positions[key] = current_y
-		var card_rect := Rect2(Vector2(target_rect.position.x, round(current_y)), target_rect.size)
+		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
+			_queue_positions, key, target_rect.position.x, target_y, scale_factor, time_seconds
+		)
+		var card_rect := Rect2(Vector2(float(motion.get("x", target_rect.position.x)), round(float(motion.get("y", target_y)))), target_rect.size)
 		_draw_card(
 			canvas,
 			card_rect,
@@ -208,6 +207,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 		Rect2(rect.position + Vector2(0.0, border_width), Vector2(side_w, max(1.0, rect.size.y - border_width * 2.0))),
 		Color(0.86, 0.20, 0.18, 0.72)
 	)
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skill_tooltip(

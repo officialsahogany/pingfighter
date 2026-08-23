@@ -3,6 +3,7 @@ extends RefCounted
 const Stage4PonkIllusionState := preload("res://scripts/stages/stage4/stage4_ponk_illusion_state.gd")
 const Stage4PonkMagneticFieldState := preload("res://scripts/stages/stage4/stage4_ponk_magnetic_field_state.gd")
 const Stage4PonkMeditationState := preload("res://scripts/stages/stage4/stage4_ponk_meditation_state.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const MAGNETIC_SKILL_ID := "magnetic_field"
 const MEDITATION_SKILL_ID := "meditation"
@@ -48,7 +49,7 @@ func _build_magnetic_skill(state: Object, meditation_active: bool) -> Dictionary
 		"name": "굴절 자기장",
 		"short_label": "자기장",
 		"trigger": "25초마다 자동 발동",
-		"trigger_type": "auto_cooldown",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"status": status,
 		"ready": ready,
 		"cooldown_contract": "time",
@@ -90,7 +91,7 @@ func _build_meditation_skill(
 		"name": "위빠사나 명상",
 		"short_label": "명상",
 		"trigger": "18초 쿨타임 후 보스 타격",
-		"trigger_type": "hit_cooldown",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"trigger_chance": trigger_chance,
 		"status": status,
 		"ready": ready,
@@ -162,7 +163,7 @@ func _build_illusion_skill(state: Object) -> Dictionary:
 		"name": "몽환포영",
 		"short_label": "포영",
 		"trigger": "플레이어 %d점에 각성" % Stage4PonkIllusionState.ILLUSION_UNLOCK_PLAYER_SCORE,
-		"trigger_type": "score_unlock_auto_cooldown",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"status": status,
 		"ready": ready,
 		"cooldown_contract": "score_latched",

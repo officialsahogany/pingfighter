@@ -227,6 +227,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var side_width := maxf(1.0, round(SIDE_STRIP_BASE * scale_factor))
 	# 2분법: 보스 스킬 = 붉은 띠(적). 수호령 카드는 위 is_lingpet 분기에서 청록 띠로 그림.
 	canvas.draw_rect(Rect2(rect.position, Vector2(side_width, rect.size.y)), BossSkillCardHudSpec.BOSS_SKILL_STRIP_COLOR)
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 	var font := ThemeDB.fallback_font
 	var active_count: int = int(skill.get("active_count", 0))
 	if font != null and not has_texture:

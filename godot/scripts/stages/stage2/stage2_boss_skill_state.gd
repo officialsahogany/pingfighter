@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+
 const BossSkillParryGate := preload("res://scripts/stages/common/boss_skill_parry_gate.gd")
 
 const STAGE_ID := 2
@@ -422,7 +424,7 @@ func _get_quake_hud_skill(quake_active: bool, _context: Dictionary) -> Dictionar
 		"ready": skill_status == "ready",
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "auto",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"gauge": boss_special_gauge,
 		"gauge_max": BOSS_GAUGE_MAX,
 		"color": Color(0.42, 0.92, 0.48, 1.0),
@@ -453,7 +455,7 @@ func _get_water_cannon_hud_skill(water_phase: String, water_unlocked: bool) -> D
 		"ready": skill_status == "ready",
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "auto",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"color": Color(0.35, 0.78, 1.0, 1.0),
 	}
 
@@ -489,7 +491,7 @@ func _get_speed_defense_hud_skill() -> Dictionary:
 		"ready": skill_status == "ready",
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "auto",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"color": Color(0.25, 0.82, 1.0, 1.0),
 	}
 

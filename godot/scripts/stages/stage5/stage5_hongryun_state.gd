@@ -5,6 +5,7 @@ const CommonStarpointVisualHost := preload("res://scripts/effects/common_starpoi
 const LingpetStarlightTrackingBridge := preload("res://scripts/stages/common/lingpet_starlight_tracking_bridge.gd")
 const StarpointBonusDropPolicy := preload("res://scripts/stages/common/starpoint_bonus_drop_policy.gd")
 const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 const StarpointCollectionCompaction := preload("res://scripts/stages/common/starpoint_collection_compaction.gd")
 const StarpointCollectionRewardPolicy := preload("res://scripts/stages/common/starpoint_collection_reward_policy.gd")
 const StarpointDowsingAttraction := preload("res://scripts/stages/common/starpoint_dowsing_attraction.gd")
@@ -1201,7 +1202,7 @@ func _get_fireball_hud_skill() -> Dictionary:
 		"initial_ready_allowed": false,
 		"progress": clamp(1.0 - remaining / total, 0.0, 1.0),
 		"ready": skill_status == "ready",
-		"trigger_type": "auto",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"color": Color(0.95, 0.42, 0.30, 1.0),
 	}
 
@@ -1232,7 +1233,7 @@ func _get_inferno_hud_skill() -> Dictionary:
 		"cooldown_contract": "resource_gauge",
 		"initial_ready_allowed": false,
 		"ready": skill_status == "ready",
-		"trigger_type": "boss_paddle_contact",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"color": Color(1.0, 0.20, 0.20, 1.0),
 	}
 

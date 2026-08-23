@@ -106,10 +106,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		var entry: Dictionary = entries[idx]
 		var target_y: float = start_y + float(idx) * (card_h + card_gap)
 		var key: String = str(entry.get("id", "stage4_skill_%d" % idx))
-		var current_y: float = float(_queue_positions.get(key, target_y))
-		current_y = lerpf(current_y, target_y, 0.15)
-		_queue_positions[key] = current_y
-		var rect := Rect2(Vector2(card_x, round(current_y)), Vector2(card_w, card_h))
+		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
+			_queue_positions, key, card_x, target_y, scale_factor, time_seconds
+		)
+		var rect := Rect2(Vector2(float(motion.get("x", card_x)), round(float(motion.get("y", target_y)))), Vector2(card_w, card_h))
 		_draw_card(canvas, rect, entry, scale_factor, time_seconds)
 		if rect.has_point(mouse_pos):
 			hovered_skill = entry
@@ -175,6 +175,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 
 	var side_w: float = maxf(1.0, round(SIDE_STRIP_BASE * scale_factor))
 	canvas.draw_rect(Rect2(rect.position + Vector2(0.0, 1.0), Vector2(side_w, rect.size.y - 2.0)), Color(0.95, 0.28, 0.16, 0.74))
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fill_ratio: float, fallback_color: Color) -> void:

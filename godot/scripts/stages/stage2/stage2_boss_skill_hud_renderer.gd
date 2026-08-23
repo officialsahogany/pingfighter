@@ -158,6 +158,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	elif locked:
 		border_color = Color(0.36, 0.38, 0.40, 0.64)
 	canvas.draw_rect(rect, border_color, false, max(1.0, round(1.0 * scale_factor)))
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 	if skillcard != null or font == null or rect.size.x < 31.0:
 		return
@@ -271,10 +272,10 @@ func _get_tooltip_info(value: Variant) -> Dictionary:
 		}
 	if skill_id == "water_cannon":
 		return {
-			"name": "물대포",
+			"name": "용소격류",
 			"trigger": "자동 / 바위 등장 후",
 			"cooldown": "쿨타임 30초",
-			"description": "물대포를 충전해 전장을 가로지르는 물줄기를 발사합니다.",
+			"description": "용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.",
 		}
 	if skill_id == "speed_defense":
 		return {

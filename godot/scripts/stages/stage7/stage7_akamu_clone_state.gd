@@ -1,5 +1,7 @@
 extends RefCounted
 
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+
 const LEGACY_FPS := 60.0
 const FIELD_WIDTH := 760.0
 const GAUGE_COST := 100.0
@@ -30,6 +32,7 @@ var cast_boss_pos := Vector2.ZERO
 var cast_boss_center := Vector2.ZERO
 var cast_free := false
 var cast_source := ""
+var pity_failures := 0
 var next_id := 1
 var entities: Array = []
 
@@ -37,6 +40,7 @@ var entities: Array = []
 func reset_full() -> void:
 	clear_round_transients()
 	cooldown_remaining_sec = INITIAL_COOLDOWN_SEC
+	pity_failures = 0
 
 
 func clear_round_transients() -> void:
@@ -98,6 +102,7 @@ func get_snapshot() -> Dictionary:
 		"cast_elapsed_sec": cast_elapsed_sec,
 		"cast_free": cast_free,
 		"cast_source": cast_source,
+		"pity_failures": pity_failures,
 		"cooldown_remaining_sec": cooldown_remaining_sec,
 		"invuln_buffer_remaining_sec": invuln_buffer_remaining_sec,
 		"live_count": get_live_count(),
@@ -140,6 +145,7 @@ func build_hud_skill(boss_gauge: float, skill_paused: bool, blocked_by_other_ski
 		"cooldown_total": COOLDOWN_SEC,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"next_activation_remaining": next_activation_remaining,
 		"ready": ready,
 		"active": live_count > 0 or (casting and not skill_paused),
@@ -167,8 +173,14 @@ func try_start_cast(
 		or (not free_cast and boss_gauge < GAUGE_COST)
 	):
 		return false
-	if not force_roll and rng.randf() > TRIGGER_CHANCE:
-		return false
+	if not force_roll:
+		var effective_chance := minf(
+			1.0,
+			TRIGGER_CHANCE * (1.0 + float(pity_failures))
+		)
+		if rng.randf() > effective_chance:
+			pity_failures += 1
+			return false
 	var boss_pos: Vector2 = _as_vector2(
 		context.get("boss_pos", Vector2(330.0, 25.0)),
 		Vector2(330.0, 25.0)
@@ -181,6 +193,7 @@ func try_start_cast(
 		Vector2(100.0, 40.0)
 	)
 	casting = true
+	pity_failures = 0
 	cast_elapsed_sec = 0.0
 	cast_boss_pos = boss_pos
 	cast_boss_center = boss_pos + boss_size * 0.5

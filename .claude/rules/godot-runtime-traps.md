@@ -636,5 +636,7 @@ Full rule: `docs/godot_runtime_traps.md`.
 - 증상: reset cooldown 0은 `progress = 1 - remaining/total`을 첫 프레임부터 1로 고정한다.
 - 필수: 스킬별 양수 initial 상수, 양수 total, 명시적 cooldown contract를 함께 게시한다.
 - 필수: 감소 owner는 정확히 하나이고, 성공한 시전은 양수 cooldown을 다시 적재해야 한다.
+- 필수: 전 보스 카드가 공용 `instant`/`on_boss_hit` 표시 metadata를 선언하고 실동작 owner와 일치해야 한다. 발동 분기를 metadata로 옮기지 않는다.
+- 표시: `on_boss_hit` 카드만 열린 황동·먹 타격 표식을 쓰고 `instant` 카드는 무표식으로 둔다.
 - 예외: 즉시 ready 디자인은 `initial_ready_allowed=true`로 선언하고 문서와 전수 씰에 등재한다.
-- 검증: 1~8층 런타임 HUD producer 자동 발견으로 전 보스·전 스킬 reset/진행/시전/재충전과 0-초기화 RED 픽스처를 봉인한다.
+- 검증: 1~8층 런타임 HUD producer 자동 발견으로 전 보스·전 스킬 reset/진행/시전/재충전, 선언 존재·실동작 일치, 0-초기화 및 자동발동 차단 RED 픽스처를 봉인한다.

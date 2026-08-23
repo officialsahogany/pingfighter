@@ -1,6 +1,8 @@
 extends SceneTree
 
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+const Stage1DaljiCooldownState := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_cooldown_state.gd")
 const Stage2BossState := preload("res://scripts/stages/stage2/stage2_boss_skill_state.gd")
 const Stage2BossVariantState := preload("res://scripts/stages/stage2/stage2_boss_variant_skill_state.gd")
 const Stage2MolewangState := preload("res://scripts/stages/stage2/stage2_molewang_boss_state.gd")
@@ -13,6 +15,7 @@ const Stage4PillarBackground := preload("res://scripts/stages/stage4/stage4_pill
 
 const PRODUCER_ROOT := "res://scripts/stages"
 const ZERO_INITIAL_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE"
+const AUTO_TRIGGER_BLOCK_FIXTURE_ENV := "BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE"
 const EPSILON := 0.0001
 const VALID_CONTRACTS := [
 	"time",
@@ -22,11 +25,33 @@ const VALID_CONTRACTS := [
 	"resource_gauge",
 	"placeholder",
 ]
+const ON_BOSS_HIT_SKILL_IDS := [
+	"whip",
+	"fan_wind",
+	"arrest_rope",
+	"spinning_claw",
+	"web_trap",
+	"psycho_ball",
+	"cotton_throw",
+	"cotton_bomb",
+	"deadly_hug",
+	"heart_beam",
+	"mirror_world",
+	"size_shift",
+	"rabbit_projectile",
+	"meditation",
+	"hongryun_inferno",
+	"stage7_clone",
+	"stage7_cloud",
+]
 
 var _failures: Array[String] = []
 var _producers: Array[Dictionary] = []
 var _boss_count := 0
 var _skill_count := 0
+var _trigger_instant_count := 0
+var _trigger_on_boss_hit_count := 0
+var _trigger_match_count := 0
 var _contract_counts := {
 	"time": 0,
 	"deferred_time": 0,
@@ -41,6 +66,7 @@ class FakeStage1AutoSkill:
 	extends RefCounted
 
 	var active := false
+	var block_activation := false
 
 	func is_active() -> bool:
 		return active
@@ -49,6 +75,8 @@ class FakeStage1AutoSkill:
 		return false
 
 	func activate(_context: Dictionary, _deps: Dictionary = {}) -> bool:
+		if block_activation:
+			return false
 		active = true
 		return true
 
@@ -88,6 +116,12 @@ class FakeStage2Background:
 
 
 func _init() -> void:
+	if OS.get_environment(AUTO_TRIGGER_BLOCK_FIXTURE_ENV) == "1":
+		_verify_auto_trigger_negative_fixture()
+		for failure in _failures:
+			push_error(failure)
+		quit(1 if not _failures.is_empty() else 0)
+		return
 	_discover_all_producers()
 	_verify_every_reset_and_update()
 	_verify_every_cast_reloads_and_ticks()
@@ -111,8 +145,25 @@ func _init() -> void:
 		]
 	)
 	print("[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true NEGATIVE_FIXTURE_ENV=%s" % ZERO_INITIAL_FIXTURE_ENV)
+	print(
+		"[BossSkillCardCooldownContract] TRIGGER_DECLARATIONS=%d TRIGGER_INSTANT=%d TRIGGER_ON_BOSS_HIT=%d TRIGGER_MATCH=%d AUTO_BLOCK_NEGATIVE_FIXTURE_ENV=%s"
+		% [_skill_count, _trigger_instant_count, _trigger_on_boss_hit_count, _trigger_match_count, AUTO_TRIGGER_BLOCK_FIXTURE_ENV]
+	)
 	print("boss_skill_card_cooldown_contract_smoke: ok")
 	quit(0)
+
+
+func _verify_auto_trigger_negative_fixture() -> void:
+	var state := Stage1DaljiCooldownState.new()
+	var runtime: Dictionary = state._get_runtime("spinning_top")
+	runtime["timer"] = float(runtime.get("duration", 1.0))
+	runtime["ready"] = true
+	runtime["status"] = "ready"
+	state.skill_runtime["spinning_top"] = runtime
+	var blocked_auto_skill := FakeStage1AutoSkill.new()
+	blocked_auto_skill.block_activation = true
+	state.update(0.0, _base_context(1), {"stage1_dalji_spinning_top_skill_state": blocked_auto_skill})
+	_expect(blocked_auto_skill.active, "instant-declared spinning_top must activate automatically when its card is full")
 
 
 func _discover_all_producers() -> void:
@@ -234,6 +285,7 @@ func _validate_initial_skill(producer_id: String, skill_id: String, skill: Dicti
 		"ready",
 		"cooldown_contract",
 		"initial_ready_allowed",
+		"trigger_type",
 	]:
 		_expect(skill.has(key), "%s/%s reset card is missing required key %s" % [producer_id, skill_id, key])
 	var total := float(skill.get("cooldown_total", 0.0))
@@ -242,11 +294,21 @@ func _validate_initial_skill(producer_id: String, skill_id: String, skill: Dicti
 	var ready := bool(skill.get("ready", false))
 	var allowed := bool(skill.get("initial_ready_allowed", false))
 	var contract := str(skill.get("cooldown_contract", ""))
+	var trigger_type := str(skill.get("trigger_type", ""))
 	_expect(str(skill.get("id", "")) == skill_id, "%s/%s card id must be stable" % [producer_id, skill_id])
 	_expect(total > EPSILON, "%s/%s cooldown_total must be positive (got %.6f)" % [producer_id, skill_id, total])
 	_expect(remaining >= -EPSILON, "%s/%s cooldown_remaining must be non-negative" % [producer_id, skill_id])
 	_expect(progress >= -EPSILON and progress <= 1.0 + EPSILON, "%s/%s progress must stay inside 0..1" % [producer_id, skill_id])
 	_expect(contract in VALID_CONTRACTS, "%s/%s has unknown cooldown_contract=%s" % [producer_id, skill_id, contract])
+	_expect(BossSkillTriggerClass.is_valid(trigger_type), "%s/%s has missing or invalid trigger_type=%s" % [producer_id, skill_id, trigger_type])
+	var expected_trigger := _expected_trigger_type(skill_id)
+	_expect(trigger_type == expected_trigger, "%s/%s trigger declaration must match production behavior (expected=%s got=%s)" % [producer_id, skill_id, expected_trigger, trigger_type])
+	if trigger_type == expected_trigger:
+		_trigger_match_count += 1
+	if trigger_type == BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT:
+		_trigger_on_boss_hit_count += 1
+	elif trigger_type == BossSkillTriggerClass.TRIGGER_INSTANT:
+		_trigger_instant_count += 1
 	if _contract_counts.has(contract):
 		_contract_counts[contract] = int(_contract_counts.get(contract, 0)) + 1
 	if contract == "placeholder":
@@ -365,6 +427,7 @@ func _cast_skill(skill_id: String, state: Object, context: Dictionary, backgroun
 		runtime["status"] = "ready"
 		state.skill_runtime[skill_id] = runtime
 		var auto_skill := FakeStage1AutoSkill.new()
+		auto_skill.block_activation = OS.get_environment(AUTO_TRIGGER_BLOCK_FIXTURE_ENV) == "1"
 		var dep_key := str({
 			"spinning_top": "stage1_dalji_spinning_top_skill_state",
 			"fan_throw": "stage1_gaksital_fan_throw_skill_state",
@@ -509,6 +572,14 @@ func _cast_skill(skill_id: String, state: Object, context: Dictionary, backgroun
 				state.update(0.1, context, {})
 			return float(state.debug_get_superspeed_snapshot().get("cooldown_remaining_sec", 0.0)) > 0.0
 	return false
+
+
+func _expected_trigger_type(skill_id: String) -> String:
+	return (
+		BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT
+		if skill_id in ON_BOSS_HIT_SKILL_IDS
+		else BossSkillTriggerClass.TRIGGER_INSTANT
+	)
 
 
 func _verify_production_update_owner() -> void:

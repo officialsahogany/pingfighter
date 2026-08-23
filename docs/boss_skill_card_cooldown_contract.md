@@ -36,11 +36,20 @@ adapter일 뿐이며 보스 전수 목록의 원천이 아니다.
 - `cooldown_contract`: 아래 계약 종류 중 하나.
 - `initial_ready_allowed`: 전투 첫 publication에서 즉시 ready인 명시적 디자인
   예외인지 여부.
+- `trigger_type`: 표시 전용 발동 분류. 공용
+  `BossSkillTriggerClass.TRIGGER_INSTANT` 또는
+  `BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT` 중 하나다.
 - `implemented`: `placeholder`이면 반드시 `false`.
 
 기존 렌더러 호환 키(`active`, `cooldown`, `cooldown_progress` 등)는 소비자가
 남아 있는 동안 유지한다. 계약 판정의 정본은 `cooldown_remaining`,
 `cooldown_total`, `progress`, `ready`다.
+
+`trigger_type`은 발동 로직의 switch가 아니다. production activation owner가 먼저
+정본이고, payload 선언은 그 실동작을 설명한다. `instant`는 레일/사건 조건이
+충족되는 즉시 owner가 발동하는 카드, `on_boss_hit`는 레일이 가득 찬 뒤 다음 정상
+보스 타격을 기다리는 카드다. 공통 카드 렌더러는 `on_boss_hit`에만 황동·먹색의
+열린 타격 표식을 그린다. `instant`와 선언 없는 링펫 카드는 무표식이 기본이다.
 
 ## reset, 진행, 재충전
 
@@ -124,13 +133,19 @@ progress 0 / not-ready를 뜻하며 update가 timer를 채우는 반대 방향 �
 $env:BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE='1'
 ./tools/run_smoke_tests.ps1 -Tests res://tests/boss_skill_card_cooldown_contract_smoke.gd
 Remove-Item Env:BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE
+$env:BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE='1'
+./tools/run_smoke_tests.ps1 -Tests res://tests/boss_skill_card_cooldown_contract_smoke.gd
+Remove-Item Env:BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE
 ```
 
 첫 명령은 현재 14보스·39스킬의 required keys, 양수 total, reset 비-ready,
 여러 tick/event의 progress 변화, production 시전 owner, 재충전, 단일 update owner를
-전수 검사한다. 현재 계약 분포는
+전수 검사하고, 39개 전부의 `trigger_type` 존재와 실동작 분류 일치를 함께 봉인한다.
+현재 발동 분류는 `TRIGGER_INSTANT=22`, `TRIGGER_ON_BOSS_HIT=17`이고 계약 분포는
 `TIME=32 DEFERRED_TIME=1 EVENT_CYCLE=1 SCORE_LATCHED=2 RESOURCE_GAUGE=2 PLACEHOLDER=1`이다.
 
 두 번째 명령은 새 전수 범위인 Stage 7 아카무 `stage7_clone` 초기값을 0으로
 되돌리는 반증 픽스처이며 반드시 러너 RED여야 한다. 씰은 focused CI와 pre-push
-두 목록에 같은 경로로 등재한다.
+두 목록에 같은 경로로 등재한다. 세 번째 명령은 `instant`로 선언된 1층 자동 스킬의
+production activation을 막는다. 레일이 가득 찬 뒤에도 발동하지 않으므로 반드시
+RED여야 한다.

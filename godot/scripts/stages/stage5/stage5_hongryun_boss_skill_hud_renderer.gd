@@ -17,13 +17,12 @@ const ORB_FILL_SHEET_ROWS := 4
 const ORB_FILL_FRAME_COUNT := 16
 const ORB_FILL_ANIM_SEC := 0.55
 const WIDE_SKILLCARD_ASPECT_MIN := 2.5
-const QUEUE_LERP_SPEED := 8.0
 const SIDE_STRIP_BASE := 2.0
 const TOOLTIP_WIDTH_BASE := 168.0
 const TOOLTIP_PADDING_BASE := 10.0
 const TOOLTIP_GAP_BASE := 8.0
 const TOOLTIP_LINE_SPACING_BASE := 4.0
-const TOOLTIP_MAX_DESC_LINES := 2
+const TOOLTIP_MAX_DESC_LINES := BossSkillCardHudSpec.TOOLTIP_MAX_DESC_LINES
 const TOOLTIP_SCALE_MIN := 0.85
 const TOOLTIP_SCALE_MAX := 1.15
 const TOOLTIP_MIN_LEFT_WIDTH := 120.0
@@ -174,10 +173,10 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		var target_rect: Rect2 = _as_rect2(rects[idx], Rect2())
 		var target_y: float = target_rect.position.y
 		var key: String = str(entry.get("id", "stage5_skill_%d" % idx))
-		var current_y: float = float(_queue_positions.get(key, target_y))
-		current_y = lerpf(current_y, target_y, minf(1.0, QUEUE_LERP_SPEED / 60.0))
-		_queue_positions[key] = current_y
-		var rect := Rect2(Vector2(target_rect.position.x, round(current_y)), target_rect.size)
+		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
+			_queue_positions, key, target_rect.position.x, target_y, scale_factor, time_seconds
+		)
+		var rect := Rect2(Vector2(float(motion.get("x", target_rect.position.x)), round(float(motion.get("y", target_y)))), target_rect.size)
 		_draw_card(canvas, rect, entry, scale_factor, time_seconds, quality_scale)
 		if rect.has_point(mouse_pos):
 			hovered_skill = entry
@@ -248,6 +247,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 		Rect2(rect.position + Vector2(0.0, border_width), Vector2(side_w, maxf(1.0, rect.size.y - border_width * 2.0))),
 		_get_side_strip_color(str(skill.get("id", "")))
 	)
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skillcard_gauge(canvas: CanvasItem, rect: Rect2, skill_id: String, fill_ratio: float, fallback_color: Color) -> void:

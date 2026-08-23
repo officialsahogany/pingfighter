@@ -24,6 +24,7 @@ var visual_scale := 1.0
 var episode_active := false
 var attempted := false
 var ready_remaining_sec := 0.0
+var pity_failures := 0
 var last_released_net_count := 0
 var afterimages: Array = []
 var hologram_draw_context: Dictionary = {}
@@ -31,6 +32,7 @@ var hologram_draw_context: Dictionary = {}
 
 func reset_full() -> void:
 	clear_round_transients()
+	pity_failures = 0
 
 
 func clear_round_transients() -> void:
@@ -72,6 +74,7 @@ func get_snapshot() -> Dictionary:
 		"episode_active": episode_active,
 		"attempted": attempted,
 		"ready_remaining_sec": ready_remaining_sec,
+		"pity_failures": pity_failures,
 		"released_net_count": last_released_net_count,
 		"afterimage_count": afterimages.size(),
 		"hologram_active": not hologram_draw_context.is_empty(),
@@ -113,7 +116,12 @@ func update_trigger(
 	):
 		return {}
 	attempted = true
-	if rng.randf() > TRIGGER_CHANCE:
+	var effective_chance := minf(
+		1.0,
+		TRIGGER_CHANCE * (1.0 + float(pity_failures))
+	)
+	if rng.randf() > effective_chance:
+		pity_failures += 1
 		return {}
 	return try_start(
 		context,
@@ -183,6 +191,7 @@ func try_start(
 	)
 
 	active = true
+	pity_failures = 0
 	elapsed_sec = 0.0
 	start_boss_pos = context_boss_pos
 	target_boss_pos = Vector2(target_x, context_boss_pos.y)

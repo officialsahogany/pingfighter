@@ -176,6 +176,7 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 		Rect2(rect.position + Vector2(0.0, border_width), Vector2(side_width, maxf(1.0, rect.size.y - border_width * 2.0))),
 		Color(0.67, 0.44, 0.20, 0.86)
 	)
+	BossSkillCardHudSpec.draw_trigger_marker(canvas, skill, rect, scale_factor)
 
 
 func _draw_skillcard_gauge(

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 const STAGE_ID := 2
 const VARIANT_ID := "molewang"
@@ -184,7 +185,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage2_boss_skill_hud_skills": [
 			_build_skill("tunnel_raid", "지맥잠행", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
-			_build_skill("spinning_claw", "선조율풍", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28)),
+			_build_skill("spinning_claw", "선조율풍", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28), "time", BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT),
 			_build_skill("friend_moles", "지굴원군", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16), "event_cycle"),
 		],
 	}
@@ -574,7 +575,8 @@ func _build_skill(
 	cooldown: float,
 	total: float,
 	color: Color,
-	cooldown_contract: String = "time"
+	cooldown_contract: String = "time",
+	trigger_type: String = BossSkillTriggerClass.TRIGGER_INSTANT
 ) -> Dictionary:
 	var normalized_cooldown: float = maxf(0.0, cooldown)
 	var normalized_total: float = maxf(0.001, total)
@@ -592,6 +594,7 @@ func _build_skill(
 		"status": skill_status,
 		"ready": ready,
 		"cooldown_contract": cooldown_contract,
+		"trigger_type": trigger_type,
 		"initial_ready_allowed": false,
 		"progress": progress,
 		"color": color,

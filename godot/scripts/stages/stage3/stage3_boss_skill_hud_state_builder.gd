@@ -4,6 +4,7 @@ const Stage3CurseChestState := preload("res://scripts/stages/stage3/stage3_curse
 const Stage3PsychoballState := preload("res://scripts/stages/stage3/stage3_psychoball_state.gd")
 const Stage3TearShowerState := preload("res://scripts/stages/stage3/stage3_tear_shower_state.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
 
 # Pure Stage 3 boss-skill HUD projection. Skill owners retain their clocks and
 # activation transactions; this builder owns only the public payload shape,
@@ -67,7 +68,7 @@ func _build_psychoball_skill(psychoball_state: Object) -> Dictionary:
 		"ready": not active and cooldown <= 0.0,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "hit",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 		"color": Color(0.88, 0.62, 0.22, 1.0),
 	}
 
@@ -91,7 +92,7 @@ func _build_cooldown_skill(
 		"ready": status_text == "ready",
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
-		"trigger_type": "auto",
+		"trigger_type": BossSkillTriggerClass.TRIGGER_INSTANT,
 		"color": color,
 	}
 

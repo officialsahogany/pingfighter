@@ -1,11 +1,11 @@
 extends RefCounted
 
+const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+
 const STAGE_ID := 1
 const BOSS_VARIANT := "podo"
 const SKILL_PATROL_GUARDS := "patrol_guards"
 const SKILL_ARREST_ROPE := "arrest_rope"
-const TRIGGER_INSTANT := "instant"
-const TRIGGER_ON_BOSS_HIT := "on_boss_hit"
 const PATROL_GUARDS_COOLDOWN_FRAMES := 960.0
 const ARREST_ROPE_COOLDOWN_FRAMES := 1200.0
 const READY_FLASH_FRAMES := 24.0
@@ -66,13 +66,13 @@ func get_hud_context() -> Dictionary:
 			_build_hud_skill(
 				SKILL_PATROL_GUARDS,
 				"포졸소환",
-				TRIGGER_INSTANT,
+				BossSkillTriggerClass.TRIGGER_INSTANT,
 				Color(0.55, 0.36, 0.18)
 			),
 			_build_hud_skill(
 				SKILL_ARREST_ROPE,
 				"포승줄",
-				TRIGGER_ON_BOSS_HIT,
+				BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
 				Color(0.74, 0.61, 0.36)
 			),
 		],
@@ -201,7 +201,7 @@ func _build_hud_skill(skill_id: String, label: String, trigger_type: String, col
 		"label": label,
 		"name": label,
 		"trigger_type": trigger_type,
-		"trigger_label": "즉시" if trigger_type == TRIGGER_INSTANT else "타격",
+		"trigger_label": BossSkillTriggerClass.get_label(trigger_type),
 		"progress": clampf(float(runtime.get("timer", 0.0)) / duration, 0.0, 1.0),
 		"cooldown_remaining": remaining_seconds,
 		"cooldown_total": duration_seconds,
