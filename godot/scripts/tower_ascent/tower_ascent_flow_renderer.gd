@@ -3593,22 +3593,37 @@ func _draw_training_timing_gauge(
 	canvas.draw_rect(gauge_rect.grow(3.0 * content_scale), Color(0.03, 0.018, 0.012, 0.34), true)
 	canvas.draw_rect(gauge_rect, Color(0.16, 0.095, 0.045, 0.98), true)
 	canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
+	# GRT-018 guard: consume the state's precomputed zone boundaries so the
+	# drawn cells can never drift from the judgment math; the fallbacks mirror
+	# the policy factors (great bands are GREAT_CELL_MULTIPLIER x the cell).
 	var target_position := clampf(float(model.get("target_position", 0.5)), 0.0, 1.0)
-	var cell_width := clampf(float(model.get("cell_width_ratio", 0.20)), 0.01, 0.30)
+	var cell_width := clampf(float(model.get("cell_width_ratio", 0.02)), 0.005, 0.08)
+	var critical_start := clampf(
+		float(model.get("critical_start", target_position - cell_width * 0.5)), 0.0, 1.0
+	)
+	var critical_end := clampf(
+		float(model.get("critical_end", target_position + cell_width * 0.5)), 0.0, 1.0
+	)
+	var great_left_start := clampf(
+		float(model.get("great_left_start", target_position - cell_width * 2.5)), 0.0, 1.0
+	)
+	var great_right_end := clampf(
+		float(model.get("great_right_end", target_position + cell_width * 2.5)), 0.0, 1.0
+	)
 	var critical_rect := _training_timing_segment_rect(
 		track_rect,
-		target_position - cell_width * 0.5,
-		target_position + cell_width * 0.5
+		critical_start,
+		critical_end
 	)
 	var great_left_rect := _training_timing_segment_rect(
 		track_rect,
-		target_position - cell_width * 1.5,
-		target_position - cell_width * 0.5
+		great_left_start,
+		critical_start
 	)
 	var great_right_rect := _training_timing_segment_rect(
 		track_rect,
-		target_position + cell_width * 0.5,
-		target_position + cell_width * 1.5
+		critical_end,
+		great_right_end
 	)
 	for great_rect in [great_left_rect, great_right_rect]:
 		canvas.draw_rect(great_rect, Color(0.13, 0.34, 0.54, 0.72), true)
@@ -3634,10 +3649,10 @@ func _draw_training_timing_gauge(
 		2.0 * content_scale
 	)
 	for boundary_ratio in [
-		target_position - cell_width * 1.5,
-		target_position - cell_width * 0.5,
-		target_position + cell_width * 0.5,
-		target_position + cell_width * 1.5,
+		great_left_start,
+		critical_start,
+		critical_end,
+		great_right_end,
 	]:
 		var boundary_x := track_rect.position.x + track_rect.size.x * float(boundary_ratio)
 		canvas.draw_line(

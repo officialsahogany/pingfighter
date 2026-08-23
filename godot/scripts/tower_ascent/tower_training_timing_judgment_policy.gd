@@ -4,9 +4,11 @@ const JUDGMENT_CRITICAL := "critical"
 const JUDGMENT_GREAT := "great"
 const JUDGMENT_BASE := "base"
 
-const BASE_LUCK_PERCENT := 20.0
-const MIN_LUCK_PERCENT := 5.0
-const MAX_LUCK_PERCENT := 30.0
+const BASE_LUCK_PERCENT := 2.0
+const MIN_LUCK_PERCENT := 1.0
+const MAX_LUCK_PERCENT := 8.0
+const GREAT_CELL_MULTIPLIER := 2.0
+const JUDGMENT_BOUNDARY_EPSILON := 0.000001
 const CRITICAL_MULTIPLIER := 1.5
 const GREAT_MULTIPLIER := 1.3
 const BASE_MULTIPLIER := 1.0
@@ -15,16 +17,17 @@ const TARGET_RNG_VERSION := "training_timing_target_v1"
 
 
 static func cell_width_ratio(luck_percent: float) -> float:
-	# The retired 20% lucky roll becomes a visible skill window: at the current
-	# value each judgment cell occupies exactly 20% of the track. Every +1 Luck
-	# widens all three cells by one track-percent. The 30% ceiling preserves at
-	# least 10% of the track for the base-result leg.
+	# 피드백2 2항: the jackpot cell must be genuinely hard to hit, so the base
+	# critical cell is 2% of the track and each great band is twice that
+	# (GREAT_CELL_MULTIPLIER). Every +1 Luck widens the critical cell by one
+	# track-percent; the 8% ceiling keeps the full reward block (critical +
+	# both great bands = 5 cells) at or below 40% of the track.
 	return clampf(luck_percent, MIN_LUCK_PERCENT, MAX_LUCK_PERCENT) / 100.0
 
 
 static func target_center_bounds(luck_percent: float) -> Vector2:
 	var cell_width := cell_width_ratio(luck_percent)
-	var outer_half_width := cell_width * 1.5
+	var outer_half_width := cell_width * (0.5 + GREAT_CELL_MULTIPLIER)
 	return Vector2(outer_half_width, 1.0 - outer_half_width)
 
 
@@ -73,11 +76,13 @@ static func judge_position(
 		- clampf(target_position, 0.0, 1.0)
 	)
 	var critical_half_width := cell_width * 0.5
-	var great_outer_half_width := cell_width * 1.5
+	var great_outer_half_width := cell_width * (0.5 + GREAT_CELL_MULTIPLIER)
+	# Boundary pixels must attribute inclusively even when a ratio like 147/300
+	# is not binary-exact; the epsilon sits far below one pixel on any track.
 	var judgment_kind := JUDGMENT_BASE
-	if distance <= critical_half_width:
+	if distance <= critical_half_width + JUDGMENT_BOUNDARY_EPSILON:
 		judgment_kind = JUDGMENT_CRITICAL
-	elif distance <= great_outer_half_width:
+	elif distance <= great_outer_half_width + JUDGMENT_BOUNDARY_EPSILON:
 		judgment_kind = JUDGMENT_GREAT
 	return {
 		"judgment_kind": judgment_kind,

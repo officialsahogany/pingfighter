@@ -264,7 +264,7 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	var runtime := FakeRuntimePerkState.new()
 	var flow := _open_training_flow(runtime, 10)
 	var timing_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
-	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "행운 판정 폭 20% · 최대 효과 +50%", "footer discloses timing-window meaning")
+	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "행운 판정 폭 2% · 최대 효과 +50%", "footer discloses timing-window meaning")
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var layout: Dictionary = renderer.build_tower_node_card_text_layout(timing_action, _action_rect(flow, "training_stat:%s" % TARGET_ID))
 	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail appends one complete fitted effect row")

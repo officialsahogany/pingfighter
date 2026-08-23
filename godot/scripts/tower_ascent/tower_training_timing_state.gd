@@ -142,10 +142,14 @@ func _rebuild_visual_model() -> void:
 		"cell_width_ratio": cell_width,
 		"critical_start": _target_position - cell_width * 0.5,
 		"critical_end": _target_position + cell_width * 0.5,
-		"great_left_start": _target_position - cell_width * 1.5,
+		"great_left_start": _target_position - cell_width * (
+			0.5 + TowerTrainingTimingJudgmentPolicy.GREAT_CELL_MULTIPLIER
+		),
 		"great_left_end": _target_position - cell_width * 0.5,
 		"great_right_start": _target_position + cell_width * 0.5,
-		"great_right_end": _target_position + cell_width * 1.5,
+		"great_right_end": _target_position + cell_width * (
+			0.5 + TowerTrainingTimingJudgmentPolicy.GREAT_CELL_MULTIPLIER
+		),
 		"pulse_strength": 0.5 - 0.5 * cos(pulse_phase * TAU),
 		"judgment_kind": str(_judgment.get("judgment_kind", "")),
 		"wall_elapsed_msec": elapsed,

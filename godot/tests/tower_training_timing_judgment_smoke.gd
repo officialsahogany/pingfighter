@@ -39,23 +39,46 @@ func _run() -> void:
 
 
 func _verify_pixel_boundaries_and_luck_width() -> void:
-	# Luck 20 means one cell is exactly 60px on this 300px contract track.
-	# Critical is [120, 180], adjacent cells are [60, 120) and (180, 240].
-	_expect(_judge_px(120) == "critical", "left critical boundary pixel belongs to critical")
-	_expect(_judge_px(119) == "great", "one pixel outside left critical boundary drops to great")
-	_expect(_judge_px(180) == "critical", "right critical boundary pixel belongs to critical")
-	_expect(_judge_px(181) == "great", "one pixel outside right critical boundary drops to great")
-	_expect(_judge_px(60) == "great", "left adjacent outer boundary pixel belongs to great")
-	_expect(_judge_px(59) == "base", "one pixel outside left adjacent boundary drops to base")
-	_expect(_judge_px(240) == "great", "right adjacent outer boundary pixel belongs to great")
-	_expect(_judge_px(241) == "base", "one pixel outside right adjacent boundary drops to base")
+	# 피드백2 2항: Luck 2 means the critical cell is exactly 6px on this 300px
+	# contract track and each great band is twice that (12px). Critical is
+	# [147, 153], great bands are [135, 147) and (153, 165].
+	_expect(_judge_px(147) == "critical", "left critical boundary pixel belongs to critical")
+	_expect(_judge_px(146) == "great", "one pixel outside left critical boundary drops to great")
+	_expect(_judge_px(153) == "critical", "right critical boundary pixel belongs to critical")
+	_expect(_judge_px(154) == "great", "one pixel outside right critical boundary drops to great")
+	_expect(_judge_px(135) == "great", "left great outer boundary pixel belongs to great")
+	_expect(_judge_px(134) == "base", "one pixel outside left great boundary drops to base")
+	_expect(_judge_px(165) == "great", "right great outer boundary pixel belongs to great")
+	_expect(_judge_px(166) == "base", "one pixel outside right great boundary drops to base")
 
-	var width_20 := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(20.0)
-	var width_30 := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(30.0)
+	var width_base := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
+		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
+	)
+	var width_max := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(8.0)
 	var width_over_cap := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(80.0)
-	_expect(is_equal_approx(width_20, 0.20), "Luck 20 derives a 20 percent judgment cell")
-	_expect(is_equal_approx(width_30, 0.30), "Luck 30 derives a 30 percent judgment cell")
-	_expect(is_equal_approx(width_over_cap, 0.30), "Luck width cap preserves a base-result region")
+	var width_under_floor := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(0.25)
+	_expect(is_equal_approx(width_base, 0.02), "base Luck 2 derives a 2 percent critical cell")
+	_expect(is_equal_approx(width_max, 0.08), "Luck 8 derives the 8 percent ceiling cell")
+	_expect(is_equal_approx(width_over_cap, 0.08), "Luck width cap preserves a base-result region")
+	_expect(is_equal_approx(width_under_floor, 0.01), "Luck width floor keeps a visible 1 percent cell")
+	var judged := TowerTrainingTimingJudgmentPolicy.judge_position(0.5, 0.5, 2.0)
+	_expect(
+		is_equal_approx(float(judged.get("great_outer_half_width_ratio", 0.0)), 0.05),
+		"great bands must span exactly twice the critical cell on each side"
+	)
+	var timing := TowerTrainingTimingState.new()
+	timing.set_clock_msec_for_tests(400)
+	var visual_target := TowerTrainingTimingJudgmentPolicy.roll_target(11, "zone-node", "zone", 0, 2.0)
+	_expect(timing.start(visual_target), "zone visual fixture starts")
+	var zone_model: Dictionary = timing.get_visual_model()
+	var zone_target := float(zone_model.get("target_position", -1.0))
+	_expect(
+		is_equal_approx(float(zone_model.get("great_left_start", 9.9)), zone_target - 0.05)
+		and is_equal_approx(float(zone_model.get("critical_start", 9.9)), zone_target - 0.01)
+		and is_equal_approx(float(zone_model.get("critical_end", -9.9)), zone_target + 0.01)
+		and is_equal_approx(float(zone_model.get("great_right_end", -9.9)), zone_target + 0.05),
+		"visual model zone boundaries must mirror the judgment factors"
+	)
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("critical"), 1.5), "critical multiplier is x1.5")
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("great"), 1.3), "great multiplier is x1.3")
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("base"), 1.0), "base multiplier is x1.0")
@@ -228,7 +251,7 @@ func _judge_px(position_px: int) -> String:
 	return str(TowerTrainingTimingJudgmentPolicy.judge_position(
 		float(position_px) / TRACK_WIDTH_PX,
 		TARGET_X_PX / TRACK_WIDTH_PX,
-		20.0
+		2.0
 	).get("judgment_kind", ""))
 
 
