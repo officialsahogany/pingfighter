@@ -12,7 +12,6 @@ const TowerAscentFlowRenderer := preload(
 
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
 const LIVE_VIEW_SIZE := Vector2(2020.0, 1246.0)
-const LONGEST_KOREAN_BONUS_BADGE := "행운 판정 폭 20% · 최대 효과 +50%"
 
 var _failures: Array[String] = []
 
@@ -26,7 +25,7 @@ func _run() -> void:
 	_verify_shared_six_card_layouts_are_unchanged()
 	_verify_training_stage_reservations()
 	_verify_layout_cache_is_size_owned()
-	_verify_bonus_badge_four_row_budget()
+	_verify_compact_description_three_row_budget()
 	_verify_compact_hover_detail_lane_geometry()
 	_verify_training_hanji_chrome_assets_and_gate()
 	if _failures.is_empty():
@@ -196,25 +195,22 @@ func _verify_layout_cache_is_size_owned() -> void:
 	_expect(modal.get_layout_build_count_for_tests() == 2, "viewport size change must rebuild layout exactly once")
 
 
-func _verify_bonus_badge_four_row_budget() -> void:
+func _verify_compact_description_three_row_budget() -> void:
 	var modal := _build_six_card_modal("training")
 	var card_rect := modal.get_action_rects(BASE_VIEW_SIZE)[0] as Rect2
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var action := _training_card_action(0)
 	var choice: Dictionary = action.get("payload", {}).get("choice", {})
 	choice["description"] = "수련 효과와 실제 적용값을 확인하는 가장 긴 설명 문구를 세 행 예산으로 정확하게 검증합니다 반복 문장"
-	choice["bonus_badge_text"] = LONGEST_KOREAN_BONUS_BADGE
 	var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
 	var description_rows: Array = layout.get("description_rows", [])
 	var badge_rows: Array = layout.get("bonus_badge_rows", [])
 	_expect(bool(layout.get("compact_card", false)), "production training card rect must select the compact card builder")
 	_expect(description_rows.size() == 3, "longest compact training description must append exactly three rows")
 	_expect(int(layout.get("appended_description_row_count", -1)) == 3, "description append count must be the actual three drawn rows")
-	_expect(badge_rows.size() == 1, "longest Korean bonus badge must append exactly one complete row")
-	_expect(str(badge_rows[0]) == LONGEST_KOREAN_BONUS_BADGE, "bonus badge row must preserve the complete Korean copy")
-	_expect(not str(badge_rows[0]).ends_with("..."), "bonus badge must never be clipped with an ellipsis")
-	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "bonus badge append count must equal its one drawn row")
-	_expect(int(layout.get("appended_text_row_count", -1)) == 4, "GRT-021 compact training card must consume exactly 3 description rows plus 1 badge row")
+	_expect(badge_rows.is_empty(), "ordinary training cards must reserve no bonus-badge row")
+	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 0, "ordinary training badge append count must remain zero")
+	_expect(int(layout.get("appended_text_row_count", -1)) == 3, "GRT-021 compact training card must consume exactly its three description rows")
 	var live_card_rect := modal.get_action_rects(LIVE_VIEW_SIZE)[0] as Rect2
 	var live_layout: Dictionary = renderer.build_tower_node_card_text_layout(action, live_card_rect)
 	_expect(
@@ -226,37 +222,19 @@ func _verify_bonus_badge_four_row_budget() -> void:
 		"wide Vulkan training rail must append exactly two description rows"
 	)
 	_expect(
-		int(live_layout.get("appended_text_row_count", -1)) == 3,
-		"wide Vulkan training rail must append exactly two description rows plus one badge row"
+		int(live_layout.get("appended_text_row_count", -1)) == 2,
+		"wide Vulkan training rail must append exactly its two description rows"
 	)
 	var live_badge_rows: Array = live_layout.get("bonus_badge_rows", [])
-	_expect(live_badge_rows.size() == 1, "large Vulkan viewport must append one complete badge row")
-	if live_badge_rows.size() == 1:
-		_expect(
-			str(live_badge_rows[0]) == LONGEST_KOREAN_BONUS_BADGE,
-			"large Vulkan viewport must preserve the complete Korean badge copy"
-		)
-
-	choice["bonus_badge_text"] = "행운 판정 폭이 넓어질수록 회심과 훌륭 판정 구간이 함께 넓어지고 최대 수련 효과는 오십 퍼센트 증가합니다"
-	var insufficient_layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
-	_expect(
-		not bool(insufficient_layout.get("bonus_badge_visible", true)),
-		"an over-budget Korean badge must be disabled as a whole"
-	)
-	_expect(
-		(insufficient_layout.get("bonus_badge_rows", []) as Array).is_empty(),
-		"an over-budget Korean badge must append zero partial rows"
-	)
-	_expect(
-		bool(insufficient_layout.get("bonus_badge_hidden_by_budget", false)),
-		"the builder must report the whole-badge budget rejection"
-	)
+	_expect(live_badge_rows.is_empty(), "large Vulkan viewport must also reserve no ordinary training badge row")
 
 
 func _verify_compact_hover_detail_lane_geometry() -> void:
 	var modal := _build_six_card_modal("training")
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var action := _training_card_action(0)
+	var choice: Dictionary = action.get("payload", {}).get("choice", {})
+	choice["bonus_badge_text"] = "고정 +1칸"
 	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
 		var card_rect := modal.get_action_rects(view_size)[0] as Rect2
 		var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
@@ -315,7 +293,7 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 			"counterproof requires the legacy bottom-anchored lane to overprint an idle compact row at %s" % view_size
 		)
 	# GRT-021 whole-row yield policy: any visible hover detail owns the
-	# description grid, and only a full three-row detail consumes the badge lane.
+	# description grid, and only a full three-row detail consumes the fixed badge lane.
 	_expect(
 		RuntimePerkOverlayRenderer.tower_node_compact_hover_owns_description_lane(true, 1),
 		"one visible hover detail row must own the compact description lane"
@@ -334,7 +312,7 @@ func _verify_compact_hover_detail_lane_geometry() -> void:
 	)
 	_expect(
 		not RuntimePerkOverlayRenderer.tower_node_compact_hover_consumes_badge_lane(true, 2),
-		"a two-row compact hover detail must leave the timing badge visible"
+		"a two-row compact hover detail must leave the fixed-exception badge visible"
 	)
 	# 코덱스 리뷰(8/23): 진입 120ms·이탈 90ms 블렌드 동안 설명은 이미
 	# 양보했으므로 compact 상세는 원자 교체(완전 불투명)여야 한다.

@@ -487,18 +487,12 @@ func _build_training_action(
 	live_choice["training_timing_luck_percent"] = (
 		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
 	)
-	live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE
-		if choice_id != TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
-		else TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
-		,
-		{
-			"width": int(roundf(TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT)),
-			"effect": int(roundf(
-				(TowerTrainingTimingJudgmentPolicy.CRITICAL_MULTIPLIER - 1.0) * 100.0
-			)),
-		}
-	)
+	if choice_id == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
+		# Storage is the one structural exception: timing quality never changes
+		# its fixed +1-slot result, so the card keeps this anti-confusion badge.
+		live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
+		)
 	var unavailable_reason := ""
 	var disabled_reason := ""
 	if at_maximum:

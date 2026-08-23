@@ -668,9 +668,10 @@ func _verify_card_text_budget(flow: Object, card_renderer: Object) -> void:
 	)
 	if (
 		int(production_layout.get("appended_description_row_count", -1)) != 1
-		or int(production_layout.get("appended_bonus_badge_row_count", -1)) != 1
+		or int(production_layout.get("appended_bonus_badge_row_count", -1)) != 0
+		or int(production_layout.get("appended_text_row_count", -1)) != 1
 	):
-		_fail("production card did not retain one effect row plus one footer row")
+		_fail("production card did not retain exactly one effect row and zero timing-footer rows")
 		return
 	var long_action := action.duplicate(true)
 	var choice: Dictionary = long_action.get("payload", {}).get("choice", {})
@@ -681,10 +682,10 @@ func _verify_card_text_budget(flow: Object, card_renderer: Object) -> void:
 	)
 	if (
 		int(long_layout.get("appended_description_row_count", -1)) != 2
-		or int(long_layout.get("appended_bonus_badge_row_count", -1)) != 1
-		or int(long_layout.get("appended_text_row_count", -1)) != 3
+		or int(long_layout.get("appended_bonus_badge_row_count", -1)) != 0
+		or int(long_layout.get("appended_text_row_count", -1)) != 2
 	):
-		_fail("GRT-021 live card did not preserve the complete 2+1 row budget: description=%d badge=%d total=%d" % [
+		_fail("GRT-021 live card did not preserve the complete two-description-row budget: description=%d badge=%d total=%d" % [
 			int(long_layout.get("appended_description_row_count", -1)),
 			int(long_layout.get("appended_bonus_badge_row_count", -1)),
 			int(long_layout.get("appended_text_row_count", -1)),

@@ -264,12 +264,22 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	var runtime := FakeRuntimePerkState.new()
 	var flow := _open_training_flow(runtime, 10)
 	var timing_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
-	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "행운 판정 폭 2% · 최대 효과 +50%", "footer discloses timing-window meaning")
+	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")).is_empty(), "ordinary timing cards expose no footer badge")
+	var flow_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd"
+	)
+	var action_builder_start := flow_source.find("func _build_training_action(")
+	var action_builder_end := flow_source.find("func _begin_training_timing_action(", action_builder_start)
+	var action_builder_source := flow_source.substr(
+		action_builder_start,
+		action_builder_end - action_builder_start
+	)
+	_expect(not action_builder_source.contains("KEY_TRAINING_TIMING_BADGE"), "training action producer must not inject the retired timing footer badge")
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var layout: Dictionary = renderer.build_tower_node_card_text_layout(timing_action, _action_rect(flow, "training_stat:%s" % TARGET_ID))
 	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail appends one complete fitted effect row")
-	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "timing footer appends one whole row")
-	_expect(int(layout.get("appended_text_row_count", -1)) == 2, "compact card budgets two appended rows")
+	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 0, "ordinary timing footer appends zero rows")
+	_expect(int(layout.get("appended_text_row_count", -1)) == 1, "compact card budgets only its fitted effect row")
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
 	_expect(str(_find_action(flow, "training_stat:%s" % TARGET_ID).get("unavailable_reason", "")) == "효과 한계", "consumer saturation retains effect-limit copy")

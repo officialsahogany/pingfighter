@@ -870,8 +870,8 @@ static func tower_node_compact_hover_consumes_badge_lane(
 	compact_card: bool,
 	hover_detail_row_count: int
 ) -> bool:
-	# A full three-row hover detail spills into the compact footer lane, so the
-	# timing badge yields as a whole for that frame rather than overprinting.
+	# A full three-row hover detail spills into the compact footer lane, so a
+	# fixed-exception badge yields as a whole for that frame rather than overprinting.
 	return compact_card and hover_detail_row_count >= TOWER_NODE_HOVER_DETAIL_ROW_LIMIT
 
 
@@ -1131,7 +1131,7 @@ func draw_tower_node_card(
 			)
 	var bonus_badge_rows: Array = text_layout.get("bonus_badge_rows", [])
 	# The compact rail has one shared footer lane. A success/rejection receipt
-	# temporarily owns that lane, so keep the steady timing badge intact at idle
+	# temporarily owns that lane, so keep a steady fixed-exception badge intact at idle
 	# but remove it as a whole while the authoritative receipt is visible
 	# (GRT-021). Drawing both makes two complete Korean promises collide.
 	var bonus_badge_drawn := (
