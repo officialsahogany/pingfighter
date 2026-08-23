@@ -1,6 +1,8 @@
 extends SceneTree
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PhysiqueTrainingCatalog := preload("res://scripts/characters/physique_training_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 const TowerAscentFlowOwner := preload("res://scripts/tower_ascent/tower_ascent_flow_owner.gd")
@@ -130,6 +132,7 @@ func _run() -> void:
 	_verify_target_roll_gates_cancel_and_input_ownership()
 	_verify_rng_separation_and_wall_clock()
 	_verify_storage_badge_and_saturation_copy()
+	_verify_accumulated_copy_locales()
 	_verify_six_card_stats_panel_sync()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(original_conversion_flag)
@@ -262,9 +265,16 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	_expect(str(_find_action(storage_flow, "training_stat:%s" % STORAGE_ID).get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "고정 +1칸", "storage card discloses its fixed exception")
 
 	var runtime := FakeRuntimePerkState.new()
+	runtime.training_counts[TARGET_ID] = 1
+	runtime.applied_counts[TARGET_ID] = 1.3
 	var flow := _open_training_flow(runtime, 10)
 	var timing_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
 	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")).is_empty(), "ordinary timing cards expose no footer badge")
+	_expect(
+		str(timing_action.get("payload", {}).get("choice", {}).get("description", ""))
+		== "이동 속도 4% 증가 (누적 9.2%)",
+		"ordinary timing card must separate its fixed per-level value from the judgment-weighted total"
+	)
 	var flow_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd"
 	)
@@ -277,9 +287,11 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	_expect(not action_builder_source.contains("KEY_TRAINING_TIMING_BADGE"), "training action producer must not inject the retired timing footer badge")
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var layout: Dictionary = renderer.build_tower_node_card_text_layout(timing_action, _action_rect(flow, "training_stat:%s" % TARGET_ID))
-	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail appends one complete fitted effect row")
+	var description_rows: Array = layout.get("description_rows", [])
+	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail keeps the measured cumulative effect copy on one complete row")
+	_expect(description_rows.size() == 1 and str(description_rows[0]) == "이동 속도 4% 증가 (누적 9.2%)", "compact rail must preserve the complete cumulative effect copy")
 	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 0, "ordinary timing footer appends zero rows")
-	_expect(int(layout.get("appended_text_row_count", -1)) == 1, "compact card budgets only its fitted effect row")
+	_expect(int(layout.get("appended_text_row_count", -1)) == 1, "compact card consumes its measured one-row effect budget")
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
 	_expect(str(_find_action(flow, "training_stat:%s" % TARGET_ID).get("unavailable_reason", "")) == "효과 한계", "consumer saturation retains effect-limit copy")
@@ -287,6 +299,49 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	runtime.applied_counts[STORAGE_ID] = 3.0
 	flow.call("_refresh_training_modal", "")
 	_expect(str(_find_action(flow, "training_stat:%s" % STORAGE_ID).get("unavailable_reason", "")) == "3/3", "full storage displays 3/3")
+
+
+func _verify_accumulated_copy_locales() -> void:
+	var original_language := LanguageSettings.get_language()
+	var accumulated_labels := {
+		LanguageSettings.LANGUAGE_KOREAN: "누적",
+		LanguageSettings.LANGUAGE_ENGLISH: "Total",
+		LanguageSettings.LANGUAGE_CHINESE: "累计",
+		LanguageSettings.LANGUAGE_JAPANESE: "累計",
+		LanguageSettings.LANGUAGE_SPANISH: "Total",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Total",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Итог",
+	}
+	var catalog := PhysiqueTrainingCatalog.new()
+	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		var accumulated_card := catalog.build_card(TARGET_ID, 1, 1.0, 1.3)
+		var accumulated_description := str(accumulated_card.get("description", ""))
+		_expect(
+			accumulated_description.contains("(%s " % str(accumulated_labels.get(locale, "")))
+			and accumulated_description.contains("9.2%"),
+			"%s cumulative training copy must localize its label and preserve the 9.2-percent total: %s"
+			% [locale, accumulated_description]
+		)
+		if locale == LanguageSettings.LANGUAGE_KOREAN:
+			_expect(
+				accumulated_description == "이동 속도 4% 증가 (누적 9.2%)",
+				"Korean cumulative training copy must keep the approved fixed-base format"
+			)
+		else:
+			_expect(
+				accumulated_description.contains("+4%")
+				and accumulated_description.contains("+9.2%"),
+				"%s cumulative training copy must sign both values: %s"
+				% [locale, accumulated_description]
+			)
+		var first_card := catalog.build_card(TARGET_ID, 0, 1.0, 0.0)
+		_expect(
+			not str(first_card.get("description", "")).contains("("),
+			"%s first training card must omit an empty accumulation suffix" % locale
+		)
+	LanguageSettings.set_test_locale_override(original_language)
+	LanguageSettings.set_test_locale_override("")
 
 
 func _verify_six_card_stats_panel_sync() -> void:

@@ -134,7 +134,7 @@ func _verify_live_training_offer_value() -> void:
 		card = choices[0] as Dictionary
 	_expect(str(card.get("id", "")) == "physique_move_speed", "the deterministic weighted roll should select move-speed training")
 	_expect(is_equal_approx(float(card.get("training_multiplier", 0.0)), 2.0), "the live offer card should carry the Lv.5 multiplier")
-	_expect(str(card.get("description", "")) == "이동 속도 8% 증가", "the live card should show its amplified 8 percent result")
+	_expect(str(card.get("description", "")) == "이동 속도 4% 증가", "the first live card should keep the raw 4-percent per-level value without an empty accumulation suffix")
 
 
 func _verify_save_restore() -> void:

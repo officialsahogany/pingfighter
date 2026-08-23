@@ -5,6 +5,16 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const CATEGORY_ID := "physique_training"
 const OFFER_LANE := "physique_training"
 
+const ACCUMULATED_LABEL_BY_LOCALE := {
+	"ko": "누적",
+	"en": "Total",
+	"zh": "累计",
+	"ja": "累計",
+	"es": "Total",
+	"pt-BR": "Total",
+	"ru": "Итог",
+}
+
 # 습득 횟수 상한 없음(2026-08-08 사용자 결정). 상한제 폐지 전에는 능력치별 4~5회 +
 # 런 전체 6회였다 — 지금은 수납술(액티브 슬롯 +1)만 3회 한정으로 남고, 나머지 10종은
 # 런 내 퍽 선택 횟수 자체가 실효 한도다. `max_count`에 이 값을 쓰면 무한 반복이다.
@@ -220,10 +230,17 @@ func build_card(
 	var card := {
 		"id": training_id,
 		"name": str(data.get("name", training_id)),
-		# 카드 문구 계약(2026-08-06): 기계적인 "보정 0% → +3%" 대신 일반 무공 카드와
-		# 같은 "<대상> <수치> 증가/감소" 누적 표기를 쓴다. 기준값은 습득 후 총합이라
-		# 오엽호신 "벽사 잎 2개 보호"와 동일한 읽기 방식이 된다.
-		"description": _build_effect_line(value_label, after_value, unit, unit_ko, reduction),
+		# 카드 문구 계약(2026-08-24): 앞쪽 수치는 언제나 원시 퍼레벨 증가량이다.
+		# 이미 적용된 수련이 있을 때만 판정 배율·숙련 배율을 포함한 다음 총합을 괄호로 붙인다.
+		"description": _build_effect_line(
+			value_label,
+			amount,
+			after_value,
+			unit,
+			unit_ko,
+			reduction,
+			before_applied_count > 0.0
+		),
 		"detail": str(data.get("detail", "무공 슬롯을 쓰지 않는 기초 수련입니다.")),
 		"icon_color": Color(0.64, 0.43, 0.18),
 		"tree": CATEGORY_ID,
@@ -255,7 +272,15 @@ func build_card(
 	var localized: Dictionary = LanguageSettings.localize_perk_data(card)
 	# localize_perk_data 는 비한국어에서 description 을 PERK_SUMMARY 문장으로 덮어쓰므로
 	# 수치 강조줄은 항상 이 시점에 다시 넣는다(한국어는 no-op 재계산).
-	localized["description"] = _build_effect_line(value_label, after_value, unit, unit_ko, reduction)
+	localized["description"] = _build_effect_line(
+		value_label,
+		amount,
+		after_value,
+		unit,
+		unit_ko,
+		reduction,
+		before_applied_count > 0.0
+	)
 	return localized
 
 
@@ -264,22 +289,47 @@ func build_card(
 # 끼워 맞추면 "Dash Distance 3% Increase" 같은 번역투가 된다.
 func _build_effect_line(
 	value_label: String,
-	value: float,
+	per_level_value: float,
+	accumulated_value: float,
 	unit: String,
 	unit_ko: String,
-	reduction: bool
+	reduction: bool,
+	show_accumulated: bool
 ) -> String:
+	var localized_label := LanguageSettings.translate_text(value_label, value_label)
+	var sign := "-" if reduction else "+"
+	var accumulated_label := str(ACCUMULATED_LABEL_BY_LOCALE.get(
+		LanguageSettings.get_language(),
+		ACCUMULATED_LABEL_BY_LOCALE[LanguageSettings.LANGUAGE_ENGLISH]
+	))
 	if LanguageSettings.get_language() == LanguageSettings.LANGUAGE_KOREAN:
-		return "%s %s%s %s" % [
+		var korean_line := "%s %s%s %s" % [
 			value_label,
-			_format_number(value),
+			_format_number(per_level_value),
 			unit_ko,
 			"감소" if reduction else "증가",
 		]
-	return "%s %s%s%s" % [
-		LanguageSettings.translate_text(value_label, value_label),
-		"-" if reduction else "+",
-		_format_number(value),
+		if not show_accumulated:
+			return korean_line
+		return "%s (%s %s%s)" % [
+			korean_line,
+			accumulated_label,
+			_format_number(accumulated_value),
+			unit_ko,
+		]
+	var localized_line := "%s %s%s%s" % [
+		localized_label,
+		sign,
+		_format_number(per_level_value),
+		unit,
+	]
+	if not show_accumulated:
+		return localized_line
+	return "%s (%s %s%s%s)" % [
+		localized_line,
+		accumulated_label,
+		sign,
+		_format_number(accumulated_value),
 		unit,
 	]
 

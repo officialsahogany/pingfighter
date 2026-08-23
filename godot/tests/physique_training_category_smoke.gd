@@ -617,16 +617,28 @@ func _verify_save_reset_and_localization() -> void:
 		LanguageSettings.set_test_locale_override(locale)
 		var card := catalog.build_card("physique_dash_recharge", 1)
 		_expect(not str(card.get("name", "")).strip_edges().is_empty(), "%s should localize the training name" % locale)
-		# 카드 문구 계약(2026-08-06): 수련 강조줄은 "보정 A → B" 기계 표기를 버리고
-		# 일반 무공 카드와 같은 누적 결과값 한 줄로 읽힌다. 한국어는 "<대상> N% 감소",
-		# 그 외 로케일은 어순 의존이 없는 부호 표기("<label> -N%").
+		# 카드 문구 계약(2026-08-24): 앞쪽은 고정 퍼레벨 값, 괄호는 이미 적용된
+		# 판정 배율까지 포함한 다음 누적값이다. 첫 수련 전에는 괄호를 생략한다.
 		var description := str(card.get("description", ""))
 		_expect(not description.contains("→"), "%s should drop the before-to-after machine notation" % locale)
 		_expect(description.contains("12%"), "%s should state the accumulated result value" % locale)
+		var accumulated_labels := {
+			LanguageSettings.LANGUAGE_KOREAN: "누적",
+			LanguageSettings.LANGUAGE_ENGLISH: "Total",
+			LanguageSettings.LANGUAGE_CHINESE: "累计",
+			LanguageSettings.LANGUAGE_JAPANESE: "累計",
+			LanguageSettings.LANGUAGE_SPANISH: "Total",
+			LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Total",
+			LanguageSettings.LANGUAGE_RUSSIAN: "Итог",
+		}
+		_expect(
+			description.contains("(%s " % str(accumulated_labels.get(locale, ""))),
+			"%s should localize the accumulated label, got '%s'" % [locale, description]
+		)
 		if locale == LanguageSettings.LANGUAGE_KOREAN:
-			_expect(description == "활주 재충전 시간 12% 감소", "korean training accent should read as a plain sentence, got '%s'" % description)
+			_expect(description == "활주 재충전 시간 6% 감소 (누적 12%)", "korean training accent should separate per-level and accumulated values, got '%s'" % description)
 		else:
-			_expect(description.contains("-12%"), "%s should sign the reduction, got '%s'" % [locale, description])
+			_expect(description.contains("-6%") and description.contains("-12%"), "%s should sign both the per-level and accumulated reductions, got '%s'" % [locale, description])
 		# 카드 카피 계약(정본 §2.3): 등장 확률·체감률·런 총량 같은 튜닝 상수는
 		# 플레이어 카드에 노출하지 않는다 — 설계 문서·계측 로그 전용.
 		_expect(not str(card.get("detail", "")).contains("40%"), "%s detail must not expose tuning rates" % locale)
@@ -649,6 +661,7 @@ func _verify_save_reset_and_localization() -> void:
 		else:
 			_expect(str(chosik_card.get("description", "")).contains("-5%"), "%s should localize the Chosik reduction label and retain -5%%" % locale)
 			_expect(not str(chosik_card.get("description", "")).contains("초식 쿨타임"), "%s should not leak the Korean Chosik label" % locale)
+		_expect(not str(chosik_card.get("description", "")).contains("("), "%s first training card must omit an empty accumulation suffix" % locale)
 
 
 func _verify_flag_off_isolation() -> void:
