@@ -69,6 +69,13 @@ const ROUTE_WIND_VANE_FRAME_RIGHT_STRONG := 6
 const ROUTE_PICKUP_BAG_TEXTURE := preload(
 	"res://assets/sprites/perks/item_bag_expansion_perk_icon.png"
 )
+const TRAINING_DUMMY_TEXTURE_PATH := (
+	"res://assets/sprites/tower/noncombat/training_dummy_imagegen_v1.png"
+)
+const TRAINING_DUMMY_TEXTURE_SIZE := Vector2i(256, 256)
+const TRAINING_DUMMY_TEXTURE_PIVOT := Vector2(128.0, 236.0)
+const TRAINING_DUMMY_VISIBLE_BOUNDS := Rect2i(54, 64, 148, 172)
+const TRAINING_DUMMY_FLOOR_OFFSET_PX := 13.0
 
 const NODE_ART_PATHS := {
 	"boss": "res://assets/sprites/stage1/dalji/dalji_boss_portrait_2x2.png",
@@ -146,6 +153,7 @@ var _path_cached_brush_segment_count := 0
 var _map_iconography := TowerAscentMapIconography.new()
 var _map_cloud_layer := TowerAscentMapCloudLayer.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
+var _training_dummy_texture: Texture2D = null
 var _route_wind_effect_renderer: Object = WeatherEventRenderer.new()
 
 
@@ -156,6 +164,53 @@ func _init() -> void:
 		"Tower route wind-vane atlas failed to load; using the procedural fallback"
 	)
 	_route_wind_effect_renderer.prewarm_wind_assets()
+	prewarm_training_dummy_asset()
+
+
+func prewarm_training_dummy_asset() -> void:
+	# Flow state owns this renderer before a node modal can draw. Resolve the
+	# approved bitmap here so neither the idle modal nor a strike frame performs
+	# file lookup, decoding, or cache insertion.
+	_training_dummy_texture = ProjectResourceLoader.load_imported_texture(
+		TRAINING_DUMMY_TEXTURE_PATH,
+		"Tower training dummy bitmap is missing; using the procedural fallback",
+		"Tower training dummy bitmap failed to load; using the procedural fallback"
+	)
+
+
+func get_training_dummy_asset_paths() -> PackedStringArray:
+	return PackedStringArray([TRAINING_DUMMY_TEXTURE_PATH])
+
+
+func get_training_dummy_asset_contract() -> Dictionary:
+	return {
+		"path": TRAINING_DUMMY_TEXTURE_PATH,
+		"texture_size": TRAINING_DUMMY_TEXTURE_SIZE,
+		"pivot": TRAINING_DUMMY_TEXTURE_PIVOT,
+		"visible_bounds": TRAINING_DUMMY_VISIBLE_BOUNDS,
+		"floor_offset_px": TRAINING_DUMMY_FLOOR_OFFSET_PX,
+	}
+
+
+func get_training_dummy_asset_debug_state() -> Dictionary:
+	return {
+		"loaded": _training_dummy_texture != null,
+		"render_mode": "bitmap" if _training_dummy_texture != null else "procedural_fallback",
+		"texture_size": (
+			Vector2i(_training_dummy_texture.get_size())
+			if _training_dummy_texture != null
+			else Vector2i.ZERO
+		),
+		"texture_class": (
+			_training_dummy_texture.get_class()
+			if _training_dummy_texture != null
+			else ""
+		),
+	}
+
+
+func debug_set_training_dummy_texture(texture: Variant) -> void:
+	_training_dummy_texture = texture as Texture2D if texture is Texture2D else null
 
 
 func get_route_aim_gauge_asset_paths() -> PackedStringArray:
@@ -3402,7 +3457,7 @@ func _draw_training_stage_layout(
 		content_scale,
 		visual_model
 	)
-	var dummy_pivot := _draw_training_dummy_placeholder(
+	var dummy_pivot := _draw_training_dummy(
 		canvas,
 		dummy_slot,
 		shaken_stage_rect,
@@ -3867,7 +3922,7 @@ func _draw_training_character_fallback(
 			)
 
 
-func _draw_training_dummy_placeholder(
+func _draw_training_dummy(
 	canvas: CanvasItem,
 	slot_rect: Rect2,
 	stage_rect: Rect2,
@@ -3876,7 +3931,70 @@ func _draw_training_dummy_placeholder(
 ) -> Vector2:
 	if not slot_rect.has_area():
 		return Vector2.ZERO
-	var pivot := Vector2(slot_rect.get_center().x, stage_rect.end.y - 13.0 * content_scale)
+	var pivot := resolve_training_dummy_floor_pivot(
+		slot_rect,
+		stage_rect,
+		content_scale
+	)
+	if _training_dummy_texture != null:
+		_draw_training_dummy_bitmap(
+			canvas,
+			pivot,
+			content_scale,
+			rotation_radians
+		)
+	else:
+		_draw_training_dummy_placeholder(
+			canvas,
+			pivot,
+			content_scale,
+			rotation_radians
+		)
+	return pivot
+
+
+static func resolve_training_dummy_floor_pivot(
+	slot_rect: Rect2,
+	stage_rect: Rect2,
+	content_scale: float
+) -> Vector2:
+	return Vector2(
+		slot_rect.get_center().x,
+		stage_rect.end.y - TRAINING_DUMMY_FLOOR_OFFSET_PX * content_scale
+	)
+
+
+static func training_dummy_bitmap_local_rect(content_scale: float) -> Rect2:
+	return Rect2(
+		-TRAINING_DUMMY_TEXTURE_PIVOT * content_scale,
+		Vector2(TRAINING_DUMMY_TEXTURE_SIZE) * content_scale
+	)
+
+
+func _draw_training_dummy_bitmap(
+	canvas: CanvasItem,
+	pivot: Vector2,
+	content_scale: float,
+	rotation_radians: float
+) -> void:
+	# Both the approved bitmap and S6's three wobble tiers rotate around the
+	# exact floor-contact pivot. Reset the temporary draw transform immediately
+	# so the impact, message, cards, and stats retain their existing coordinates.
+	canvas.draw_set_transform(pivot, rotation_radians, Vector2.ONE)
+	canvas.draw_texture_rect(
+		_training_dummy_texture,
+		training_dummy_bitmap_local_rect(content_scale),
+		false
+	)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_training_dummy_placeholder(
+	canvas: CanvasItem,
+	pivot: Vector2,
+	content_scale: float,
+	rotation_radians: float
+) -> void:
 	var wood := Color(0.31, 0.17, 0.075, 1.0)
 	var straw := Color(0.78, 0.57, 0.24, 0.98)
 	var straw_light := Color(0.96, 0.77, 0.38, 0.90)
@@ -3928,7 +4046,6 @@ func _draw_training_dummy_placeholder(
 		tie,
 		9.0 * content_scale
 	)
-	return pivot
 
 
 func _draw_training_impact_effect(

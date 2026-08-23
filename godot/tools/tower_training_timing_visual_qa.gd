@@ -174,6 +174,7 @@ class CaptureCanvas:
 var _failed := false
 var _capture_count := 0
 var _stats_same_frame_count := 0
+var _dummy_bitmap_comparison_ok := false
 
 
 func _init() -> void:
@@ -247,6 +248,13 @@ func _run() -> void:
 	else:
 		_verify_card_text_budget(flow, card_renderer)
 		_save_before_after_card_board(flow, after_idle, output_dir)
+		await _capture_dummy_bitmap_and_fallback(
+			viewport,
+			canvas,
+			flow,
+			after_idle,
+			output_dir
+		)
 
 	for tier_spec in TIER_SPECS:
 		if _failed:
@@ -270,8 +278,104 @@ func _run() -> void:
 	print("tower_training_timing_visual_qa: strips=3")
 	print("tower_training_timing_visual_qa: stats_same_frame=%d" % _stats_same_frame_count)
 	print("tower_training_timing_visual_qa: card_comparison=ok")
+	print("tower_training_timing_visual_qa: dummy_bitmap_and_fallback=%s" % (
+		"ok" if _dummy_bitmap_comparison_ok else "failed"
+	))
 	print("tower_training_timing_visual_qa: ok")
 	quit(0)
+
+
+func _capture_dummy_bitmap_and_fallback(
+	viewport: SubViewport,
+	canvas: CanvasItem,
+	flow: Object,
+	bitmap_image: Image,
+	output_dir: String
+) -> void:
+	var renderer: Object = canvas.get("renderer")
+	if renderer == null:
+		_fail("training renderer was unavailable for dummy bitmap proof")
+		return
+	var bitmap_state: Dictionary = renderer.get_training_dummy_asset_debug_state()
+	if (
+		not bool(bitmap_state.get("loaded", false))
+		or str(bitmap_state.get("render_mode", "")) != "bitmap"
+		or Vector2i(bitmap_state.get("texture_size", Vector2i.ZERO)) != Vector2i(256, 256)
+	):
+		_fail("approved 256x256 dummy bitmap was not prewarmed for Vulkan capture")
+		return
+	renderer.debug_set_training_dummy_texture(null)
+	var fallback_image := await _capture_frame(
+		viewport,
+		canvas,
+		output_dir.path_join("training_dummy_procedural_fallback.png")
+	)
+	if fallback_image == null:
+		_fail("procedural dummy fallback capture failed")
+		return
+	if str(renderer.get_training_dummy_asset_debug_state().get("render_mode", "")) != "procedural_fallback":
+		_fail("forced missing texture did not select procedural fallback mode")
+		return
+	if bitmap_image.get_data() == fallback_image.get_data():
+		_fail("bitmap and procedural fallback captures must differ visibly")
+		return
+	if not _save_dummy_bitmap_comparison(
+		flow,
+		bitmap_image,
+		fallback_image,
+		output_dir
+	):
+		_fail("dummy bitmap/fallback comparison board save failed")
+		return
+	renderer.prewarm_training_dummy_asset()
+	if not bool(renderer.get_training_dummy_asset_debug_state().get("loaded", false)):
+		_fail("dummy bitmap prewarm did not recover after forced fallback")
+		return
+	_dummy_bitmap_comparison_ok = true
+
+
+func _save_dummy_bitmap_comparison(
+	flow: Object,
+	bitmap_image: Image,
+	fallback_image: Image,
+	output_dir: String
+) -> bool:
+	var model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var stage_rect: Rect2 = model.get("training_stage_rect", Rect2())
+	var crop_rect := Rect2i(stage_rect.grow(10.0)).intersection(
+		Rect2i(Vector2i.ZERO, bitmap_image.get_size())
+	)
+	if not crop_rect.has_area():
+		return false
+	var bitmap_crop := bitmap_image.get_region(crop_rect)
+	var fallback_crop := fallback_image.get_region(crop_rect)
+	bitmap_crop.convert(Image.FORMAT_RGBA8)
+	fallback_crop.convert(Image.FORMAT_RGBA8)
+	if bitmap_crop.save_png(output_dir.path_join("training_dummy_bitmap_idle.png")) != OK:
+		return false
+	if fallback_crop.save_png(output_dir.path_join("training_dummy_fallback_idle.png")) != OK:
+		return false
+	var gap := 12
+	var board := Image.create(
+		bitmap_crop.get_width() + gap + fallback_crop.get_width(),
+		maxi(bitmap_crop.get_height(), fallback_crop.get_height()),
+		false,
+		Image.FORMAT_RGBA8
+	)
+	board.fill(Color(0.035, 0.025, 0.018, 1.0))
+	board.blit_rect(
+		bitmap_crop,
+		Rect2i(Vector2i.ZERO, bitmap_crop.get_size()),
+		Vector2i.ZERO
+	)
+	board.blit_rect(
+		fallback_crop,
+		Rect2i(Vector2i.ZERO, fallback_crop.get_size()),
+		Vector2i(bitmap_crop.get_width() + gap, 0)
+	)
+	return board.save_png(
+		output_dir.path_join("training_dummy_bitmap_vs_procedural_fallback.png")
+	) == OK
 
 
 func _capture_tier_sequence(
