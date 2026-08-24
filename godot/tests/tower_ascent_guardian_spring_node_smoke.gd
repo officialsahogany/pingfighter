@@ -194,7 +194,7 @@ class FakeTowerRevealFlow:
 		return {
 			"accepted": true,
 			"handled": true,
-			"tower_sealed": true,
+			"tower_sealed": false,
 			"pet_id": pet_id,
 		}
 
@@ -266,66 +266,27 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	_expect(later_flow.restore_snapshot(snapshot, Callable(), later_owner, fixture.registry), "later spring visit must restore the run snapshot without rerolling guardian state")
 	var reveal_lunabi := later_flow.record_guardian_identity_reveal("lunabi", fixture.registry)
 	var reveal_maribo := later_flow.record_guardian_identity_reveal("maribo", fixture.registry)
-	_expect(bool(reveal_lunabi.get("tower_sealed", false)) and bool(reveal_maribo.get("tower_sealed", false)), "revealed guardian identities must route into sealed run storage")
+	_expect(not bool(reveal_lunabi.get("tower_sealed", true)) and not bool(reveal_maribo.get("tower_sealed", true)), "tower reveal must keep the existing overflow UI route active")
 	_expect(fixture.codex.has_first_seen("lunabi") and fixture.codex.has_first_seen("maribo"), "identity reveal must commit both guardians to the persistent codex immediately")
-	_expect(later_owner.lingpet_slots.is_empty() and later_owner.lingpet_id.is_empty(), "sealed guardians must not register a live slot or companion identity")
+	_expect((later_flow.get_guardian_state().get("sealed_guardians", []) as Array).is_empty(), "tower reveal must not create retired sealed-roster inventory")
 	var panel_snapshot := CharacterInfoOverlayLingpetSnapshotBuilder.build_panel_snapshot(
 		later_owner,
 		Callable(self, "_safe_owner_get"),
 		3
 	)
 	var tabs: Array = panel_snapshot.get("slot_tabs", [])
-	_expect(tabs.size() == 2 and tabs.all(func(entry: Variant) -> bool: return entry is Dictionary and bool((entry as Dictionary).get("sealed", false))), "sealed guardians must appear as display-only character-info tabs")
-
-	var swap_action := _find_action_with_prefix(
-		later_flow.get_node_modal_view_model().get("actions", []),
-		"guardian_spring:swap:lunabi"
-	)
-	_expect(not swap_action.is_empty() and bool(swap_action.get("enabled", false)), "a sealed guardian must expose a free spring swap")
-	var swap_result := later_flow.execute_node_action(
-		str(swap_action.get("id", "")),
-		"guardian-spring:swap-lunabi"
-	)
-	_expect(bool(swap_result.get("applied", false)) and fixture.runtime.activate_calls == 1, "swap must use the live guardian runtime exactly once")
-	_expect(int(later_flow.get_run_state_snapshot().get("muhon", -1)) == 20, "guardian swap must remain free")
-	var duplicate_swap := later_flow.execute_node_action(
-		str(swap_action.get("id", "")),
-		"guardian-spring:swap-lunabi"
-	)
-	_expect(bool(duplicate_swap.get("accepted", false)) and not bool(duplicate_swap.get("applied", true)) and fixture.runtime.activate_calls == 1, "duplicate node resolution must not reactivate or charge")
-
-	var enhance_action := _find_action_with_prefix(
-		later_flow.get_node_modal_view_model().get("actions", []),
-		"guardian_spring:enhance:"
-	)
-	var enhance_result := later_flow.execute_node_action(
-		str(enhance_action.get("id", "")),
-		"guardian-spring:enhance-1"
-	)
-	_expect(bool(enhance_result.get("applied", false)), "enhance must commit through the node transaction")
-	_expect(int(later_flow.get_run_state_snapshot().get("muhon", -1)) == 18, "enhance must debit the unified two-Muhon spring price")
-	_expect(fixture.runtime.enhance_calls == 1 and fixture.runtime.last_rng_was_isolated, "enhance must reuse the runtime with an isolated deterministic RNG")
-
-	var absorb_action := _find_action_with_prefix(
-		later_flow.get_node_modal_view_model().get("actions", []),
-		"guardian_spring:absorb:maribo"
-	)
-	var absorb_result := later_flow.execute_node_action(
-		str(absorb_action.get("id", "")),
-		"guardian-spring:absorb-maribo"
-	)
-	_expect(bool(absorb_result.get("applied", false)) and fixture.runtime.absorb_calls == 1, "absorb must use the existing guardian enhancement path")
-	_expect((later_flow.get_guardian_state().get("sealed_guardians", []) as Array).is_empty(), "processed sealed guardians must leave sealed storage")
+	_expect(tabs.is_empty(), "retired sealed guardians must not create display-only character-info tabs")
 
 	var committed_snapshot := later_flow.export_persistable_snapshot()
-	var committed_guardian_state := committed_snapshot.get("guardian_state", {}) as Dictionary
-	var committed_runtime_snapshot := committed_guardian_state.get("runtime_snapshot", {}) as Dictionary
-	_expect(not committed_runtime_snapshot.is_empty(), "guardian live state must be carried by the tower snapshot")
+	var legacy_guardian_state := committed_snapshot.get("guardian_state", {}) as Dictionary
+	legacy_guardian_state["sealed_guardians"] = [{"pet_id": "mokrin"}]
+	committed_snapshot["guardian_state"] = legacy_guardian_state
 	var restored_fixture := _build_fixture()
 	var restored_flow := TowerAscentFlowOwner.new()
 	restored_fixture.registry.instances["tower_ascent_flow_owner"] = restored_flow
-	_expect(restored_flow.restore_snapshot(committed_snapshot, Callable(), FakeOwner.new(), restored_fixture.registry), "guardian snapshot must restore through the live runtime")
-	_expect(restored_fixture.runtime.restore_calls >= 1 and restored_flow.get_guardian_spring_history().size() == 4, "restore must preserve acquisition, swap, enhance, and absorb history")
+	_expect(restored_flow.restore_snapshot(committed_snapshot, Callable(), FakeOwner.new(), restored_fixture.registry), "legacy guardian snapshot must restore")
+	_expect((restored_flow.get_guardian_state().get("sealed_guardians", []) as Array).is_empty(), "legacy sealed guardians must be discarded during restore migration")
+	_expect(restored_flow.get_guardian_spring_history().size() == 1, "restore must preserve the Soul Summoning history while retiring sealed operations")
 	fixture.codex.clear()
 	_finish_flow(flow, owner)
 	_finish_flow(later_flow, later_owner)
@@ -375,7 +336,7 @@ func _verify_actual_egg_reveal_routes_to_tower_owner() -> void:
 	registry.instances["tower_ascent_flow_owner"] = tower_flow
 	var runtime := LingpetEggRuntime.new()
 	var result_value: Variant = runtime.call("_record_guardian_discovery_at_reveal", "lunabi", registry)
-	_expect(result_value is Dictionary and bool((result_value as Dictionary).get("tower_sealed", false)), "actual egg runtime reveal entry must accept the tower sealed route")
+	_expect(result_value is Dictionary and not bool((result_value as Dictionary).get("tower_sealed", true)), "actual egg runtime reveal entry must preserve the overflow route during Tower runs")
 	_expect(tower_flow.calls == 1, "actual egg reveal must call the tower flow owner exactly once")
 
 
@@ -406,9 +367,10 @@ func _verify_source_contracts() -> void:
 		"res://scripts/hud/character_info_overlay_lingpet_presenter.gd"
 	)
 	_expect(spring_source.find("GuardianCodexDiscoveryRecorder.record_identity_reveal") >= 0, "spring reveal must use the Phase A persistent codex owner")
-	_expect(spring_source.find("activate_tower_sealed_guardian") >= 0 and spring_source.find("absorb_tower_sealed_guardian") >= 0, "spring operations must call the live guardian runtime seams")
+	_expect(spring_source.find("OP_SWAP") < 0 and spring_source.find("OP_ABSORB") < 0, "retired sealed swap and absorb operations must be absent")
 	_expect(spring_source.find("RandomNumberGenerator.new()") >= 0 and spring_source.find("plaza_") < 0, "spring enhance must isolate RNG and never reuse plaza payment")
-	_expect(egg_source.find("_finish_tower_sealed_hatch") >= 0 and egg_source.find("tower_sealed") >= 0, "main and item egg reveal paths must branch to sealed storage")
+	_expect(egg_source.find("_finish_tower_sealed_hatch") < 0 and egg_source.find("activate_tower_sealed_guardian") < 0 and egg_source.find("absorb_tower_sealed_guardian") < 0, "egg runtime must retire sealed storage seams")
+	_expect(egg_source.find("begin_main_overflow") >= 0 and egg_source.find("_item_egg_absorb_router.route_absorbed_pet") >= 0, "main and item egg reveals must retain their existing overflow owners")
 	_expect(presenter_source.find("if not is_sealed:") >= 0, "sealed character-info tabs must never register clickable live-slot rects")
 
 

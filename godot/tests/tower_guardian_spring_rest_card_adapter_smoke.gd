@@ -142,10 +142,12 @@ func _build_full_spring_fixture() -> Dictionary:
 		registry
 	)
 	_expect(
-		actions.size() == 1 + sealed_guardians.size() * 2,
-		"full spring fixture must expose one enhance plus two actions per sealed guardian"
+		actions.size() == 1,
+		"retired sealed roster must leave only the active guardian enhancement action"
 	)
-	_expect(actions.size() > TowerAscentNodeModalState.CARD_PAGE_SIZE, "full spring fixture must force overflow beyond six cards")
+	_expect((spring.export_state().get("sealed_guardians", []) as Array).is_empty(), "legacy sealed entries must be discarded on restore")
+	spring.sync_owner_projection(owner)
+	_expect(owner.sealed_projection.is_empty(), "owner projection must publish an empty compatibility roster")
 	return {
 		"spring": spring,
 		"run_state": run_state,
@@ -208,40 +210,17 @@ func _verify_visible_page_contract(fixture: Dictionary) -> void:
 	var actions: Array = fixture.get("actions", [])
 	var modal := TowerAscentNodeModalState.new()
 	modal.open("s4-page", "guardian_spring", {"muhon": 99}, actions)
-	var expected_pages := int(ceil(float(actions.size()) / float(TowerAscentNodeModalState.CARD_PAGE_SIZE)))
-	_expect(modal.get_page_count() == expected_pages, "visible_page count must derive from every unbounded spring action")
+	_expect(modal.get_page_count() == 1, "retired sealed roster must fit the spring menu on one page")
 	var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
 	var flags: Dictionary = model.get("layout_flags", {})
-	_expect(bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, false)), "overflow spring model must carry the page-control layout flag")
+	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, true)), "single-action spring model must not carry page controls")
 	var rects: Array = model.get("action_rects", [])
-	_expect(_count_area_rects(rects) == TowerAscentNodeModalState.CARD_PAGE_SIZE + 1, "page zero must draw exactly six cards plus the fixed end-work action")
+	_expect(_count_area_rects(rects) == 2, "spring model must draw one action plus the fixed end-work action")
 	var end_index := _find_action_index(model.get("actions", []), TowerAscentNodeModalState.ACTION_END_WORK)
 	_expect(end_index >= 0 and (rects[end_index] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "end work must remain fixed independently of visible_page")
-
-	var layout: Dictionary = modal.build_screen_layout(BASE_VIEW_SIZE, flags)
-	var next_rect: Rect2 = layout.get("page_next_rect", Rect2())
-	var hidden_layout: Dictionary = modal.build_screen_layout(
-		BASE_VIEW_SIZE,
-		{TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS: false}
-	)
-	_expect(next_rect.has_area(), "page flag must materialize the drawn next-page rect")
-	_expect(not (hidden_layout.get("page_next_rect", Rect2()) as Rect2).has_area(), "flag-off counterproof must remove the page rect from build_screen_layout")
-	var next_top_corner := next_rect.position + Vector2(2.0, 2.0)
-	_expect(modal.begin_pointer_press(next_top_corner, BASE_VIEW_SIZE), "GRT-022 page-button top corner must arm through production hit testing")
-	var page_result: Dictionary = modal.release_pointer_at_position(next_top_corner, BASE_VIEW_SIZE)
-	_expect(str(page_result.get("_modal_control", "")) == "page" and bool(page_result.get("changed", false)), "page-button release-inside must change visible_page exactly once")
-	_expect(modal.get_visible_page() == 1, "next-page top-corner hit must expose page one")
-	var page_one_model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
-	var page_one_rects: Array = page_one_model.get("action_rects", [])
-	var first_page_one_index := TowerAscentNodeModalState.CARD_PAGE_SIZE
-	var page_one_corner := (page_one_rects[first_page_one_index] as Rect2).position + Vector2(2.0, 2.0)
-	_expect(modal.select_at_position(page_one_corner, BASE_VIEW_SIZE), "page-one first card top corner must share the drawn rect")
-	_expect(modal.get_selected_action() == actions[first_page_one_index], "page-one top corner must select the seventh spring action")
-	_expect((page_one_rects[end_index] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "page change must not move the end-work footer")
-
-	var live_model: Dictionary = modal.build_view_model(LIVE_VIEW_SIZE)
-	var live_layout: Dictionary = modal.build_screen_layout(LIVE_VIEW_SIZE, live_model.get("layout_flags", {}))
-	_expect((live_model.get("page_next_rect", Rect2()) as Rect2).is_equal_approx(live_layout.get("page_next_rect", Rect2())), "Vulkan-size draw and hit-test models must share the same flagged page rect")
+	var action_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
+	_expect(modal.select_at_position(action_corner, BASE_VIEW_SIZE), "spring action top corner must share the rendered rect")
+	_expect(modal.get_selected_action() == actions[0], "spring top corner must select the sole enhancement action")
 
 
 func _verify_rest_hero_adapter() -> void:

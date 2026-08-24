@@ -188,9 +188,26 @@ class FakeRegistry:
 		return null
 
 
+class FakeTowerRevealFlow:
+	extends RefCounted
+
+	var calls := 0
+
+	func record_guardian_identity_reveal(pet_id: String, _registry: Object = null) -> Dictionary:
+		calls += 1
+		return {
+			"accepted": true,
+			"handled": true,
+			"tower_sealed": false,
+			"pet_id": pet_id,
+		}
+
+
 
 
 func _init() -> void:
+	_verify_tower_main_egg_keeps_overflow_choice()
+	_verify_tower_item_egg_keeps_overflow_choice()
 	_verify_main_egg_replace_keeps_one_live_guardian()
 	_verify_main_egg_replace_refills_expired_duration_pool()
 	_verify_main_egg_absorb_uses_shared_enhancement()
@@ -205,6 +222,47 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_tower_main_egg_keeps_overflow_choice() -> void:
+	var owner := FakeOwner.new()
+	_seed_lingpet_roster(owner, ["maribo"], 0)
+	var tower_flow := FakeTowerRevealFlow.new()
+	var registry := FakeRegistry.new({"tower_ascent_flow_owner": tower_flow})
+	var runtime: Object = LingpetEggRuntime.new()
+	_open_main_egg_choice(runtime, owner, registry)
+	_expect(tower_flow.calls == 1, "Tower main-egg reveal must reach the active flow owner")
+	_expect(bool(runtime.is_overflow_choice_active()), "Tower main-egg hatch at full roster must open the existing Replace / Absorb choice")
+	_expect(not bool(runtime.get_overflow_choice_snapshot().get("pending_pet_id", "") == ""), "Tower main-egg overflow must preserve the incoming guardian identity")
+
+
+func _verify_tower_item_egg_keeps_overflow_choice() -> void:
+	var owner := FakeOwner.new()
+	owner.ai_mode = "champion"
+	_seed_lingpet_roster(owner, ["maribo"], 0)
+	var tower_flow := FakeTowerRevealFlow.new()
+	var registry := FakeRegistry.new({"tower_ascent_flow_owner": tower_flow})
+	var runtime: Object = LingpetEggRuntime.new()
+	_expect(
+		bool(runtime.debug_grant_and_activate_pet("maribo", owner, false, "", "", registry)),
+		"Tower item-egg fixture must begin with one active guardian"
+	)
+	_expect(bool(runtime.deploy_egg_from_item(owner, registry, true)), "Tower item egg must deploy beside the active guardian")
+	var item_egg_state: Object = runtime.get("_item_egg_state") as Object
+	var item_lifecycle: Object = runtime.get("_item_egg_lifecycle_state") as Object
+	var required_hits := maxi(1, int(item_egg_state.get_required_hits(item_lifecycle.get_required_hits(3))))
+	item_egg_state.hatch_hits = required_hits - 1
+	item_egg_state.hit_cooldown = 0.0
+	item_egg_state.ball_was_inside = false
+	owner.ball_active = true
+	owner.ball_serve_origin = "boss"
+	_register_hit(runtime, owner, item_egg_state.pos, 1, registry)
+	_expect(bool(runtime.is_acquire_cutin_active()), "Tower item-egg final hit must open the existing acquisition cut-in")
+	runtime.dismiss_acquire_cutin()
+	runtime.update(0.0, owner, registry)
+	_expect(tower_flow.calls == 1, "Tower item-egg reveal must reach the active flow owner")
+	_expect(bool(runtime.is_overflow_choice_active()), "Tower item-egg hatch at full roster must open the existing Replace / Absorb choice")
+	_expect(bool(runtime.get("_overflow_choice_state").is_item_egg_source()), "Tower item-egg overflow must retain its item source contract")
 
 
 func _verify_main_egg_replace_keeps_one_live_guardian() -> void:

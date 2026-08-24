@@ -22,8 +22,6 @@ const TowerAscentTuning := preload(
 const ACTION_PREFIX := "guardian_spring:"
 const OP_SOUL_SUMMONING := "soul_summoning"
 const OP_ENHANCE := "enhance"
-const OP_SWAP := "swap"
-const OP_ABSORB := "absorb"
 const RNG_VERSION := "tower_guardian_spring_v1"
 
 var _state: Dictionary = {}
@@ -59,7 +57,7 @@ func restore_state(value: Variant) -> void:
 	_state["soul_summoning_owned"] = bool(source.get("soul_summoning_owned", false))
 	_state["soul_summoning_node_id"] = str(source.get("soul_summoning_node_id", ""))
 	_state["active_guardian"] = _dictionary(source.get("active_guardian", {}))
-	_state["sealed_guardians"] = _normalize_sealed_guardians(source.get("sealed_guardians", []))
+	_state["sealed_guardians"] = []
 	_state["history"] = _dictionary_array(source.get("history", []))
 	_state["runtime_snapshot"] = _dictionary(source.get("runtime_snapshot", {}))
 	_state["perk_runtime_snapshot"] = _dictionary(source.get("perk_runtime_snapshot", {}))
@@ -67,7 +65,9 @@ func restore_state(value: Variant) -> void:
 
 
 func export_state() -> Dictionary:
-	return _state.duplicate(true)
+	var result := _state.duplicate(true)
+	result["sealed_guardians"] = []
+	return result
 
 
 func has_soul_summoning() -> bool:
@@ -76,10 +76,6 @@ func has_soul_summoning() -> bool:
 
 func get_history() -> Array[Dictionary]:
 	return _dictionary_array(_state.get("history", []))
-
-
-func get_sealed_guardians() -> Array[Dictionary]:
-	return _dictionary_array(_state.get("sealed_guardians", []))
 
 
 func record_identity_reveal(pet_id: String, registry: Object) -> Dictionary:
@@ -105,25 +101,11 @@ func record_identity_reveal(pet_id: String, registry: Object) -> Dictionary:
 			"discovery_id": str(codex_result.get("discovery_id", "")),
 			"codex_result": codex_result.duplicate(true),
 		}
-	var active_pet_id := str((_state.get("active_guardian", {}) as Dictionary).get("pet_id", ""))
-	var changed := false
-	if active_pet_id != normalized_pet_id and _find_sealed_index(normalized_pet_id) < 0:
-		var sealed: Array = _state.get("sealed_guardians", [])
-		sealed.append({
-			"pet_id": normalized_pet_id,
-			"discovery_id": str(codex_result.get(
-				"discovery_id",
-				GuardianCodexDiscoveryRecorder.make_discovery_id(normalized_pet_id)
-			)),
-			"display_name": LingpetCatalog.get_display_name(normalized_pet_id),
-		})
-		_state["sealed_guardians"] = sealed
-		changed = true
 	return {
 		"accepted": bool(codex_result.get("accepted", false)),
-		"changed": changed,
+		"changed": bool(codex_result.get("changed", false)),
 		"handled": true,
-		"tower_sealed": true,
+		"tower_sealed": false,
 		"reason": str(codex_result.get("reason", "codex_commit_failed")),
 		"pet_id": normalized_pet_id,
 		"display_name": LingpetCatalog.get_display_name(normalized_pet_id),
@@ -180,24 +162,15 @@ func build_actions(
 	var balances := _economy(run_state)
 	var active_guardian := _dictionary(_state.get("active_guardian", {}))
 	var active_pet_id := str(active_guardian.get("pet_id", ""))
-	var result: Array[Dictionary] = []
 	if not active_pet_id.is_empty():
-		result.append(_build_enhance_action(
+		return [_build_enhance_action(
 			node_id,
 			map_seed,
 			balances,
 			owner,
 			runtime
-		))
-	for sealed in get_sealed_guardians():
-		result.append(_build_sealed_action(OP_SWAP, sealed, runtime != null, true))
-		result.append(_build_sealed_action(
-			OP_ABSORB,
-			sealed,
-			runtime != null,
-			not active_pet_id.is_empty()
-		))
-	return result
+		)]
+	return []
 
 
 func execute_action(
@@ -430,76 +403,6 @@ func _build_enhance_action(
 	}
 
 
-func _build_sealed_action(
-	operation: String,
-	sealed: Dictionary,
-	runtime_available: bool,
-	operation_available: bool
-) -> Dictionary:
-	var pet_id := str(sealed.get("pet_id", ""))
-	var display_name := str(sealed.get("display_name", LingpetCatalog.get_display_name(pet_id)))
-	var enabled := runtime_available and operation_available
-	var unavailable_reason := ""
-	var disabled_reason := ""
-	if not runtime_available:
-		disabled_reason = "missing_lingpet_runtime"
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
-		)
-	elif not operation_available:
-		disabled_reason = "missing_active_guardian"
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_SPRING_ACTIVE_GUARDIAN_REQUIRED
-		)
-	var label_key := (
-		TowerAscentNodeModalLocalization.KEY_SPRING_SWAP_OPTION
-		if operation == OP_SWAP
-		else TowerAscentNodeModalLocalization.KEY_SPRING_ABSORB_OPTION
-	)
-	var badge_key := (
-		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_SWAP
-		if operation == OP_SWAP
-		else TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_ABSORB
-	)
-	var description_key := (
-		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_SWAP_DESCRIPTION
-		if operation == OP_SWAP
-		else TowerAscentNodeModalLocalization.KEY_SPRING_CARD_ABSORB_DESCRIPTION
-	)
-	var result_key := (
-		TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ACTIVE
-		if operation == OP_SWAP
-		else TowerAscentNodeModalLocalization.KEY_SPRING_STATE_ABSORBED
-	)
-	return {
-		"id": "%s%s:%s" % [ACTION_PREFIX, operation, pet_id],
-		"label": TowerAscentNodeModalLocalization.text(label_key, {"name": display_name}),
-		"cost_text": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_COST_FREE
-		),
-		"enabled": enabled,
-		"disabled_reason": disabled_reason,
-		"unavailable_reason": unavailable_reason,
-		"payload": {
-			"operation": operation,
-			"pet_id": pet_id,
-			"choice": _build_guardian_card_choice(
-				pet_id,
-				display_name,
-				TowerAscentNodeModalLocalization.text(badge_key),
-				TowerAscentNodeModalLocalization.text(description_key)
-			),
-			"presentation": _build_guardian_presentation(
-				TowerAscentNodeModalLocalization.text(
-					TowerAscentNodeModalLocalization.KEY_SPRING_STATE_SEALED
-				),
-				TowerAscentNodeModalLocalization.text(result_key),
-				display_name
-			),
-		},
-	}
-
-
 func _build_guardian_card_choice(
 	pet_id: String,
 	display_name: String,
@@ -567,13 +470,8 @@ func _apply_operation(context: Dictionary) -> bool:
 			)
 	else:
 		var runtime := _get_registry_instance(context.get("registry", null), "lingpet_egg_runtime")
-		if runtime != null:
-			if operation == OP_ENHANCE:
-				accepted = _apply_enhance(runtime, context)
-			elif operation == OP_SWAP:
-				accepted = _apply_swap(runtime, context)
-			elif operation == OP_ABSORB:
-				accepted = _apply_absorb(runtime, context)
+		if runtime != null and operation == OP_ENHANCE:
+			accepted = _apply_enhance(runtime, context)
 	if accepted:
 		_capture_committed_runtime_snapshot(
 			context.get("owner", null),
@@ -639,65 +537,6 @@ func _apply_enhance(runtime: Object, context: Dictionary) -> bool:
 	if result_value is Dictionary:
 		_last_effect_result = (result_value as Dictionary).duplicate(true)
 	return bool(_last_effect_result.get("accepted", false))
-
-
-func _apply_swap(runtime: Object, context: Dictionary) -> bool:
-	if not runtime.has_method("activate_tower_sealed_guardian"):
-		return false
-	var pet_id := str(context.get("pet_id", ""))
-	var sealed_index := _find_sealed_index(pet_id)
-	if sealed_index < 0:
-		return false
-	var previous_active := _dictionary(_state.get("active_guardian", {}))
-	var result_value: Variant = runtime.call(
-		"activate_tower_sealed_guardian",
-		pet_id,
-		context.get("owner", null),
-		context.get("registry", null)
-	)
-	if not (result_value is Dictionary) or not bool((result_value as Dictionary).get("accepted", false)):
-		return false
-	_last_effect_result = (result_value as Dictionary).duplicate(true)
-	var sealed: Array = _state.get("sealed_guardians", [])
-	sealed.remove_at(sealed_index)
-	var previous_pet_id := str(previous_active.get("pet_id", ""))
-	if not previous_pet_id.is_empty() and previous_pet_id != pet_id and _find_pet_index(sealed, previous_pet_id) < 0:
-		sealed.append({
-			"pet_id": previous_pet_id,
-			"display_name": str(previous_active.get(
-				"display_name",
-				LingpetCatalog.get_display_name(previous_pet_id)
-			)),
-			"discovery_id": GuardianCodexDiscoveryRecorder.make_discovery_id(previous_pet_id),
-		})
-	_state["sealed_guardians"] = sealed
-	_state["active_guardian"] = {
-		"pet_id": pet_id,
-		"display_name": LingpetCatalog.get_display_name(pet_id),
-	}
-	return true
-
-
-func _apply_absorb(runtime: Object, context: Dictionary) -> bool:
-	if not runtime.has_method("absorb_tower_sealed_guardian"):
-		return false
-	var pet_id := str(context.get("pet_id", ""))
-	var sealed_index := _find_sealed_index(pet_id)
-	if sealed_index < 0:
-		return false
-	var result_value: Variant = runtime.call(
-		"absorb_tower_sealed_guardian",
-		pet_id,
-		context.get("owner", null),
-		context.get("registry", null)
-	)
-	if not (result_value is Dictionary) or not bool((result_value as Dictionary).get("accepted", false)):
-		return false
-	_last_effect_result = (result_value as Dictionary).duplicate(true)
-	var sealed: Array = _state.get("sealed_guardians", [])
-	sealed.remove_at(sealed_index)
-	_state["sealed_guardians"] = sealed
-	return true
 
 
 func _capture_rollback(owner: Object, registry: Object) -> void:
@@ -813,7 +652,7 @@ func _sync_sealed_owner_projection(owner: Object) -> void:
 		return
 	owner.call(
 		"set_tower_ascent_guardian_projection",
-		get_sealed_guardians(),
+		[],
 		has_soul_summoning()
 	)
 
@@ -894,21 +733,6 @@ func _operation_count(node_id: String, operation: String) -> int:
 	return count
 
 
-func _find_sealed_index(pet_id: String) -> int:
-	return _find_pet_index(_state.get("sealed_guardians", []), pet_id)
-
-
-func _find_pet_index(source: Variant, pet_id: String) -> int:
-	if not (source is Array):
-		return -1
-	var normalized := pet_id.strip_edges().to_lower()
-	for index in range((source as Array).size()):
-		var value: Variant = (source as Array)[index]
-		if value is Dictionary and str((value as Dictionary).get("pet_id", "")) == normalized:
-			return index
-	return -1
-
-
 func _find_action(action_id: String, actions: Array[Dictionary]) -> Dictionary:
 	for action in actions:
 		if str(action.get("id", "")) == action_id:
@@ -922,10 +746,6 @@ func _success_message(operation: String, record: Dictionary) -> String:
 	var key := TowerAscentNodeModalLocalization.KEY_SPRING_SOUL_SUMMONING_COMPLETED
 	if operation == OP_ENHANCE:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_ENHANCE_COMPLETED
-	elif operation == OP_SWAP:
-		key = TowerAscentNodeModalLocalization.KEY_SPRING_SWAP_COMPLETED
-	elif operation == OP_ABSORB:
-		key = TowerAscentNodeModalLocalization.KEY_SPRING_ABSORB_COMPLETED
 	return TowerAscentNodeModalLocalization.text(key, {"name": display_name})
 
 
@@ -947,23 +767,6 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 		if value is Object and value != null:
 			return value as Object
 	return null
-
-
-func _normalize_sealed_guardians(value: Variant) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	if not (value is Array):
-		return result
-	for raw_entry in (value as Array):
-		if not (raw_entry is Dictionary):
-			continue
-		var entry := (raw_entry as Dictionary).duplicate(true)
-		var pet_id := str(entry.get("pet_id", "")).strip_edges().to_lower()
-		if pet_id.is_empty() or not LingpetCatalog.has_pet(pet_id) or _find_pet_index(result, pet_id) >= 0:
-			continue
-		entry["pet_id"] = pet_id
-		entry["display_name"] = str(entry.get("display_name", LingpetCatalog.get_display_name(pet_id)))
-		result.append(entry)
-	return result
 
 
 func _dictionary(value: Variant) -> Dictionary:

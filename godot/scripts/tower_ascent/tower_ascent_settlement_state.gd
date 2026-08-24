@@ -142,9 +142,8 @@ static func build_lost_build_summary(
 	if not mythic.is_empty():
 		rows.append("신화 진행 %d종" % mythic.size())
 	var active_guardian := _static_dictionary(guardian_state.get("active_guardian", {}))
-	var sealed_guardians := _static_array(guardian_state.get("sealed_guardians", []))
-	if not active_guardian.is_empty() or not sealed_guardians.is_empty():
-		rows.append("수호령 %d종" % (int(not active_guardian.is_empty()) + sealed_guardians.size()))
+	if not active_guardian.is_empty():
+		rows.append("수호령 1종")
 	var muhon := maxi(0, int(run_economy.get("muhon", 0)))
 	var gold := maxi(0, int(run_economy.get("gold", 0)))
 	if muhon > 0 or gold > 0:

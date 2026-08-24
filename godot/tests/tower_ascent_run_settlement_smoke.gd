@@ -140,6 +140,13 @@ func _verify_summary_assembly_contract() -> void:
 	_expect(int(lost_build.get("mugong_count", 0)) == 1, "lost build should summarize mugong")
 	_expect(int(lost_build.get("chosik_count", 0)) == 2, "lost build should summarize chosik")
 	_expect(int(lost_build.get("active_item_count", 0)) == 1, "lost build should summarize active items")
+	_expect((lost_build.get("rows", []) as Array).has("수호령 1종"), "settlement must count only the active guardian after sealed-roster retirement")
+	var sealed_only := TowerAscentSettlementState.build_lost_build_summary(
+		{},
+		{},
+		{"sealed_guardians": [{"pet_id": "mokrin"}]}
+	)
+	_expect(not (sealed_only.get("rows", []) as Array).any(func(row: Variant) -> bool: return str(row).begins_with("수호령 ")), "legacy sealed guardians must not contribute to settlement counts")
 	var income := TowerAscentSettlementState.build_persistent_income(
 		{"highest_floor": 9, "clear_count": 2},
 		[{"pet_id": "baekrin", "display_name": "백린", "discovery_id": "first:baekrin"}]
