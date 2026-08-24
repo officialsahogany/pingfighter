@@ -24,6 +24,18 @@ const TowerAscentUnlockFilter := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
+
+# GRT-054 형제(bc5890dd1 수리의 누락 소비자): 고정 1.5초 비행 예산은
+# 구 522px/s 발사 속도 기준이라 274px/s 재감속 후 표적/천장/바닥에 못
+# 미친다. 도달 픽스처 기준 상수에서 파생한다.
+var _flight_budget_seconds := (
+	TowerAscentNodeArrivalTestFixture.REFERENCE_FLIGHT_SECONDS
+	* TowerAscentNodeArrivalTestFixture.REFERENCE_SERVE_SPEED_PER_SECOND
+	/ maxf(1.0, TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND)
+)
 
 var _failures: Array[String] = []
 var _reset_calls := 0
@@ -466,7 +478,7 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 	_expect(not targets.is_empty(), "real-shell first route must expose a selectable target")
 	if not targets.is_empty():
 		flow.debug_launch_at_target(0)
-		flow.update_selective(1.5, owner)
+		flow.update_selective(_flight_budget_seconds, owner)
 		_expect(flow.get_phase_name() == "MAP_TRANSITION", "real-shell selective serve must commit the chosen target")
 		flow.update_selective(1.0, owner)
 		if flow.is_active() and flow.get_phase_name() == "NODE_MODAL":
@@ -561,17 +573,17 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(flow.export_snapshot().completed_nodes.size() == 1, "rejected re-entry must not duplicate node rewards")
 
 	flow.debug_launch_miss()
-	flow.update_selective(1.5, owner)
+	flow.update_selective(_flight_budget_seconds, owner)
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "a missed selector shot must remain in ROUTE_AIM")
 	_expect(flow.is_selector_launched(), "a missed target must bounce from the top instead of resetting")
 	_expect(flow.get_selector_position().y < 40.0, "the top-wall bounce must clamp the route ball inside the field")
-	flow.update_selective(1.5, owner)
+	flow.update_selective(_flight_budget_seconds, owner)
 	_expect(not flow.is_selector_launched(), "only the later bottom-out may reset for unlimited retries")
 	_expect(flow.get_selector_position().is_equal_approx(flow.get_selector_origin()), "bottom miss reset must restore the selector origin")
 
 	var selected_kind := str(flow.get_route_aim_targets()[0].get("kind", ""))
 	flow.debug_launch_at_target(0)
-	flow.update_selective(1.5, owner)
+	flow.update_selective(_flight_budget_seconds, owner)
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "target hit must commit the route and enter MAP_TRANSITION")
 	var committed_snapshot: Dictionary = flow.export_snapshot()
 	_expect(committed_snapshot.completed_nodes.size() == 2, "route selection must add one idempotent node resolution")
@@ -613,7 +625,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	_expect(source.begin_vertical_slice(owner, Callable(), snapshot_context), "snapshot fixture must start")
 	_expect(source.export_persistable_snapshot().is_empty(), "route serving must remain an unstable snapshot boundary")
 	source.debug_launch_at_target(0)
-	source.update_selective(1.5, owner)
+	source.update_selective(_flight_budget_seconds, owner)
 	_expect(source.get_phase_name() == "MAP_TRANSITION", "snapshot fixture must reach the post-selection stable boundary")
 	var snapshot: Dictionary = source.export_snapshot()
 	_expect(snapshot.pending_rewards.is_empty(), "completed victory loot must clear the pending reward record")
@@ -639,7 +651,19 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	for key in required_keys:
 		_expect(snapshot.has(key), "snapshot must include required field: %s" % key)
 	_expect(snapshot.run_progress.has("start_card"), "run_progress must include the start-card ledger")
-	_expect(snapshot.run_state == {"gold": 22, "muhon": 25, "chance_gems": 2}, "node transaction must grant the prepared run-local reward exactly once")
+	# 샘터 S2(6e75b99b9)가 run_state export에 기도 필드 2종을 추가함 —
+	# 정확일치 단언의 기대 딕셔너리 동반 개정(boss_routing 씰의 P8 수리와
+	# 동일 계열, 비행 예산 연쇄 RED에 가려 있던 누락분).
+	_expect(
+		snapshot.run_state == {
+			"gold": 22,
+			"muhon": 25,
+			"chance_gems": 2,
+			"prayer_count": 0,
+			"prayer_locked": false,
+		},
+		"node transaction must grant the prepared run-local reward exactly once"
+	)
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot), "the fixed-graph snapshot must restore")
 	var round_trip: Dictionary = restored.export_snapshot()
