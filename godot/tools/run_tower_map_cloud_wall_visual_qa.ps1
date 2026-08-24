@@ -10,16 +10,16 @@ $validationPriorityContext = $null
 try {
     $validationPriorityContext = Assert-NoInteractiveGodotGame `
         -ProjectPath $ProjectPath `
-        -OperationName "Tower map locked-floor fog feather Vulkan visual QA" `
+        -OperationName "Tower map merged cloud-wall Vulkan visual QA" `
         -AllowDuringPlay
 
     . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
     . (Join-Path $PSScriptRoot "godot_output_classifier.ps1")
     $godot = Resolve-GodotConsolePath -GodotExe $GodotExe
-    $qaPath = "res://tools/tower_map_fog_feather_visual_qa.gd"
+    $qaPath = "res://tools/tower_map_cloud_wall_visual_qa.gd"
     $logDir = Join-Path $ProjectPath ".godot\codex_logs"
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    $logPath = Join-Path $logDir ("tower_map_fog_feather_visual_qa_{0}_{1}.log" -f $PID, [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfff"))
+    $logPath = Join-Path $logDir ("tower_map_cloud_wall_visual_qa_{0}_{1}.log" -f $PID, [DateTime]::UtcNow.ToString("yyyyMMddHHmmssfff"))
 
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
@@ -42,9 +42,9 @@ try {
     $seriousErrors = @($output | Where-Object {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
-    $okMarker = "tower_map_fog_feather_visual_qa: ok"
+    $okMarker = "tower_map_cloud_wall_visual_qa: ok"
     if ($exitCode -ne 0 -or $seriousErrors.Count -gt 0 -or -not $outputText.Contains($okMarker)) {
-        Write-Host "Tower map fog feather visual QA log preserved for triage: $logPath"
+        Write-Host "Tower map cloud-wall visual QA log preserved for triage: $logPath"
         if ($exitCode -ne 0) {
             throw "$qaPath failed with exit code $exitCode"
         }
@@ -57,7 +57,7 @@ try {
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
         Remove-Item -LiteralPath $logDir -Force
     }
-    Write-Host "Tower map locked-floor fog feather Vulkan visual QA passed."
+    Write-Host "Tower map merged cloud-wall Vulkan visual QA passed."
 }
 finally {
     Restore-GodotValidationPriority -Context $validationPriorityContext

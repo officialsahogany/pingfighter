@@ -1088,7 +1088,9 @@ func _build_static_fullscreen_map_model(
 	var dot_gap := art_size * TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO
 	var dotted_edges: Array[Dictionary] = []
 	var cloud_draw_call_reserve := TowerAscentMapCloudLayer.estimate_draw_calls(
-		projected_nodes
+		projected_nodes,
+		art_size,
+		map_scale
 	)
 	var route_draw_call_budget := maxi(
 		2,

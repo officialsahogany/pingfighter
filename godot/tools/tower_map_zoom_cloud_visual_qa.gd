@@ -12,6 +12,9 @@ const TowerAscentTuning := preload(
 const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
+const TowerAscentMapCloudLayer := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
+)
 
 const GAME_SIZE := Vector2i(2020, 1246)
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
@@ -23,8 +26,13 @@ const PANEL_BLANK_COLORS := [
 ]
 const PANEL_BLANK_COLOR_EPSILON := 0.002
 const SURROUND_COLOR_EPSILON := 0.012
+const MINIMUM_PATTERN_BREAK_CHANGED_FRACTION := 0.55
+const MINIMUM_PATTERN_BREAK_MEAN_DELTA := 0.050
+const MAXIMUM_MOVED_JOIN_EXCESS_DELTA := 0.012
 
 var _failure := ""
+var _fit_all_repetition_result: Dictionary = {}
+var _moved_join_result: Dictionary = {}
 
 
 class MapCanvas:
@@ -126,6 +134,21 @@ func _run() -> void:
 		fit_all_model
 	):
 		return
+	_fit_all_repetition_result = _fit_all_repetition_metrics(
+		minimum_image,
+		fit_all_model,
+		flow.get_floor_reveal_visual_model()
+	)
+	print(
+		"[TowerMapZoomCloudVisualQA] min_fit_all tile_pitch_px=%.3f samples=%d mean_delta=%.5f changed_fraction=%.5f motif_break_sufficient=%s"
+		% [
+			float(_fit_all_repetition_result.get("tile_pitch_px", 0.0)),
+			int(_fit_all_repetition_result.get("sample_count", 0)),
+			float(_fit_all_repetition_result.get("mean_delta", 0.0)),
+			float(_fit_all_repetition_result.get("changed_fraction", 0.0)),
+			str(_fit_all_repetition_result.get("sufficient", false)),
+		]
+	)
 	var fit_all_zoom := float((fit_all_model.get("camera", {}) as Dictionary).get(
 		"render_zoom_multiplier",
 		0.0
@@ -277,6 +300,15 @@ func _run() -> void:
 		_fail("covered cloud capture failed")
 		return
 	var walking_renderer: Object = flow.get("_renderer")
+	var covered_model: Dictionary = walking_renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var covered_wall_state := TowerAscentMapCloudLayer.wall_visual_state(
+		covered_model.get("cloud_layer", {}),
+		flow.get_floor_reveal_visual_model()
+	)
+	var covered_boundary_y := float(covered_wall_state.get("boundary_y", 0.0))
 	var walking_cursor := VIEWPORT_RECT.get_center()
 	for _index in range(24):
 		flow.handle_input(_wheel(walking_cursor, false))
@@ -295,9 +327,8 @@ func _run() -> void:
 		false
 	):
 		return
-	# Restore the established walking presentation before recording the existing
-	# reveal-to-travel strip. This QA-only reset does not alter runtime ownership.
-	(flow.get("_map_drag_state") as Object).reset_surface()
+	# Keep the fit-all camera established by the subcover leg so the merged wall's
+	# moving lower boundary remains visible throughout the eight-frame reveal strip.
 	canvas.queue_redraw()
 	await process_frame
 	var drift_hashes: Dictionary = {}
@@ -339,6 +370,29 @@ func _run() -> void:
 			if not _save(sequence_image, output_dir.path_join("cloud_revealed.png")):
 				_fail("revealed cloud capture failed")
 				return
+			var revealed_model: Dictionary = walking_renderer.build_fullscreen_map_model(
+				flow,
+				VIEWPORT_RECT
+			)
+			var revealed_visual: Dictionary = flow.get_floor_reveal_visual_model()
+			_moved_join_result = _dissolve_join_metrics(
+				sequence_image,
+				revealed_model,
+				revealed_visual
+			)
+			_moved_join_result["boundary_delta_world"] = (
+				covered_boundary_y
+				- float(_moved_join_result.get("boundary_y", covered_boundary_y))
+			)
+			if float(_moved_join_result.get("boundary_delta_world", 0.0)) <= 0.001:
+				_fail("the completed reveal did not move the dissolve boundary upward")
+				return
+			if (
+				float(_moved_join_result.get("mean_excess_delta", INF))
+					> MAXIMUM_MOVED_JOIN_EXCESS_DELTA
+			):
+				_fail("the moved dissolve/interior join retained a visible seam: %s" % _moved_join_result)
+				return
 			revealed_capture_saved = true
 		travel_seen = travel_seen or float(
 			flow.get_map_transition_visual_model().get("travel_progress", 0.0)
@@ -350,6 +404,17 @@ func _run() -> void:
 	if not travel_seen:
 		_fail("continuous sequence never reached walker movement after reveal")
 		return
+	print(
+		"[TowerMapZoomCloudVisualQA] moved_boundary delta_world=%.3f join_samples=%d join_mean_delta=%.5f join_baseline_delta=%.5f join_excess_delta=%.5f join_p90_delta=%.5f"
+		% [
+			float(_moved_join_result.get("boundary_delta_world", 0.0)),
+			int(_moved_join_result.get("sample_count", 0)),
+			float(_moved_join_result.get("mean_delta", 0.0)),
+			float(_moved_join_result.get("mean_baseline_delta", 0.0)),
+			float(_moved_join_result.get("mean_excess_delta", 0.0)),
+			float(_moved_join_result.get("p90_delta", 0.0)),
+		]
+	)
 	print("[TowerMapZoomCloudVisualQA] output=%s drift_frames=8 sequence_frames=18" % output_dir)
 	print("tower_map_zoom_cloud_visual_qa: ok")
 	flow.call("_finish_vertical_slice")
@@ -361,6 +426,143 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	quit(0)
+
+
+func _fit_all_repetition_metrics(
+	image: Image,
+	model: Dictionary,
+	reveal_visual: Dictionary
+) -> Dictionary:
+	var cloud_model: Dictionary = model.get("cloud_layer", {})
+	var state := TowerAscentMapCloudLayer.wall_visual_state(
+		cloud_model,
+		reveal_visual
+	)
+	var interior_rect: Rect2 = state.get("interior_rect", Rect2())
+	var interior_spec: Dictionary = cloud_model.get("interior_spec", {})
+	var tile_world_size: Vector2 = interior_spec.get("world_size", Vector2.ZERO)
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var tile_pitch_px := tile_world_size.y * zoom
+	var projected := Rect2(
+		interior_rect.position * zoom + offset,
+		interior_rect.size * zoom
+	).intersection(Rect2(Vector2.ZERO, Vector2(GAME_SIZE)))
+	if not projected.has_area() or tile_pitch_px < 2.0:
+		return {
+			"tile_pitch_px": tile_pitch_px,
+			"sample_count": 0,
+			"mean_delta": 0.0,
+			"changed_fraction": 0.0,
+			"sufficient": false,
+		}
+	var pitch_pixels := maxi(1, int(round(tile_pitch_px)))
+	var start_x := clampi(int(ceil(projected.position.x)) + 2, 0, GAME_SIZE.x - 1)
+	var end_x := clampi(int(floor(projected.end.x)) - 2, 0, GAME_SIZE.x)
+	var start_y := clampi(int(ceil(projected.position.y)) + 2, 0, GAME_SIZE.y - 1)
+	var end_y := clampi(
+		int(floor(projected.end.y)) - pitch_pixels - 2,
+		0,
+		GAME_SIZE.y
+	)
+	var total_delta := 0.0
+	var changed_count := 0
+	var sample_count := 0
+	for y in range(start_y, end_y, 4):
+		for x in range(start_x, end_x, 4):
+			var delta := _rgb_delta(
+				image.get_pixel(x, y),
+				image.get_pixel(x, y + pitch_pixels)
+			)
+			total_delta += delta
+			changed_count += 1 if delta >= 0.035 else 0
+			sample_count += 1
+	var mean_delta := total_delta / float(maxi(1, sample_count))
+	var changed_fraction := float(changed_count) / float(maxi(1, sample_count))
+	return {
+		"tile_pitch_px": tile_pitch_px,
+		"sample_count": sample_count,
+		"mean_delta": mean_delta,
+		"changed_fraction": changed_fraction,
+		"sufficient": (
+			changed_fraction >= MINIMUM_PATTERN_BREAK_CHANGED_FRACTION
+			and mean_delta >= MINIMUM_PATTERN_BREAK_MEAN_DELTA
+		),
+	}
+
+
+func _dissolve_join_metrics(
+	image: Image,
+	model: Dictionary,
+	reveal_visual: Dictionary
+) -> Dictionary:
+	var cloud_model: Dictionary = model.get("cloud_layer", {})
+	var state := TowerAscentMapCloudLayer.wall_visual_state(
+		cloud_model,
+		reveal_visual
+	)
+	var dissolve_rect: Rect2 = state.get("dissolve_rect", Rect2())
+	var wall_rect: Rect2 = cloud_model.get("wall_rect", Rect2())
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var join_y := clampi(
+		int(round(dissolve_rect.position.y * zoom + offset.y)),
+		2,
+		GAME_SIZE.y - 2
+	)
+	var projected_left := wall_rect.position.x * zoom + offset.x
+	var projected_right := wall_rect.end.x * zoom + offset.x
+	var start_x := clampi(int(ceil(projected_left)) + 4, 0, GAME_SIZE.x - 1)
+	var end_x := clampi(int(floor(projected_right)) - 4, 0, GAME_SIZE.x)
+	var deltas: Array[float] = []
+	var total_delta := 0.0
+	var total_baseline_delta := 0.0
+	for x in range(start_x, end_x, 2):
+		var delta := _rgb_delta(
+			image.get_pixel(x, join_y - 1),
+			image.get_pixel(x, join_y)
+		)
+		var baseline_delta := 0.5 * (
+			_rgb_delta(
+				image.get_pixel(x, join_y - 2),
+				image.get_pixel(x, join_y - 1)
+			)
+			+ _rgb_delta(
+				image.get_pixel(x, join_y),
+				image.get_pixel(x, join_y + 1)
+			)
+		)
+		deltas.append(delta)
+		total_delta += delta
+		total_baseline_delta += baseline_delta
+	deltas.sort()
+	var sample_count := deltas.size()
+	var p90_delta := (
+		deltas[clampi(int(floor(float(sample_count - 1) * 0.90)), 0, sample_count - 1)]
+		if sample_count > 0
+		else INF
+	)
+	var mean_delta := total_delta / float(maxi(1, sample_count))
+	var mean_baseline_delta := total_baseline_delta / float(maxi(1, sample_count))
+	return {
+		"boundary_y": float(state.get("boundary_y", 0.0)),
+		"join_screen_y": join_y,
+		"sample_count": sample_count,
+		"mean_delta": mean_delta,
+		"mean_baseline_delta": mean_baseline_delta,
+		"mean_excess_delta": maxf(0.0, mean_delta - mean_baseline_delta),
+		"p90_delta": p90_delta,
+	}
+
+
+func _rgb_delta(left: Color, right: Color) -> float:
+	return (
+		absf(left.r - right.r)
+		+ absf(left.g - right.g)
+		+ absf(left.b - right.b)
+	) / 3.0
 
 
 func _capture(canvas: CanvasItem, viewport: SubViewport) -> Image:

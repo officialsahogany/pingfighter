@@ -16,9 +16,9 @@ const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
 
-const EXPECTED_ASSET_COUNT := 15
+const EXPECTED_ASSET_COUNT := 16
 const EXPECTED_UPSCALE_MANIFEST_ASSET_COUNT := 11
-const EXPECTED_CLOUD_ASSET_COUNT := 4
+const EXPECTED_CLOUD_ASSET_COUNT := 5
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -104,19 +104,21 @@ func _verify_cloud_bitmap_import_policy() -> void:
 	var catalog := TowerMapScrollAssetCatalog.new()
 	_expect(
 		TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS.size() == EXPECTED_CLOUD_ASSET_COUNT,
-		"the bitmap cloud family must declare four independently sliced assets"
+		"the bitmap cloud family must declare three motifs plus wall interior and dissolve"
 	)
 	var expected_world_sizes := {
 		TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE: Vector2i(260, 160),
 		TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM: Vector2i(196, 112),
 		TowerMapScrollAssetCatalog.CLOUD_WISP: Vector2i(152, 64),
-		TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND: Vector2i(692, 144),
+		TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR: Vector2i(692, 320),
+		TowerMapScrollAssetCatalog.CLOUD_WALL_DISSOLVE: Vector2i(692, 224),
 	}
 	var expected_texture_sizes := {
 		TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE: Vector2i(1040, 640),
 		TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM: Vector2i(784, 448),
 		TowerMapScrollAssetCatalog.CLOUD_WISP: Vector2i(608, 256),
-		TowerMapScrollAssetCatalog.CLOUD_HAZE_BAND: Vector2i(2768, 576),
+		TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR: Vector2i(2768, 1280),
+		TowerMapScrollAssetCatalog.CLOUD_WALL_DISSOLVE: Vector2i(2768, 896),
 	}
 	for asset_key in TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS:
 		var path := catalog.resolve_declared_path(asset_key)
@@ -130,7 +132,16 @@ func _verify_cloud_bitmap_import_policy() -> void:
 		)
 		_expect(image_error == OK and not image.is_empty(), "%s source bitmap must decode" % asset_key)
 		if image_error == OK and not image.is_empty():
-			_expect(image.detect_alpha() != Image.ALPHA_NONE, "%s must retain soft source alpha" % asset_key)
+			if asset_key == TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR:
+				_expect(
+					image.detect_alpha() == Image.ALPHA_NONE,
+					"the wall interior must remain an opaque concealment core"
+				)
+			else:
+				_expect(
+					image.detect_alpha() != Image.ALPHA_NONE,
+					"%s must retain soft source alpha" % asset_key
+				)
 		var import_source := FileAccess.get_file_as_string(path + ".import")
 		_expect(import_source.find("compress/mode=2") >= 0, "%s must use offline VRAM compression" % asset_key)
 		_expect(import_source.find("compress/high_quality=true") >= 0, "%s must use high-quality VRAM compression" % asset_key)
@@ -141,7 +152,7 @@ func _verify_cloud_bitmap_import_policy() -> void:
 func _verify_approved_asset_catalog_and_dimensions() -> void:
 	var catalog := TowerMapScrollAssetCatalog.new()
 	var keys := catalog.get_asset_keys()
-	_expect(keys.size() == EXPECTED_ASSET_COUNT, "the catalog must declare all 15 approved files")
+	_expect(keys.size() == EXPECTED_ASSET_COUNT, "the catalog must declare all 16 approved files")
 	var declared_paths: Dictionary = {}
 	for asset_key in keys:
 		var path := catalog.resolve_declared_path(asset_key)
@@ -155,7 +166,7 @@ func _verify_approved_asset_catalog_and_dimensions() -> void:
 		_expect(not bool(cold.get("cached", true)), "%s cold draw peek must not touch the filesystem" % asset_key)
 	var prewarm := catalog.prewarm_all()
 	_expect(bool(prewarm.get("ready", false)), "all approved files must prewarm")
-	_expect(int(prewarm.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prewarm must cache all 15 approved files")
+	_expect(int(prewarm.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prewarm must cache all 16 approved files")
 	for asset_key in keys:
 		var resolution := catalog.get_cached_resolution(asset_key)
 		var texture := resolution.get("texture", null) as Texture2D
@@ -367,7 +378,7 @@ func _verify_production_prewarm_order_and_draw_peek_contract() -> void:
 		"map_seed": 83521,
 	}), "the production flow fixture must begin")
 	var debug_state := flow.get_map_scroll_asset_debug_state()
-	_expect(int(debug_state.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prepare must prewarm all 15 files before map draw")
+	_expect(int(debug_state.get("entry_count", 0)) == EXPECTED_ASSET_COUNT, "prepare must prewarm all 16 files before map draw")
 	_expect(int(debug_state.get("ready_count", 0)) == EXPECTED_ASSET_COUNT, "production prewarm must retain all approved textures")
 	var map_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_map_progress.gd"

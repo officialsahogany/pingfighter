@@ -21,6 +21,7 @@ const TowerMapScrollAssetCatalog := preload(
 
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 const TICK_SEC := 1.0 / 72.0
+const CLOUD_WALL_SPLIT_COUNTERPROOF_ENV := "TOWER_CLOUD_WALL_SPLIT_COUNTERPROOF"
 
 var _failures: Array[String] = []
 
@@ -163,11 +164,9 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 	)
 	var draw_body := (
 		_function_body(cloud_source, "func draw(")
-		+ _function_body(cloud_source, "func _draw_bitmap_floor(")
-		+ _function_body(cloud_source, "static func _draw_cached_fog_polygon(")
-		+ _function_body(cloud_source, "static func _draw_cached_fog_feather_polygon(")
+		+ _function_body(cloud_source, "func _draw_bitmap_wall(")
+		+ _function_body(cloud_source, "static func _draw_wall_interior(")
 		+ _function_body(cloud_source, "static func _draw_texture_clipped(")
-		+ _function_body(cloud_source, "func _draw_procedural_floor(")
 	)
 	_expect(
 		draw_body.find("RandomNumberGenerator.new") < 0
@@ -182,7 +181,15 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 		cloud_source.find("draw_set_transform") >= 0,
 		"cloud drift must use stable-owner time offsets without spawning interpolated overlay nodes"
 	)
-	var bitmap_draw_body := _function_body(cloud_source, "func _draw_bitmap_floor(")
+	_expect(
+		cloud_source.find("BLEND_MODE_ADD") < 0
+			and cloud_source.find("canvas.material") < 0,
+		"GRT-047/GRT-056: the dark concealment wall must stay on MIX without material swaps"
+	)
+	var bitmap_draw_body := (
+		_function_body(cloud_source, "func _draw_bitmap_wall(")
+		+ _function_body(cloud_source, "static func wrapped_cloud_center_x(")
+	)
 	_expect(
 		bitmap_draw_body.find("sin(") < 0 and bitmap_draw_body.find("fposmod(") >= 0,
 		"bitmap clouds must flow continuously through wrap coordinates instead of oscillating"
@@ -235,7 +242,7 @@ func _verify_floor_reveal_title_catalog_and_wiring() -> void:
 	)
 	_expect(
 		cloud_draw_index >= 0 and title_draw_index > cloud_draw_index,
-		"the reveal title must draw after the clouds so it floats above the fog"
+		"the reveal title must draw after the clouds so it floats above the wall"
 	)
 	_expect(
 		renderer_source.find("run_intro_title_visual", cloud_draw_index) > cloud_draw_index,
@@ -281,10 +288,45 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 	var renderer: Object = flow.get("_renderer")
 	var model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var cloud_model: Dictionary = model.get("cloud_layer", {})
-	_expect(str(cloud_model.get("render_mode", "")) == "bitmap", "all four prewarmed cloud assets must select bitmap rendering")
-	_expect(int(cloud_model.get("bitmap_asset_count", 0)) == 4, "bitmap rendering must bind all four approved assets")
-	_expect(int(cloud_model.get("parallax_layer_count", 0)) == 2, "locked clouds must retain slow haze plus faster foreground depth")
-	_expect(int(cloud_model.get("maximum_draw_calls_per_floor", 0)) == 13, "each locked floor must reserve fog core plus two edge feathers, two-wrap haze, and four two-wrap motif worst case")
+	_expect(
+		str(cloud_model.get("render_mode", "")) == "bitmap",
+		"all five prewarmed cloud assets must select bitmap rendering"
+	)
+	_expect(
+		int(cloud_model.get("bitmap_asset_count", 0)) == 5,
+		"bitmap rendering must bind wall interior, dissolve, and three motif textures"
+	)
+	_expect(
+		int(cloud_model.get("parallax_layer_count", 0)) == 2,
+		"the static wall and drifting foreground motifs must retain two depth layers"
+	)
+	var sealed_model := cloud_model.duplicate(true)
+	if OS.get_environment(CLOUD_WALL_SPLIT_COUNTERPROOF_ENV) == "1":
+		sealed_model["merged_region_count"] = 2
+	_expect(
+		TowerAscentMapCloudLayer.merged_region_contract_holds(sealed_model),
+		"the locked range must remain one MIX-blended merged wall with one dissolve and four motifs"
+	)
+	var split_counterproof := cloud_model.duplicate(true)
+	split_counterproof["merged_region_count"] = 2
+	_expect(
+		not TowerAscentMapCloudLayer.merged_region_contract_holds(split_counterproof),
+		"counterproof: restoring per-floor regions must break the merged-wall seal"
+	)
+	var expected_reserve := TowerAscentMapCloudLayer.estimate_draw_calls(
+		model.get("overview_nodes", []),
+		float(model.get("art_size", 0.0)),
+		float(model.get("map_scale", 1.0))
+	)
+	_expect(
+		int(cloud_model.get("maximum_draw_calls_per_merged_region", 0))
+			== expected_reserve,
+		"the merged-region model and renderer reserve must stay in exact lockstep"
+	)
+	_expect(
+		expected_reserve < (cloud_model.get("floors", []) as Array).size() * 13,
+		"the merged wall must materially reduce the retired thirteen-calls-per-floor reserve"
+	)
 
 	var visual: Dictionary = flow.get_floor_reveal_visual_model()
 	_expect(
@@ -299,83 +341,101 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		"revealed floors must schedule zero cloud draws"
 	)
 
-	var inspected_density := false
-	var wrapped_motion_checked := false
-	for floor_variant in cloud_model.get("floors", []):
+	var floors: Array = cloud_model.get("floors", [])
+	var previous_upper_boundary := INF
+	for floor_variant in floors:
 		if not (floor_variant is Dictionary):
 			continue
-		var floor_spec := floor_variant as Dictionary
-		var floor_number := int(floor_spec.get("floor", 0))
-		if floor_number <= int(visual.get("revealed_floor", 0)):
-			continue
-		var fog_count := 0
-		var haze_count := 0
-		var front_count := 0
-		var haze_speed := INF
-		var minimum_front_speed := INF
-		var floor_rect: Rect2 = floor_spec.get("floor_rect", Rect2())
-		for spec_variant in floor_spec.get("bitmap_specs", []):
-			if not (spec_variant is Dictionary):
-				continue
-			var spec := spec_variant as Dictionary
-			if str(spec.get("kind", "")) == "fog":
-				fog_count += 1
-				_expect(
-					float(spec.get("opacity", 0.0)) >= 0.9,
-					"the locked-floor fog cover must be near-opaque to conceal upper nodes"
-				)
-				for geometry_key in [
-					"core_points",
-					"top_feather_points",
-					"bottom_feather_points",
-				]:
-					var points_value: Variant = spec.get(geometry_key, null)
-					_expect(
-						TowerAscentMapCloudLayer.fog_polygon_is_triangulable(points_value),
-						"GRT-006: locked-floor fog %s must remain triangulable" % geometry_key
-					)
-			elif str(spec.get("kind", "")) == "haze":
-				haze_count += 1
-				haze_speed = minf(haze_speed, float(spec.get("drift_speed", INF)))
-			else:
-				front_count += 1
-				minimum_front_speed = minf(minimum_front_speed, float(spec.get("drift_speed", INF)))
-				if not wrapped_motion_checked:
-					var speed := float(spec.get("drift_speed", 0.0))
-					if speed > 0.001 and floor_rect.size.x > 0.001:
-						var start_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(spec, floor_rect, 0.0)
-						var cycle_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(
-							spec,
-							floor_rect,
-							floor_rect.size.x / speed
-						)
-						_expect(is_equal_approx(start_x, cycle_x), "one full continuous drift cycle must wrap to the same cloud center without a seam")
-						wrapped_motion_checked = true
-		_expect(
-			fog_count == 1 and haze_count == 1 and front_count == 4,
-			"each locked floor must stack one fog cover, one full-width haze band, and four seeded swirl/wisp motifs"
-		)
-		_expect(minimum_front_speed > haze_speed, "foreground motifs must drift faster than the rear haze layer")
-		var midpoint_visual := {
-			"revealed_floor": floor_number - 1,
-			"target_floor": floor_number,
-			"pending": true,
-			"progress": 0.5,
-		}
-		_expect(
-			is_equal_approx(TowerAscentMapCloudLayer.floor_alpha_multiplier(floor_number, midpoint_visual), 0.5),
-			"the two-second reveal fade must remove the complete dense bitmap composition as one layer"
-		)
-		inspected_density = true
-		break
-	_expect(inspected_density and wrapped_motion_checked, "the production fixture must expose one inspectable locked bitmap floor")
+		var floor_rect: Rect2 = (floor_variant as Dictionary).get("floor_rect", Rect2())
+		_expect(floor_rect.has_area(), "each floor must retain an inspectable ownership span")
+		if is_finite(previous_upper_boundary):
+			_expect(
+				is_equal_approx(floor_rect.end.y, previous_upper_boundary),
+				"merged floor spans must share one boundary and include every inter-floor gap"
+			)
+		previous_upper_boundary = floor_rect.position.y
+	var interior_spec: Dictionary = cloud_model.get("interior_spec", {})
+	var dissolve_spec: Dictionary = cloud_model.get("dissolve_spec", {})
 	_expect(
-		not TowerAscentMapCloudLayer.fog_polygon_is_triangulable(PackedVector2Array([
-			Vector2.ZERO,
-			Vector2.ZERO,
-			Vector2.ZERO,
-		])),
-		"GRT-006: a collapsed fog polygon must be rejected before draw"
+		float(interior_spec.get("opacity", 0.0)) >= 0.9,
+		"the opaque wall interior must keep locked nodes and routes unreadable"
+	)
+	_expect(
+		str(dissolve_spec.get("asset_key", ""))
+			== TowerMapScrollAssetCatalog.CLOUD_WALL_DISSOLVE,
+		"the merged wall must own one authored lower dissolve strip"
+	)
+	_expect(
+		int(cloud_model.get("motif_count", 0)) == 4,
+		"four seeded legacy cloud motifs must drift over the merged wall"
+	)
+	var wrapped_motion_checked := false
+	var wall_rect: Rect2 = cloud_model.get("wall_rect", Rect2())
+	for spec_variant in cloud_model.get("motif_specs", []):
+		if not (spec_variant is Dictionary):
+			continue
+		var spec := spec_variant as Dictionary
+		var speed := float(spec.get("drift_speed", 0.0))
+		if speed <= 0.001 or wall_rect.size.x <= 0.001:
+			continue
+		var start_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(
+			spec,
+			wall_rect,
+			0.0
+		)
+		var cycle_x := TowerAscentMapCloudLayer.wrapped_cloud_center_x(
+			spec,
+			wall_rect,
+			wall_rect.size.x / speed
+		)
+		_expect(
+			is_equal_approx(start_x, cycle_x),
+			"one full continuous drift cycle must wrap without a horizontal seam"
+		)
+		wrapped_motion_checked = true
+		break
+	_expect(wrapped_motion_checked, "the production fixture must expose one drifting motif")
+	var revealed_floor := int(visual.get("revealed_floor", 1))
+	var target_floor := revealed_floor + 1
+	var before_state := TowerAscentMapCloudLayer.wall_visual_state(cloud_model, {
+		"revealed_floor": revealed_floor,
+		"pending": false,
+	})
+	var midpoint_visual := {
+		"revealed_floor": revealed_floor,
+		"target_floor": target_floor,
+		"pending": true,
+		"progress": 0.5,
+	}
+	var midpoint_state := TowerAscentMapCloudLayer.wall_visual_state(
+		cloud_model,
+		midpoint_visual
+	)
+	var after_state := TowerAscentMapCloudLayer.wall_visual_state(cloud_model, {
+		"revealed_floor": target_floor,
+		"pending": false,
+	})
+	_expect(
+		is_equal_approx(
+			TowerAscentMapCloudLayer.floor_alpha_multiplier(target_floor, midpoint_visual),
+			0.5
+		),
+		"the authoritative reveal progress must still drive the clearing segment alpha"
+	)
+	_expect(
+		is_equal_approx(float(midpoint_state.get("reveal_alpha", 0.0)), 0.5),
+		"the merged wall must consume the midpoint alpha multiplier"
+	)
+	_expect(
+		float(before_state.get("boundary_y", 0.0))
+			> float(midpoint_state.get("boundary_y", 0.0))
+		and float(midpoint_state.get("boundary_y", 0.0))
+			> float(after_state.get("boundary_y", 0.0)),
+		"the lower dissolve boundary must move upward exactly one floor during reveal"
+	)
+	_expect(
+		(midpoint_state.get("reveal_segment_rect", Rect2()) as Rect2).has_area(),
+		"the moving floor interval must remain an explicit fading segment"
 	)
 
 	var build_args_nodes: Variant = model.get("overview_nodes", [])
@@ -406,12 +466,8 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		"the same presentation seed must reproduce cloud placement, direction, speed, and phase"
 	)
 	_expect(
-		_fog_geometry_signature(cloud_model) == _fog_geometry_signature(same_seed),
-		"the same presentation seed must reproduce the organic fog edge geometry"
-	)
-	_expect(
-		_fog_geometry_signature(cloud_model) != _fog_geometry_signature(different_seed),
-		"a different presentation seed must change the organic fog edge geometry"
+		_boundary_signature(cloud_model) == _boundary_signature(same_seed),
+		"floor boundaries must remain deterministic and independent of presentation RNG"
 	)
 	_expect(
 		_bitmap_layout_signature(cloud_model) != _bitmap_layout_signature(different_seed),
@@ -476,44 +532,31 @@ func _left_button(position: Vector2, pressed: bool) -> InputEventMouseButton:
 
 func _bitmap_layout_signature(model: Dictionary) -> PackedStringArray:
 	var signature := PackedStringArray()
-	for floor_variant in model.get("floors", []):
-		if not (floor_variant is Dictionary):
+	for spec_variant in model.get("motif_specs", []):
+		if not (spec_variant is Dictionary):
 			continue
-		var floor_spec := floor_variant as Dictionary
-		for spec_variant in floor_spec.get("bitmap_specs", []):
-			if not (spec_variant is Dictionary):
-				continue
-			var spec := spec_variant as Dictionary
-			signature.append("%d:%s:%s:%s:%s:%s:%s" % [
-				int(floor_spec.get("floor", 0)),
-				str(spec.get("asset_key", "")),
-				str(spec.get("size", Vector2.ZERO)),
-				str(spec.get("base_center_x", 0.0)),
-				str(spec.get("center_y", 0.0)),
-				str(spec.get("drift_direction", 0.0)),
-				str(spec.get("drift_speed", 0.0)),
-			])
+		var spec := spec_variant as Dictionary
+		signature.append("%s:%s:%s:%s:%s:%s" % [
+			str(spec.get("asset_key", "")),
+			str(spec.get("size", Vector2.ZERO)),
+			str(spec.get("base_center_x", 0.0)),
+			str(spec.get("center_y", 0.0)),
+			str(spec.get("drift_direction", 0.0)),
+			str(spec.get("drift_speed", 0.0)),
+		])
 	return signature
 
 
-func _fog_geometry_signature(model: Dictionary) -> PackedStringArray:
+func _boundary_signature(model: Dictionary) -> PackedStringArray:
 	var signature := PackedStringArray()
 	for floor_variant in model.get("floors", []):
 		if not (floor_variant is Dictionary):
 			continue
 		var floor_spec := floor_variant as Dictionary
-		for spec_variant in floor_spec.get("bitmap_specs", []):
-			if not (spec_variant is Dictionary):
-				continue
-			var spec := spec_variant as Dictionary
-			if str(spec.get("kind", "")) != "fog":
-				continue
-			signature.append("%d:%s:%s:%s" % [
-				int(floor_spec.get("floor", 0)),
-				str(spec.get("core_points", PackedVector2Array())),
-				str(spec.get("top_feather_points", PackedVector2Array())),
-				str(spec.get("bottom_feather_points", PackedVector2Array())),
-			])
+		signature.append("%d:%s" % [
+			int(floor_spec.get("floor", 0)),
+			str(floor_spec.get("floor_rect", Rect2())),
+		])
 	return signature
 
 

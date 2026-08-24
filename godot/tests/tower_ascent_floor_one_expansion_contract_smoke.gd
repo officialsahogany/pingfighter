@@ -18,6 +18,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentMapGenerator := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
 )
+const TowerAscentMapCloudLayer := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_cloud_layer.gd"
+)
 const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
@@ -618,7 +621,21 @@ func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 		"seed %d budget LOD must preserve every stable edge" % map_seed
 	)
 	var cloud_calls := int(cache.get("cloud_draw_call_budget", 0))
-	_expect(cloud_calls == 156, "seed %d fit-all must reserve all twelve cloud floors at thirteen calls each" % map_seed)
+	var expected_cloud_calls := TowerAscentMapCloudLayer.estimate_draw_calls(
+		model.get("overview_nodes", []),
+		float(model.get("art_size", 0.0)),
+		float(model.get("map_scale", 1.0))
+	)
+	_expect(
+		cloud_calls == expected_cloud_calls,
+		"seed %d merged cloud reserve must match the production estimator (%d != %d)"
+		% [map_seed, cloud_calls, expected_cloud_calls]
+	)
+	_expect(
+		cloud_calls < 156,
+		"seed %d merged cloud wall must beat the retired 12 floors x 13 calls reserve"
+		% map_seed
+	)
 	if total_draw_calls > _maximum_draw_calls:
 		_maximum_draw_calls = total_draw_calls
 		_maximum_draw_seed = map_seed
