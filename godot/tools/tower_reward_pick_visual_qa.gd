@@ -78,12 +78,18 @@ class CaptureRuntimeState:
 class CaptureFlowOwner:
 	extends RefCounted
 
-	var balances := {"muhon": 7, "gold": 0, "chance_gems": 3}
+	var balances := {"muhon": 11, "gold": 0, "chance_gems": 3}
 
 	func get_reward_pick_context() -> Dictionary:
 		return {
 			"node_resolution_id": "visual-reward-pick",
 			"boss_slot_id": "floor_01_dalji",
+			"victory_margin_reward": {
+				"node_resolution_id": "visual-reward-pick:victory_margin_muhon",
+				"player_score": 7,
+				"boss_score": 3,
+				"amount": 4,
+			},
 		}
 
 	func get_run_state_snapshot() -> Dictionary:
@@ -211,6 +217,14 @@ func _capture_offer(
 		return false
 	reward_state.selected_index = selected_index
 	reward_state.update(1.0)
+	var opening_model: Dictionary = reward_state.build_view_model(Vector2(GAME_SIZE))
+	if (
+		str(opening_model.get("balance_text", "")) != "무혼 : 11개"
+		or str(opening_model.get("acquisition_text", "")) != "무혼 +4 (점수차 보상)"
+	):
+		push_error("reward-pick capture must include the +4 margin in both balance and acquisition rows")
+		quit(1)
+		return false
 	var viewport := SubViewport.new()
 	viewport.size = GAME_SIZE
 	viewport.transparent_bg = false

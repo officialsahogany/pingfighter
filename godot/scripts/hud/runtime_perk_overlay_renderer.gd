@@ -120,6 +120,10 @@ const TOWER_REWARD_BALANCE_ROW_HEIGHT_FONT_RATIO := 1.32
 const TOWER_REWARD_BALANCE_TITLE_OFFSET := 164.0
 const TOWER_REWARD_BALANCE_RIGHT_MARGIN := 18.0
 const TOWER_REWARD_BALANCE_OUTLINE_FONT_RATIO := 0.10
+const TOWER_REWARD_ACQUISITION_FONT_RATIO := 0.65
+const TOWER_REWARD_ACQUISITION_MIN_FONT_SIZE := 14
+const TOWER_REWARD_ACQUISITION_TOP_GAP := 2.0
+const TOWER_REWARD_ACQUISITION_ROW_HEIGHT_FONT_RATIO := 1.28
 const MYTHIC_REVEAL_LIGHTBURST_PATH := "res://assets/sprites/hud/mythic_reveal_lightburst_v1.png"
 const MYTHIC_REVEAL_SMOKE_PATH := "res://assets/sprites/hud/mythic_reveal_smoke_v1.png"
 const MYTHIC_REVEAL_DURATION := 1.5
@@ -1724,6 +1728,13 @@ func draw_tower_reward_pick(
 	)
 	for balance_row in balance_rows:
 		_draw_tower_reward_balance_row(canvas, balance_row, alpha)
+	var acquisition_rows := build_tower_reward_acquisition_rows(
+		view_size,
+		balance_rows,
+		str(view_model.get("acquisition_text", ""))
+	)
+	for acquisition_row in acquisition_rows:
+		_draw_tower_reward_acquisition_row(canvas, acquisition_row, alpha)
 	_sync_choice_visual_selection(choices, selected_index)
 	for index in range(mini(choices.size(), rects.size())):
 		if not (choices[index] is Dictionary) or not (rects[index] is Rect2):
@@ -1984,6 +1995,93 @@ func _draw_tower_reward_balance_row(
 		font_size,
 		Color(0.96, 0.82, 0.45, alpha)
 	)
+
+
+func build_tower_reward_acquisition_rows(
+	view_size: Vector2,
+	balance_rows: Array[Dictionary],
+	text: String
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var font := _get_font()
+	if font == null or text.is_empty() or balance_rows.size() != 1:
+		return rows
+	var balance_row: Dictionary = balance_rows[0]
+	var balance_rect: Rect2 = balance_row.get("rect", Rect2())
+	var balance_text_rect: Rect2 = balance_row.get("text_rect", balance_rect)
+	var balance_font_size := int(balance_row.get(
+		"font_size",
+		TOWER_REWARD_BALANCE_MIN_FONT_SIZE
+	))
+	var font_size := maxi(
+		TOWER_REWARD_ACQUISITION_MIN_FONT_SIZE,
+		int(round(float(balance_font_size) * TOWER_REWARD_ACQUISITION_FONT_RATIO))
+	)
+	var row_height := float(font_size) * TOWER_REWARD_ACQUISITION_ROW_HEIGHT_FONT_RATIO
+	var text_size := font.get_string_size(
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		font_size
+	)
+	var row_rect := Rect2(
+		Vector2(
+			balance_text_rect.position.x,
+			balance_rect.end.y + TOWER_REWARD_ACQUISITION_TOP_GAP
+		),
+		Vector2(text_size.x, row_height)
+	)
+	if (
+		row_rect.position.x < 0.0
+		or row_rect.position.y < 0.0
+		or row_rect.end.x > view_size.x - TOWER_REWARD_BALANCE_RIGHT_MARGIN
+		or row_rect.end.y > view_size.y
+	):
+		return rows
+	rows.append({
+		"rect": row_rect,
+		"text": text,
+		"font_size": font_size,
+	})
+	return rows
+
+
+func _draw_tower_reward_acquisition_row(
+	canvas: CanvasItem,
+	row: Dictionary,
+	alpha: float
+) -> void:
+	var font := _get_font()
+	if font == null:
+		return
+	var rect: Rect2 = row.get("rect", Rect2())
+	var font_size := int(row.get("font_size", TOWER_REWARD_ACQUISITION_MIN_FONT_SIZE))
+	var baseline := Vector2(
+		rect.position.x,
+		rect.position.y + (rect.size.y - float(font_size)) * 0.5 + font.get_ascent(font_size)
+	)
+	var text := str(row.get("text", ""))
+	canvas.draw_string_outline(
+		font,
+		baseline,
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x,
+		font_size,
+		1,
+		Color(0.02, 0.015, 0.01, alpha * 0.88)
+	)
+	canvas.draw_string(
+		font,
+		baseline,
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		rect.size.x,
+		font_size,
+		Color(0.91, 0.76, 0.44, alpha)
+	)
+
+
 func _tower_reward_absorption_by_slot(view_model: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for value in _get_array(view_model.get("purchase_absorption_effects", [])):

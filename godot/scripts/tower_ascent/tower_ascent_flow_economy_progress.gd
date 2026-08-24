@@ -90,6 +90,62 @@ func get_reward_pick_history() -> Array[Dictionary]:
 	return _reward_pick_history.duplicate(true)
 
 
+func get_victory_margin_reward_history() -> Array[Dictionary]:
+	return _victory_margin_reward_history.duplicate(true)
+
+
+func apply_victory_margin_reward(player_score: int, boss_score: int) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		return {"accepted": false, "applied": false, "reason": "feature_disabled"}
+	if not _prepared or _prepared_resolution_id.is_empty():
+		return {"accepted": false, "applied": false, "reason": "combat_unprepared"}
+	if player_score <= boss_score:
+		return {
+			"accepted": true,
+			"applied": false,
+			"reason": "not_player_victory",
+			"amount": 0,
+			"balances": _run_state.export_economy(),
+		}
+	# GRT-054: consume the two measured final scores. This formula must not be
+	# rebuilt from WIN_GOAL, the deuce ladder, or a copied winning-score literal.
+	var amount := maxi(0, player_score - boss_score)
+	var resolution_id := "%s:victory_margin_muhon" % _prepared_resolution_id
+	var result: Dictionary = _node_action_transaction.apply_once(
+		resolution_id,
+		{},
+		{"muhon": amount},
+		_run_state,
+		_resolution_ids
+	)
+	if not bool(result.get("accepted", false)):
+		return result
+	var record := _find_victory_margin_reward_record(resolution_id)
+	if bool(result.get("applied", false)):
+		record = {
+			"node_id": _current_node_id,
+			"node_resolution_id": resolution_id,
+			"source_resolution_id": _prepared_resolution_id,
+			"reward_kind": "victory_margin_muhon",
+			"player_score": player_score,
+			"boss_score": boss_score,
+			"amount": amount,
+		}
+		_victory_margin_reward_history.append(record)
+	result["amount"] = int(record.get("amount", amount))
+	result["record"] = record.duplicate(true)
+	if not result.has("balances"):
+		result["balances"] = _run_state.export_economy()
+	return result
+
+
+func _find_victory_margin_reward_record(resolution_id: String) -> Dictionary:
+	for record in _victory_margin_reward_history:
+		if str(record.get("node_resolution_id", "")) == resolution_id:
+			return record
+	return {}
+
+
 func apply_reward_pick_purchase(
 	slot_index: int,
 	choice: Dictionary,

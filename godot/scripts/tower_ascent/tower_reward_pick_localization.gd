@@ -15,6 +15,10 @@ const TEXT := {
 		"ko": "무혼 : {amount}개", "en": "Muhon : {amount}", "zh": "武魂 : {amount}个", "ja": "武魂 : {amount}個",
 		"es": "Muhon : {amount}", "pt-BR": "Muhon : {amount}", "ru": "Мухон : {amount} шт.",
 	},
+	"victory_margin_reward": {
+		"ko": "무혼 +{amount} (점수차 보상)", "en": "Muhon +{amount} (victory margin reward)", "zh": "武魂 +{amount}（分差奖励）", "ja": "武魂 +{amount}（得点差報酬）",
+		"es": "Muhon +{amount} (recompensa por diferencia de puntos)", "pt-BR": "Muhon +{amount} (recompensa por diferença de pontos)", "ru": "Мухон +{amount} (награда за разницу в счёте)",
+	},
 	"price": {
 		"ko": "무혼 {amount}", "en": "{amount} Muhon", "zh": "武魂 {amount}", "ja": "武魂 {amount}",
 		"es": "{amount} Muhon", "pt-BR": "{amount} Muhon", "ru": "{amount} мухон",

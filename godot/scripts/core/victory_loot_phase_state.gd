@@ -159,6 +159,13 @@ func start(
 		return false
 	_current_stage = int(_get_owner_value(owner, "current_stage", 1))
 	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		var margin_reward_result := _apply_tower_victory_margin_reward(
+			registry,
+			player_score,
+			boss_score
+		)
+		if not bool(margin_reward_result.get("accepted", false)):
+			return false
 		_owner = owner
 		_registry = registry
 		finish_callback = new_finish_callback
@@ -201,6 +208,30 @@ func start(
 	_play_slump_boom_audio()
 	_write_owner_state(owner)
 	return true
+
+
+func _apply_tower_victory_margin_reward(
+	registry: Object,
+	player_score: int,
+	boss_score: int
+) -> Dictionary:
+	var flow_owner: Object = null
+	if registry != null and registry.has_method("get_instance"):
+		var flow_owner_value: Variant = registry.call("get_instance", "tower_ascent_flow_owner")
+		if flow_owner_value is Object:
+			flow_owner = flow_owner_value as Object
+	if flow_owner == null or not flow_owner.has_method("apply_victory_margin_reward"):
+		return {"accepted": false, "applied": false, "reason": "missing_tower_flow"}
+	var result_value: Variant = flow_owner.call(
+		"apply_victory_margin_reward",
+		player_score,
+		boss_score
+	)
+	return result_value if result_value is Dictionary else {
+		"accepted": false,
+		"applied": false,
+		"reason": "invalid_margin_reward_result",
+	}
 
 
 func reset(owner: Object = null) -> void:

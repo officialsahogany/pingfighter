@@ -44,6 +44,7 @@ var _icon_renderer: Object = null
 var _chosik_tooltip_renderer: Object = null
 var _finish_callback: Callable = Callable()
 var _offer: Dictionary = {}
+var _victory_margin_reward: Dictionary = {}
 var _status_text := ""
 var _layout: Object = RuntimePerkChoiceLayout.new()
 var _offer_builder: Object = TowerRewardPickOfferBuilder.new()
@@ -89,6 +90,12 @@ func start(
 		reset()
 		return false
 	_offer = offer.duplicate(true)
+	var margin_reward_value: Variant = context.get("victory_margin_reward", {})
+	_victory_margin_reward = (
+		(margin_reward_value as Dictionary).duplicate(true)
+		if margin_reward_value is Dictionary
+		else {}
+	)
 	choices.assign(_dictionary_array(offer.get("choices", [])))
 	if choices.size() != TowerRewardPickOfferBuilder.CARD_COUNT:
 		reset()
@@ -127,6 +134,7 @@ func reset() -> void:
 	spent_flags.clear()
 	purchase_absorption_effects.clear()
 	_offer.clear()
+	_victory_margin_reward.clear()
 	_status_text = ""
 	_finish_callback = Callable()
 	_pending_external_kind = ""
@@ -265,6 +273,7 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 			"balance",
 			{"amount": int(balances.get("muhon", 0))}
 		),
+		"acquisition_text": _get_victory_margin_reward_text(),
 		"spent_text": TowerRewardPickLocalization.text("spent"),
 		"status_text": _status_text,
 		"choices": model_choices,
@@ -282,6 +291,16 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		"reward_session_id": _reward_session_id,
 		"chosik_tooltip_context": _build_chosik_tooltip_context(),
 	}
+
+
+func _get_victory_margin_reward_text() -> String:
+	var amount := maxi(0, int(_victory_margin_reward.get("amount", 0)))
+	if amount <= 0:
+		return ""
+	return TowerRewardPickLocalization.text(
+		"victory_margin_reward",
+		{"amount": amount}
+	)
 
 
 func get_card_rects(view_size: Vector2 = VIEW_SIZE) -> Array:

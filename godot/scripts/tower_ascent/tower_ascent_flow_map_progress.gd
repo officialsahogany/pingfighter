@@ -25,6 +25,7 @@ const REENTRY_PROGRESS_FIELDS: Array[String] = [
 	"training_timing_roll_count",
 	"route_history",
 	"reward_pick_history",
+	"victory_margin_reward_history",
 ]
 
 func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> bool:
@@ -155,6 +156,7 @@ func _capture_reentry_progress() -> Dictionary:
 		"training_timing_roll_count": _training_timing_roll_count,
 		"route_history": _route_history,
 		"reward_pick_history": _reward_pick_history,
+		"victory_margin_reward_history": _victory_margin_reward_history,
 	}
 	var result := {
 		"run_progress": {
@@ -222,6 +224,10 @@ func _restore_reentry_progress(progress: Dictionary) -> bool:
 	_route_history.assign(_dictionary_array(progress.get("route_history", [])))
 	_reward_pick_history.assign(_dictionary_array(progress.get("reward_pick_history", [])))
 	_add_history_resolution_ids(_reward_pick_history)
+	_victory_margin_reward_history.assign(_dictionary_array(
+		progress.get("victory_margin_reward_history", [])
+	))
+	_add_history_resolution_ids(_victory_margin_reward_history)
 	_current_node_id = str(progress.get("current_node_id", _route_source_node_id))
 	if _get_node(_current_node_id).is_empty():
 		return false
@@ -338,8 +344,17 @@ func get_reward_pick_context() -> Dictionary:
 		"balances": _run_state.export_economy(),
 		"skipped_boss_ids": _run_state.get_skipped_boss_ids(),
 		"burned_vision_boss_ids": _run_state.get_burned_vision_boss_ids(),
+		"victory_margin_reward": _get_prepared_victory_margin_reward(),
 	}, true)
 	return context
+
+
+func _get_prepared_victory_margin_reward() -> Dictionary:
+	var resolution_id := "%s:victory_margin_muhon" % _prepared_resolution_id
+	for record in _victory_margin_reward_history:
+		if str(record.get("node_resolution_id", "")) == resolution_id:
+			return record.duplicate(true)
+	return {}
 
 func get_current_node_risk_context() -> Dictionary:
 	var node := _get_node(_current_node_id)

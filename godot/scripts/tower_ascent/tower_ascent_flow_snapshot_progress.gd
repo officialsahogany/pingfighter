@@ -69,6 +69,10 @@ func restore_snapshot(
 			_resolution_ids[training_resolution_id] = true
 	_reward_pick_history.assign(_dictionary_array(snapshot.get("reward_pick_history", [])))
 	_add_history_resolution_ids(_reward_pick_history)
+	_victory_margin_reward_history.assign(_dictionary_array(
+		snapshot.get("victory_margin_reward_history", [])
+	))
+	_add_history_resolution_ids(_victory_margin_reward_history)
 	_fallen_monk_node.restore_state(
 		snapshot.get("generated_fallen_monk_offers", []),
 		snapshot.get("fallen_monk_history", []),
@@ -231,6 +235,7 @@ func export_snapshot() -> Dictionary:
 		"generated_training_offers": _generated_training_offers.duplicate(true),
 		"training_history": _training_history.duplicate(true),
 		"reward_pick_history": _reward_pick_history.duplicate(true),
+		"victory_margin_reward_history": _victory_margin_reward_history.duplicate(true),
 		"generated_fallen_monk_offers": _fallen_monk_node.get_generated_offers(),
 		"fallen_monk_history": _fallen_monk_node.get_history(),
 		"fallen_monk_runtime_snapshot": _fallen_monk_node.get_runtime_snapshot(),

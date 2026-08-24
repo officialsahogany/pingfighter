@@ -295,6 +295,7 @@ class FakeFlowOwner:
 	var burned_boss_ids: Array[String] = []
 	var finalize_calls := 0
 	var prepare_calls := 0
+	var margin_reward_calls := 0
 	var begin_calls := 0
 	var active := false
 	var phase := "COMBAT"
@@ -316,6 +317,32 @@ class FakeFlowOwner:
 		active = true
 		phase = "ROUTE_AIM"
 		return true
+
+	func apply_victory_margin_reward(player_score: int, boss_score: int) -> Dictionary:
+		margin_reward_calls += 1
+		var resolution_id := "victory_margin_muhon"
+		var amount := maxi(0, player_score - boss_score)
+		if resolution_ids.has(resolution_id):
+			return {
+				"accepted": true,
+				"applied": false,
+				"reason": "already_committed",
+				"amount": amount,
+			}
+		resolution_ids[resolution_id] = true
+		balances["muhon"] = int(balances.get("muhon", 0)) + amount
+		context["victory_margin_reward"] = {
+			"node_resolution_id": resolution_id,
+			"player_score": player_score,
+			"boss_score": boss_score,
+			"amount": amount,
+		}
+		return {
+			"accepted": true,
+			"applied": true,
+			"reason": "committed",
+			"amount": amount,
+		}
 
 	func is_active() -> bool:
 		return active
@@ -1020,7 +1047,11 @@ func _verify_victory_highlight_reward_pick_route_sequence() -> void:
 	))
 	_expect(bool(started), "victory-highlight completion must start the production victory-loot owner")
 	_expect(flow.prepare_calls == 1, "victory presentation must prepare the tower combat resolution once")
+	_expect(flow.margin_reward_calls == 1, "victory presentation must apply the measured score margin before reward-pick open")
 	_expect(loot.is_reward_pick_active(), "flag ON must replace the chest phase with the four-card reward pick")
+	var opening_model: Dictionary = (loot.get("_reward_pick_state") as Object).build_view_model()
+	_expect(str(opening_model.get("balance_text", "")) == "무혼 : 14개", "reward-pick opening balance must include the +4 victory margin")
+	_expect(str(opening_model.get("acquisition_text", "")) == "무혼 +4 (점수차 보상)", "reward-pick header must show the localized victory-margin acquisition line")
 	_expect(flow.begin_calls == 0, "route serving must wait until the reward pick is continued")
 	var reward_state: Object = loot.get("_reward_pick_state")
 	reward_state.call("_finish")
