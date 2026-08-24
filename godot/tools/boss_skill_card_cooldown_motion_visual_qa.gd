@@ -19,6 +19,8 @@ const VARIANT_SPECS := [
 ]
 const CAPTURE_COUNT := 5
 const SAMPLE_STEP_SEC := 1.0
+const SUBSECOND_INTERVAL_SEC := 0.1
+const SUBSECOND_INTERVAL_COUNT := 10
 const UPDATE_DELTA_SEC := 0.05
 const OUTPUT_SCALE := 2
 const STRIP_GAP_PX := 8
@@ -31,6 +33,7 @@ const PIXEL_MOTION_EPSILON := 0.0001
 var failures: Array[String] = []
 var saved_paths: Array[String] = []
 var round_transition_count := 0
+var subsecond_adjacent_motion_count := 0
 
 
 class SkillCardCanvas:
@@ -61,11 +64,19 @@ func _run() -> void:
 		return
 	for spec_value in VARIANT_SPECS:
 		await _capture_variant(spec_value as Dictionary, output_dir)
+	await _capture_alice_subsecond_smoothing(output_dir)
 	_expect(round_transition_count == 2, "visual QA must capture both Molewang and Alice round transitions")
+	_expect(
+		subsecond_adjacent_motion_count == SUBSECOND_INTERVAL_COUNT,
+		"Alice subsecond strip must move in every adjacent 0.1-second interval"
+	)
 	if failures.is_empty():
 		for path in saved_paths:
 			print("[BossSkillCardCooldownMotionQA] evidence=%s" % path)
-		print("[BossSkillCardCooldownMotionQA] BOSSES=5 STRIPS=5 FRAMES_PER_STRIP=%d ROUND_TRANSITIONS=%d VULKAN=true" % [CAPTURE_COUNT, round_transition_count])
+		print(
+			"[BossSkillCardCooldownMotionQA] BOSSES=5 STRIPS=6 FRAMES_PER_STRIP=%d SUBSECOND_FRAMES=%d ROUND_TRANSITIONS=%d VULKAN=true"
+			% [CAPTURE_COUNT, SUBSECOND_INTERVAL_COUNT + 1, round_transition_count]
+		)
 		print("boss_skill_card_cooldown_motion_visual_qa: ok")
 		quit(0)
 		return
@@ -105,8 +116,10 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 	var round_before_remaining := {}
 	var round_after_remaining := {}
 	var crop_rect := Rect2i()
+	var render_time_seconds := 0.0
 	for frame_index in range(CAPTURE_COUNT):
 		var hud_context := _build_screen_hud_context(state, live_context, stage)
+		hud_context["time_seconds"] = render_time_seconds
 		var time_progress := _time_progress_map(hud_context, stage)
 		_expect(not time_progress.is_empty(), "%s must publish at least one time-based cooldown" % variant_id)
 		if not progress_samples.is_empty():
@@ -139,6 +152,7 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 					)
 				round_transition_count += 1
 			_advance_live_state(state, live_context, SAMPLE_STEP_SEC)
+			render_time_seconds += SAMPLE_STEP_SEC
 
 	if images.size() != CAPTURE_COUNT:
 		return
@@ -158,6 +172,87 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 	print(
 		"[BossSkillCardCooldownMotionQA] variant=%s frames=%d first=%s last=%s round_before_remaining=%s round_after_remaining=%s adjacent_rgb_delta=%s"
 		% [variant_id, CAPTURE_COUNT, JSON.stringify(progress_samples[0]), JSON.stringify(progress_samples[-1]), JSON.stringify(round_before_remaining), JSON.stringify(round_after_remaining), JSON.stringify(adjacent_differences)]
+	)
+
+
+func _capture_alice_subsecond_smoothing(output_dir: String) -> void:
+	var state := Stage3BossVariantSkillState.new()
+	var renderer := Stage3BossSkillHudRenderer.new()
+	renderer.prewarm_assets()
+	state.reset()
+	var live_context := _build_live_context(3, "alice")
+	state.update(0.0, live_context, {})
+	_expect(str(state.active_variant) == "alice", "subsecond QA must select the production Alice variant")
+	# Match the reproduced live lane: cooldown time is already eligible, but the
+	# on-hit resource gate still holds all three cards at zero until one boss hit.
+	_advance_live_state(state, live_context, 4.0)
+
+	var images: Array[Image] = []
+	var progress_samples: Array[Dictionary] = []
+	var crop_rect := Rect2i()
+	var render_time_seconds := 0.0
+	var initial_context := _build_screen_hud_context(state, live_context, 3)
+	initial_context["time_seconds"] = render_time_seconds
+	crop_rect = _build_rail_crop_rect(renderer, initial_context, 3)
+	_expect(crop_rect.has_area(), "Alice subsecond QA must resolve a production card-rail crop")
+	var initial_progress := _all_progress_map(initial_context, 3)
+	progress_samples.append(initial_progress)
+	var initial_image := await _capture_frame(renderer, initial_context, crop_rect)
+	if initial_image != null and not initial_image.is_empty():
+		images.append(initial_image)
+
+	state.register_boss_hit(Vector2(0.0, -12.0), live_context, {})
+	for interval in range(1, SUBSECOND_INTERVAL_COUNT + 1):
+		_advance_live_state(state, live_context, SUBSECOND_INTERVAL_SEC)
+		render_time_seconds += SUBSECOND_INTERVAL_SEC
+		var hud_context := _build_screen_hud_context(state, live_context, 3)
+		hud_context["time_seconds"] = render_time_seconds
+		var progress := _all_progress_map(hud_context, 3)
+		progress_samples.append(progress)
+		var image := await _capture_frame(renderer, hud_context, crop_rect)
+		_expect(image != null and not image.is_empty(), "Alice subsecond interval %d must capture Vulkan pixels" % interval)
+		if image != null and not image.is_empty():
+			images.append(image)
+
+	_expect(
+		float((progress_samples[1] as Dictionary).get("rabbit_projectile", 0.0))
+			> float((progress_samples[0] as Dictionary).get("rabbit_projectile", 0.0)) + 0.35,
+		"Alice boss-hit resource gauge must create the reproduced authority step"
+	)
+	if images.size() != SUBSECOND_INTERVAL_COUNT + 1:
+		return
+	var adjacent_differences: Array[float] = []
+	var adjacent_changed_pixels: Array[int] = []
+	for index in range(1, images.size()):
+		var difference := _mean_rgb_difference(images[index - 1], images[index])
+		var changed_pixels := _changed_pixel_count(images[index - 1], images[index])
+		adjacent_differences.append(difference)
+		adjacent_changed_pixels.append(changed_pixels)
+		if changed_pixels > 0:
+			subsecond_adjacent_motion_count += 1
+		else:
+			_expect(false, "Alice subsecond frames %d/%d must contain adjacent fill motion" % [index - 1, index])
+	var strip := _compose_strip(images, -1)
+	var output_path := output_dir.path_join(
+		"alice_on_boss_hit_fill_smoothing_strip_%df.png" % (SUBSECOND_INTERVAL_COUNT + 1)
+	)
+	var save_error := strip.save_png(output_path)
+	_expect(save_error == OK, "Alice subsecond smoothing strip must save")
+	if save_error == OK:
+		saved_paths.append(output_path)
+	print(
+		"[BossSkillCardCooldownMotionQA] SUBSECOND_BOSS=alice LANE=on_boss_hit_resource_gauge INTERVAL_SEC=%.3f INTERVALS=%d ADJACENT_PIXEL_MOTION=%d/%d first=%s after_hit=%s last=%s adjacent_changed_pixels=%s adjacent_rgb_delta=%s"
+		% [
+			SUBSECOND_INTERVAL_SEC,
+			SUBSECOND_INTERVAL_COUNT,
+			subsecond_adjacent_motion_count,
+			SUBSECOND_INTERVAL_COUNT,
+			JSON.stringify(progress_samples[0]),
+			JSON.stringify(progress_samples[1]),
+			JSON.stringify(progress_samples[-1]),
+			JSON.stringify(adjacent_changed_pixels),
+			JSON.stringify(adjacent_differences),
+		]
 	)
 
 
@@ -205,6 +300,15 @@ func _time_progress_map(context: Dictionary, stage: int) -> Dictionary:
 	var result := {}
 	for value in _as_array(context.get(key, [])):
 		if value is Dictionary and str(value.get("cooldown_contract", "")) == "time":
+			result[str(value.get("id", ""))] = float(value.get("progress", -1.0))
+	return result
+
+
+func _all_progress_map(context: Dictionary, stage: int) -> Dictionary:
+	var key := _skills_key(stage)
+	var result := {}
+	for value in _as_array(context.get(key, [])):
+		if value is Dictionary:
 			result[str(value.get("id", ""))] = float(value.get("progress", -1.0))
 	return result
 
@@ -343,6 +447,19 @@ func _mean_rgb_difference(first: Image, second: Image) -> float:
 			total += (absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b)) / 3.0
 			count += 1
 	return total / maxf(1.0, float(count))
+
+
+func _changed_pixel_count(first: Image, second: Image) -> int:
+	if first.get_size() != second.get_size():
+		return 0
+	var changed := 0
+	for y in range(first.get_height()):
+		for x in range(first.get_width()):
+			var a := first.get_pixel(x, y)
+			var b := second.get_pixel(x, y)
+			if absf(a.r - b.r) + absf(a.g - b.g) + absf(a.b - b.b) > 0.000001:
+				changed += 1
+	return changed
 
 
 func _wait_frames(count: int) -> void:

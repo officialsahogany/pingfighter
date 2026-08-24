@@ -14,12 +14,17 @@ const SKILLCARD_FRAME_SIZE := Stage3BossSkillHudAssets.SKILLCARD_FRAME_SIZE
 const SKILLCARD_ATLAS_SIZE := Stage3BossSkillHudAssets.SKILLCARD_ATLAS_SIZE
 
 var _skillcard_atlas: Texture2D = null
+var _card_fills := {}
 var _metrics_cache_pillar_width := -1.0
 var _metrics_cache: Dictionary = {}
 
 
 func prewarm_assets() -> void:
 	_get_skillcard_atlas()
+
+
+func reset() -> void:
+	_card_fills.clear()
 
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:
@@ -48,9 +53,11 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	if canvas == null or int(context.get("current_stage", 1)) != 3:
 		return
 	if not bool(context.get("stage3_boss_skill_hud_active", false)):
+		BossSkillCardHudSpec.prune_card_fill_store(_card_fills, [])
 		return
 	var skills: Array = _get_array(context.get("stage3_boss_skill_hud_skills", []))
 	if skills.is_empty():
+		BossSkillCardHudSpec.prune_card_fill_store(_card_fills, skills)
 		return
 	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
 	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
@@ -85,7 +92,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		avoid_rect
 	)
 	var card_rects: Array = []
-	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	var time_seconds: float = float(context.get("time_seconds", Time.get_ticks_msec() / 1000.0))
 	for i in range(entries.size()):
 		var skill: Dictionary = entries[i]
 		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
@@ -95,8 +102,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 			LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
 			_perf_end(perf_logger, "stage3.rail.lingpet_card", card_sample_start)
 		else:
-			_draw_card(canvas, rect, skill, scale_factor)
+			_draw_card(canvas, rect, skill, scale_factor, time_seconds)
 			_perf_end(perf_logger, "stage3.rail.cards_draw", card_sample_start)
+	BossSkillCardHudSpec.prune_card_fill_store(_card_fills, entries)
 
 	var gauge_sample_start: int = _perf_begin(perf_logger)
 	if bool(context.get("stage3_boss_skill_hud_show_boss_gauge", true)):
@@ -130,9 +138,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	_perf_end(perf_logger, "stage3.rail.tooltip", tooltip_sample_start)
 
 
-func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float) -> void:
+func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, time_seconds: float) -> void:
 	if LingpetRailCard.is_lingpet_skill(skill):
-		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, Time.get_ticks_msec() / 1000.0)
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
 		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
@@ -143,6 +151,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if locked:
 		fill_ratio = 0.0
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, str(skill.get("id", "")), fill_ratio, time_seconds
+	)
 	_draw_skillcard_gauge(canvas, rect, str(skill.get("id", "")), fill_ratio, skill_color)
 	var shine_x: float = rect.position.x + rect.size.x * fill_ratio
 	if fill_ratio > 0.0 and fill_ratio < 1.0:

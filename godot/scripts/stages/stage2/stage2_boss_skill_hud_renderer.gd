@@ -12,6 +12,7 @@ const WATER_CANNON_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.WATER_CANN
 const SKILLCARD_PREWARM_IDS := Stage2BossSkillHudAssets.SKILLCARD_PREWARM_IDS
 
 var _skillcard_textures := {}
+var _card_fills := {}
 var _prewarm_done := false
 var _prewarm_step_index := 0
 var _metrics_cache_pillar_width := -1.0
@@ -21,6 +22,10 @@ var _metrics_cache: Dictionary = {}
 func prewarm_assets() -> void:
 	while not prewarm_assets_step():
 		pass
+
+
+func reset() -> void:
+	_card_fills.clear()
 
 
 func prewarm_assets_step() -> bool:
@@ -47,9 +52,11 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	if canvas == null or int(context.get("current_stage", 1)) != 2:
 		return
 	if not bool(context.get("stage2_boss_skill_hud_active", false)):
+		BossSkillCardHudSpec.prune_card_fill_store(_card_fills, [])
 		return
 	var skills: Array = _get_array(context.get("stage2_boss_skill_hud_skills", []))
 	if skills.is_empty():
+		BossSkillCardHudSpec.prune_card_fill_store(_card_fills, skills)
 		return
 
 	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
@@ -88,7 +95,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	)
 	var font: Font = ThemeDB.fallback_font
 	var card_rects: Array = []
-	var time_seconds: float = float(Time.get_ticks_msec()) / 1000.0
+	var time_seconds: float = float(context.get("time_seconds", Time.get_ticks_msec() / 1000.0))
 
 	for i in range(entries.size()):
 		var skill: Dictionary = entries[i]
@@ -99,8 +106,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 			LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
 			_perf_end(perf_logger, "stage2.rail.lingpet_card", card_sample_start)
 		else:
-			_draw_card(canvas, rect, skill, scale_factor, font)
+			_draw_card(canvas, rect, skill, scale_factor, font, time_seconds)
 			_perf_end(perf_logger, "stage2.rail.cards_draw", card_sample_start)
+	BossSkillCardHudSpec.prune_card_fill_store(_card_fills, entries)
 
 	var gauge_sample_start: int = _perf_begin(perf_logger)
 	# Stage 2 still publishes gauge/speech context, but this compact rail does not draw it.
@@ -133,9 +141,9 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	_perf_end(perf_logger, "stage2.rail.tooltip", tooltip_sample_start)
 
 
-func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, font: Font) -> void:
+func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor: float, font: Font, time_seconds: float) -> void:
 	if LingpetRailCard.is_lingpet_skill(skill):
-		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, Time.get_ticks_msec() / 1000.0)
+		LingpetRailCard.draw_card(canvas, rect, skill, scale_factor, time_seconds)
 		return
 	var status: String = str(skill.get("status", "charging"))
 	var ready: bool = bool(skill.get("ready", false)) or status == "ready"
@@ -146,6 +154,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if locked:
 		fill_ratio = 0.0
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, str(skill.get("id", "")), fill_ratio, time_seconds
+	)
 
 	var skillcard := _get_skillcard_texture(str(skill.get("id", "")))
 	_draw_skillcard_gauge(canvas, rect, skillcard, fill_ratio, skill_color, locked)

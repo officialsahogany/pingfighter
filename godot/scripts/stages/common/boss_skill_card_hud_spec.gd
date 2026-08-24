@@ -276,6 +276,8 @@ const SHUFFLE_LIFT_MAX_BASE := 7.0        # 최대 가로 리프트(base px @ sc
 const SHUFFLE_LIFT_DIR_BIAS := 0.5        # 위로 가는 카드 추가 리프트 배율(스왑 좌우 분리)
 const SHUFFLE_LIFT_TRAVEL_REF_BASE := 11.0  # 이 이동거리(base px)에서 리프트 100% (미세 재정렬은 살짝만)
 const SHUFFLE_RETARGET_EPS := 0.5         # 목표 y 변경 감지 임계(px)
+const CARD_FILL_DURATION := 0.30          # 권위 fill 증가를 표시값이 따라가는 시간(초)
+const CARD_FILL_EPS := 0.0001
 
 
 # `store`: 렌더러 소유 Dictionary(카드 id → 트윈 상태). 반환:
@@ -350,13 +352,126 @@ static func _shuffle_lift(s: Dictionary, p: float, sf: float) -> float:
 	return maxf(arc, float(s.get("lift_from", 0.0)) * (1.0 - p))
 
 
+# `store`: 렌더러 소유 Dictionary(카드 id → 표시 fill 트윈 상태).
+# 증가만 0.30초 smoothstep으로 보간하고, 감소(스킬 사용/리셋)는 권위값에 즉시
+# 스냅한다. 연속 증가 중에는 기존 트윈의 시작 시간을 유지해 매 프레임 재타겟이
+# 수렴을 영원히 미루지 않으며, 고정된 목표는 CARD_FILL_DURATION 안에 정확히 닿는다.
+static func advance_card_fill(
+	store: Dictionary,
+	key: String,
+	target_fill: float,
+	time_seconds: float
+) -> float:
+	var target := clampf(target_fill, 0.0, 1.0)
+	var state: Variant = store.get(key)
+	if not (state is Dictionary):
+		store[key] = {
+			"from_fill": target,
+			"target_fill": target,
+			"t0": time_seconds - CARD_FILL_DURATION,
+			"display_fill": target,
+			"last_time": time_seconds,
+		}
+		return target
+
+	var s: Dictionary = state
+	var previous_target := clampf(float(s.get("target_fill", target)), 0.0, 1.0)
+	var previous_display := clampf(float(s.get("display_fill", previous_target)), 0.0, 1.0)
+	var last_time := float(s.get("last_time", time_seconds))
+	if time_seconds + CARD_FILL_EPS < last_time or target < previous_target - CARD_FILL_EPS:
+		_snap_card_fill_state(s, target, time_seconds)
+		return target
+
+	var progress := _card_fill_progress(s, time_seconds)
+	var current := lerpf(
+		clampf(float(s.get("from_fill", previous_display)), 0.0, 1.0),
+		previous_target,
+		_card_fill_ease(progress)
+	)
+	if progress >= 1.0:
+		current = previous_target
+
+	if target > previous_target + CARD_FILL_EPS:
+		if progress >= 1.0:
+			s["from_fill"] = current
+			# 새 트윈의 첫 호출도 직전 표시 프레임부터 흐른 시간만큼 전진한다.
+			# 그래야 연속 증가 권위값을 따라갈 때 트윈 경계마다 한 프레임 멎지 않는다.
+			var elapsed_since_last := clampf(time_seconds - last_time, 0.0, CARD_FILL_DURATION)
+			s["t0"] = time_seconds - elapsed_since_last
+		s["target_fill"] = target
+
+	progress = _card_fill_progress(s, time_seconds)
+	var displayed := lerpf(
+		clampf(float(s.get("from_fill", current)), 0.0, 1.0),
+		clampf(float(s.get("target_fill", target)), 0.0, 1.0),
+		_card_fill_ease(progress)
+	)
+	if progress >= 1.0:
+		displayed = clampf(float(s.get("target_fill", target)), 0.0, 1.0)
+	# 부동소수·재타겟 조합에서도 증가 표시가 한 픽셀 뒤로 흔들리지 않게 봉인.
+	displayed = maxf(previous_display, displayed)
+	s["display_fill"] = displayed
+	s["last_time"] = time_seconds
+	return displayed
+
+
+static func _snap_card_fill_state(state: Dictionary, target: float, time_seconds: float) -> void:
+	state["from_fill"] = target
+	state["target_fill"] = target
+	state["t0"] = time_seconds - CARD_FILL_DURATION
+	state["display_fill"] = target
+	state["last_time"] = time_seconds
+
+
+static func _card_fill_progress(state: Dictionary, time_seconds: float) -> float:
+	return clampf(
+		(time_seconds - float(state.get("t0", time_seconds))) / CARD_FILL_DURATION,
+		0.0,
+		1.0
+	)
+
+
+static func _card_fill_ease(progress: float) -> float:
+	var p := clampf(progress, 0.0, 1.0)
+	return p * p * (3.0 - 2.0 * p)
+
+
 # 정렬에서 사라진 카드의 트윈 상태 정리(렌더러별 _prune_queue_positions 공용화).
 # `entries`의 각 항목은 "id" 키를 갖는 Dictionary를 기대한다.
 static func prune_shuffle_store(store: Dictionary, entries: Array) -> void:
+	_prune_card_store(store, entries, false)
+
+
+# fill 상태에는 링펫 레일 카드를 절대 보관하지 않는다. 링펫은 자체 렌더러가
+# 표시 진행을 소유하므로, 동일 레일에서 승하차해도 보스 카드 store가 새지 않는다.
+static func prune_card_fill_store(store: Dictionary, entries: Array) -> void:
+	_prune_card_store(store, entries, true)
+
+
+# 셔플+fill을 함께 소유하는 7개 렌더러용 단일 패스 정리. 카드 목록은 한 번만
+# 훑고, 링펫 id는 셔플에는 유지하되 보스 fill에서는 제거한다.
+static func prune_card_stores(shuffle_store: Dictionary, fill_store: Dictionary, entries: Array) -> void:
 	var active_keys := {}
 	for entry in entries:
 		if entry is Dictionary:
-			active_keys[str((entry as Dictionary).get("id", ""))] = true
+			var card: Dictionary = entry
+			active_keys[str(card.get("id", ""))] = not bool(card.get("is_lingpet", false))
+	for key in shuffle_store.keys():
+		if not active_keys.has(str(key)):
+			shuffle_store.erase(key)
+	for key in fill_store.keys():
+		if not bool(active_keys.get(str(key), false)):
+			fill_store.erase(key)
+
+
+static func _prune_card_store(store: Dictionary, entries: Array, exclude_lingpet: bool) -> void:
+	var active_keys := {}
+	for entry in entries:
+		if entry is Dictionary:
+			var card: Dictionary = entry
+			if exclude_lingpet and bool(card.get("is_lingpet", false)):
+				continue
+			active_keys[str(card.get("id", ""))] = true
 	for key in store.keys():
 		if not active_keys.has(str(key)):
 			store.erase(key)

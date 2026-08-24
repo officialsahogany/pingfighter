@@ -53,6 +53,7 @@ const STATUS_LOCKED_BORDER := Color(0.36, 0.34, 0.32, 0.62)
 
 var _textures := {}
 var _queue_positions := {}
+var _card_fills := {}
 var _last_dragon_orb_gauge := -1.0
 var _orb_fill_anim_slot := -1
 var _orb_fill_anim_started_at := -999.0
@@ -85,6 +86,7 @@ func prewarm_assets_step() -> bool:
 
 func reset() -> void:
 	_queue_positions.clear()
+	_card_fills.clear()
 	_last_dragon_orb_gauge = -1.0
 	_orb_fill_anim_slot = -1
 	_orb_fill_anim_started_at = -999.0
@@ -152,6 +154,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		return
 	var layout: Dictionary = build_card_layout(context)
 	if layout.is_empty():
+		_prune_queue_positions([])
 		return
 	var entries: Array = _get_array(layout.get("entries", []))
 	var rects: Array = _get_array(layout.get("rects", []))
@@ -207,6 +210,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if locked:
 		fill_ratio = 0.0
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, str(skill.get("id", "")), fill_ratio, time_seconds
+	)
 	_draw_skillcard_gauge(canvas, rect, str(skill.get("id", "")), fill_ratio, skill_color)
 
 	if status == "inferno_charge":
@@ -637,13 +643,7 @@ func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _prune_queue_positions(entries: Array) -> void:
-	var active_keys := {}
-	for entry in entries:
-		if entry is Dictionary:
-			active_keys[str((entry as Dictionary).get("id", ""))] = true
-	for key in _queue_positions.keys():
-		if not active_keys.has(str(key)):
-			_queue_positions.erase(key)
+	BossSkillCardHudSpec.prune_card_stores(_queue_positions, _card_fills, entries)
 
 
 func _wrap_text(text: String, font: Font, font_size: int, max_width: float, max_lines: int) -> Array[String]:

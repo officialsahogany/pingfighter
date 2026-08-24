@@ -61,7 +61,7 @@ try {
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
         Remove-Item -LiteralPath $logDir -Force
     }
-    Write-Host "Boss skillcard cooldown motion Vulkan visual QA passed: 5 bosses x 5 sequential frames, including 2 round transitions."
+    Write-Host "Boss skillcard cooldown motion Vulkan visual QA passed: 5 bosses x 5 sequential frames plus Alice 0.1s x10 smoothing, including 2 round transitions."
 }
 finally {
     Restore-GodotValidationPriority -Context $validationPriorityContext

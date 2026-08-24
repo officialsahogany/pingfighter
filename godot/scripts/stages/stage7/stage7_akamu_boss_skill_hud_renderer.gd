@@ -57,6 +57,7 @@ const DISPLAY_NAMES := {
 
 var _textures: Dictionary = {}
 var _queue_positions: Dictionary = {}
+var _card_fills: Dictionary = {}
 var _prewarm_step_index := 0
 var _prewarmed := false
 
@@ -84,6 +85,7 @@ func prewarm_assets_step() -> bool:
 
 func reset() -> void:
 	_queue_positions.clear()
+	_card_fills.clear()
 
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:
@@ -133,6 +135,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		return
 	var layout := build_card_layout(context)
 	if layout.is_empty():
+		_prune_queue_positions([])
 		return
 	var entries := _get_array(layout.get("entries", []))
 	var rects := _get_array(layout.get("rects", []))
@@ -197,6 +200,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var color := _as_color(skill.get("color", Color(0.6, 0.7, 1.0)))
 	var fill_ratio := _resolve_fill_ratio(skill)
 	var skill_id := str(skill.get("id", ""))
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, skill_id, fill_ratio, time_seconds
+	)
 	var skill_texture := _get_skill_texture(skill_id)
 	var has_texture := skill_texture != null
 
@@ -350,13 +356,7 @@ func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _prune_queue_positions(entries: Array) -> void:
-	var active_keys: Dictionary = {}
-	for entry in entries:
-		if entry is Dictionary:
-			active_keys[str((entry as Dictionary).get("id", ""))] = true
-	for key in _queue_positions.keys():
-		if not active_keys.has(str(key)):
-			_queue_positions.erase(key)
+	BossSkillCardHudSpec.prune_card_stores(_queue_positions, _card_fills, entries)
 
 
 func _get_array(value: Variant) -> Array:

@@ -14,12 +14,18 @@ const SIDE_STRIP_BASE := 2.0
 var _patrol_guards_skillcard_texture: Texture2D = null
 var _arrest_rope_skillcard_texture: Texture2D = null
 var _queue_positions := {}
+var _card_fills := {}
 var _prewarm_done := false
 
 
 func prewarm_assets() -> void:
 	while not prewarm_assets_step():
 		pass
+
+
+func reset() -> void:
+	_queue_positions.clear()
+	_card_fills.clear()
 
 
 func prewarm_assets_step() -> bool:
@@ -100,6 +106,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		return
 	var layout: Dictionary = build_card_layout(context)
 	if layout.is_empty():
+		_prune_queue_positions([])
 		return
 	var entries: Array = Stage1DaljiBossSkillHudUtils.get_array(layout.get("entries", []))
 	var rects: Array = Stage1DaljiBossSkillHudUtils.get_array(layout.get("rects", []))
@@ -155,6 +162,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if used:
 		fill_ratio = 0.0
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, str(skill.get("id", "")), fill_ratio, time_seconds
+	)
 	_draw_skillcard_gauge(canvas, rect, _get_skillcard_texture(str(skill.get("id", ""))), fill_ratio, skill_color)
 	if active:
 		var pulse: float = 0.5 + 0.5 * sin(time_seconds * 6.7)
@@ -220,13 +230,7 @@ func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _prune_queue_positions(entries: Array) -> void:
-	var active_keys := {}
-	for entry in entries:
-		if entry is Dictionary:
-			active_keys[str(entry.get("id", ""))] = true
-	for key in _queue_positions.keys():
-		if not active_keys.has(str(key)):
-			_queue_positions.erase(key)
+	BossSkillCardHudSpec.prune_card_stores(_queue_positions, _card_fills, entries)
 
 
 func _get_skillcard_texture(skill_id: String) -> Texture2D:

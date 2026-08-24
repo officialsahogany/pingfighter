@@ -17,6 +17,7 @@ const WIDE_SKILLCARD_ASPECT_MIN := 2.5
 
 var _textures := {}
 var _queue_positions := {}
+var _card_fills := {}
 var _prewarm_step_index := 0
 var _prewarmed := false
 
@@ -50,6 +51,7 @@ func prewarm_assets_step() -> bool:
 
 func reset() -> void:
 	_queue_positions.clear()
+	_card_fills.clear()
 
 
 func get_debug_card_metrics(pillar_width: float) -> Dictionary:
@@ -60,9 +62,11 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 	if canvas == null or int(context.get("current_stage", 1)) != 4:
 		return
 	if not bool(context.get("stage4_ponk_boss_skill_hud_active", false)):
+		_prune_queue_positions([])
 		return
 	var skills: Array = _get_array(context.get("stage4_ponk_boss_skill_hud_skills", []))
 	if skills.is_empty():
+		_prune_queue_positions([])
 		return
 	var view_size: Vector2 = _as_vector2(context.get("view_size", Vector2.ZERO), Vector2.ZERO)
 	var game_offset: Vector2 = _as_vector2(context.get("game_offset", Vector2.ZERO), Vector2.ZERO)
@@ -152,6 +156,9 @@ func _draw_card(canvas: CanvasItem, rect: Rect2, skill: Dictionary, scale_factor
 	var fill_ratio: float = 1.0 if active or ready else progress
 	if locked:
 		fill_ratio = 0.0
+	fill_ratio = BossSkillCardHudSpec.advance_card_fill(
+		_card_fills, str(skill.get("id", "")), fill_ratio, time_seconds
+	)
 	_draw_skillcard_gauge(canvas, rect, str(skill.get("id", "")), fill_ratio, skill_color)
 
 	if active:
@@ -257,13 +264,7 @@ func _sort_entries(a: Dictionary, b: Dictionary) -> bool:
 
 
 func _prune_queue_positions(entries: Array) -> void:
-	var active_keys := {}
-	for entry in entries:
-		if entry is Dictionary:
-			active_keys[str((entry as Dictionary).get("id", ""))] = true
-	for key in _queue_positions.keys():
-		if not active_keys.has(str(key)):
-			_queue_positions.erase(key)
+	BossSkillCardHudSpec.prune_card_stores(_queue_positions, _card_fills, entries)
 
 
 func _get_array(value: Variant) -> Array:
