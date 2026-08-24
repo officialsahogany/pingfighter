@@ -798,7 +798,7 @@ func _verify_registry_and_frame_wiring() -> void:
 	_expect(runtime_source.find("func _invalidate_current_loadout_cache") < 0, "egg runtime should not keep a private loadout-cache invalidation wrapper")
 	_expect(runtime_source.find("_loadout_state.invalidate_runtime_and_snapshot_cache") >= 0, "egg runtime should delegate cache invalidation to the loadout-state owner")
 	_expect(runtime_source.find("_loadout_state.forget_pet_loadout(") < 0, "egg runtime should not repeat forget-loadout without the loadout-state invalidation helper")
-	var debug_grant_body := _function_body(runtime_source, "func debug_grant_and_activate_pet")
+	var debug_grant_body := _function_body(runtime_source, "func _grant_and_activate_pet")
 	_expect(debug_grant_body.find("_loadout_state.set_pet_loadout_and_invalidate") >= 0, "debug-grant loadout writes should use the loadout-state invalidation helper")
 	_expect(debug_grant_body.find("_loadout_state.set_pet_loadout(") < 0, "debug-grant loadout writes should not repeat set-loadout without cache invalidation")
 	_expect(runtime_source.find("_snapshot_builder.has_method(\"invalidate_sync_cache\")") < 0, "egg runtime should not guard the fixed snapshot builder invalidation contract dynamically")
@@ -1660,7 +1660,7 @@ func _verify_lingpet_catalog_random_hatch_scaffold() -> void:
 		_expect(hatch_reveal_body.find("_companion_runtime_resetter.prepare_hatch_position") >= 0, "hatch reveal transitions should ask the resetter for hatch position capture")
 		_expect(hatch_reveal_body.find("_companion_runtime_resetter.start_hatch_reveal_effects") >= 0, "hatch reveal transitions should ask the resetter for flash/cutin/prewarm fanout")
 		_expect(hatch_reveal_body.find("_egg_state.reset_contact_motion") < 0 and hatch_reveal_body.find("_egg_state.trigger_hatch_flash") < 0 and hatch_reveal_body.find("_current_visual_prewarm_coordinator.prewarm_current") < 0 and hatch_reveal_body.find("_audio_dispatcher.play_lingpet_acquire_cutin") < 0, "hatch reveal transitions should not inline contact/flash/cutin/prewarm fanout")
-	var debug_grant_activation_body := _function_body(runtime_source, "func debug_grant_and_activate_pet")
+	var debug_grant_activation_body := _function_body(runtime_source, "func _grant_and_activate_pet")
 	var slot_switch_body := _function_body(runtime_source, "func switch_lingpet_slot")
 	var adopt_owned_body := _function_body(runtime_source, "func _adopt_owned_pet")
 	for companion_activation_body in [debug_grant_activation_body, slot_switch_body, adopt_owned_body]:

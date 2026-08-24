@@ -143,7 +143,8 @@ func _verify_menu_prayer_ramp_lock_and_enhance() -> void:
 	actions = spring.build_actions("spring-02", 1202, run_state, owner, registry)
 	_expect(_action_ids(actions).size() == 2, "guardian menu must keep two stable action slots")
 	_expect(str(actions[0].get("id", "")).begins_with("guardian_spring:enhance:"), "guardian menu first slot must be encounter enhancement")
-	_expect(str(actions[1].get("id", "")) == "guardian_spring:browse_placeholder", "guardian menu second slot must reserve browse")
+	_expect(str(actions[1].get("id", "")).begins_with("guardian_spring:browse:"), "guardian menu second slot must expose S3 browse")
+	_expect(bool(actions[1].get("enabled", false)), "S3 browse must be enabled when the lingpet runtime is present")
 	_expect(_find_action_with_prefix(actions, "guardian_spring:prayer:").is_empty(), "prayer must disappear permanently after guardian acquisition")
 	for index in range(2):
 		var enhance := _find_action_with_prefix(actions, "guardian_spring:enhance:")

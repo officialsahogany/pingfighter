@@ -1324,6 +1324,13 @@ func get_overflow_choice_snapshot() -> Dictionary:
 
 
 func commit_overflow_replace(slot_index: int, owner: Object = null, registry: Object = null) -> bool:
+	var tower_result := _try_commit_tower_spring_browse_purchase(
+		slot_index,
+		owner,
+		registry
+	)
+	if bool(tower_result.get("handled", false)):
+		return bool(tower_result.get("accepted", false))
 	var replace_plan: Dictionary = _overflow_replace_plan.consume(
 		owner,
 		slot_index,
@@ -1348,6 +1355,9 @@ func commit_overflow_replace(slot_index: int, owner: Object = null, registry: Ob
 
 
 func commit_overflow_absorb(owner: Object = null, registry: Object = null) -> bool:
+	var tower_cancel := _try_cancel_tower_spring_browse_compare(owner, registry)
+	if bool(tower_cancel.get("handled", false)):
+		return bool(tower_cancel.get("accepted", false))
 	var absorb_plan: Dictionary = _overflow_absorb_plan.consume(
 		owner,
 		_overflow_choice_state,
@@ -1372,6 +1382,191 @@ func commit_overflow_absorb(owner: Object = null, registry: Object = null) -> bo
 			_sync_owner(owner, registry)
 	var enhancement_result := trigger_guardian_enhancement_from_absorption(owner, registry)
 	return bool(enhancement_result.get("accepted", false))
+
+
+func begin_tower_spring_overflow_compare(
+	offer: Dictionary,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	var pet_id: String = _current_profile.normalize_pet_id(str(offer.get("pet_id", "")))
+	var loadout: Dictionary = offer.get("base_loadout", {}) as Dictionary
+	_collection_state.sync_from_owner(owner)
+	if (
+		pet_id == ""
+		or pet_id == _pet_id
+		or _state != STATE_COMPANION
+		or _collection_state.get_battle_slots().is_empty()
+		or loadout.is_empty()
+		or _overflow_choice_state.has_pending_or_active()
+	):
+		return false
+	_invalidate_runtime_snapshot_cache()
+	_guardian_run_state.forget_pet_data(pet_id)
+	_companion_skill_persistence.forget_pet(pet_id)
+	_loadout_state.set_pet_loadout_and_invalidate(
+		owner,
+		pet_id,
+		str(loadout.get("active_skill_id", "")),
+		str(loadout.get("passive_skill_id", "")),
+		maxi(1, int(loadout.get("active_skill_level", 1))),
+		maxi(1, int(loadout.get("passive_skill_level", 1))),
+		_snapshot_builder,
+		str(loadout.get("second_active_skill_id", "")),
+		str(loadout.get("second_passive_skill_id", "")),
+		maxi(1, int(loadout.get("second_active_skill_level", 1))),
+		maxi(1, int(loadout.get("second_passive_skill_level", 1)))
+	)
+	_guardian_run_state.configure_reward_context(
+		pet_id,
+		str(offer.get("motion_style", "patrol")),
+		maxi(1, int(loadout.get("active_skill_level", 1))),
+		maxi(1, int(loadout.get("passive_skill_level", 1))),
+		int(offer.get("offer_seed", 0)),
+		false,
+		str(loadout.get("active_skill_id", "")),
+		str(loadout.get("passive_skill_id", ""))
+	)
+	var availability: Dictionary = _guardian_run_state.get_guardian_enhancement_skill_availability(pet_id)
+	var resolved_unlocks: Dictionary = offer.get("resolved_unlocks", {}) as Dictionary
+	var applied_value: Variant = offer.get("applied_rolls", [])
+	if applied_value is Array:
+		for raw_candidate in (applied_value as Array):
+			if not (raw_candidate is Dictionary):
+				return false
+			var apply_result: Dictionary = _guardian_run_state.apply_guardian_enhancement(
+				pet_id,
+				raw_candidate as Dictionary,
+				bool(availability.get("has_second_active", false)),
+				bool(availability.get("has_second_passive", false))
+			)
+			if not bool(apply_result.get("accepted", false)):
+				_loadout_state.forget_pet_loadout_and_invalidate(owner, pet_id, _snapshot_builder)
+				_guardian_run_state.forget_pet_data(pet_id)
+				return false
+			var reward_type := str((raw_candidate as Dictionary).get("type", ""))
+			var choice_key := ""
+			if reward_type == LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK:
+				choice_key = "second_active"
+			elif reward_type == LingpetGuardianRunState.REWARD_TYPE_SECOND_PASSIVE_UNLOCK:
+				choice_key = "second_passive"
+			if choice_key != "":
+				var choice: Dictionary = resolved_unlocks.get(choice_key, {}) as Dictionary
+				var selected_id := str(choice.get("selected", ""))
+				var resolve_result: Dictionary = _guardian_run_state.resolve_single_unlock(
+					pet_id,
+					reward_type,
+					selected_id
+				)
+				if not bool(resolve_result.get("accepted", false)):
+					_loadout_state.forget_pet_loadout_and_invalidate(owner, pet_id, _snapshot_builder)
+					_guardian_run_state.forget_pet_data(pet_id)
+					return false
+	_overflow_guardian_snapshot_builder.invalidate_replacement()
+	_overflow_choice_state.begin_main_overflow(pet_id, false, true)
+	if not _overflow_choice_state.activate_after_cutin():
+		_overflow_choice_state.reset()
+		return false
+	_record_guardian_discovery_at_reveal(pet_id, registry)
+	_sync_owner(owner, registry)
+	return true
+
+
+func commit_tower_spring_overflow_replace(
+	slot_index: int,
+	offer: Dictionary,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	var expected_pet_id: String = _current_profile.normalize_pet_id(str(offer.get("pet_id", "")))
+	if (
+		expected_pet_id == ""
+		or expected_pet_id != str(_overflow_choice_state.get_pending_pet_id())
+	):
+		return false
+	var replace_plan: Dictionary = _overflow_replace_plan.consume(
+		owner,
+		slot_index,
+		_overflow_choice_state,
+		_collection_state
+	)
+	if (
+		not bool(replace_plan.get("handled", false))
+		or str(replace_plan.get("action", "")) != LingpetOverflowReplacePlan.ACTION_FINISH_MAIN_COMMIT
+	):
+		return false
+	_invalidate_runtime_snapshot_cache()
+	var old_pet_id := str(replace_plan.get("old_pet_id", ""))
+	if old_pet_id != "" and old_pet_id != expected_pet_id:
+		_loadout_state.forget_pet_loadout_and_invalidate(owner, old_pet_id, _snapshot_builder)
+		_guardian_run_state.forget_pet_data(old_pet_id)
+		_companion_skill_persistence.forget_pet(old_pet_id)
+	_finish_overflow_hatch_commit(owner, registry)
+	_acquisition_lifecycle.start_acquire_cutin("", registry)
+	_sync_owner(owner, registry)
+	return true
+
+
+func _try_commit_tower_spring_browse_purchase(
+	slot_index: int,
+	owner: Object,
+	registry: Object
+) -> Dictionary:
+	var flow_owner := _get_reveal_registry_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("has_pending_guardian_spring_browse_compare")
+		or not bool(flow_owner.call(
+			"has_pending_guardian_spring_browse_compare",
+			str(_overflow_choice_state.get_pending_pet_id())
+		))
+		or not flow_owner.has_method("commit_guardian_spring_browse_purchase")
+	):
+		return {"handled": false}
+	var result_value: Variant = flow_owner.call(
+		"commit_guardian_spring_browse_purchase",
+		slot_index,
+		owner,
+		registry
+	)
+	return (result_value as Dictionary).duplicate(true) if result_value is Dictionary else {
+		"handled": true,
+		"accepted": false,
+	}
+
+
+func _try_cancel_tower_spring_browse_compare(
+	owner: Object,
+	registry: Object
+) -> Dictionary:
+	var flow_owner := _get_reveal_registry_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("has_pending_guardian_spring_browse_compare")
+		or not bool(flow_owner.call(
+			"has_pending_guardian_spring_browse_compare",
+			str(_overflow_choice_state.get_pending_pet_id())
+		))
+		or not flow_owner.has_method("cancel_guardian_spring_browse_compare")
+	):
+		return {"handled": false}
+	var pending_pet_id := str(_overflow_choice_state.get_pending_pet_id())
+	var result_value: Variant = flow_owner.call("cancel_guardian_spring_browse_compare")
+	var result: Dictionary = (
+		(result_value as Dictionary).duplicate(true)
+		if result_value is Dictionary
+		else {"handled": true, "accepted": false}
+	)
+	if not bool(result.get("handled", false)):
+		return result
+	_overflow_choice_state.reset()
+	if pending_pet_id != "":
+		_loadout_state.forget_pet_loadout_and_invalidate(owner, pending_pet_id, _snapshot_builder)
+		_guardian_run_state.forget_pet_data(pending_pet_id)
+		_companion_skill_persistence.forget_pet(pending_pet_id)
+	_overflow_guardian_snapshot_builder.invalidate_replacement()
+	_sync_owner(owner, registry)
+	return result
 
 
 func _flush_pending_absorbed_collection_owner_sync(owner: Object) -> void:
@@ -1430,7 +1625,50 @@ func is_companion_active(pet_id: String = "") -> bool:
 	return _is_guardian_summoned() and (normalized_pet_id == "" or _pet_id == normalized_pet_id)
 
 
+func grant_and_activate_tower_spring_guardian(
+	pet_id: String,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	if _state == STATE_COMPANION or _overflow_choice_state.has_pending_or_active():
+		return false
+	if not _grant_and_activate_pet(pet_id, owner, true, "", "", registry):
+		return false
+	_record_guardian_discovery_at_reveal(pet_id, registry)
+	return true
+
+
 func debug_grant_and_activate_pet(
+	pet_id: String,
+	owner: Object = null,
+	show_acquire_cutin: bool = false,
+	active_skill_id: String = "",
+	passive_skill_id: String = "",
+	registry: Object = null,
+	active_skill_level: int = 1,
+	passive_skill_level: int = 1,
+	second_active_skill_id: String = "",
+	second_passive_skill_id: String = "",
+	second_active_skill_level: int = 1,
+	second_passive_skill_level: int = 1
+) -> bool:
+	return _grant_and_activate_pet(
+		pet_id,
+		owner,
+		show_acquire_cutin,
+		active_skill_id,
+		passive_skill_id,
+		registry,
+		active_skill_level,
+		passive_skill_level,
+		second_active_skill_id,
+		second_passive_skill_id,
+		second_active_skill_level,
+		second_passive_skill_level
+	)
+
+
+func _grant_and_activate_pet(
 	pet_id: String,
 	owner: Object = null,
 	show_acquire_cutin: bool = false,

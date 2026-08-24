@@ -222,6 +222,14 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 			_node_modal_state.change_visible_page(1)
 			return
 		if key_event.keycode == KEY_ESCAPE:
+			if (
+				_node_modal_kind == "guardian_spring"
+				and _guardian_spring_node.is_first_pick_pending()
+			):
+				_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_REQUIRED
+				))
+				return
 			_enter_route_aim()
 			return
 		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
@@ -467,6 +475,40 @@ func _refresh_guardian_spring_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_guardian_spring_actions())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
+
+
+func has_pending_guardian_spring_browse_compare(pet_id: String = "") -> bool:
+	return _guardian_spring_node.has_pending_browse_compare(pet_id)
+
+
+func cancel_guardian_spring_browse_compare() -> Dictionary:
+	var result: Dictionary = _guardian_spring_node.cancel_browse_compare()
+	if bool(result.get("handled", false)):
+		_guardian_state = _guardian_spring_node.export_state()
+		_refresh_guardian_spring_modal("")
+	return result
+
+
+func commit_guardian_spring_browse_purchase(
+	slot_index: int,
+	owner: Object = null,
+	registry: Object = null
+) -> Dictionary:
+	var commit_owner: Object = owner if owner != null else _active_owner
+	var commit_registry: Object = registry if registry != null else _active_registry
+	var result: Dictionary = _guardian_spring_node.commit_browse_purchase(
+		slot_index,
+		_run_state,
+		_resolution_ids,
+		_node_action_transaction,
+		commit_owner,
+		commit_registry
+	)
+	if bool(result.get("handled", false)):
+		_guardian_state = _guardian_spring_node.export_state()
+		_guardian_spring_node.sync_owner_projection(commit_owner, _run_state, commit_registry)
+		_refresh_guardian_spring_modal(str(result.get("reason", "")))
+	return result
 
 func _build_rest_actions() -> Array[Dictionary]:
 	return _rest_node.build_actions(_current_node_id, _run_state)

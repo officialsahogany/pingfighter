@@ -900,15 +900,27 @@ func _find_action_index_by_id(action_id: String) -> int:
 
 func _replace_actions(actions: Array) -> void:
 	_actions.clear()
+	var force_choice := false
 	for action_value in actions:
 		if action_value is Dictionary:
-			_actions.append(_normalize_action(action_value as Dictionary))
+			var normalized_action := _normalize_action(action_value as Dictionary)
+			_actions.append(normalized_action)
+			var payload: Dictionary = normalized_action.get("payload", {}) as Dictionary
+			force_choice = force_choice or bool(payload.get("force_choice", false))
 	_actions.append(_normalize_action({
 		"id": ACTION_END_WORK,
 		"label": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_END_WORK
 		),
-		"enabled": true,
+		"enabled": not force_choice,
+		"disabled_reason": "forced_node_choice" if force_choice else "",
+		"unavailable_reason": (
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_REQUIRED
+			)
+			if force_choice
+			else ""
+		),
 	}))
 
 

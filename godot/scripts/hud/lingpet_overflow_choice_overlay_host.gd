@@ -144,6 +144,7 @@ func handle_input(event: InputEvent, runtime: Object, owner: Object, registry: O
 	var snapshot := _get_snapshot(runtime)
 	_sync_modal_identity(snapshot)
 	var absorb_only := bool(snapshot.get("absorb_only", false))
+	var compare_only := bool(snapshot.get("compare_only", false))
 	var layout := _get_phase_layout(view_size)
 	if event is InputEventMouseMotion:
 		_mouse_position = (event as InputEventMouseMotion).position
@@ -155,29 +156,36 @@ func handle_input(event: InputEvent, runtime: Object, owner: Object, registry: O
 		var mouse_event := event as InputEventMouseButton
 		_mouse_position = mouse_event.position
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
-			return _commit_phase_action(_phase_action_at_position(mouse_event.position, layout), absorb_only, runtime, owner, registry)
+			return _commit_phase_action(_phase_action_at_position(mouse_event.position, layout), absorb_only, compare_only, runtime, owner, registry)
 		return true
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
 			return true
 		if key_event.keycode in [KEY_ESCAPE, KEY_BACKSPACE] or key_event.physical_keycode in [KEY_ESCAPE, KEY_BACKSPACE]:
-			return _cancel_current_phase(runtime, owner, registry)
+			return _cancel_current_phase(runtime, owner, registry, compare_only)
 		if key_event.keycode in [KEY_LEFT, KEY_RIGHT] or key_event.physical_keycode in [KEY_LEFT, KEY_RIGHT]:
 			_selected_index = CHOICE_ABSORB if _phase == PHASE_CHOICE and absorb_only else 1 - _selected_index
 			return true
 		if key_event.keycode in [KEY_1, KEY_KP_1] or key_event.physical_keycode in [KEY_1, KEY_KP_1]:
-			return _commit_phase_action(CHOICE_REPLACE, absorb_only, runtime, owner, registry)
+			return _commit_phase_action(CHOICE_REPLACE, absorb_only, compare_only, runtime, owner, registry)
 		if key_event.keycode in [KEY_2, KEY_KP_2] or key_event.physical_keycode in [KEY_2, KEY_KP_2]:
-			return _commit_phase_action(CHOICE_ABSORB, absorb_only, runtime, owner, registry)
+			return _commit_phase_action(CHOICE_ABSORB, absorb_only, compare_only, runtime, owner, registry)
 		if key_event.keycode in [KEY_ENTER, KEY_SPACE] or key_event.physical_keycode in [KEY_ENTER, KEY_SPACE]:
-			return _commit_phase_action(_selected_index, absorb_only, runtime, owner, registry)
+			return _commit_phase_action(_selected_index, absorb_only, compare_only, runtime, owner, registry)
 	if GamepadInput.is_confirm_event(event):
-		return _commit_phase_action(_selected_index, absorb_only, runtime, owner, registry)
+		return _commit_phase_action(_selected_index, absorb_only, compare_only, runtime, owner, registry)
 	return true
 
 
-func _commit_phase_action(choice: int, absorb_only: bool, runtime: Object, owner: Object, registry: Object) -> bool:
+func _commit_phase_action(
+	choice: int,
+	absorb_only: bool,
+	compare_only: bool,
+	runtime: Object,
+	owner: Object,
+	registry: Object
+) -> bool:
 	if choice < 0:
 		return true
 	match _phase:
@@ -196,6 +204,9 @@ func _commit_phase_action(choice: int, absorb_only: bool, runtime: Object, owner
 				_selected_index = CHOICE_REPLACE
 				_hover_index = -1
 				return true
+			if compare_only:
+				_reset_phase()
+				return bool(runtime.commit_overflow_absorb(owner, registry))
 			_phase = PHASE_CHOICE
 			_selected_index = CHOICE_REPLACE
 			_hover_index = -1
@@ -211,13 +222,21 @@ func _commit_phase_action(choice: int, absorb_only: bool, runtime: Object, owner
 	return true
 
 
-func _cancel_current_phase(runtime: Object, owner: Object, registry: Object) -> bool:
+func _cancel_current_phase(
+	runtime: Object,
+	owner: Object,
+	registry: Object,
+	compare_only: bool = false
+) -> bool:
 	if _phase == PHASE_CONFIRM:
 		_phase = PHASE_COMPARE
 		_selected_index = CHOICE_REPLACE
 		_hover_index = -1
 		return true
 	if _phase == PHASE_COMPARE:
+		if compare_only:
+			_reset_phase()
+			return bool(runtime.commit_overflow_absorb(owner, registry))
 		_phase = PHASE_CHOICE
 		_selected_index = CHOICE_REPLACE
 		_hover_index = -1
@@ -232,6 +251,8 @@ func _sync_modal_identity(snapshot: Dictionary) -> void:
 		return
 	_active_pending_pet_id = pending_pet_id
 	_reset_phase()
+	if bool(snapshot.get("compare_only", false)):
+		_phase = PHASE_COMPARE
 
 
 func _reset_phase() -> void:

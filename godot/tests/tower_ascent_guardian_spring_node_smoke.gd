@@ -253,10 +253,11 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	_expect(GuardianEggAccessPolicy.has_egg_access(owner, fixture.registry), "tower Soul Summoning must open the existing egg access policy")
 	var same_visit_actions: Array = flow.get_node_modal_view_model().get("actions", [])
 	_expect(
-		same_visit_actions.size() >= 2
-		and not bool((same_visit_actions[0] as Dictionary).get("enabled", true))
-		and str((same_visit_actions[1] as Dictionary).get("id", "")).begins_with("guardian_spring:prayer:"),
-		"S2 must retain the prayer slot while the interim palm action is already consumed"
+		same_visit_actions.size() == 4
+		and str((same_visit_actions[0] as Dictionary).get("id", "")).begins_with("guardian_spring:first_pick:")
+		and bool((same_visit_actions[0] as Dictionary).get("payload", {}).get("choice", {}).get("guardian_blind_preview", false))
+		and not bool((same_visit_actions[3] as Dictionary).get("enabled", true)),
+		"S3 palm completion must transition to three blind first-guardian cards"
 	)
 
 	var snapshot := flow.export_persistable_snapshot()

@@ -8,6 +8,7 @@ var pending_pet_id := ""
 var suspended_companion_pet_id := ""
 var from_item_egg := false
 var absorb_only := false
+var compare_only := false
 
 
 func reset() -> void:
@@ -17,6 +18,7 @@ func reset() -> void:
 	suspended_companion_pet_id = ""
 	from_item_egg = false
 	absorb_only = false
+	compare_only = false
 
 
 func has_pending_or_active() -> bool:
@@ -55,6 +57,7 @@ func consume_absorb_context() -> Dictionary:
 		"suspended_companion_pet_id": str(suspended_companion_pet_id),
 		"from_item_egg": bool(from_item_egg),
 		"absorb_only": bool(absorb_only),
+		"compare_only": bool(compare_only),
 	}
 	reset()
 	return context
@@ -118,6 +121,7 @@ func build_snapshot(collection_state: Object) -> Dictionary:
 		"slots": slot_entries,
 		"active_slot_index": active_slot_index,
 		"absorb_only": bool(absorb_only),
+		"compare_only": bool(compare_only),
 		"replacement_skill_name": str(preview_skill.get("name", "")),
 		"replacement_skill_description": str(preview_skill.get("description", "")),
 		"replacement_skill_cooldown": float(preview_skill.get("cooldown", 0.0)),
@@ -131,12 +135,17 @@ func begin_main_egg(suspended_pet_id: String) -> void:
 	suspended_companion_pet_id = suspended_pet_id
 
 
-func begin_main_overflow(pet_id: String, only_absorb: bool = false) -> void:
+func begin_main_overflow(
+	pet_id: String,
+	only_absorb: bool = false,
+	start_in_compare: bool = false
+) -> void:
 	pending = true
 	active = false
 	pending_pet_id = pet_id
 	from_item_egg = false
 	absorb_only = only_absorb
+	compare_only = start_in_compare
 
 
 func begin_item_egg_overflow(

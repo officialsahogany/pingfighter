@@ -70,6 +70,14 @@ const KEY_SPRING_PRAYER_RESULT := "tower_ascent.node_modal.guardian_spring.praye
 const KEY_SPRING_PRAYER_COUNT := "tower_ascent.node_modal.guardian_spring.prayer_count"
 const KEY_SPRING_CARD_BADGE_PRAYER := "tower_ascent.node_modal.guardian_spring.card_badge.prayer"
 const KEY_SPRING_CARD_PRAYER_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.prayer"
+const KEY_SPRING_CARD_BADGE_BROWSE := "tower_ascent.node_modal.guardian_spring.card_badge.browse"
+const KEY_SPRING_CARD_BROWSE_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.browse"
+const KEY_SPRING_CARD_BADGE_FIRST_PICK := "tower_ascent.node_modal.guardian_spring.card_badge.first_pick"
+const KEY_SPRING_FIRST_PICK_INTRO := "tower_ascent.node_modal.guardian_spring.first_pick_intro"
+const KEY_SPRING_CARD_BADGE_ELITE := "tower_ascent.node_modal.guardian_spring.card_badge.elite"
+const KEY_SPRING_FIRST_PICK_COMPLETED := "tower_ascent.node_modal.guardian_spring.first_pick_completed"
+const KEY_SPRING_BROWSE_COMPLETED := "tower_ascent.node_modal.guardian_spring.browse_completed"
+const KEY_SPRING_FIRST_PICK_REQUIRED := "tower_ascent.node_modal.guardian_spring.first_pick_required"
 const KEY_SPRING_FIRST_VISIT_COMPLETE := "tower_ascent.node_modal.guardian_spring.first_visit_complete"
 const KEY_SPRING_ENHANCE_OPTION := "tower_ascent.node_modal.guardian_spring.enhance_option"
 const KEY_SPRING_SWAP_OPTION := "tower_ascent.node_modal.guardian_spring.swap_option"
@@ -187,6 +195,14 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "기도 {count}회",
 		KEY_SPRING_CARD_BADGE_PRAYER: "샘터 기도",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "이번 런 동안 플레이어 전능력치가 {bonus}%p 상승합니다.",
+		KEY_SPRING_CARD_BADGE_BROWSE: "정예 수호령",
+		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "현재 층에 맞게 강화된 정예 수호령 셋을 불러봅니다.",
+		KEY_SPRING_CARD_BADGE_FIRST_PICK: "첫 인연",
+		KEY_SPRING_FIRST_PICK_INTRO: "수호령의 기운이 조용히 당신을 부릅니다.",
+		KEY_SPRING_CARD_BADGE_ELITE: "정예 강화 {count}회",
+		KEY_SPRING_FIRST_PICK_COMPLETED: "{name}과 첫 인연을 맺었습니다.",
+		KEY_SPRING_BROWSE_COMPLETED: "정예 수호령 셋이 샘터에 모습을 드러냈습니다.",
+		KEY_SPRING_FIRST_PICK_REQUIRED: "첫 인연을 맺을 수호령 하나를 선택해야 합니다.",
 		KEY_SPRING_FIRST_VISIT_COMPLETE: "영혼소환술을 익혔습니다. 다음 샘터부터 수호령을 정비할 수 있습니다.",
 		KEY_SPRING_ENHANCE_OPTION: "수호령 강화: {name}",
 		KEY_SPRING_SWAP_OPTION: "봉인 해제 및 교체: {name}",
@@ -242,6 +258,14 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "Prayers {count}",
 		KEY_SPRING_CARD_BADGE_PRAYER: "Spring Prayer",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "Raises all player stats by {bonus} percentage points for this run.",
+		KEY_SPRING_CARD_BADGE_BROWSE: "Elite Guardians",
+		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "Call three elite guardians enhanced for the current floor.",
+		KEY_SPRING_CARD_BADGE_FIRST_PICK: "First Bond",
+		KEY_SPRING_FIRST_PICK_INTRO: "A guardian's presence quietly calls to you.",
+		KEY_SPRING_CARD_BADGE_ELITE: "Elite · {count} enhancements",
+		KEY_SPRING_FIRST_PICK_COMPLETED: "You formed your first bond with {name}.",
+		KEY_SPRING_BROWSE_COMPLETED: "Three elite guardians appeared at the spring.",
+		KEY_SPRING_FIRST_PICK_REQUIRED: "Choose one guardian for your first bond.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Soul Summoning",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Active · Enhance",
 		KEY_SPRING_CARD_BADGE_SWAP: "Sealed · Swap",
@@ -291,6 +315,14 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "祈祷 {count} 次",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉边祈祷",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "本次挑战中玩家全属性提升 {bonus} 个百分点。",
+		KEY_SPRING_CARD_BADGE_BROWSE: "精英守护灵",
+		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "召来三位按当前楼层强化的精英守护灵。",
+		KEY_SPRING_CARD_BADGE_FIRST_PICK: "初次结缘",
+		KEY_SPRING_FIRST_PICK_INTRO: "守护灵的气息正在静静呼唤你。",
+		KEY_SPRING_CARD_BADGE_ELITE: "精英强化 {count} 次",
+		KEY_SPRING_FIRST_PICK_COMPLETED: "你与{name}结下了最初的缘分。",
+		KEY_SPRING_BROWSE_COMPLETED: "三位精英守护灵现身泉边。",
+		KEY_SPRING_FIRST_PICK_REQUIRED: "请选择一位守护灵结下最初的缘分。",
 		KEY_SPRING_CARD_BADGE_SOUL: "灵魂召唤术",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "出战 · 强化",
 		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交换",
@@ -340,6 +372,14 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "祈り {count}回",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉の祈り",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "この挑戦中、プレイヤーの全能力値が{bonus}ポイント上昇します。",
+		KEY_SPRING_CARD_BADGE_BROWSE: "精鋭守護霊",
+		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "現在の階層に合わせて強化された精鋭守護霊を3体呼びます。",
+		KEY_SPRING_CARD_BADGE_FIRST_PICK: "最初の縁",
+		KEY_SPRING_FIRST_PICK_INTRO: "守護霊の気配が静かにあなたを呼んでいます。",
+		KEY_SPRING_CARD_BADGE_ELITE: "精鋭強化 {count}回",
+		KEY_SPRING_FIRST_PICK_COMPLETED: "{name}と最初の縁を結びました。",
+		KEY_SPRING_BROWSE_COMPLETED: "3体の精鋭守護霊が泉に現れました。",
+		KEY_SPRING_FIRST_PICK_REQUIRED: "最初の縁を結ぶ守護霊を1体選んでください。",
 		KEY_SPRING_CARD_BADGE_SOUL: "魂召喚術",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "同行 · 強化",
 		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交代",

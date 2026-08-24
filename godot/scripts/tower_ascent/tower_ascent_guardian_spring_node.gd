@@ -18,17 +18,24 @@ const TowerAscentNodeModalLocalization := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerGuardianSpringOfferBuilder := preload(
+	"res://scripts/tower_ascent/tower_guardian_spring_offer_builder.gd"
+)
 
 const ACTION_PREFIX := "guardian_spring:"
 const OP_PALM := "palm"
 const OP_PRAYER := "prayer"
 const OP_ENHANCE := "enhance"
+const OP_FIRST_PICK := "first_pick"
+const OP_BROWSE := "browse"
+const OP_BROWSE_CANDIDATE := "browse_candidate"
 const RNG_VERSION := "tower_guardian_spring_v1"
 
 var _state: Dictionary = {}
 var _pending_rollback: Dictionary = {}
 var _last_effect_result: Dictionary = {}
 var _character_context: Object = RuntimePerkCharacterContext.new()
+var _offer_builder: Object = TowerGuardianSpringOfferBuilder.new()
 
 
 func _init() -> void:
@@ -45,6 +52,11 @@ func reset() -> void:
 		"runtime_snapshot": {},
 		"perk_runtime_snapshot": {},
 		"skill_config_snapshot": {},
+		"first_pick_completed": false,
+		"first_pick_candidates": [],
+		"browse_sequence": 0,
+		"browse_offers": [],
+		"pending_browse_offer": {},
 	}
 	_pending_rollback.clear()
 	_last_effect_result.clear()
@@ -63,6 +75,11 @@ func restore_state(value: Variant) -> void:
 	_state["runtime_snapshot"] = _dictionary(source.get("runtime_snapshot", {}))
 	_state["perk_runtime_snapshot"] = _dictionary(source.get("perk_runtime_snapshot", {}))
 	_state["skill_config_snapshot"] = _dictionary(source.get("skill_config_snapshot", {}))
+	_state["first_pick_completed"] = bool(source.get("first_pick_completed", false))
+	_state["first_pick_candidates"] = _dictionary_array(source.get("first_pick_candidates", []))
+	_state["browse_sequence"] = maxi(0, int(source.get("browse_sequence", 0)))
+	_state["browse_offers"] = _dictionary_array(source.get("browse_offers", []))
+	_state["pending_browse_offer"] = _dictionary(source.get("pending_browse_offer", {}))
 
 
 func export_state() -> Dictionary:
@@ -77,6 +94,14 @@ func has_soul_summoning() -> bool:
 
 func get_history() -> Array[Dictionary]:
 	return _dictionary_array(_state.get("history", []))
+
+
+func is_first_pick_pending() -> bool:
+	return (
+		has_soul_summoning()
+		and not bool(_state.get("first_pick_completed", false))
+		and _dictionary(_state.get("active_guardian", {})).is_empty()
+	)
 
 
 func record_identity_reveal(pet_id: String, registry: Object) -> Dictionary:
@@ -150,13 +175,29 @@ func build_actions(
 	var active_guardian := _dictionary(_state.get("active_guardian", {}))
 	var active_pet_id := str(active_guardian.get("pet_id", ""))
 	if not active_pet_id.is_empty():
+		var browse_offers := _dictionary_array(_state.get("browse_offers", []))
+		if (
+			not browse_offers.is_empty()
+			and str(browse_offers[0].get("node_id", "")) != node_id
+		):
+			browse_offers.clear()
+			_state["browse_offers"] = []
+			_state["pending_browse_offer"] = {}
+		if not browse_offers.is_empty():
+			return _build_browse_candidate_actions(browse_offers, balances)
 		return [_build_enhance_action(
 			node_id,
 			map_seed,
 			balances,
 			owner,
 			runtime
-		), _build_browse_placeholder_action()]
+		), _build_browse_action(runtime != null)]
+	if has_soul_summoning() and not bool(_state.get("first_pick_completed", false)):
+		_ensure_first_pick_candidates(node_id, map_seed, runtime)
+		return _build_first_pick_actions(
+			_dictionary_array(_state.get("first_pick_candidates", [])),
+			runtime != null
+		)
 	var palm_wiring_ready := (
 		runtime != null
 		and _get_registry_instance(registry, "runtime_perk_state") != null
@@ -206,6 +247,8 @@ func execute_action(
 		return {"accepted": false, "reason": "missing_action_transaction"}
 	var payload := _dictionary(action.get("payload", {}))
 	var operation := str(payload.get("operation", ""))
+	if operation == OP_BROWSE_CANDIDATE:
+		return _open_browse_compare(payload, owner, registry)
 	var cost := maxi(0, int(payload.get("cost", 0)))
 	var effect_context := {
 		"operation": operation,
@@ -215,6 +258,7 @@ func execute_action(
 		"owner": owner,
 		"registry": registry,
 		"run_state": run_state,
+		"offer": _dictionary(payload.get("offer", {})),
 	}
 	var transaction_result: Dictionary = action_transaction.call(
 		"apply_once",
@@ -244,6 +288,93 @@ func execute_action(
 	transaction_result["record"] = record.duplicate(true)
 	transaction_result["message"] = _success_message(operation, record)
 	return transaction_result
+
+
+func has_pending_browse_compare(pet_id: String = "") -> bool:
+	var offer := _dictionary(_state.get("pending_browse_offer", {}))
+	if offer.is_empty():
+		return false
+	var normalized := pet_id.strip_edges().to_lower()
+	return normalized.is_empty() or str(offer.get("pet_id", "")) == normalized
+
+
+func cancel_browse_compare() -> Dictionary:
+	var offer := _dictionary(_state.get("pending_browse_offer", {}))
+	if offer.is_empty():
+		return {"handled": false, "accepted": false}
+	_state["pending_browse_offer"] = {}
+	_state["browse_offers"] = []
+	return {
+		"handled": true,
+		"accepted": true,
+		"pet_id": str(offer.get("pet_id", "")),
+	}
+
+
+func commit_browse_purchase(
+	slot_index: int,
+	run_state: Object,
+	resolution_ids: Dictionary,
+	action_transaction: Object,
+	owner: Object,
+	registry: Object
+) -> Dictionary:
+	var offer := _dictionary(_state.get("pending_browse_offer", {}))
+	if offer.is_empty():
+		return {"handled": false, "accepted": false, "reason": "no_pending_browse_offer"}
+	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
+	if (
+		runtime == null
+		or not runtime.has_method("commit_tower_spring_overflow_replace")
+		or action_transaction == null
+		or not action_transaction.has_method("apply_once")
+	):
+		return {"handled": true, "accepted": false, "reason": "missing_browse_commit_wiring"}
+	var node_id := str(offer.get("node_id", ""))
+	var sequence := maxi(0, int(offer.get("browse_sequence", 0)))
+	var pet_id := str(offer.get("pet_id", ""))
+	var resolution_id := "guardian_spring:browse_purchase:%s:%d:%s" % [
+		node_id,
+		sequence,
+		pet_id,
+	]
+	_capture_rollback(owner, registry, run_state)
+	var result: Dictionary = action_transaction.call(
+		"apply_once",
+		resolution_id,
+		{"gold": maxi(0, int(offer.get("price_gold", 0)))},
+		{},
+		run_state,
+		resolution_ids,
+		Callable(runtime, "commit_tower_spring_overflow_replace").bind(
+			slot_index,
+			offer.duplicate(true),
+			owner,
+			registry
+		),
+		Callable(self, "_rollback_operation").bind(owner, registry, run_state)
+	)
+	result["handled"] = true
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_pending_rollback.clear()
+		return result
+	var record := {
+		"node_id": node_id,
+		"node_resolution_id": resolution_id,
+		"operation": OP_BROWSE_CANDIDATE,
+		"pet_id": pet_id,
+		"cost_gold": maxi(0, int(offer.get("price_gold", 0))),
+		"applied_roll_count": int(offer.get("applied_roll_count", 0)),
+	}
+	var history: Array = _state.get("history", [])
+	history.append(record)
+	_state["history"] = history
+	_state["pending_browse_offer"] = {}
+	_state["browse_offers"] = []
+	_capture_committed_runtime_snapshot(owner, registry)
+	_pending_rollback.clear()
+	result["record"] = record.duplicate(true)
+	return result
 
 
 func _build_palm_action(wiring_ready: bool) -> Dictionary:
@@ -357,29 +488,178 @@ func _build_prayer_action(run_state: Object, balances: Dictionary) -> Dictionary
 	}
 
 
-func _build_browse_placeholder_action() -> Dictionary:
+func _build_browse_action(wiring_ready: bool) -> Dictionary:
 	var label := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_OPTION
 	)
-	var message := TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_PLACEHOLDER
-	)
 	return {
-		"id": "%sbrowse_placeholder" % ACTION_PREFIX,
+		"id": "%s%s:%d" % [ACTION_PREFIX, OP_BROWSE, int(_state.get("browse_sequence", 0))],
 		"label": label,
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_FREE
 		),
-		"enabled": false,
-		"disabled_reason": "guardian_spring_browse_stage3",
-		"unavailable_reason": message,
+		"enabled": wiring_ready,
+		"disabled_reason": "" if wiring_ready else "missing_lingpet_runtime",
+		"unavailable_reason": "" if wiring_ready else TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
+		),
 		"payload": {
-			"operation": "browse_placeholder",
+			"operation": OP_BROWSE,
 			"cost": 0,
-			"choice": _build_guardian_card_choice("", label, "S3", message),
-			"presentation": _build_guardian_presentation("", "S3", label),
+			"choice": _build_guardian_card_choice(
+				"",
+				label,
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_BROWSE
+				),
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BROWSE_DESCRIPTION
+				)
+			),
+			"presentation": _build_guardian_presentation("", "", label),
 		},
 	}
+
+
+func _build_first_pick_actions(
+	candidates: Array[Dictionary],
+	wiring_ready: bool
+) -> Array[Dictionary]:
+	var actions: Array[Dictionary] = []
+	for candidate in candidates:
+		var pet_id := str(candidate.get("pet_id", ""))
+		var display_name := str(candidate.get("display_name", LingpetCatalog.get_display_name(pet_id)))
+		var choice := _build_guardian_card_choice(
+			pet_id,
+			display_name,
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_FIRST_PICK
+			),
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_INTRO
+			)
+		)
+		choice["guardian_blind_preview"] = true
+		choice["hide_skill_details"] = true
+		choice["hide_numeric_details"] = true
+		actions.append({
+			"id": "%s%s:%s" % [ACTION_PREFIX, OP_FIRST_PICK, pet_id],
+			"label": display_name,
+			"cost_text": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_COST_FREE
+			),
+			"enabled": wiring_ready,
+			"disabled_reason": "" if wiring_ready else "missing_lingpet_runtime",
+			"unavailable_reason": "",
+			"payload": {
+				"operation": OP_FIRST_PICK,
+				"pet_id": pet_id,
+				"cost": 0,
+				"choice": choice,
+				"acquisition_presentation_kind": "chosik_inherit",
+				"force_choice": true,
+				"presentation": _build_guardian_presentation("", "", display_name),
+			},
+		})
+	return actions
+
+
+func _build_browse_candidate_actions(
+	offers: Array[Dictionary],
+	balances: Dictionary
+) -> Array[Dictionary]:
+	var actions: Array[Dictionary] = []
+	for offer in offers:
+		var pet_id := str(offer.get("pet_id", ""))
+		var price := maxi(0, int(offer.get("price_gold", 0)))
+		var loadout := _dictionary(offer.get("loadout", {}))
+		var active_skill := LingpetCatalog.get_active_skill(
+			pet_id,
+			str(loadout.get("active_skill_id", "")),
+			maxi(1, int(loadout.get("active_skill_level", 1)))
+		)
+		var passive_skill := LingpetCatalog.get_passive_skill(
+			pet_id,
+			str(loadout.get("passive_skill_id", "")),
+			maxi(1, int(loadout.get("passive_skill_level", 1)))
+		)
+		var second_active_id := str(loadout.get("second_active_skill_id", ""))
+		var second_passive_id := str(loadout.get("second_passive_skill_id", ""))
+		var reward_summary: Array = offer.get("reward_summary", []) as Array
+		var active_text := "%s Lv.%d" % [
+			str(active_skill.get("name", "")),
+			maxi(1, int(loadout.get("active_skill_level", 1))),
+		]
+		if second_active_id != "":
+			var second_active := LingpetCatalog.get_active_skill(
+				pet_id,
+				second_active_id,
+				maxi(1, int(loadout.get("second_active_skill_level", 1)))
+			)
+			active_text += " / %s Lv.%d" % [
+				str(second_active.get("name", "")),
+				maxi(1, int(loadout.get("second_active_skill_level", 1))),
+			]
+		var passive_text := "%s Lv.%d" % [
+			str(passive_skill.get("name", "")),
+			maxi(1, int(loadout.get("passive_skill_level", 1))),
+		]
+		if second_passive_id != "":
+			var second_passive := LingpetCatalog.get_passive_skill(
+				pet_id,
+				second_passive_id,
+				maxi(1, int(loadout.get("second_passive_skill_level", 1)))
+			)
+			passive_text += " / %s Lv.%d" % [
+				str(second_passive.get("name", "")),
+				maxi(1, int(loadout.get("second_passive_skill_level", 1))),
+			]
+		var description := "%s\n%s" % [active_text, passive_text]
+		if not reward_summary.is_empty():
+			description += "\n" + ", ".join(reward_summary)
+		var affordable := int(balances.get("gold", 0)) >= price
+		var choice := _build_guardian_card_choice(
+			pet_id,
+			str(offer.get("display_name", LingpetCatalog.get_display_name(pet_id))),
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_ELITE,
+				{"count": int(offer.get("applied_roll_count", 0))}
+			),
+			description
+		)
+		choice["guardian_full_preview"] = true
+		choice["guardian_offer"] = offer.duplicate(true)
+		actions.append({
+			"id": "%s%s:%d:%s" % [
+				ACTION_PREFIX,
+				OP_BROWSE_CANDIDATE,
+				int(_state.get("browse_sequence", 0)),
+				pet_id,
+			],
+			"label": str(offer.get("display_name", pet_id)),
+			"cost_text": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_COST_GOLD,
+				{"amount": price}
+			),
+			"enabled": affordable,
+			"disabled_reason": "" if affordable else "insufficient_gold",
+			"unavailable_reason": "" if affordable else TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_GOLD,
+				{
+					"required": price,
+					"shortfall": price - int(balances.get("gold", 0)),
+				}
+			),
+			"payload": {
+				"operation": OP_BROWSE_CANDIDATE,
+				"pet_id": pet_id,
+				"cost": price,
+				"offer": offer.duplicate(true),
+				"choice": choice,
+				"presentation": _build_guardian_presentation("", "", str(offer.get("display_name", pet_id))),
+			},
+		})
+	return actions
 
 
 func _build_enhance_action(
@@ -536,6 +816,16 @@ func _apply_operation(context: Dictionary) -> bool:
 				context.get("owner", null),
 				context.get("registry", null)
 			)
+			if accepted:
+				_state["first_pick_candidates"] = _offer_builder.build_first_pick_candidates(
+					int(context.get("map_seed", 0)),
+					str(context.get("node_id", "")),
+					_runtime_owned_pet_ids(context.get("registry", null))
+				)
+	elif operation == OP_FIRST_PICK:
+		accepted = _apply_first_pick(context)
+	elif operation == OP_BROWSE:
+		accepted = _apply_browse(context)
 	elif operation == OP_PRAYER:
 		var run_state: Object = context.get("run_state", null)
 		accepted = (
@@ -565,6 +855,93 @@ func _apply_operation(context: Dictionary) -> bool:
 		)
 		_pending_rollback.clear()
 	return accepted
+
+
+func _apply_first_pick(context: Dictionary) -> bool:
+	if bool(_state.get("first_pick_completed", false)):
+		return false
+	var pet_id := str(context.get("pet_id", "")).strip_edges().to_lower()
+	if _find_candidate(pet_id, _dictionary_array(_state.get("first_pick_candidates", []))).is_empty():
+		return false
+	var runtime := _get_registry_instance(context.get("registry", null), "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("grant_and_activate_tower_spring_guardian"):
+		return false
+	if not bool(runtime.call(
+		"grant_and_activate_tower_spring_guardian",
+		pet_id,
+		context.get("owner", null),
+		context.get("registry", null)
+	)):
+		return false
+	var run_state: Object = context.get("run_state", null)
+	if run_state == null or not run_state.has_method("lock_guardian_prayer"):
+		return false
+	if not _prayer_locked(run_state) and not bool(run_state.call("lock_guardian_prayer")):
+		return false
+	_state["first_pick_completed"] = true
+	_state["first_pick_candidates"] = []
+	_last_effect_result = {
+		"accepted": true,
+		"pet_id": pet_id,
+		"acquisition_cutin_started": true,
+	}
+	return true
+
+
+func _apply_browse(context: Dictionary) -> bool:
+	var next_sequence := maxi(0, int(_state.get("browse_sequence", 0))) + 1
+	var floor_number := 1
+	var run_state: Object = context.get("run_state", null)
+	if run_state != null and run_state.has_method("get_revealed_floor"):
+		floor_number = maxi(1, int(run_state.call("get_revealed_floor")))
+	var offers: Array[Dictionary] = _offer_builder.build_browse_offers(
+		int(context.get("map_seed", 0)),
+		str(context.get("node_id", "")),
+		next_sequence,
+		floor_number,
+		_runtime_owned_pet_ids(context.get("registry", null))
+	)
+	if offers.size() != TowerGuardianSpringOfferBuilder.OFFER_COUNT:
+		return false
+	for offer in offers:
+		offer["node_id"] = str(context.get("node_id", ""))
+		offer["browse_sequence"] = next_sequence
+	_state["browse_sequence"] = next_sequence
+	_state["browse_offers"] = offers
+	_state["pending_browse_offer"] = {}
+	_last_effect_result = {
+		"accepted": true,
+		"browse_sequence": next_sequence,
+		"offer_count": offers.size(),
+		"floor": floor_number,
+	}
+	return true
+
+
+func _open_browse_compare(payload: Dictionary, owner: Object, registry: Object) -> Dictionary:
+	var pet_id := str(payload.get("pet_id", "")).strip_edges().to_lower()
+	var offer := _find_candidate(pet_id, _dictionary_array(_state.get("browse_offers", [])))
+	if offer.is_empty():
+		return {"accepted": false, "applied": false, "reason": "stale_browse_offer"}
+	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
+	if runtime == null or not runtime.has_method("begin_tower_spring_overflow_compare"):
+		return {"accepted": false, "applied": false, "reason": "missing_browse_compare_wiring"}
+	_state["pending_browse_offer"] = offer.duplicate(true)
+	if not bool(runtime.call(
+		"begin_tower_spring_overflow_compare",
+		offer.duplicate(true),
+		owner,
+		registry
+	)):
+		_state["pending_browse_offer"] = {}
+		return {"accepted": false, "applied": false, "reason": "browse_compare_rejected"}
+	return {
+		"accepted": true,
+		"applied": false,
+		"reason": "compare_opened",
+		"pet_id": pet_id,
+		"price_gold": int(offer.get("price_gold", 0)),
+	}
 
 
 func _apply_soul_summoning_unlock(owner: Object, registry: Object) -> bool:
@@ -665,6 +1042,22 @@ func _rollback_operation(owner: Object, registry: Object, run_state: Object = nu
 	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
 	if not runtime_snapshot.is_empty() and runtime != null and runtime.has_method("apply_save_snapshot"):
 		runtime.call("apply_save_snapshot", runtime_snapshot, owner, registry)
+	var pending_offer := _dictionary(_state.get("pending_browse_offer", {}))
+	if (
+		not pending_offer.is_empty()
+		and runtime != null
+		and runtime.has_method("begin_tower_spring_overflow_compare")
+		and (
+			not runtime.has_method("is_overflow_choice_active")
+			or not bool(runtime.call("is_overflow_choice_active"))
+		)
+	):
+		runtime.call(
+			"begin_tower_spring_overflow_compare",
+			pending_offer.duplicate(true),
+			owner,
+			registry
+		)
 
 
 func _capture_committed_runtime_snapshot(owner: Object, registry: Object) -> void:
@@ -836,6 +1229,47 @@ func _operation_count(node_id: String, operation: String) -> int:
 	return count
 
 
+func _ensure_first_pick_candidates(node_id: String, map_seed: int, runtime: Object) -> void:
+	if not _dictionary_array(_state.get("first_pick_candidates", [])).is_empty():
+		return
+	_state["first_pick_candidates"] = _offer_builder.build_first_pick_candidates(
+		map_seed,
+		node_id,
+		_runtime_owned_pet_ids_from_runtime(runtime)
+	)
+
+
+func _runtime_owned_pet_ids(registry: Object) -> Array:
+	return _runtime_owned_pet_ids_from_runtime(
+		_get_registry_instance(registry, "lingpet_egg_runtime")
+	)
+
+
+func _runtime_owned_pet_ids_from_runtime(runtime: Object) -> Array:
+	if runtime == null or not runtime.has_method("build_save_snapshot"):
+		return []
+	var snapshot_value: Variant = runtime.call("build_save_snapshot")
+	if not (snapshot_value is Dictionary):
+		return []
+	var snapshot := snapshot_value as Dictionary
+	var result: Array = []
+	var owned_value: Variant = snapshot.get("owned_pet_ids", [])
+	if owned_value is Array:
+		result = (owned_value as Array).duplicate()
+	var active_pet_id := str(snapshot.get("pet_id", "")).strip_edges().to_lower()
+	if active_pet_id != "" and not result.has(active_pet_id):
+		result.append(active_pet_id)
+	return result
+
+
+func _find_candidate(pet_id: String, candidates: Array[Dictionary]) -> Dictionary:
+	var normalized := pet_id.strip_edges().to_lower()
+	for candidate in candidates:
+		if str(candidate.get("pet_id", "")).strip_edges().to_lower() == normalized:
+			return candidate.duplicate(true)
+	return {}
+
+
 func _find_action(action_id: String, actions: Array[Dictionary]) -> Dictionary:
 	for action in actions:
 		if str(action.get("id", "")) == action_id:
@@ -851,6 +1285,10 @@ func _success_message(operation: String, record: Dictionary) -> String:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_COMPLETED
 	if operation == OP_ENHANCE:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_ENHANCE_COMPLETED
+	if operation == OP_FIRST_PICK:
+		key = TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_COMPLETED
+	if operation == OP_BROWSE:
+		key = TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_COMPLETED
 	return TowerAscentNodeModalLocalization.text(key, {"name": display_name})
 
 
