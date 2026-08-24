@@ -1,0 +1,92 @@
+{
+  "stage": "A_candidate_only",
+  "runtime_wired": false,
+  "reference": {
+    "path": "docs/reference_art/tower_map_cloud_wall_reference_20260824.png",
+    "sha256": "51D55AAB006ECA559EFA24EE6FFE3C266D861FEFD5F6C016D5E782FA58265FBA"
+  },
+  "texture_density": "x4",
+  "assets": {
+    "cloud_wall_interior_dense_a": {
+      "world_size": [
+        692,
+        320
+      ],
+      "texture_size": [
+        2768,
+        1280
+      ],
+      "visible_pixels": 3543040,
+      "opaque_pixels": 3543040,
+      "transparent_pixels": 0,
+      "intermediate_alpha_pixels": 0,
+      "alpha_min": 255,
+      "alpha_max": 255,
+      "near_white_pixels": 0,
+      "x_edge_mean_abs_rgba_delta": 0.0,
+      "x_edge_max_abs_rgba_delta": 0,
+      "y_edge_mean_abs_rgba_delta": 0.0,
+      "y_edge_max_abs_rgba_delta": 0,
+      "source_raw": "images/tower_map_cloud_wall_candidates_e757/source_raw/cloud_wall_interior_dense_a_imagegen_raw.png",
+      "sha256": "DE3836350DD48395926795024917F08AC32ECB793CEF3CFABE4C7C3666D0E386"
+    },
+    "cloud_wall_interior_macro_b": {
+      "world_size": [
+        692,
+        320
+      ],
+      "texture_size": [
+        2768,
+        1280
+      ],
+      "visible_pixels": 3543040,
+      "opaque_pixels": 3543040,
+      "transparent_pixels": 0,
+      "intermediate_alpha_pixels": 0,
+      "alpha_min": 255,
+      "alpha_max": 255,
+      "near_white_pixels": 0,
+      "x_edge_mean_abs_rgba_delta": 0.0,
+      "x_edge_max_abs_rgba_delta": 0,
+      "y_edge_mean_abs_rgba_delta": 0.0,
+      "y_edge_max_abs_rgba_delta": 0,
+      "source_raw": "images/tower_map_cloud_wall_candidates_e757/source_raw/cloud_wall_interior_macro_b_imagegen_raw.png",
+      "sha256": "EC9A1EC8506A8640DEA35AC1D658324B77338F9F599E61C1429654A2D290D085"
+    },
+    "cloud_wall_dissolve": {
+      "world_size": [
+        692,
+        224
+      ],
+      "texture_size": [
+        2768,
+        896
+      ],
+      "visible_pixels": 1885304,
+      "opaque_pixels": 409873,
+      "transparent_pixels": 594824,
+      "intermediate_alpha_pixels": 1475431,
+      "alpha_min": 0,
+      "alpha_max": 255,
+      "near_white_pixels": 0,
+      "x_edge_mean_abs_rgba_delta": 0.0,
+      "x_edge_max_abs_rgba_delta": 0,
+      "top_20pct_mean_alpha": 253.999847,
+      "bottom_15pct_max_alpha": 0,
+      "row_mean_alpha_increase_count": 0,
+      "interior_a_join_mean_abs_rgba_delta": 0.0,
+      "interior_a_join_max_abs_rgba_delta": 0,
+      "source_raw": "images/tower_map_cloud_wall_candidates_e757/source_raw/cloud_wall_dissolve_imagegen_raw_v2_false_alpha.png",
+      "sha256": "1ABBF47CD9CC6F9783161FCAAA112BBCB8481557D8A90E3A6E86AF2C9646868A"
+    }
+  },
+  "rejected_sources": [
+    "images/tower_map_cloud_wall_candidates_e757/candidates/cloud_wall_interior_macro_b_imagegen_candidate_x4.png",
+    "images/tower_map_cloud_wall_candidates_e757/source_raw/cloud_wall_dissolve_imagegen_raw_v1_false_alpha.png",
+    "images/tower_map_cloud_wall_candidates_e757/source_raw/cloud_wall_dissolve_imagegen_raw_v2_false_alpha.png"
+  ],
+  "recommended_assets": [
+    "images/tower_map_cloud_wall_candidates_e757/candidates/cloud_wall_interior_dense_a_imagegen_candidate_x4.png",
+    "images/tower_map_cloud_wall_candidates_e757/candidates/cloud_wall_dissolve_imagegen_candidate_x4.png"
+  ]
+}
