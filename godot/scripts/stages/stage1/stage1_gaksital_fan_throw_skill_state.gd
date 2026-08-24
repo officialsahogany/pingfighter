@@ -1,28 +1,16 @@
 extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+const Stage1GaksitalFanProjectileContract := preload(
+	"res://scripts/stages/stage1/stage1_gaksital_fan_projectile_contract.gd"
+)
 
 const STAGE_ID := 1
 const BOSS_VARIANT := "gaksi"
 const GAUGE_COST := 150.0
 const WINDUP_FRAMES := 30.0
-const DURATION_FRAMES := 180.0
-const FAN_SPEED := 5.5
-const FAN_VX_JITTER := 0.8
-const FAN_SPIN_PER_FRAME := 0.3
-const FAN_HIT_RADIUS := 24.0
-const FAN_DRAW_SIZE := 56.0
-const EXTRA_FAN_DRAW_SIZE := 50.0
 const ENRAGED_EXTRA_ANGLE_DEGREES := 35.0
 const DEBUG_FORCE_ENRAGE_ENV := "DISKHEARTS_FORCE_GAKSI_ENRAGE"
-const MAIN_FAN_SOUND_VOLUME := 0.35
-const EXTRA_FAN_SOUND_VOLUME := 0.25
-const MAIN_HIT_SOUND_VOLUME := 0.6
-const EXTRA_HIT_SOUND_VOLUME := 0.5
-const PLAYER_STUN_FRAMES := 18.0
-const PLAYER_KNOCKBACK_POWER := 12.0
-const PLAYER_KNOCKBACK_FRAMES := 18.0
-const PLAYER_KNOCKBACK_DECAY := 0.92
 const HIT_EFFECT_FRAMES := 24.0
 const SMOKE_OPACITY_THRESHOLD := 0.05
 
@@ -74,7 +62,7 @@ func activate(context: Dictionary, _deps: Dictionary = {}) -> bool:
 		return false
 	active = true
 	windup_timer = WINDUP_FRAMES
-	timer_frames = DURATION_FRAMES
+	timer_frames = Stage1GaksitalFanProjectileContract.DURATION_FRAMES
 	enraged_launch = bool(context.get("enraged_boss_active", false)) or _is_debug_force_enrage_enabled()
 	fans.clear()
 	return true
@@ -153,29 +141,32 @@ func _launch_fans(context: Dictionary, deps: Dictionary) -> void:
 	if base_direction.length() <= 0.001:
 		base_direction = Vector2.DOWN
 	base_direction = base_direction.normalized()
-	_append_fan(launch_pos, base_direction, FAN_DRAW_SIZE, Color.WHITE, MAIN_FAN_SOUND_VOLUME, MAIN_HIT_SOUND_VOLUME)
+	_append_fan(
+		launch_pos,
+		base_direction,
+		Stage1GaksitalFanProjectileContract.DRAW_SIZE,
+		Color.WHITE,
+		Stage1GaksitalFanProjectileContract.MAIN_FAN_SOUND_VOLUME,
+		Stage1GaksitalFanProjectileContract.MAIN_HIT_SOUND_VOLUME
+	)
 	if enraged_launch:
-		_append_fan(launch_pos, base_direction.rotated(deg_to_rad(-ENRAGED_EXTRA_ANGLE_DEGREES)), EXTRA_FAN_DRAW_SIZE, Color(1.0, 0.84, 0.66, 1.0), EXTRA_FAN_SOUND_VOLUME, EXTRA_HIT_SOUND_VOLUME)
-		_append_fan(launch_pos, base_direction.rotated(deg_to_rad(ENRAGED_EXTRA_ANGLE_DEGREES)), EXTRA_FAN_DRAW_SIZE, Color(1.0, 0.84, 0.66, 1.0), EXTRA_FAN_SOUND_VOLUME, EXTRA_HIT_SOUND_VOLUME)
+		_append_fan(launch_pos, base_direction.rotated(deg_to_rad(-ENRAGED_EXTRA_ANGLE_DEGREES)), Stage1GaksitalFanProjectileContract.EXTRA_DRAW_SIZE, Color(1.0, 0.84, 0.66, 1.0), Stage1GaksitalFanProjectileContract.EXTRA_FAN_SOUND_VOLUME, Stage1GaksitalFanProjectileContract.EXTRA_HIT_SOUND_VOLUME)
+		_append_fan(launch_pos, base_direction.rotated(deg_to_rad(ENRAGED_EXTRA_ANGLE_DEGREES)), Stage1GaksitalFanProjectileContract.EXTRA_DRAW_SIZE, Color(1.0, 0.84, 0.66, 1.0), Stage1GaksitalFanProjectileContract.EXTRA_FAN_SOUND_VOLUME, Stage1GaksitalFanProjectileContract.EXTRA_HIT_SOUND_VOLUME)
 
 
 func _append_fan(origin: Vector2, direction: Vector2, draw_size: float, tint: Color, fan_sound_volume: float, hit_sound_volume: float) -> void:
-	var velocity := direction.normalized() * FAN_SPEED
-	velocity.x += rng.randf_range(-FAN_VX_JITTER, FAN_VX_JITTER)
-	fans.append({
-		"x": origin.x,
-		"y": origin.y,
-		"vx": velocity.x,
-		"vy": velocity.y,
-		"elapsed": 0.0,
-		"timer": DURATION_FRAMES,
-		"spin": 0.0,
-		"draw_size": draw_size,
-		"alpha": 1.0,
-		"tint": tint,
-		"fan_sound_volume": fan_sound_volume,
-		"hit_sound_volume": hit_sound_volume,
-	})
+	fans.append(Stage1GaksitalFanProjectileContract.build_projectile(
+		origin,
+		direction,
+		draw_size,
+		tint,
+		fan_sound_volume,
+		hit_sound_volume,
+		rng.randf_range(
+			-Stage1GaksitalFanProjectileContract.VX_JITTER,
+			Stage1GaksitalFanProjectileContract.VX_JITTER
+		)
+	))
 
 
 func _update_fans(fps_scale: float, context: Dictionary, deps: Dictionary) -> void:
@@ -185,22 +176,17 @@ func _update_fans(fps_scale: float, context: Dictionary, deps: Dictionary) -> vo
 	for fan_value in fans:
 		if not (fan_value is Dictionary):
 			continue
-		var fan: Dictionary = fan_value
-		fan["timer"] = max(0.0, float(fan.get("timer", DURATION_FRAMES)) - fps_scale)
-		fan["elapsed"] = float(fan.get("elapsed", 0.0)) + fps_scale
-		var prev_spin: float = float(fan.get("spin", 0.0))
-		var next_spin: float = prev_spin + FAN_SPIN_PER_FRAME * fps_scale
-		fan["spin"] = next_spin
-		if int(floor(prev_spin / TAU)) < int(floor(next_spin / TAU)):
-			_play_fan_audio(deps, float(fan.get("fan_sound_volume", MAIN_FAN_SOUND_VOLUME)))
-		var elapsed: float = float(fan.get("elapsed", 0.0))
-		var speed_mod: float = 0.6 + 0.5 * sin(elapsed * 0.25)
-		var sway: float = sin(elapsed * 0.15) * 1.8
-		fan["x"] = float(fan.get("x", 0.0)) + (float(fan.get("vx", 0.0)) * speed_mod + sway) * fps_scale
-		fan["y"] = float(fan.get("y", 0.0)) + float(fan.get("vy", 0.0)) * speed_mod * 1.3 * fps_scale
-		if float(fan.get("timer", 0.0)) <= 0.0:
-			continue
-		if _is_out_of_bounds(Vector2(float(fan.get("x", 0.0)), float(fan.get("y", 0.0))), width, height):
+		var motion := Stage1GaksitalFanProjectileContract.advance_projectile(
+			fan_value as Dictionary,
+			fps_scale
+		)
+		var fan: Dictionary = motion.get("projectile", {})
+		if bool(motion.get("spin_boundary_crossed", false)):
+			Stage1GaksitalFanProjectileContract.play_fan_audio(
+				deps,
+				float(fan.get("fan_sound_volume", Stage1GaksitalFanProjectileContract.MAIN_FAN_SOUND_VOLUME))
+			)
+		if Stage1GaksitalFanProjectileContract.is_expired_or_out_of_bounds(fan, width, height):
 			continue
 		next_fans.append(fan)
 	fans = next_fans
@@ -209,7 +195,7 @@ func _update_fans(fps_scale: float, context: Dictionary, deps: Dictionary) -> vo
 func _check_player_collision(scene: Dictionary, context: Dictionary, deps: Dictionary) -> Dictionary:
 	var player_center: Vector2 = _get_player_center(context)
 	var player_size: Vector2 = _get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
-	var hit_distance: float = FAN_HIT_RADIUS + max(1.0, player_size.x * 0.5)
+	var hit_distance: float = Stage1GaksitalFanProjectileContract.HIT_RADIUS + max(1.0, player_size.x * 0.5)
 	for fan_value in fans:
 		if not (fan_value is Dictionary):
 			continue
@@ -229,7 +215,7 @@ func _check_player_collision(scene: Dictionary, context: Dictionary, deps: Dicti
 		hit_effect_timer = HIT_EFFECT_FRAMES
 		hit_effect_pos = player_center
 		_spawn_impact(player_center, deps)
-		var knockback_vel: float = _apply_player_hit(player_center, fan_pos, deps, float(fan.get("hit_sound_volume", MAIN_HIT_SOUND_VOLUME)))
+		var knockback_vel: float = _apply_player_hit(player_center, fan_pos, deps, float(fan.get("hit_sound_volume", Stage1GaksitalFanProjectileContract.MAIN_HIT_SOUND_VOLUME)))
 		scene["stage1_gaksital_fan_throw_hit"] = true
 		return {
 			"stage1_gaksital_fan_throw_hit": true,
@@ -245,25 +231,24 @@ func _apply_player_hit(_player_center: Vector2, _fan_pos: Vector2, deps: Diction
 		status_effect_state.apply_status(
 			"player",
 			"stun",
-			PLAYER_STUN_FRAMES,
+			Stage1GaksitalFanProjectileContract.STUN_FRAMES,
 			{
 				"source": "stage1_fan_throw",
 				"cleansable": true,
 			},
 			"stage1_fan_throw"
 		)
-	var knockback_dir: float = -1.0 if rng.randf() < 0.5 else 1.0
-	var knockback_vel: float = knockback_dir * PLAYER_KNOCKBACK_POWER
+	var knockback_vel := Stage1GaksitalFanProjectileContract.roll_knockback_velocity(rng)
 	var movement_state: Object = deps.get("movement_state", null)
 	if movement_state != null and movement_state.has_method("start_knockback"):
 		movement_state.start_knockback(
 			knockback_vel,
-			PLAYER_KNOCKBACK_FRAMES,
-			PLAYER_KNOCKBACK_DECAY,
+			Stage1GaksitalFanProjectileContract.KNOCKBACK_FRAMES,
+			Stage1GaksitalFanProjectileContract.KNOCKBACK_DECAY,
 			true,
 			true
 		)
-	_play_hit_audio(deps, hit_sound_volume)
+	Stage1GaksitalFanProjectileContract.play_hit_audio(deps, hit_sound_volume)
 	return knockback_vel
 
 
@@ -329,22 +314,6 @@ func _get_player_center(context: Dictionary) -> Vector2:
 	var player_pos: Vector2 = _get_vector2(context, "player_pos", Vector2.ZERO)
 	var player_size: Vector2 = _get_vector2(context, "player_paddle_size", Vector2(155.0, 50.0))
 	return player_pos + player_size * 0.5
-
-
-func _is_out_of_bounds(pos: Vector2, width: float, height: float) -> bool:
-	return pos.x < -40.0 or pos.x > width + 40.0 or pos.y < -40.0 or pos.y > height + 40.0
-
-
-func _play_fan_audio(deps: Dictionary, volume: float) -> void:
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_gaksital_fan"):
-		audio.play_gaksital_fan(volume)
-
-
-func _play_hit_audio(deps: Dictionary, volume: float) -> void:
-	var audio: Object = deps.get("audio", null)
-	if audio != null and audio.has_method("play_whipcrack"):
-		audio.play_whipcrack(volume)
 
 
 func _trigger_boss_skill_parry(pos: Vector2, deps: Dictionary) -> void:

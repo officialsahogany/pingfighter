@@ -23,6 +23,9 @@ const COMMON_CONTROL_ROWS := {
 	"dalji_vision_chain_top": [
 		[["key", "Shift"], ["plus", "+"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
 	],
+	"gaksital_vision_fan_throw": [
+		[["key", "Shift"], ["plus", "+"], ["key", "D"], ["slash", "/"], ["key", "→"], ["accent", "발동"]],
+	],
 	"cheongringwi_vision_dragon_torrent": [
 		[["key", "Shift"], ["plus", "+"], ["key", "A"], ["arrow", "→"], ["key", "D"], ["arrow", "→"], ["key", "A"]],
 		[["dim", "또는"], ["key", "←"], ["arrow", "→"], ["key", "→"], ["arrow", "→"], ["key", "←"], ["accent", "발동"]],

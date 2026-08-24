@@ -79,6 +79,7 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 		"monkey_blessing_delivery_state": _get_instance(registry, "monkey_blessing_delivery_state"),
 		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
+		"gaksital_vision_chosik_state": _get_instance(registry, "gaksital_vision_chosik_state"),
 		"optimus_energy_state": _get_instance(registry, "optimus_energy_state") if include_optimus else null,
 		"skill_configs": skill_configs,
 		"skill_runtimes": _build_skill_runtimes(registry, scoped, character_key),

@@ -21,6 +21,8 @@ func draw(
 		_draw_soul_summon_art_symbol(canvas, center, icon_radius, color, symbol_color)
 	elif skill_name == "dalji_vision_chain_top":
 		_draw_dalji_vision_chain_top_symbol(canvas, center, icon_radius, color, symbol_color)
+	elif skill_name == "gaksital_vision_fan_throw":
+		_draw_gaksital_vision_fan_throw_symbol(canvas, center, icon_radius, color, symbol_color)
 	elif skill_name == "cheongringwi_vision_dragon_torrent":
 		_draw_cheongringwi_vision_dragon_torrent_symbol(canvas, center, icon_radius, color, symbol_color)
 	elif skill_name == "yeonmyo_vision_bonghongwe":
@@ -98,6 +100,27 @@ func _draw_dalji_vision_chain_top_symbol(
 	canvas.draw_circle(ball_center, icon_radius * 0.13, Color(color.r, color.g, color.b, 0.42))
 	canvas.draw_circle(ball_center, icon_radius * 0.085, symbol_color)
 	canvas.draw_arc(ball_center, icon_radius * 0.18, 0.0, TAU, 18, moon_color, maxf(1.0, icon_radius * 0.045), true)
+
+
+func _draw_gaksital_vision_fan_throw_symbol(
+	canvas: CanvasItem,
+	center: Vector2,
+	icon_radius: float,
+	color: Color,
+	symbol_color: Color
+) -> void:
+	var fan_radius := icon_radius * 0.55
+	var hub := center + Vector2(0.0, icon_radius * 0.16)
+	var points := PackedVector2Array([hub])
+	for index in range(9):
+		var angle := lerpf(-PI * 0.88, -PI * 0.12, float(index) / 8.0)
+		points.append(hub + Vector2(cos(angle), sin(angle)) * fan_radius)
+	canvas.draw_colored_polygon(points, Color(color.r, color.g, color.b, 0.88))
+	for index in range(0, 9, 2):
+		var angle := lerpf(-PI * 0.88, -PI * 0.12, float(index) / 8.0)
+		canvas.draw_line(hub, hub + Vector2(cos(angle), sin(angle)) * fan_radius, symbol_color, maxf(1.0, icon_radius * 0.045), true)
+	canvas.draw_arc(hub, fan_radius, -PI * 0.88, -PI * 0.12, 20, symbol_color, maxf(1.2, icon_radius * 0.06), true)
+	canvas.draw_circle(hub, icon_radius * 0.08, symbol_color)
 
 
 func _draw_cheongringwi_vision_dragon_torrent_symbol(

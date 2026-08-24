@@ -42,6 +42,10 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			"skill_id": CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID,
 		},
 		{
+			"state": player_control_deps.get("gaksital_vision_chosik_state", null),
+			"skill_id": CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID,
+		},
+		{
 			"state": player_control_deps.get("cheongringwi_vision_chosik_state", null),
 			"skill_id": CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID,
 		},

@@ -638,8 +638,11 @@ func _build_tower_chest_context(owner: Object, registry: Object) -> Dictionary:
 
 func _get_boss_vision_offer_id(owner: Object) -> String:
 	if _current_stage == 1:
-		if str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower() == "dalji":
+		var variant := str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower()
+		if variant == "dalji":
 			return CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+		if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+			return CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
 		return ""
 	if _current_stage == 2:
 		return CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID

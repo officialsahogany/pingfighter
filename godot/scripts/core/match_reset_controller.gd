@@ -174,6 +174,7 @@ func _reset_player_skill_state(deps: Dictionary) -> void:
 		"commando_reload_delivery_state",
 		"runtime_perk_state",
 		"dalji_vision_chosik_state",
+		"gaksital_vision_chosik_state",
 		"cheongringwi_vision_chosik_state",
 		"yeonmyo_vision_chosik_state",
 		"optimus_energy_state",

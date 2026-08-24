@@ -56,6 +56,9 @@ func reset_power_and_drive(deps: Dictionary, reset_mythic: bool = true) -> void:
 	var dalji_vision_state: Object = deps.get("dalji_vision_chosik_state", null)
 	if dalji_vision_state != null and dalji_vision_state.has_method("reset_round"):
 		dalji_vision_state.reset_round()
+	var gaksital_vision_state: Object = deps.get("gaksital_vision_chosik_state", null)
+	if gaksital_vision_state != null and gaksital_vision_state.has_method("reset_round"):
+		gaksital_vision_state.reset_round()
 	var cheongringwi_vision_state: Object = deps.get("cheongringwi_vision_chosik_state", null)
 	if cheongringwi_vision_state != null and cheongringwi_vision_state.has_method("reset_round"):
 		cheongringwi_vision_state.reset_round()

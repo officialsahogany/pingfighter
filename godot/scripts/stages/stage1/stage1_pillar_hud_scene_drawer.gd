@@ -13,6 +13,7 @@ const EXPRESSION_PAINED := "pained"
 
 const VISION_STATE_KEYS := {
 	CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID: "dalji_vision_chosik_state",
+	CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID: "gaksital_vision_chosik_state",
 	CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: "cheongringwi_vision_chosik_state",
 	CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_ID: "yeonmyo_vision_chosik_state",
 }

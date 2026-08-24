@@ -10,6 +10,11 @@ const DALJI_VISION_CHAIN_TOP_UNLOCK_ID := "unlock_dalji_vision_chain_top"
 const DALJI_VISION_CHAIN_TOP_COLOR := Color(0.46, 0.91, 0.86, 1.0)
 const DALJI_VISION_CHAIN_TOP_COST := 120.0
 const DALJI_VISION_CHAIN_TOP_COOLDOWN := 32.0
+const GAKSITAL_VISION_FAN_THROW_ID := "gaksital_vision_fan_throw"
+const GAKSITAL_VISION_FAN_THROW_UNLOCK_ID := "unlock_gaksital_vision_fan_throw"
+const GAKSITAL_VISION_FAN_THROW_COLOR := Color(0.94, 0.38, 0.24, 1.0)
+const GAKSITAL_VISION_FAN_THROW_COST := 80.0
+const GAKSITAL_VISION_FAN_THROW_COOLDOWN := 5.0
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_ID := "cheongringwi_vision_dragon_torrent"
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID := "unlock_cheongringwi_vision_dragon_torrent"
 # Compatibility constants retain their original names so existing saves keep
@@ -86,6 +91,65 @@ const _DALJI_VISION_COPY_BY_LANGUAGE := {
 		"how_to_use": "Удерживайте Shift и нажмите W (или ↑)",
 		"motion_hint": "Запускает на поле два связанных волчка Дальджи",
 		"perk_description": "Тайный приём Дальджи, доступный всем персонажам. Два волчка 7 секунд изгибают любой мяч к стене с ускорением 50% и добавляют ещё 30% при первом отскоке.",
+	},
+}
+
+const _GAKSITAL_VISION_COPY_BY_LANGUAGE := {
+	"ko": {
+		"name": "각시탈 비전 · 부채던지기",
+		"manual_name": "각시탈 비전 · 부채던지기 비급",
+		"description": "각시탈의 부채를 보스에게 던집니다.\n적중한 보스를 밀쳐내고 잠시 기절시킵니다.\n기력 80 · 재사용 5초.",
+		"how_to_use": "Shift를 누른 채 D (또는 →)",
+		"motion_hint": "회전하는 부채를 보스에게 날립니다",
+		"perk_description": "모든 캐릭터가 배울 수 있는 각시탈의 비전 초식입니다. 회전하는 부채를 던져 적중한 보스를 밀쳐내고 잠시 기절시킵니다.",
+	},
+	"en": {
+		"name": "Gaksital Vision · Fan Throw",
+		"manual_name": "Gaksital Vision · Fan Throw Manual",
+		"description": "Throw Gaksital's spinning fan at the boss.\nA hit knocks the boss back and briefly stuns it.\nCosts 80 vigor · 5-second cooldown.",
+		"how_to_use": "Hold Shift, then press D (or →)",
+		"motion_hint": "Hurl a spinning fan toward the boss",
+		"perk_description": "Learn Gaksital's Vision Chosik, usable by every character. Hurl a spinning fan that knocks the boss back and briefly stuns it on hit.",
+	},
+	"zh": {
+		"name": "阁氏面具秘传 · 飞扇",
+		"manual_name": "阁氏面具秘传 · 飞扇秘笈",
+		"description": "向首领投出旋转的折扇。\n命中后击退首领并使其短暂眩晕。\n消耗80气力 · 冷却5秒。",
+		"how_to_use": "按住 Shift，再按 D（或 →）",
+		"motion_hint": "向首领掷出旋转的折扇",
+		"perk_description": "所有角色都能习得的阁氏面具秘传招式。投出旋转折扇，命中后击退首领并使其短暂眩晕。",
+	},
+	"ja": {
+		"name": "カクシタル秘伝・扇投げ",
+		"manual_name": "カクシタル秘伝・扇投げ 秘伝書",
+		"description": "回転する扇をボスへ投げます。\n命中するとボスを押し飛ばし、短時間気絶させます。\n気力80 · 再使用5秒。",
+		"how_to_use": "Shiftを押しながら D（または →）を押す",
+		"motion_hint": "回転する扇をボスへ投げつける",
+		"perk_description": "全キャラクターが習得できるカクシタルの秘伝招式です。回転する扇を投げ、命中したボスを押し飛ばして短時間気絶させます。",
+	},
+	"es": {
+		"name": "Visión de Gaksital · Abanico arrojadizo",
+		"manual_name": "Manual de Visión de Gaksital · Abanico arrojadizo",
+		"description": "Lanza el abanico giratorio de Gaksital al jefe.\nAl impactar, lo repele y lo aturde brevemente.\nCuesta 80 de vigor · 5 s de recarga.",
+		"how_to_use": "Mantén Shift y pulsa D (o →)",
+		"motion_hint": "Arroja un abanico giratorio hacia el jefe",
+		"perk_description": "Aprende el Chosik de Visión de Gaksital, disponible para todos los personajes. Lanza un abanico giratorio que repele al jefe y lo aturde brevemente al impactar.",
+	},
+	"pt-BR": {
+		"name": "Visão de Gaksital · Arremesso de leque",
+		"manual_name": "Manual da Visão de Gaksital · Arremesso de leque",
+		"description": "Arremesse o leque giratório de Gaksital no chefe.\nAo acertar, repele e atordoa brevemente o chefe.\nCusta 80 de vigor · recarga de 5 s.",
+		"how_to_use": "Segure Shift e aperte D (ou →)",
+		"motion_hint": "Arremessa um leque giratório contra o chefe",
+		"perk_description": "Aprenda o Chosik da Visão de Gaksital, disponível para todos os personagens. Arremesse um leque giratório que repele e atordoa brevemente o chefe ao acertar.",
+	},
+	"ru": {
+		"name": "Тайное искусство Какситхаля · Бросок веера",
+		"manual_name": "Свиток тайного искусства Какситхаля · Бросок веера",
+		"description": "Бросьте вращающийся веер Какситхаля в босса.\nПопадание отбрасывает и ненадолго оглушает босса.\nЦена: 80 энергии · откат 5 с.",
+		"how_to_use": "Удерживайте Shift и нажмите D (или →)",
+		"motion_hint": "Бросает вращающийся веер в босса",
+		"perk_description": "Тайный приём Какситхаля, доступный всем персонажам. Вращающийся веер при попадании отбрасывает босса и ненадолго оглушает его.",
 	},
 }
 
@@ -297,6 +361,30 @@ static func get_skill_data(skill_id: String = SOUL_SUMMON_ART_ID) -> Dictionary:
 			"vision_chosik": true,
 			"boss_id": "dalji",
 		}
+	if skill_id == GAKSITAL_VISION_FAN_THROW_ID:
+		var vision_copy: Dictionary = _get_gaksital_vision_copy()
+		return {
+			"name": GAKSITAL_VISION_FAN_THROW_ID,
+			"korean": str(vision_copy.get("name", "Gaksital Vision · Fan Throw")),
+			"cost": GAKSITAL_VISION_FAN_THROW_COST,
+			"color": GAKSITAL_VISION_FAN_THROW_COLOR,
+			"cooldown": GAKSITAL_VISION_FAN_THROW_COOLDOWN,
+			"key": "vision_modifier",
+			"description": str(vision_copy.get("description", "")),
+			"how_to_use": str(vision_copy.get("how_to_use", "")),
+			"motion_hint": str(vision_copy.get("motion_hint", "")),
+			"effect_type": GAKSITAL_VISION_FAN_THROW_ID,
+			"activation_class": "instant",
+			"slot_occupancy": "active_orb",
+			"cooldown_reduction_eligible": true,
+			"show_cooldown": true,
+			"description_max_lines": 3,
+			"cleanup_policy": "perk_id_lookup",
+			"fixed_level": 1,
+			"exclude_from_perk_fusion": true,
+			"vision_chosik": true,
+			"boss_id": "gaksital",
+		}
 	if skill_id == CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
 		var vision_copy: Dictionary = _get_cheongringwi_vision_copy()
 		return {
@@ -384,6 +472,28 @@ static func get_unlock_perk_data(unlock_id: String = SOUL_SUMMON_ART_UNLOCK_ID) 
 			"vision_chosik": true,
 			"boss_id": "dalji",
 		}
+	if unlock_id == GAKSITAL_VISION_FAN_THROW_UNLOCK_ID:
+		var vision_copy: Dictionary = _get_gaksital_vision_copy()
+		return {
+			"name": str(vision_copy.get("manual_name", "Gaksital Vision · Fan Throw Manual")),
+			"max_level": 1,
+			"descriptions": {1: str(vision_copy.get("perk_description", ""))},
+			"detail": str(vision_copy.get("description", "")),
+			"icon_color": GAKSITAL_VISION_FAN_THROW_COLOR,
+			"tree": "boss_vision_unlock",
+			"unlocks_skill": GAKSITAL_VISION_FAN_THROW_ID,
+			"is_skill_manual": true,
+			"activation_class": "instant",
+			"slot_occupancy": "active_orb",
+			"character_info_slot_free": true,
+			"cooldown_reduction_eligible": true,
+			"show_cooldown": true,
+			"cleanup_policy": "perk_id_lookup",
+			"fixed_level": 1,
+			"exclude_from_perk_fusion": true,
+			"vision_chosik": true,
+			"boss_id": "gaksital",
+		}
 	if unlock_id == CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID:
 		var vision_copy: Dictionary = _get_cheongringwi_vision_copy()
 		return {
@@ -468,6 +578,12 @@ static func _get_dalji_vision_copy() -> Dictionary:
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
 
 
+static func _get_gaksital_vision_copy() -> Dictionary:
+	var language := LanguageSettings.get_language()
+	var value: Variant = _GAKSITAL_VISION_COPY_BY_LANGUAGE.get(language, _GAKSITAL_VISION_COPY_BY_LANGUAGE["en"])
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
 static func _get_cheongringwi_vision_copy() -> Dictionary:
 	var language := LanguageSettings.get_language()
 	var value: Variant = _CHEONGRINGWI_VISION_COPY_BY_LANGUAGE.get(language, _CHEONGRINGWI_VISION_COPY_BY_LANGUAGE["en"])
@@ -486,21 +602,21 @@ static func _get_yeonmyo_vision_copy() -> Dictionary:
 
 static func is_common_skill(skill_id: String) -> bool:
 	match skill_id:
-		SOUL_SUMMON_ART_ID, DALJI_VISION_CHAIN_TOP_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_ID, YEONMYO_VISION_BONGHONGWE_ID:
+		SOUL_SUMMON_ART_ID, DALJI_VISION_CHAIN_TOP_ID, GAKSITAL_VISION_FAN_THROW_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_ID, YEONMYO_VISION_BONGHONGWE_ID:
 			return true
 	return false
 
 
 static func is_common_unlock(unlock_id: String) -> bool:
 	match unlock_id:
-		SOUL_SUMMON_ART_UNLOCK_ID, DALJI_VISION_CHAIN_TOP_UNLOCK_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID, YEONMYO_VISION_BONGHONGWE_UNLOCK_ID:
+		SOUL_SUMMON_ART_UNLOCK_ID, DALJI_VISION_CHAIN_TOP_UNLOCK_ID, GAKSITAL_VISION_FAN_THROW_UNLOCK_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID, YEONMYO_VISION_BONGHONGWE_UNLOCK_ID:
 			return true
 	return false
 
 
 static func is_vision_unlock_id(unlock_id: String) -> bool:
 	match unlock_id:
-		DALJI_VISION_CHAIN_TOP_UNLOCK_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID, YEONMYO_VISION_BONGHONGWE_UNLOCK_ID:
+		DALJI_VISION_CHAIN_TOP_UNLOCK_ID, GAKSITAL_VISION_FAN_THROW_UNLOCK_ID, CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID, YEONMYO_VISION_BONGHONGWE_UNLOCK_ID:
 			return true
 	return false
 
@@ -511,6 +627,8 @@ static func get_unlock_id_for_skill(skill_id: String) -> String:
 			return SOUL_SUMMON_ART_UNLOCK_ID
 		DALJI_VISION_CHAIN_TOP_ID:
 			return DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+		GAKSITAL_VISION_FAN_THROW_ID:
+			return GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
 			return CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
 		YEONMYO_VISION_BONGHONGWE_ID:
@@ -524,6 +642,8 @@ static func get_skill_id_for_unlock(unlock_id: String) -> String:
 			return SOUL_SUMMON_ART_ID
 		DALJI_VISION_CHAIN_TOP_UNLOCK_ID:
 			return DALJI_VISION_CHAIN_TOP_ID
+		GAKSITAL_VISION_FAN_THROW_UNLOCK_ID:
+			return GAKSITAL_VISION_FAN_THROW_ID
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID:
 			return CHEONGRINGWI_VISION_DRAGON_TORRENT_ID
 		YEONMYO_VISION_BONGHONGWE_UNLOCK_ID:
@@ -535,6 +655,7 @@ static func get_all_skill_ids() -> Array[String]:
 	return [
 		SOUL_SUMMON_ART_ID,
 		DALJI_VISION_CHAIN_TOP_ID,
+		GAKSITAL_VISION_FAN_THROW_ID,
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID,
 		YEONMYO_VISION_BONGHONGWE_ID,
 	]
@@ -544,6 +665,7 @@ static func get_all_skill_data() -> Dictionary:
 	return {
 		SOUL_SUMMON_ART_ID: get_skill_data(SOUL_SUMMON_ART_ID),
 		DALJI_VISION_CHAIN_TOP_ID: get_skill_data(DALJI_VISION_CHAIN_TOP_ID),
+		GAKSITAL_VISION_FAN_THROW_ID: get_skill_data(GAKSITAL_VISION_FAN_THROW_ID),
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: get_skill_data(CHEONGRINGWI_VISION_DRAGON_TORRENT_ID),
 		YEONMYO_VISION_BONGHONGWE_ID: get_skill_data(YEONMYO_VISION_BONGHONGWE_ID),
 	}
@@ -553,6 +675,7 @@ static func get_skill_costs() -> Dictionary:
 	return {
 		SOUL_SUMMON_ART_ID: 0.0,
 		DALJI_VISION_CHAIN_TOP_ID: DALJI_VISION_CHAIN_TOP_COST,
+		GAKSITAL_VISION_FAN_THROW_ID: GAKSITAL_VISION_FAN_THROW_COST,
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: CHEONGRINGWI_VISION_DRAGON_TORRENT_COST,
 		YEONMYO_VISION_BONGHONGWE_ID: YEONMYO_VISION_BONGHONGWE_COST,
 	}
@@ -562,6 +685,7 @@ static func get_skill_colors() -> Dictionary:
 	return {
 		SOUL_SUMMON_ART_ID: SOUL_SUMMON_ART_COLOR,
 		DALJI_VISION_CHAIN_TOP_ID: DALJI_VISION_CHAIN_TOP_COLOR,
+		GAKSITAL_VISION_FAN_THROW_ID: GAKSITAL_VISION_FAN_THROW_COLOR,
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: CHEONGRINGWI_VISION_DRAGON_TORRENT_COLOR,
 		YEONMYO_VISION_BONGHONGWE_ID: YEONMYO_VISION_BONGHONGWE_COLOR,
 	}
@@ -571,6 +695,7 @@ static func get_cooldown_seconds_map(cooldown_multiplier: float = 1.0) -> Dictio
 	return {
 		SOUL_SUMMON_ART_ID: 0.0,
 		DALJI_VISION_CHAIN_TOP_ID: DALJI_VISION_CHAIN_TOP_COOLDOWN * max(0.0, cooldown_multiplier),
+		GAKSITAL_VISION_FAN_THROW_ID: GAKSITAL_VISION_FAN_THROW_COOLDOWN * max(0.0, cooldown_multiplier),
 		CHEONGRINGWI_VISION_DRAGON_TORRENT_ID: CHEONGRINGWI_VISION_DRAGON_TORRENT_COOLDOWN * max(0.0, cooldown_multiplier),
 		YEONMYO_VISION_BONGHONGWE_ID: YEONMYO_VISION_BONGHONGWE_COOLDOWN * max(0.0, cooldown_multiplier),
 	}
