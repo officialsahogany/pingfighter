@@ -20,7 +20,8 @@ const TowerAscentTuning := preload(
 )
 
 const ACTION_PREFIX := "guardian_spring:"
-const OP_SOUL_SUMMONING := "soul_summoning"
+const OP_PALM := "palm"
+const OP_PRAYER := "prayer"
 const OP_ENHANCE := "enhance"
 const RNG_VERSION := "tower_guardian_spring_v1"
 
@@ -143,20 +144,6 @@ func build_actions(
 	owner: Object,
 	registry: Object
 ) -> Array[Dictionary]:
-	if not has_soul_summoning():
-		# The free acquisition shares the campaign unlock bridge, then deploys
-		# through the existing Lingpet owner. Missing wiring fails closed.
-		if (
-			_get_registry_instance(registry, "lingpet_egg_runtime") == null
-			or _get_registry_instance(registry, "guardian_codex_store") == null
-			or _get_registry_instance(registry, "runtime_perk_state") == null
-			or _get_registry_instance(registry, "runtime_perk_catalog") == null
-			or _get_skill_config(owner, registry) == null
-		):
-			return []
-		return [_build_soul_summoning_action()]
-	if str(_state.get("soul_summoning_node_id", "")) == node_id:
-		return [_build_first_visit_complete_action()]
 	_sync_active_guardian_from_runtime(owner, registry)
 	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
 	var balances := _economy(run_state)
@@ -169,8 +156,17 @@ func build_actions(
 			balances,
 			owner,
 			runtime
-		)]
-	return []
+		), _build_browse_placeholder_action()]
+	var palm_wiring_ready := (
+		runtime != null
+		and _get_registry_instance(registry, "runtime_perk_state") != null
+		and _get_registry_instance(registry, "runtime_perk_catalog") != null
+		and _get_skill_config(owner, registry) != null
+	)
+	var actions: Array[Dictionary] = [_build_palm_action(palm_wiring_ready)]
+	if not _prayer_locked(run_state):
+		actions.append(_build_prayer_action(run_state, balances))
+	return actions
 
 
 func execute_action(
@@ -210,7 +206,7 @@ func execute_action(
 		return {"accepted": false, "reason": "missing_action_transaction"}
 	var payload := _dictionary(action.get("payload", {}))
 	var operation := str(payload.get("operation", ""))
-	var cost := TowerAscentTuning.TEMP_PHASE_C_SPRING_ENHANCE_COST if operation == OP_ENHANCE else 0
+	var cost := maxi(0, int(payload.get("cost", 0)))
 	var effect_context := {
 		"operation": operation,
 		"pet_id": str(payload.get("pet_id", "")),
@@ -218,6 +214,7 @@ func execute_action(
 		"map_seed": map_seed,
 		"owner": owner,
 		"registry": registry,
+		"run_state": run_state,
 	}
 	var transaction_result: Dictionary = action_transaction.call(
 		"apply_once",
@@ -227,7 +224,7 @@ func execute_action(
 		run_state,
 		resolution_ids,
 		Callable(self, "_apply_operation").bind(effect_context),
-		Callable(self, "_rollback_operation").bind(owner, registry)
+		Callable(self, "_rollback_operation").bind(owner, registry, run_state)
 	)
 	_pending_rollback.clear()
 	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
@@ -249,23 +246,37 @@ func execute_action(
 	return transaction_result
 
 
-func _build_soul_summoning_action() -> Dictionary:
+func _build_palm_action(wiring_ready: bool) -> Dictionary:
 	var label := TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_SPRING_SOUL_SUMMONING_OPTION
+		TowerAscentNodeModalLocalization.KEY_SPRING_PALM_OPTION
 	)
 	var badge := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_SOUL
 	)
 	return {
-		"id": "%s%s" % [ACTION_PREFIX, OP_SOUL_SUMMONING],
+		"id": "%s%s" % [ACTION_PREFIX, OP_PALM],
 		"label": label,
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_FREE
 		),
-		"enabled": true,
-		"unavailable_reason": "",
+		"enabled": wiring_ready and not has_soul_summoning(),
+		"disabled_reason": (
+			"soul_summoning_already_owned"
+			if has_soul_summoning()
+			else "missing_soul_summoning_wiring"
+		),
+		"unavailable_reason": (
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_PALM_COMPLETED
+			)
+			if has_soul_summoning()
+			else TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
+			)
+		),
 		"payload": {
-			"operation": OP_SOUL_SUMMONING,
+			"operation": OP_PALM,
+			"cost": 0,
 			"choice": _build_guardian_card_choice(
 				"",
 				label,
@@ -285,36 +296,88 @@ func _build_soul_summoning_action() -> Dictionary:
 	}
 
 
-func _build_first_visit_complete_action() -> Dictionary:
-	var message := TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_VISIT_COMPLETE
+func _build_prayer_action(run_state: Object, balances: Dictionary) -> Dictionary:
+	var count := _prayer_count(run_state)
+	var cost := count * TowerAscentTuning.TEMP_SPRING_PRAYER_COST_STEP
+	var affordable := int(balances.get("muhon", 0)) >= cost
+	var label := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_OPTION
 	)
 	return {
-		"id": "%sfirst_visit_complete" % ACTION_PREFIX,
-		"label": message,
-		"cost_text": "",
-		"enabled": false,
-		"disabled_reason": "guardian_spring_first_visit_complete",
-		"unavailable_reason": message,
+		"id": "%s%s:%d" % [ACTION_PREFIX, OP_PRAYER, count],
+		"label": label,
+		"cost_text": (
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_COST_FREE
+			)
+			if cost == 0
+			else TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_COST_MUHON,
+				{"amount": cost}
+			)
+		),
+		"enabled": affordable,
+		"disabled_reason": "" if affordable else "insufficient_muhon",
+		"unavailable_reason": (
+			""
+			if affordable
+			else TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
+				{
+					"required": cost,
+					"shortfall": cost - int(balances.get("muhon", 0)),
+				}
+			)
+		),
 		"payload": {
-			"operation": "first_visit_complete",
+			"operation": OP_PRAYER,
+			"cost": cost,
 			"choice": _build_guardian_card_choice(
 				"",
-				message,
+				label,
 				TowerAscentNodeModalLocalization.text(
-					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_PRAYER
 				),
-				message
+				TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_PRAYER_DESCRIPTION,
+					{"bonus": TowerAscentTuning.TEMP_SPRING_PRAYER_STAT_BONUS_PCT}
+				)
 			),
 			"presentation": _build_guardian_presentation(
 				TowerAscentNodeModalLocalization.text(
-					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+					TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_COUNT,
+					{"count": count}
 				),
 				TowerAscentNodeModalLocalization.text(
-					TowerAscentNodeModalLocalization.KEY_STATE_OWNED
+					TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_RESULT
 				),
-				message
+				label
 			),
+		},
+	}
+
+
+func _build_browse_placeholder_action() -> Dictionary:
+	var label := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_OPTION
+	)
+	var message := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_PLACEHOLDER
+	)
+	return {
+		"id": "%sbrowse_placeholder" % ACTION_PREFIX,
+		"label": label,
+		"cost_text": TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_COST_FREE
+		),
+		"enabled": false,
+		"disabled_reason": "guardian_spring_browse_stage3",
+		"unavailable_reason": message,
+		"payload": {
+			"operation": "browse_placeholder",
+			"cost": 0,
+			"choice": _build_guardian_card_choice("", label, "S3", message),
+			"presentation": _build_guardian_presentation("", "S3", label),
 		},
 	}
 
@@ -380,6 +443,7 @@ func _build_enhance_action(
 		"unavailable_reason": unavailable_reason,
 		"payload": {
 			"operation": OP_ENHANCE,
+			"cost": cost,
 			"pet_id": pet_id,
 			"rng_seed": absi(hash("%s:%d:%s:%d" % [RNG_VERSION, map_seed, node_id, sequence])),
 			"choice": _build_guardian_card_choice(
@@ -451,11 +515,15 @@ func _build_guardian_presentation(
 
 
 func _apply_operation(context: Dictionary) -> bool:
-	_capture_rollback(context.get("owner", null), context.get("registry", null))
+	_capture_rollback(
+		context.get("owner", null),
+		context.get("registry", null),
+		context.get("run_state", null)
+	)
 	_last_effect_result.clear()
 	var operation := str(context.get("operation", ""))
 	var accepted := false
-	if operation == OP_SOUL_SUMMONING:
+	if operation == OP_PALM:
 		accepted = _apply_soul_summoning_unlock(
 			context.get("owner", null),
 			context.get("registry", null)
@@ -468,6 +536,18 @@ func _apply_operation(context: Dictionary) -> bool:
 				context.get("owner", null),
 				context.get("registry", null)
 			)
+	elif operation == OP_PRAYER:
+		var run_state: Object = context.get("run_state", null)
+		accepted = (
+			run_state != null
+			and run_state.has_method("increment_guardian_prayer")
+			and bool(run_state.call("increment_guardian_prayer"))
+		)
+		if accepted:
+			_last_effect_result = {
+				"accepted": true,
+				"prayer_count": _prayer_count(run_state),
+			}
 	else:
 		var runtime := _get_registry_instance(context.get("registry", null), "lingpet_egg_runtime")
 		if runtime != null and operation == OP_ENHANCE:
@@ -478,7 +558,11 @@ func _apply_operation(context: Dictionary) -> bool:
 			context.get("registry", null)
 		)
 	if not accepted:
-		_rollback_operation(context.get("owner", null), context.get("registry", null))
+		_rollback_operation(
+			context.get("owner", null),
+			context.get("registry", null),
+			context.get("run_state", null)
+		)
 		_pending_rollback.clear()
 	return accepted
 
@@ -539,7 +623,7 @@ func _apply_enhance(runtime: Object, context: Dictionary) -> bool:
 	return bool(_last_effect_result.get("accepted", false))
 
 
-func _capture_rollback(owner: Object, registry: Object) -> void:
+func _capture_rollback(owner: Object, registry: Object, run_state: Object = null) -> void:
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
 	var skill_config := _get_skill_config(owner, registry)
 	_pending_rollback = {
@@ -547,13 +631,21 @@ func _capture_rollback(owner: Object, registry: Object) -> void:
 		"runtime_snapshot": _capture_runtime_snapshot(registry),
 		"perk_runtime_snapshot": _capture_perk_runtime_snapshot(runtime_state),
 		"equipped_skills": _equipped_skills(skill_config),
+		"prayer_count": _prayer_count(run_state),
+		"prayer_locked": _prayer_locked(run_state),
 	}
 
 
-func _rollback_operation(owner: Object, registry: Object) -> void:
+func _rollback_operation(owner: Object, registry: Object, run_state: Object = null) -> void:
 	if _pending_rollback.is_empty():
 		return
 	_state = _dictionary(_pending_rollback.get("state", {}))
+	if run_state != null and run_state.has_method("restore_guardian_prayer_state"):
+		run_state.call(
+			"restore_guardian_prayer_state",
+			int(_pending_rollback.get("prayer_count", 0)),
+			bool(_pending_rollback.get("prayer_locked", false))
+		)
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
 	if runtime_state != null and runtime_state.has_method("cancel_pending_unlock_swap"):
 		runtime_state.call("cancel_pending_unlock_swap", owner)
@@ -643,8 +735,19 @@ func _sync_active_guardian_from_runtime(owner: Object, registry: Object) -> void
 	_capture_committed_runtime_snapshot(owner, registry)
 
 
-func sync_owner_projection(owner: Object) -> void:
+func sync_owner_projection(
+	owner: Object,
+	run_state: Object = null,
+	registry: Object = null
+) -> void:
 	_sync_sealed_owner_projection(owner)
+	var count := _prayer_count(run_state)
+	var locked := _prayer_locked(run_state)
+	if owner != null and owner.has_method("set_tower_ascent_prayer_projection"):
+		owner.call("set_tower_ascent_prayer_projection", count, locked)
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if runtime_state != null and runtime_state.has_method("set_tower_spring_prayer_count"):
+		runtime_state.call("set_tower_spring_prayer_count", count, owner, registry)
 
 
 func _sync_sealed_owner_projection(owner: Object) -> void:
@@ -743,7 +846,9 @@ func _find_action(action_id: String, actions: Array[Dictionary]) -> Dictionary:
 func _success_message(operation: String, record: Dictionary) -> String:
 	var pet_id := str(record.get("pet_id", ""))
 	var display_name := LingpetCatalog.get_display_name(pet_id) if not pet_id.is_empty() else ""
-	var key := TowerAscentNodeModalLocalization.KEY_SPRING_SOUL_SUMMONING_COMPLETED
+	var key := TowerAscentNodeModalLocalization.KEY_SPRING_PALM_COMPLETED
+	if operation == OP_PRAYER:
+		key = TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_COMPLETED
 	if operation == OP_ENHANCE:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_ENHANCE_COMPLETED
 	return TowerAscentNodeModalLocalization.text(key, {"name": display_name})
@@ -755,6 +860,20 @@ func _economy(run_state: Object) -> Dictionary:
 		if value is Dictionary:
 			return value as Dictionary
 	return {}
+
+
+func _prayer_count(run_state: Object) -> int:
+	if run_state != null and run_state.has_method("get_prayer_count"):
+		return maxi(0, int(run_state.call("get_prayer_count")))
+	return 0
+
+
+func _prayer_locked(run_state: Object) -> bool:
+	return (
+		run_state != null
+		and run_state.has_method("is_guardian_prayer_locked")
+		and bool(run_state.call("is_guardian_prayer_locked"))
+	)
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

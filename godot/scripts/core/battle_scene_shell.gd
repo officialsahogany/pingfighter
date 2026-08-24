@@ -141,6 +141,11 @@ func set_tower_ascent_guardian_projection(
 	scene_state.set_value("tower_ascent_soul_summoning_owned", soul_summoning_owned)
 
 
+func set_tower_ascent_prayer_projection(count: int, locked: bool) -> void:
+	scene_state.set_value("tower_ascent_prayer_count", maxi(0, count))
+	scene_state.set_value("tower_ascent_prayer_locked", locked)
+
+
 func configure_ball_physics_context(
 	stage: int,
 	league_mode: String = "champion",

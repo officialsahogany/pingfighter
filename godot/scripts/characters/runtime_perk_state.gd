@@ -119,6 +119,7 @@ var item_gold_gain_multiplier := 1.0
 var item_perk_level_bonus := 0
 var viper_ignition_aura_active := false
 var viper_ignition_aura_owner_sync_dirty := false
+var tower_spring_prayer_count := 0
 var pending_unlock_swap: Dictionary = {}
 var unlock_swap_selected_index := 0
 var choice_flight_effect: Dictionary = {}
@@ -993,6 +994,7 @@ func _finish_perk_fusion_modal(owner: Object, registry: Object, record: Dictiona
 
 func reset() -> void:
 	_capture_stats_context(null, null)
+	tower_spring_prayer_count = 0
 	_fusion_runtime_state.reset()
 	_physique_training_runtime_state.reset_state()
 	_chosik_event_state.reset()
@@ -1815,6 +1817,35 @@ func get_angel_blessing_special_gauge_max(current_max: float) -> float:
 	return _effective_stat_queries.get_angel_blessing_special_gauge_max_from_runtime_state(
 		self,
 		current_max
+	)
+
+
+func set_tower_spring_prayer_count(
+	count: int,
+	owner: Object = null,
+	registry: Object = null
+) -> void:
+	var normalized := maxi(0, count)
+	if tower_spring_prayer_count == normalized:
+		return
+	tower_spring_prayer_count = normalized
+	if owner != null:
+		_sync_runtime_perk_owner_effects(owner, registry)
+		_refresh_mythic_runtime_perk_consumers(owner, registry)
+
+
+func get_tower_spring_prayer_count() -> int:
+	return tower_spring_prayer_count
+
+
+func get_tower_spring_prayer_bonus_pct() -> float:
+	return _effective_stat_queries.get_tower_spring_prayer_bonus_pct_from_runtime_state(self)
+
+
+func get_tower_spring_prayer_flat_bonus(base_value: float) -> float:
+	return _effective_stat_queries.get_tower_spring_prayer_flat_bonus_from_runtime_state(
+		self,
+		base_value
 	)
 
 

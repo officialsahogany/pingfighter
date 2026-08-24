@@ -1,6 +1,7 @@
 extends RefCounted
 
-const SNAPSHOT_SCHEMA_VERSION := 9
+const SNAPSHOT_SCHEMA_VERSION := 10
+const PRE_GUARDIAN_PRAYER_SCHEMA_VERSION := 9
 const PRE_VISION_BURN_SCHEMA_VERSION := 8
 const LEGACY_SINGLE_PHASE_SCHEMA_VERSION := 7
 const SNAPSHOT_POLICY_CURRENT := "current"
@@ -13,6 +14,8 @@ var _run_id := ""
 var _gold := 0
 var _muhon := 0
 var _chance_gems := 0
+var _prayer_count := 0
+var _prayer_locked := false
 var _phases: Array[Dictionary] = []
 var _active_phase_index := 0
 var _revealed_floor := 0
@@ -69,6 +72,8 @@ func reset() -> void:
 	_gold = 0
 	_muhon = 0
 	_chance_gems = 0
+	_prayer_count = 0
+	_prayer_locked = false
 	_phases.clear()
 	_active_phase_index = 0
 	_revealed_floor = 0
@@ -157,7 +162,11 @@ func get_revealed_floor() -> int:
 
 static func snapshot_restore_policy(snapshot: Dictionary) -> String:
 	var schema_version := int(snapshot.get("schema_version", -1))
-	if schema_version in [SNAPSHOT_SCHEMA_VERSION, PRE_VISION_BURN_SCHEMA_VERSION]:
+	if schema_version in [
+		SNAPSHOT_SCHEMA_VERSION,
+		PRE_GUARDIAN_PRAYER_SCHEMA_VERSION,
+		PRE_VISION_BURN_SCHEMA_VERSION,
+	]:
 		return SNAPSHOT_POLICY_CURRENT
 	if schema_version == LEGACY_SINGLE_PHASE_SCHEMA_VERSION:
 		return SNAPSHOT_POLICY_RESET_LEGACY_SINGLE_PHASE
@@ -177,7 +186,36 @@ func export_economy() -> Dictionary:
 		"gold": _gold,
 		"muhon": _muhon,
 		"chance_gems": _chance_gems,
+		"prayer_count": _prayer_count,
+		"prayer_locked": _prayer_locked,
 	}
+
+
+func get_prayer_count() -> int:
+	return _prayer_count
+
+
+func is_guardian_prayer_locked() -> bool:
+	return _prayer_locked
+
+
+func increment_guardian_prayer() -> bool:
+	if not has_started() or _prayer_locked:
+		return false
+	_prayer_count += 1
+	return true
+
+
+func lock_guardian_prayer() -> bool:
+	if not has_started() or _prayer_locked:
+		return false
+	_prayer_locked = true
+	return true
+
+
+func restore_guardian_prayer_state(count: int, locked: bool) -> void:
+	_prayer_count = maxi(0, count)
+	_prayer_locked = locked
 
 
 func apply_reward_bundle(reward_bundle: Dictionary) -> Dictionary:
@@ -314,6 +352,8 @@ func _import_economy(economy: Dictionary) -> void:
 		0,
 		MAX_CHANCE_GEMS
 	)
+	_prayer_count = maxi(0, int(economy.get("prayer_count", 0)))
+	_prayer_locked = bool(economy.get("prayer_locked", false))
 
 
 func _sanitize_phases(value: Array) -> Array[Dictionary]:

@@ -5,6 +5,9 @@ const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_pe
 const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 const RuntimePerkAngelBlessingProjection := preload("res://scripts/characters/runtime_perk_angel_blessing_projection.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
+const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuning.gd")
+
+const MAX_COOLDOWN_REDUCTION_FRACTION := 0.95
 
 
 func get_runtime_skill_level_from_runtime_state(runtime_state: Object, skill_id: String) -> int:
@@ -55,7 +58,22 @@ func get_converted_perk_option_value_from_runtime_state(
 	var value := 0.0
 	if level > 0:
 		value = PerkConversionValues.get_value(perk_id, option_key, level, runtime_state)
-	return value + _get_converted_physique_training_bonus(runtime_state, perk_id, option_key)
+	return (
+		value
+		+ _get_converted_physique_training_bonus(runtime_state, perk_id, option_key)
+		+ _get_converted_prayer_bonus(runtime_state, perk_id, option_key)
+	)
+
+
+func get_tower_spring_prayer_bonus_pct_from_runtime_state(runtime_state: Object) -> float:
+	return _get_tower_spring_prayer_bonus_pct(runtime_state)
+
+
+func get_tower_spring_prayer_flat_bonus_from_runtime_state(
+	runtime_state: Object,
+	base_value: float
+) -> float:
+	return maxf(0.0, base_value) * _get_tower_spring_prayer_fraction(runtime_state)
 
 
 func get_effective_runtime_skill_levels_from_runtime_state(runtime_state: Object) -> Dictionary:
@@ -340,7 +358,7 @@ func get_dash_recharge_frames(effective_levels: Object, runtime_state: Object, b
 		RuntimePerkEffectiveLevels.MIN_DASH_RECHARGE_FRAMES,
 		float(base_frames)
 		* maxf(0.0, 1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "dash_lightweight"))
-		* maxf(0.0, 1.0 - _get_physique_training_fraction(runtime_state, "dash_recharge_reduction_pct"))
+		* maxf(0.0, 1.0 - _get_training_and_prayer_fraction(runtime_state, "dash_recharge_reduction_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "dash_cooldown")
 	)
 	return RuntimePerkAngelBlessingProjection.apply_dash_recharge_frames(
@@ -354,7 +372,7 @@ func get_dash_recovery_frames(effective_levels: Object, runtime_state: Object, b
 		RuntimePerkEffectiveLevels.MIN_DASH_RECOVERY_FRAMES,
 		float(base_frames)
 		* maxf(0.0, 1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "dash_module_control"))
-		* maxf(0.0, 1.0 - _get_physique_training_fraction(runtime_state, "dash_recovery_reduction_pct"))
+		* maxf(0.0, 1.0 - _get_training_and_prayer_fraction(runtime_state, "dash_recovery_reduction_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "dash_recovery")
 	)
 
@@ -364,7 +382,7 @@ func get_dash_duration_frames(effective_levels: Object, runtime_state: Object, b
 		1.0,
 		float(base_frames)
 		* (1.0 + get_runtime_skill_bonus(effective_levels, runtime_state, "dash_jump"))
-		* (1.0 + _get_physique_training_fraction(runtime_state, "dash_distance_bonus_pct"))
+		* (1.0 + _get_training_and_prayer_fraction(runtime_state, "dash_distance_bonus_pct"))
 	)
 
 
@@ -382,7 +400,11 @@ func get_active_item_cooldown_msec(effective_levels: Object, runtime_state: Obje
 		1.0 - get_runtime_skill_bonus(effective_levels, runtime_state, "item_cooldown_mastery")
 	) * maxf(
 		0.0,
-		1.0 - _get_physique_training_fraction(runtime_state, "active_item_cooldown_reduction_pct")
+		1.0 - _get_training_and_prayer_fraction(
+			runtime_state,
+			"active_item_cooldown_reduction_pct",
+			MAX_COOLDOWN_REDUCTION_FRACTION
+		)
 	) * _get_mystic_dice_multiplier(runtime_state, "item_cooldown")
 	return RuntimePerkAngelBlessingProjection.apply_active_item_cooldown_msec(
 		_get_angel_blessing_state(runtime_state),
@@ -465,7 +487,7 @@ func get_player_speed_multiplier(effective_levels: Object, runtime_state: Object
 	return RuntimePerkAngelBlessingProjection.apply_player_speed_multiplier(
 		_get_angel_blessing_state(runtime_state),
 		(1.0 + maxf(0.0, get_runtime_skill_bonus(effective_levels, runtime_state, "common_swiftness")))
-		* (1.0 + _get_physique_training_fraction(runtime_state, "move_speed_bonus_pct"))
+		* (1.0 + _get_training_and_prayer_fraction(runtime_state, "move_speed_bonus_pct"))
 		* _get_mystic_dice_multiplier(runtime_state, "player_speed")
 		* _get_perk_fusion_move_speed_multiplier(runtime_state)
 	)
@@ -486,7 +508,7 @@ func get_player_paddle_size_multiplier(effective_levels: Object, runtime_state: 
 		maxf(
 			0.1,
 			(1.0 + get_runtime_skill_bonus(effective_levels, runtime_state, "common_bulk_up"))
-			* (1.0 + _get_physique_training_fraction(runtime_state, "paddle_size_bonus_pct"))
+			* (1.0 + _get_training_and_prayer_fraction(runtime_state, "paddle_size_bonus_pct"))
 			* _get_mystic_dice_multiplier(runtime_state, "paddle_size")
 		)
 	)
@@ -503,7 +525,11 @@ func get_player_skill_cooldown_multiplier(effective_levels: Object, runtime_stat
 	)
 	var training_multiplier := maxf(
 		0.0,
-		1.0 - _get_physique_training_fraction(runtime_state, "chosik_cooldown_reduction_pct")
+		1.0 - _get_training_and_prayer_fraction(
+			runtime_state,
+			"chosik_cooldown_reduction_pct",
+			MAX_COOLDOWN_REDUCTION_FRACTION
+		)
 	)
 	return RuntimePerkAngelBlessingProjection.apply_player_skill_cooldown_multiplier(
 		_get_angel_blessing_state(runtime_state),
@@ -629,6 +655,36 @@ func _get_physique_training_fraction(runtime_state: Object, stat_key: String) ->
 	return _get_physique_training_bonus(runtime_state, stat_key) / 100.0
 
 
+# 샘터 기도와 체질 수련은 같은 전역 percentage-point lane에서 먼저
+# 가산된 뒤, 기존 무공·주사위·축복 배율과 합성된다. 쿨다운 계열은
+# 소비자별 95% 상한을 여기서 보존한다.
+func _get_training_and_prayer_fraction(
+	runtime_state: Object,
+	stat_key: String,
+	maximum: float = 1.0
+) -> float:
+	return clampf(
+		_get_physique_training_fraction(runtime_state, stat_key)
+		+ _get_tower_spring_prayer_fraction(runtime_state),
+		0.0,
+		maximum
+	)
+
+
+func _get_tower_spring_prayer_bonus_pct(runtime_state: Object) -> float:
+	return (
+		maxi(0, RuntimePerkRuntimeStateAccess.call_int(
+			runtime_state,
+			"get_tower_spring_prayer_count"
+		))
+		* TowerAscentTuning.TEMP_SPRING_PRAYER_STAT_BONUS_PCT
+	)
+
+
+func _get_tower_spring_prayer_fraction(runtime_state: Object) -> float:
+	return _get_tower_spring_prayer_bonus_pct(runtime_state) / 100.0
+
+
 func _get_converted_physique_training_bonus(
 	runtime_state: Object,
 	perk_id: String,
@@ -645,6 +701,17 @@ func _get_converted_physique_training_bonus(
 	if stat_key == "":
 		return 0.0
 	return _get_physique_training_bonus(runtime_state, stat_key)
+
+
+func _get_converted_prayer_bonus(
+	runtime_state: Object,
+	perk_id: String,
+	option_key: String
+) -> float:
+	match "%s:%s" % [perk_id.strip_edges(), option_key.strip_edges()]:
+		"bluetooth_ring:gauge_gain_pct", "bulletproof_hat:posture_correction_pct":
+			return _get_tower_spring_prayer_bonus_pct(runtime_state)
+	return 0.0
 
 
 func _missing_instance(_registry: Object, _key: String) -> Object:

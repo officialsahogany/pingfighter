@@ -31,7 +31,7 @@ func begin_vertical_slice(
 	_prepared_resolution_id = ""
 	_active_owner = owner
 	_active_registry = context.get("registry", null)
-	_guardian_spring_node.sync_owner_projection(owner)
+	_guardian_spring_node.sync_owner_projection(owner, _run_state, _active_registry)
 	_active = true
 	if _run_state.get_revealed_floor() <= 1:
 		# 피드백2 9항 보강(코덱스 리뷰): 최초 1층 진입도 '층 진입'이다.

@@ -190,7 +190,7 @@ func restore_snapshot(
 		return false
 	_active_owner = owner
 	_active_registry = registry
-	_guardian_spring_node.sync_owner_projection(owner)
+	_guardian_spring_node.sync_owner_projection(owner, _run_state, _active_registry)
 	_active = true
 	_prepared = false
 	_prepared_resolution_id = ""

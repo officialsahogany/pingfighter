@@ -59,7 +59,7 @@ func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 		return false
 	if _run_state.has_started():
 		_sync_owner_chance_gems(owner)
-		_guardian_spring_node.sync_owner_projection(owner)
+		_guardian_spring_node.sync_owner_projection(owner, _run_state, _active_registry)
 		return true
 	var run_id := str(context.get(
 		"run_id",
@@ -70,7 +70,7 @@ func ensure_run_started(owner: Object, context: Dictionary = {}) -> bool:
 	if not _run_state.begin(run_id, economy):
 		return false
 	_sync_owner_chance_gems(owner)
-	_guardian_spring_node.sync_owner_projection(owner)
+	_guardian_spring_node.sync_owner_projection(owner, _run_state, _active_registry)
 	return true
 
 func get_generated_shop_inventory() -> Array[Dictionary]:

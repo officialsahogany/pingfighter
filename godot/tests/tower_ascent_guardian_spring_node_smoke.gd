@@ -240,11 +240,11 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "guardian_spring", owner), "guardian spring must open only after route serve and map arrival")
 	var soul_action := _find_action(
 		flow.get_node_modal_view_model().get("actions", []),
-		"guardian_spring:soul_summoning"
+		"guardian_spring:palm"
 	)
-	_expect(not soul_action.is_empty() and bool(soul_action.get("enabled", false)), "first visit must offer free Soul Summoning Art")
+	_expect(not soul_action.is_empty() and bool(soul_action.get("enabled", false)), "first visit must offer the free palm action")
 	var soul_result := flow.execute_node_action(
-		"guardian_spring:soul_summoning",
+		"guardian_spring:palm",
 		"guardian-spring:soul"
 	)
 	_expect(bool(soul_result.get("accepted", false)) and bool(soul_result.get("applied", false)), "Soul Summoning acquisition must commit")
@@ -253,8 +253,10 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	_expect(GuardianEggAccessPolicy.has_egg_access(owner, fixture.registry), "tower Soul Summoning must open the existing egg access policy")
 	var same_visit_actions: Array = flow.get_node_modal_view_model().get("actions", [])
 	_expect(
-		not same_visit_actions.is_empty() and not bool((same_visit_actions[0] as Dictionary).get("enabled", true)),
-		"first visit must not expose later guardian operations in the same node"
+		same_visit_actions.size() >= 2
+		and not bool((same_visit_actions[0] as Dictionary).get("enabled", true))
+		and str((same_visit_actions[1] as Dictionary).get("id", "")).begins_with("guardian_spring:prayer:"),
+		"S2 must retain the prayer slot while the interim palm action is already consumed"
 	)
 
 	var snapshot := flow.export_persistable_snapshot()
@@ -309,21 +311,20 @@ func _verify_insufficient_muhon_and_effect_failure_are_no_ops() -> void:
 		"run_id": "guardian-spring-poor",
 		"map_seed": _initial_route_seed,
 		"node_modal_kind": "guardian_spring",
-		"run_state": {"muhon": 1},
+		"run_state": {"muhon": 0},
 		"registry": fixture.registry,
 	}), "poor guardian spring fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "guardian_spring", owner), "poor guardian spring fixture must arrive at the spring")
-	flow.execute_node_action("guardian_spring:soul_summoning", "guardian-spring-poor:soul")
 	var snapshot := flow.export_persistable_snapshot()
 	snapshot["current_node_id"] = str((snapshot.get("route_target_ids", []) as Array)[0])
 	var later := TowerAscentFlowOwner.new()
 	fixture.registry.instances["tower_ascent_flow_owner"] = later
 	_expect(later.restore_snapshot(snapshot, Callable(), owner, fixture.registry), "poor later visit must restore")
 	var action := _find_action_with_prefix(later.get_node_modal_view_model().get("actions", []), "guardian_spring:enhance:")
-	_expect(not bool(action.get("enabled", true)), "one Muhon must disable a two-Muhon enhancement")
-	_expect(str(action.get("unavailable_reason", "")).contains("2") and str(action.get("unavailable_reason", "")).contains("1 부족"), "disabled enhance must show required amount and exact shortfall")
+	_expect(not bool(action.get("enabled", true)), "zero Muhon must disable a one-Muhon enhancement")
+	_expect(str(action.get("unavailable_reason", "")).contains("1") and str(action.get("unavailable_reason", "")).contains("1 부족"), "disabled enhance must show required amount and exact shortfall")
 	var rejected := later.execute_node_action(str(action.get("id", "")), "guardian-spring-poor:enhance")
-	_expect(not bool(rejected.get("accepted", true)) and fixture.runtime.enhance_calls == 0 and int(later.get_run_state_snapshot().get("muhon", -1)) == 1, "insufficient Muhon must issue no runtime effect or transaction")
+	_expect(not bool(rejected.get("accepted", true)) and fixture.runtime.enhance_calls == 0 and int(later.get_run_state_snapshot().get("muhon", -1)) == 0, "insufficient Muhon must issue no runtime effect or transaction")
 	_finish_flow(flow, owner)
 	_finish_flow(later, owner)
 	fixture.registry.instances.clear()

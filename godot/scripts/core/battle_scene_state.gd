@@ -190,6 +190,8 @@ const DEFAULT_VALUES: Dictionary = {
 	"runtime_laurel_leaf_count": 0,
 	"tower_ascent_soul_summoning_owned": false,
 	"tower_ascent_sealed_guardians": [],
+	"tower_ascent_prayer_count": 0,
+	"tower_ascent_prayer_locked": false,
 	"lingpet_id": "",
 	"active_lingpet_id": "",
 	"current_lingpet_id": "",

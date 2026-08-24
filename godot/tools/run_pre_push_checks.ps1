@@ -143,6 +143,7 @@ $focusedSmoke = @(
     "res://tests/tower_ascent_phase_c_node_visual_qa_contract_smoke.gd",
     "res://tests/tower_ascent_fallen_monk_node_smoke.gd",
     "res://tests/tower_ascent_guardian_spring_node_smoke.gd",
+    "res://tests/tower_guardian_spring_stage2_smoke.gd",
     "res://tests/tower_guardian_spring_rest_card_adapter_smoke.gd",
     "res://tests/treasure_map_perk_port_smoke.gd",
     "res://tests/common_mugong_item_rebrand_smoke.gd",

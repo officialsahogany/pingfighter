@@ -287,8 +287,10 @@ static func posture_correction_breakdown(runtime_state: Object, current_value: f
 	var training_value := 0.0
 	if runtime_state != null and runtime_state.has_method("get_physique_training_bonus"):
 		training_value = maxf(0.0, float(runtime_state.get_physique_training_bonus("posture_correction_pct")))
-	var applied_training := minf(training_value, current_value)
-	var perk_value := maxf(0.0, current_value - applied_training)
+	var prayer_value := _tower_spring_prayer_bonus_pct(runtime_state)
+	var applied_prayer := minf(prayer_value, current_value)
+	var applied_training := minf(training_value, maxf(0.0, current_value - applied_prayer))
+	var perk_value := maxf(0.0, current_value - applied_training - applied_prayer)
 	if perk_value > 0.001:
 		entries.append({
 			"label": _catalog_perk_label("bulletproof_hat", "철심공"),
@@ -301,6 +303,8 @@ static func posture_correction_breakdown(runtime_state: Object, current_value: f
 			"text": "+%s%%p" % _format_stat_number(applied_training),
 			"icon_id": "physique_posture",
 		})
+	if applied_prayer > 0.001:
+		entries.append({"label": "샘터 기도", "text": "+%s%%p" % _format_stat_number(applied_prayer)})
 	return entries
 
 
@@ -357,6 +361,32 @@ static func _physique_training_ratio(runtime_state: Object, stat_key: String, is
 	return maxf(0.0, 1.0 - bonus) if is_reduction else 1.0 + bonus
 
 
+static func _tower_spring_prayer_bonus_pct(runtime_state: Object) -> float:
+	if runtime_state == null or not runtime_state.has_method("get_tower_spring_prayer_bonus_pct"):
+		return 0.0
+	return maxf(0.0, float(runtime_state.get_tower_spring_prayer_bonus_pct()))
+
+
+# 수련과 기도는 query surface에서 percentage points로 먼저 더해진다.
+# 표시도 같은 순서를 재현해 수련 비율 다음의 기도 증분만 분리한다.
+static func _tower_spring_prayer_ratio(
+	runtime_state: Object,
+	stat_key: String,
+	is_reduction: bool
+) -> float:
+	var prayer := _tower_spring_prayer_bonus_pct(runtime_state) / 100.0
+	if prayer <= 0.0:
+		return 1.0
+	var training := 0.0
+	if runtime_state != null and runtime_state.has_method("get_physique_training_bonus"):
+		training = maxf(0.0, float(runtime_state.get_physique_training_bonus(stat_key))) / 100.0
+	if is_reduction:
+		var before := maxf(0.05, 1.0 - minf(training, 0.95))
+		var after := maxf(0.05, 1.0 - minf(training + prayer, 0.95))
+		return after / before
+	return (1.0 + training + prayer) / maxf(0.0001, 1.0 + training)
+
+
 static func _mystic_dice_ratio(runtime_state: Object, stat_key: String) -> float:
 	if runtime_state == null or not runtime_state.has_method("get_mystic_dice_multiplier"):
 		return 1.0
@@ -407,6 +437,15 @@ static func _append_runtime_perk_chain_entries(entries: Array, runtime_state: Ob
 			bool(CHAIN_PERK_BONUS_IS_REDUCTION.get(method_name, false))
 		),
 		training_id
+	)
+	_append_ratio_entry(
+		entries,
+		"샘터 기도",
+		_tower_spring_prayer_ratio(
+			runtime_state,
+			training_stat,
+			bool(CHAIN_PERK_BONUS_IS_REDUCTION.get(method_name, false))
+		)
 	)
 	var dice_key: String = str(CHAIN_DICE_KEY_BY_METHOD.get(method_name, ""))
 	if dice_key != "":
@@ -508,6 +547,7 @@ static func move_speed_breakdown(
 			_append_ratio_entry(entries, _catalog_perk_label("horn_strawberry_mask", "뿔딸기 변신가면"), maxf(0.0, float(horn_speed)) / base_speed, "horn_strawberry_mask")
 	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_swiftness"), _perk_bonus_ratio(runtime_state, "common_swiftness", false), _perk_icon_id(runtime_state, "common_swiftness"))
 	_append_ratio_entry(entries, _catalog_perk_label("physique_move_speed", "유운보 수련"), _physique_training_ratio(runtime_state, "move_speed_bonus_pct", false), "physique_move_speed")
+	_append_ratio_entry(entries, "샘터 기도", _tower_spring_prayer_ratio(runtime_state, "move_speed_bonus_pct", false))
 	_append_ratio_entry(entries, "팔자윷",_mystic_dice_ratio(runtime_state, "player_speed"), "mystic_dice")
 	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "move_speed"), "angel_blessing")
 	if runtime_state != null and runtime_state.has_method("get_perk_fusion_move_speed_multiplier"):
@@ -533,6 +573,7 @@ static func paddle_width_breakdown(
 	var entries: Array = []
 	_append_ratio_entry(entries, _perk_source_label(runtime_state, "common_bulk_up"), _perk_bonus_ratio(runtime_state, "common_bulk_up", false), _perk_icon_id(runtime_state, "common_bulk_up"))
 	_append_ratio_entry(entries, _catalog_perk_label("physique_paddle_size", "철산공 수련"), _physique_training_ratio(runtime_state, "paddle_size_bonus_pct", false), "physique_paddle_size")
+	_append_ratio_entry(entries, "샘터 기도", _tower_spring_prayer_ratio(runtime_state, "paddle_size_bonus_pct", false))
 	_append_ratio_entry(entries, "팔자윷",_mystic_dice_ratio(runtime_state, "paddle_size"), "mystic_dice")
 	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "paddle_size"), "angel_blessing")
 	var runtime_scale: float = runtime_paddle_scale(runtime_scale_fallback, runtime_state)
@@ -564,14 +605,16 @@ static func gauge_breakdown_from_steps(steps: Array, runtime_state: Object, myth
 		var gauge_source: String = str(step.get("source", ""))
 		if gauge_source == "bluetooth_ring" and runtime_state != null:
 			var training_pct := maxf(0.0, float(runtime_state.get_physique_training_bonus("hit_gauge_bonus_pct"))) if runtime_state.has_method("get_physique_training_bonus") else 0.0
-			if training_pct > 0.0:
+			var prayer_pct := _tower_spring_prayer_bonus_pct(runtime_state)
+			if training_pct > 0.0 or prayer_pct > 0.0:
 				# Split the measured production step, not only runtime_state's option
 				# query: legacy Bluetooth owners can provide their portion from the
 				# mythic compatibility layer while training still enters the same step.
 				var total_pct := maxf(0.0, (float(step.get("after", before)) / before - 1.0) * 100.0)
-				var perk_pct := maxf(0.0, total_pct - training_pct)
+				var perk_pct := maxf(0.0, total_pct - training_pct - prayer_pct)
 				_append_ratio_entry(entries, _gauge_step_label(gauge_source), 1.0 + perk_pct / 100.0, _gauge_step_icon_id(gauge_source))
 				_append_ratio_entry(entries, _catalog_perk_label("physique_hit_gauge", "격기심법 수련"), (100.0 + perk_pct + training_pct) / maxf(0.0001, 100.0 + perk_pct), "physique_hit_gauge")
+				_append_ratio_entry(entries, "샘터 기도", (100.0 + perk_pct + training_pct + prayer_pct) / maxf(0.0001, 100.0 + perk_pct + training_pct))
 				continue
 		if gauge_source == "lingpet" and lingpet_runtime != null and lingpet_runtime.has_method("get_player_stat_breakdown"):
 			var detailed: Variant = lingpet_runtime.get_player_stat_breakdown("gauge_gain", before)
@@ -630,6 +673,7 @@ static func dash_distance_breakdown(duration_steps: Array, runtime_state: Object
 		if is_perk_step:
 			_append_ratio_entry(entries, _perk_source_label(runtime_state, "dash_jump"), _perk_bonus_ratio(runtime_state, "dash_jump", false), _perk_icon_id(runtime_state, "dash_jump"))
 			_append_ratio_entry(entries, _catalog_perk_label("physique_dash_distance", "비천보 수련"), _physique_training_ratio(runtime_state, "dash_distance_bonus_pct", false), "physique_dash_distance")
+			_append_ratio_entry(entries, "샘터 기도", _tower_spring_prayer_ratio(runtime_state, "dash_distance_bonus_pct", false))
 			continue
 		var label: String = _perk_source_label(runtime_state, "dash_jump") if is_perk_step else _dash_step_label(dist_source)
 		var icon_id: String = _perk_icon_id(runtime_state, "dash_jump") if is_perk_step else _dash_step_icon_id(dist_source)
@@ -693,6 +737,10 @@ static func max_gauge_breakdown(runtime_state: Object, mythic_item_runtime: Obje
 		_append_ratio_entry(entries, _catalog_perk_label("physique_max_gauge", "태허심법 수련"), (after_perk + training_bonus) / maxf(0.0001, after_perk), "physique_max_gauge")
 	elif mythic_item_runtime != null and mythic_item_runtime.has_method("get_player_stat_breakdown"):
 		_append_detailed_breakdown_entries(entries, mythic_item_runtime.get_player_stat_breakdown("max_gauge", base_max_gauge), "신화 아이템")
+	var prayer_flat := base_max_gauge * _tower_spring_prayer_bonus_pct(runtime_state) / 100.0
+	if prayer_flat > 0.0:
+		var before_prayer := base_max_gauge + training_bonus
+		_append_ratio_entry(entries, "샘터 기도", (before_prayer + prayer_flat) / maxf(0.0001, before_prayer))
 	_append_ratio_entry(entries, "팔자윷",_mystic_dice_ratio(runtime_state, "skill_gauge"), "mystic_dice")
 	_append_ratio_entry(entries, "천운삼괘", _angel_ratio(runtime_state, "gauge_max"), "angel_blessing")
 	return entries

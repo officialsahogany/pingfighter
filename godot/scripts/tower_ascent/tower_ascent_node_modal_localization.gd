@@ -60,6 +60,16 @@ const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_c
 const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
 const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
 const KEY_SPRING_SOUL_SUMMONING_OPTION := "tower_ascent.node_modal.guardian_spring.soul_summoning_option"
+const KEY_SPRING_PALM_OPTION := "tower_ascent.node_modal.guardian_spring.palm_option"
+const KEY_SPRING_PRAYER_OPTION := "tower_ascent.node_modal.guardian_spring.prayer_option"
+const KEY_SPRING_BROWSE_OPTION := "tower_ascent.node_modal.guardian_spring.browse_option"
+const KEY_SPRING_BROWSE_PLACEHOLDER := "tower_ascent.node_modal.guardian_spring.browse_placeholder"
+const KEY_SPRING_PALM_COMPLETED := "tower_ascent.node_modal.guardian_spring.palm_completed"
+const KEY_SPRING_PRAYER_COMPLETED := "tower_ascent.node_modal.guardian_spring.prayer_completed"
+const KEY_SPRING_PRAYER_RESULT := "tower_ascent.node_modal.guardian_spring.prayer_result"
+const KEY_SPRING_PRAYER_COUNT := "tower_ascent.node_modal.guardian_spring.prayer_count"
+const KEY_SPRING_CARD_BADGE_PRAYER := "tower_ascent.node_modal.guardian_spring.card_badge.prayer"
+const KEY_SPRING_CARD_PRAYER_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.prayer"
 const KEY_SPRING_FIRST_VISIT_COMPLETE := "tower_ascent.node_modal.guardian_spring.first_visit_complete"
 const KEY_SPRING_ENHANCE_OPTION := "tower_ascent.node_modal.guardian_spring.enhance_option"
 const KEY_SPRING_SWAP_OPTION := "tower_ascent.node_modal.guardian_spring.swap_option"
@@ -167,6 +177,16 @@ const TEXT_BY_LOCALE := {
 		KEY_MONK_OFFER_UNAVAILABLE: "파계승의 초식 선택지를 준비할 수 없습니다.",
 		KEY_COST_FREE: "무료",
 		KEY_SPRING_SOUL_SUMMONING_OPTION: "영혼소환술 습득",
+		KEY_SPRING_PALM_OPTION: "손바닥을 대본다",
+		KEY_SPRING_PRAYER_OPTION: "기도한다",
+		KEY_SPRING_BROWSE_OPTION: "수호령들을 살핀다",
+		KEY_SPRING_BROWSE_PLACEHOLDER: "수호령 살피기는 다음 단계에서 열립니다.",
+		KEY_SPRING_PALM_COMPLETED: "이미 샘터의 기운을 받아들였습니다.",
+		KEY_SPRING_PRAYER_COMPLETED: "기도가 닿아 전능력치가 상승했습니다.",
+		KEY_SPRING_PRAYER_RESULT: "전능력치 상승",
+		KEY_SPRING_PRAYER_COUNT: "기도 {count}회",
+		KEY_SPRING_CARD_BADGE_PRAYER: "샘터 기도",
+		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "이번 런 동안 플레이어 전능력치가 {bonus}%p 상승합니다.",
 		KEY_SPRING_FIRST_VISIT_COMPLETE: "영혼소환술을 익혔습니다. 다음 샘터부터 수호령을 정비할 수 있습니다.",
 		KEY_SPRING_ENHANCE_OPTION: "수호령 강화: {name}",
 		KEY_SPRING_SWAP_OPTION: "봉인 해제 및 교체: {name}",
@@ -212,6 +232,16 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_SPRING_PALM_OPTION: "Place your palm",
+		KEY_SPRING_PRAYER_OPTION: "Offer a prayer",
+		KEY_SPRING_BROWSE_OPTION: "View the guardians",
+		KEY_SPRING_BROWSE_PLACEHOLDER: "Guardian browsing opens in the next stage.",
+		KEY_SPRING_PALM_COMPLETED: "You have already received the spring's energy.",
+		KEY_SPRING_PRAYER_COMPLETED: "Your prayer raised all player stats.",
+		KEY_SPRING_PRAYER_RESULT: "All stats increased",
+		KEY_SPRING_PRAYER_COUNT: "Prayers {count}",
+		KEY_SPRING_CARD_BADGE_PRAYER: "Spring Prayer",
+		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "Raises all player stats by {bonus} percentage points for this run.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Soul Summoning",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Active · Enhance",
 		KEY_SPRING_CARD_BADGE_SWAP: "Sealed · Swap",
@@ -251,6 +281,16 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
+		KEY_SPRING_PRAYER_OPTION: "祈祷",
+		KEY_SPRING_BROWSE_OPTION: "查看守护灵",
+		KEY_SPRING_BROWSE_PLACEHOLDER: "守护灵查看功能将在下一阶段开放。",
+		KEY_SPRING_PALM_COMPLETED: "你已经接受了泉水的力量。",
+		KEY_SPRING_PRAYER_COMPLETED: "祈祷使玩家全属性提升。",
+		KEY_SPRING_PRAYER_RESULT: "全属性提升",
+		KEY_SPRING_PRAYER_COUNT: "祈祷 {count} 次",
+		KEY_SPRING_CARD_BADGE_PRAYER: "泉边祈祷",
+		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "本次挑战中玩家全属性提升 {bonus} 个百分点。",
 		KEY_SPRING_CARD_BADGE_SOUL: "灵魂召唤术",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "出战 · 强化",
 		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交换",
@@ -290,6 +330,16 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
+		KEY_SPRING_PRAYER_OPTION: "祈る",
+		KEY_SPRING_BROWSE_OPTION: "守護霊たちを見る",
+		KEY_SPRING_BROWSE_PLACEHOLDER: "守護霊の閲覧は次の段階で開放されます。",
+		KEY_SPRING_PALM_COMPLETED: "すでに泉の力を受け入れました。",
+		KEY_SPRING_PRAYER_COMPLETED: "祈りによりプレイヤーの全能力値が上昇しました。",
+		KEY_SPRING_PRAYER_RESULT: "全能力値上昇",
+		KEY_SPRING_PRAYER_COUNT: "祈り {count}回",
+		KEY_SPRING_CARD_BADGE_PRAYER: "泉の祈り",
+		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "この挑戦中、プレイヤーの全能力値が{bonus}ポイント上昇します。",
 		KEY_SPRING_CARD_BADGE_SOUL: "魂召喚術",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "同行 · 強化",
 		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交代",

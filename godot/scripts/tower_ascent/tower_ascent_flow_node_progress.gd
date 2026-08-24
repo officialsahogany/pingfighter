@@ -16,6 +16,8 @@ func record_guardian_identity_reveal(pet_id: String, registry: Object = null) ->
 			"reason": "tower_run_inactive",
 		}
 	var result: Dictionary = _guardian_spring_node.record_identity_reveal(pet_id, registry)
+	if bool(result.get("accepted", false)):
+		_run_state.lock_guardian_prayer()
 	var codex_result: Dictionary = _dictionary_copy(result.get("codex_result", {}))
 	if bool(codex_result.get("accepted", false)) and bool(codex_result.get("changed", false)):
 		var discovery_id := str(codex_result.get("discovery_id", ""))
@@ -31,7 +33,7 @@ func record_guardian_identity_reveal(pet_id: String, registry: Object = null) ->
 				"discovery_id": discovery_id,
 			})
 	_guardian_state = _guardian_spring_node.export_state()
-	_guardian_spring_node.sync_owner_projection(_active_owner)
+	_guardian_spring_node.sync_owner_projection(_active_owner, _run_state, _active_registry)
 	if _active and _phase == PHASE_NODE_MODAL and _node_modal_kind == "guardian_spring":
 		_refresh_guardian_spring_modal("")
 	return result
@@ -457,7 +459,7 @@ func _execute_guardian_spring_action(
 		_active_registry
 	)
 	_guardian_state = _guardian_spring_node.export_state()
-	_guardian_spring_node.sync_owner_projection(_active_owner)
+	_guardian_spring_node.sync_owner_projection(_active_owner, _run_state, _active_registry)
 	_refresh_guardian_spring_modal(str(result.get("message", result.get("reason", ""))))
 	return result
 

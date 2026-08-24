@@ -563,6 +563,17 @@ func build_fuel_pouch_gauge_projection(
 	if (
 		runtime_perk_state != null
 		and is_instance_valid(runtime_perk_state)
+		and runtime_perk_state.has_method("get_tower_spring_prayer_flat_bonus")
+	):
+		next_unblessed_max += maxf(
+			0.0,
+			float(runtime_perk_state.get_tower_spring_prayer_flat_bonus(
+				base_special_gauge_max
+			))
+		)
+	if (
+		runtime_perk_state != null
+		and is_instance_valid(runtime_perk_state)
 		and runtime_perk_state.has_method("get_mystic_dice_multiplier")
 	):
 		next_unblessed_max = maxf(

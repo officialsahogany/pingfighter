@@ -26,7 +26,13 @@ func _verify_new_run_and_sanitization() -> void:
 	_expect(state.begin("run-state-smoke", {"gold": -5, "muhon": 7, "chance_gems": 2}), "valid run must start")
 	_expect(state.get_run_id() == "run-state-smoke", "run state must own run_id")
 	_expect(
-		state.export_economy() == {"gold": 0, "muhon": 7, "chance_gems": 2},
+		state.export_economy() == {
+			"gold": 0,
+			"muhon": 7,
+			"chance_gems": 2,
+			"prayer_count": 0,
+			"prayer_locked": false,
+		},
 		"run economy must clamp negative inputs without inventing another currency"
 	)
 	_expect(

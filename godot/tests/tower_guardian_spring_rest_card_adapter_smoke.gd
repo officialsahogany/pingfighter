@@ -142,8 +142,8 @@ func _build_full_spring_fixture() -> Dictionary:
 		registry
 	)
 	_expect(
-		actions.size() == 1,
-		"retired sealed roster must leave only the active guardian enhancement action"
+		actions.size() == 2,
+		"S2 guardian menu must contain enhancement plus the browse placeholder"
 	)
 	_expect((spring.export_state().get("sealed_guardians", []) as Array).is_empty(), "legacy sealed entries must be discarded on restore")
 	spring.sync_owner_projection(owner)
@@ -166,6 +166,8 @@ func _verify_live_portrait_adapter(fixture: Dictionary) -> void:
 			continue
 		var action := action_value as Dictionary
 		var payload: Dictionary = action.get("payload", {})
+		if str(payload.get("operation", "")) != "enhance":
+			continue
 		var choice: Dictionary = payload.get("choice", {})
 		var pet_id := str(payload.get("pet_id", ""))
 		var portrait_path := str(choice.get("guardian_portrait_path", ""))
@@ -179,7 +181,7 @@ func _verify_live_portrait_adapter(fixture: Dictionary) -> void:
 		_expect(not str(presentation.get("result", "")).is_empty(), "spring card must expose its projected result")
 		_expect(bool(presentation.get("strict_text_budget", false)), "spring hover copy must use the strict GRT-021 budget")
 	var spring: Object = fixture.get("spring", null)
-	var soul_action_value: Variant = spring.call("_build_soul_summoning_action")
+	var soul_action_value: Variant = spring.call("_build_palm_action", true)
 	var soul_action: Dictionary = soul_action_value as Dictionary
 	var soul_choice: Dictionary = soul_action.get("payload", {}).get("choice", {})
 	_expect(str(soul_choice.get("card_content_kind", "")) == "guardian_egg", "soul summoning must keep the existing guardian egg art mode")
@@ -213,9 +215,9 @@ func _verify_visible_page_contract(fixture: Dictionary) -> void:
 	_expect(modal.get_page_count() == 1, "retired sealed roster must fit the spring menu on one page")
 	var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
 	var flags: Dictionary = model.get("layout_flags", {})
-	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, true)), "single-action spring model must not carry page controls")
+	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, true)), "two-action spring model must not carry page controls")
 	var rects: Array = model.get("action_rects", [])
-	_expect(_count_area_rects(rects) == 2, "spring model must draw one action plus the fixed end-work action")
+	_expect(_count_area_rects(rects) == 3, "spring model must draw two actions plus the fixed end-work action")
 	var end_index := _find_action_index(model.get("actions", []), TowerAscentNodeModalState.ACTION_END_WORK)
 	_expect(end_index >= 0 and (rects[end_index] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "end work must remain fixed independently of visible_page")
 	var action_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
