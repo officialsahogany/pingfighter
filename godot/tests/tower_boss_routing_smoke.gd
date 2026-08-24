@@ -163,7 +163,19 @@ func _verify_run_progress_survives_two_combat_preparations() -> void:
 	_expect(flow.prepare_vertical_slice_combat(null), "progress fixture must traverse prepare a second time")
 	var snapshot: Dictionary = flow.export_snapshot()
 	_expect(str(snapshot.get("run_id", "")) == "progress-reentry", "second prepare must preserve run_id")
-	_expect(snapshot.get("run_state", {}) == {"gold": 19, "muhon": 23, "chance_gems": 2}, "second prepare must preserve all run economy fields")
+	# The 2fee baseline run-state schema includes the guardian-spring prayer
+	# defaults. Exact preservation must seal those fields as well as currencies.
+	_expect(
+		snapshot.get("run_state", {}) == {
+			"gold": 19,
+			"muhon": 23,
+			"chance_gems": 2,
+			"prayer_count": 0,
+			"prayer_locked": false,
+		},
+		"second prepare must preserve all run economy fields: %s"
+		% str(snapshot.get("run_state", {}))
+	)
 	_expect((snapshot.get("purchase_history", []) as Array).size() == 1, "second prepare must preserve purchase history")
 	_expect((snapshot.get("generated_shop_inventory", []) as Array).size() == 1, "second prepare must preserve generated inventory")
 	_expect((snapshot.get("build_state", {}) as Dictionary).get("mugong", []) == ["fixture_mugong"], "second prepare must preserve the run build")

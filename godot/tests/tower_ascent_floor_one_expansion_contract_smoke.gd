@@ -31,7 +31,7 @@ const TowerAscentTuning := preload(
 const SAMPLE_SEED_COUNT := 128
 const MAP_DRAW_CALL_LIMIT := 1536
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
-const EXPECTED_GENERATOR_VERSION := "tower_map_v13_early_guardian_spring"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
 
 
 class EarlyGuaranteeDisabledGenerator:
@@ -201,8 +201,9 @@ func _verify_standard_seeds() -> void:
 			added_node_count == 10,
 			"seed %d must identify exactly ten first-floor-added nodes" % map_seed
 		)
-		# 피드백2 8항: 보스 수는 예산 파생이 아니라 구조 고정이다 — 층당
-		# 단일 레인 초크포인트 관문(1..클리어층) + 1층 선택 조우 2.
+		# 피드백2 8항 후속: 기존 구조는 층당 단일 레인 초크포인트 관문과
+		# 1층 선택 조우 2를 보존한다. 2층 이상 추가 조우는 기존 NPC 전환이라
+		# 이 기준값 위에 별도로 더해진다.
 		_expect(
 			gatekeeper_boss_count == TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR,
 			"seed %d must keep every human-realm floor gate a chokepoint boss"
@@ -210,8 +211,9 @@ func _verify_standard_seeds() -> void:
 		)
 		_expect(
 			int(integrity.get("combat_node_count", 0))
-				== gatekeeper_boss_count + floor_one_choice_count,
-			"seed %d combat count must be exactly the gates plus the first-floor choices"
+				== gatekeeper_boss_count + floor_one_choice_count
+					+ _count_optional_extra_bosses(graph),
+			"seed %d combat count must be gates, first-floor choices, and optional extras"
 			% map_seed
 		)
 		_generated_node_count += int(integrity.get("generated_node_count", 0))
@@ -484,6 +486,17 @@ func _all_node_index(graph: Dictionary) -> Dictionary:
 			if node_variant is Dictionary:
 				var node := node_variant as Dictionary
 				result[str(node.get("id", ""))] = node
+	return result
+
+
+func _count_optional_extra_bosses(graph: Dictionary) -> int:
+	var result := 0
+	for node_variant in _all_node_index(graph).values():
+		if (
+			node_variant is Dictionary
+			and bool((node_variant as Dictionary).get("optional_extra_boss", false))
+		):
+			result += 1
 	return result
 
 

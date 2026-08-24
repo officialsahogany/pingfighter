@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v13_early_guardian_spring"
+const GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -720,6 +720,8 @@ func _analyze_phase_integrity(
 			require_distribution_contract
 			and _is_generated_combat_node(from_node)
 			and _is_generated_combat_node(to_node)
+			and not _is_optional_extra_boss(from_node)
+			and not _is_optional_extra_boss(to_node)
 		):
 			boss_adjacency_count += 1
 	if invalid_edge_count > 0:
@@ -930,6 +932,10 @@ func _is_generated_combat_node(node: Dictionary) -> bool:
 	)
 
 
+func _is_optional_extra_boss(node: Dictionary) -> bool:
+	return bool(node.get("optional_extra_boss", false))
+
+
 func _is_allowed_singleton_row(
 	_phase: Dictionary,
 	row_index: int,
@@ -958,7 +964,7 @@ func _count_boss_spacing_violations(
 		var has_generated_boss := false
 		for node_id_variant in row_ids:
 			var node: Dictionary = node_by_id.get(str(node_id_variant), {})
-			if _is_generated_combat_node(node):
+			if _is_generated_combat_node(node) and not _is_optional_extra_boss(node):
 				has_generated_boss = true
 				break
 		if not has_generated_boss:
@@ -983,10 +989,17 @@ func _is_full_generated_npc_row(row_ids: Array, node_by_id: Dictionary) -> bool:
 		return false
 	for node_id_variant in row_ids:
 		var node: Dictionary = node_by_id.get(str(node_id_variant), {})
-		if (
-			str(node.get("content_state", "")) != "generated"
-			or str(node.get("kind", "")) not in NONCOMBAT_NODE_KINDS
-		):
+		if str(node.get("content_state", "")) != "generated":
+			return false
+		var node_kind := str(node.get("kind", ""))
+		if node_kind in NONCOMBAT_NODE_KINDS:
+			continue
+		# v14 optional extras replace at most one member of a wide NPC row.
+		# The untouched sibling is the guaranteed bypass, so this mixed row still
+		# separates the required gate encounters without changing topology.
+		if _is_optional_extra_boss(node) and node_kind in COMBAT_NODE_KINDS:
+			continue
+		else:
 			return false
 	return true
 

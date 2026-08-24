@@ -26,12 +26,11 @@ const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
 # fixed. S3 derives combat allocation from the NPC distribution contract rather
 # than an independent extra-combat-row budget.
 const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
-# 피드백2 8항: 관문이 단일 레인 초크포인트가 되며 게이트 NPC 레인 14개가
-# 사라져 분모가 줄고, 런당 보스 수는 구조 고정(종착 1 + 1층 3 + 관문 7 =
-# 11/생성 35노드 = 0.3143, 시드별 분모 변동 상단 여유 포함)이 된다. 이 두 계약은 이제 무작위 보스 스팸
-# 방지가 아니라 구조 고정값의 회귀 트립와이어다 — 실측 직상단으로 재보정.
-const TEMP_GENERATED_BOSS_NODE_MAX_RATIO := 0.34
-const TEMP_GENERATED_NPC_PER_BOSS_MIN := 2
+# 피드백2 8항 후속: v14의 우회 가능 추가 보스는 기존 NPC를 전환하므로
+# 최악 시드의 생성 노드 35개 중 보스 13 / NPC 22가 된다. 128시드 실측
+# 최대 0.371429와 최소 NPC:boss 1.692308을 각각 직상단/직하단에서 봉인한다.
+const TEMP_GENERATED_BOSS_NODE_MAX_RATIO := 0.38
+const TEMP_GENERATED_NPC_PER_BOSS_MIN := 1.65
 const TEMP_MAP_DEGREE_TWO_MIN_RATIO := 0.70
 const TEMP_NODE_TYPE_WEIGHTS := {
 	"shop": 2,
