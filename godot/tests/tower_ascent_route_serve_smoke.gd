@@ -177,6 +177,21 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
+class FakeGameAudio:
+	extends RefCounted
+
+	var wall_hit_calls: Array[Dictionary] = []
+
+	func play_wall_hit(
+		impact_speed: float = 0.0,
+		source_x: float = 380.0
+	) -> void:
+		wall_hit_calls.append({
+			"impact_speed": impact_speed,
+			"source_x": source_x,
+		})
+
+
 class FakeInputReader:
 	extends RefCounted
 
@@ -586,6 +601,7 @@ func _init() -> void:
 	_verify_live_shell_meta_owner_frame_path()
 	_verify_physics_gate_frame_path_moves_serves_and_hits()
 	_verify_free_movement_while_waiting_and_in_flight()
+	_verify_route_wall_audio_and_bounce_normalization()
 	_verify_top_wall_and_player_paddle_round_trip()
 	_verify_real_serve_owner_and_unlimited_retry()
 	_verify_route_wait_never_auto_serves_and_legacy_still_does()
@@ -767,9 +783,9 @@ func _verify_wind_bias_reachability_and_flight_drift() -> void:
 
 
 func _verify_wind_production_flight_reachability_and_materiality() -> void:
-	# 코덱스 리뷰(8/23): 0.25초 단위 드리프트 레그만으로는 생산 속도(274px/s,
-	# 구 픽스처 522 대비 비행이 길어 바람 변위가 제곱으로 커진다)의 전체
-	# 비행을 재현하지 못한다. 세기 1~3·양방향 전부를 생산 파생 속도로
+	# 코덱스 리뷰(8/23): 0.25초 단위 드리프트 레그만으로는 생산 속도(현재
+	# 411px/s이며 구 픽스처는 522)의 전체 비행을 재현하지 못한다. 세기
+	# 1~3·양방향 전부를 생산 파생 속도로
 	# 게이지 유효각 안에서 끝까지 날려 두 표적의 실제 HIT 도달성과, 무풍
 	# 최적각이 강풍에서 빗나가는 바람 실질성(역반증)을 봉인한다.
 	_expect(
@@ -834,15 +850,44 @@ func _verify_wind_production_flight_reachability_and_materiality() -> void:
 					)
 	if not is_nan(calm_left_angle):
 		var strong_tailwind := TowerAscentRouteWindPolicy.build_model(1, 3)
+		var left_target_position := Vector2(
+			TowerAscentTuning.TEMP_ROUTE_TARGET_LEFT_X,
+			TowerAscentTuning.TEMP_ROUTE_TARGET_Y
+		)
+		var route_origin: Vector2 = TowerAscentTuning.TEMP_ROUTE_PICKUP_ROUTE_ORIGIN
+		var calm_optimal_angle := rad_to_deg(atan2(
+			left_target_position.x - route_origin.x,
+			route_origin.y - left_target_position.y
+		))
+		var calm_optimal := _fly_production_angle(
+			TowerAscentRouteWindPolicy.calm_model(),
+			flight_targets,
+			calm_optimal_angle
+		)
+		_expect(
+			str(calm_optimal.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_HIT
+			and str(calm_optimal.get("target_id", "")) == "left",
+			"the calm centerline-optimal angle must hit the left target"
+		)
 		var bent := _fly_production_angle(
 			strong_tailwind,
 			flight_targets,
-			calm_left_angle
+			calm_optimal_angle,
+			"left"
+		)
+		var materiality_margin := float(bent.get("minimum_target_edge_margin_px", NAN))
+		print(
+			"tower_ascent_route_serve_smoke: wind_materiality calm_angle=%.3f margin_px=%.3f"
+			% [calm_optimal_angle, materiality_margin]
 		)
 		_expect(
 			str(bent.get("status", "")) != TowerAscentRouteServeRuntime.STATUS_HIT
 				or str(bent.get("target_id", "")) != "left",
 			"a strength-3 tailwind must bend the calm left-target angle off its mark"
+		)
+		_expect(
+			not is_nan(materiality_margin) and materiality_margin > 0.0,
+			"the strong-tailwind reverse leg must retain a measurable miss margin"
 		)
 
 
@@ -872,7 +917,8 @@ func _first_hitting_angle(
 func _fly_production_angle(
 	wind_model: Dictionary,
 	flight_targets: Array[Dictionary],
-	angle_degrees: float
+	angle_degrees: float,
+	measure_target_id: String = ""
 ) -> Dictionary:
 	var runtime := TowerAscentRouteServeRuntime.new()
 	runtime.begin(null, null, wind_model)
@@ -883,16 +929,50 @@ func _fly_production_angle(
 	)
 	runtime.debug_serve_toward(origin + direction * 120.0)
 	var outcome: Dictionary = {}
+	var measured_target: Dictionary = {}
+	for target in flight_targets:
+		if str(target.get("id", "")) == measure_target_id:
+			measured_target = target
+			break
+	var minimum_target_edge_margin := INF
 	for _tick in range(600):
+		var segment_start := runtime.get_ball_position()
 		outcome = runtime.update(1.0 / 60.0, flight_targets)
 		var status := str(outcome.get("status", ""))
+		if not measured_target.is_empty() and status != TowerAscentRouteServeRuntime.STATUS_MISS:
+			var segment_end := runtime.get_ball_position()
+			var target_position: Vector2 = measured_target.get("position", Vector2.ZERO)
+			var contact_radius := (
+				float(measured_target.get("hit_radius", 0.0))
+				+ 28.6 * 0.5
+			)
+			minimum_target_edge_margin = minf(
+				minimum_target_edge_margin,
+				_distance_to_segment(target_position, segment_start, segment_end)
+					- contact_radius
+			)
 		if (
 			status == TowerAscentRouteServeRuntime.STATUS_HIT
 			or status == TowerAscentRouteServeRuntime.STATUS_MISS
 		):
 			break
+	if minimum_target_edge_margin < INF:
+		outcome["minimum_target_edge_margin_px"] = minimum_target_edge_margin
 	runtime.cancel()
 	return outcome
+
+
+func _distance_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment := segment_end - segment_start
+	var length_squared := segment.length_squared()
+	if length_squared <= 0.0001:
+		return point.distance_to(segment_start)
+	var ratio := clampf(
+		(point - segment_start).dot(segment) / length_squared,
+		0.0,
+		1.0
+	)
+	return point.distance_to(segment_start + segment * ratio)
 
 
 func _verify_route_target_uses_map_icon_without_name_text() -> void:
@@ -1276,6 +1356,144 @@ func _verify_free_movement_while_waiting_and_in_flight() -> void:
 	owner.free()
 
 
+func _verify_route_wall_audio_and_bounce_normalization() -> void:
+	var owner := FakeOwner.new()
+	var round_state := FakeRoundState.new()
+	var ball_driver := FakeBallDriver.new(round_state)
+	var input_reader := FakeInputReader.new()
+	input_reader.snapshot["direction"] = 0.0
+	input_reader.snapshot["mouse_left_just_pressed"] = false
+	var game_audio := FakeGameAudio.new()
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"game_audio": game_audio,
+		"round_flow_state": round_state,
+		"battle_scene_ball_update_driver": ball_driver,
+		"ball_motion_stepper": BallMotionStepper.new(),
+		"paddle_bounce_state": PaddleBounceState.new(),
+		"ball_physics": BallPhysics.new(),
+		"smasher_input_reader": input_reader,
+		"player_movement_state": FakeMovementState.new(),
+		"battle_update_context": FakePlayerControlContext.new(),
+		"battle_scene_player_control_config_builder": BattleScenePlayerControlConfigBuilder.new(),
+	}
+	var runtime := TowerAscentRouteServeRuntime.new()
+	_expect(
+		bool(runtime.begin(owner, registry).get("accepted", false)),
+		"route wall-audio fixture must acquire the production route dependencies"
+	)
+	var serve_speed := TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+	var ball_radius := owner.ball_size * 0.5
+	var empty_targets: Array[Dictionary] = []
+
+	# The negative leg must travel through the same live advance owner without
+	# manufacturing a wall cue for ordinary flight.
+	round_state.waiting = false
+	owner.ball_active = true
+	owner.ball_pos = Vector2(380.0, 400.0)
+	owner.ball_vel = Vector2(0.0, -serve_speed)
+	runtime.update(1.0 / 60.0, empty_targets)
+	_expect(
+		game_audio.wall_hit_calls.is_empty(),
+		"straight live route flight must emit zero wall-hit sounds"
+	)
+
+	owner.ball_pos = Vector2(ball_radius + 1.0, 300.0)
+	owner.ball_vel = Vector2(-serve_speed, 0.0)
+	var side_result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
+	_expect(
+		str(side_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT,
+		"the live side-wall audio leg must remain in route flight"
+	)
+	_expect(
+		game_audio.wall_hit_calls.size() == 1,
+		"one live side-wall bounce must emit exactly one wall-hit sound"
+	)
+	if game_audio.wall_hit_calls.size() == 1:
+		var side_call: Dictionary = game_audio.wall_hit_calls[0]
+		_expect(
+			is_equal_approx(float(side_call.get("impact_speed", 0.0)), serve_speed),
+			"side-wall audio must receive the incoming route impact speed"
+		)
+		_expect(
+			is_equal_approx(float(side_call.get("source_x", -1.0)), 0.0),
+			"left-wall audio must use the physical wall x for positional panning"
+		)
+	_expect(
+		owner.ball_vel.x > 0.0 and is_equal_approx(owner.ball_vel.length(), serve_speed),
+		"side-wall reflection must preserve direction and normalize to route serve speed"
+	)
+
+	game_audio.wall_hit_calls.clear()
+	owner.ball_pos = Vector2(540.0, 1.0)
+	owner.ball_vel = Vector2(0.0, -serve_speed)
+	var top_result: Dictionary = runtime.update(1.0 / 60.0, empty_targets)
+	_expect(
+		str(top_result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT,
+		"the live top-wall audio leg must reflect without scoring"
+	)
+	_expect(
+		game_audio.wall_hit_calls.size() == 1,
+		"one live top-wall bounce must emit exactly one wall-hit sound"
+	)
+	if game_audio.wall_hit_calls.size() == 1:
+		var top_call: Dictionary = game_audio.wall_hit_calls[0]
+		_expect(
+			is_equal_approx(float(top_call.get("impact_speed", 0.0)), serve_speed),
+			"top-wall audio must receive the incoming route impact speed"
+		)
+		_expect(
+			is_equal_approx(float(top_call.get("source_x", -1.0)), 540.0),
+			"top-wall audio must retain the live ball x for positional panning"
+		)
+	_expect(
+		owner.ball_vel.y > 0.0 and is_equal_approx(owner.ball_vel.length(), serve_speed),
+		"top-wall reflection must normalize to route serve speed"
+	)
+
+	# Accumulate production wind during flight, then contact the right wall. The
+	# contact may flip the wall-normal axis only; normalization must preserve the
+	# wind-shaped direction while removing its accumulated speed inflation.
+	game_audio.wall_hit_calls.clear()
+	runtime.begin(owner, registry, TowerAscentRouteWindPolicy.build_model(1, 3))
+	round_state.waiting = false
+	owner.ball_active = true
+	owner.ball_pos = Vector2(380.0, 500.0)
+	owner.ball_vel = Vector2(0.0, -serve_speed)
+	for _frame in range(20):
+		runtime.update(1.0 / 60.0, empty_targets)
+	var accumulated_velocity := owner.ball_vel
+	_expect(
+		accumulated_velocity.length() > serve_speed
+		and is_equal_approx(accumulated_velocity.y, -serve_speed),
+		"strong route wind must accumulate speed through x only before contact"
+	)
+	owner.ball_pos = Vector2(760.0 - ball_radius - 0.1, 300.0)
+	var pre_reflection_velocity := accumulated_velocity
+	pre_reflection_velocity.x += (
+		3.0 * TowerAscentTuning.TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME
+	)
+	var expected_direction := Vector2(
+		-absf(pre_reflection_velocity.x),
+		pre_reflection_velocity.y
+	).normalized()
+	runtime.update(1.0 / 60.0, empty_targets)
+	_expect(
+		is_equal_approx(owner.ball_vel.length(), serve_speed),
+		"strong-wind wall contact must remove accumulated speed inflation"
+	)
+	_expect(
+		owner.ball_vel.normalized().is_equal_approx(expected_direction),
+		"wall normalization must preserve the wind-shaped reflection direction"
+	)
+	_expect(
+		game_audio.wall_hit_calls.size() == 1,
+		"the strong-wind right-wall contact must still emit one wall-hit sound"
+	)
+	runtime.cancel()
+	owner.free()
+
+
 func _verify_top_wall_and_player_paddle_round_trip() -> void:
 	var owner := FakeOwner.new()
 	owner.player_pos = Vector2(302.5, 700.0)
@@ -1331,6 +1549,14 @@ func _verify_top_wall_and_player_paddle_round_trip() -> void:
 		if owner.ball_pos.y > 600.0 and before_velocity.y > 0.0 and owner.ball_vel.y < 0.0:
 			paddle_bounced = true
 			_expect(str(result.get("status", "")) == TowerAscentRouteServeRuntime.STATUS_FLIGHT, "the player paddle must reflect without completing a miss")
+			print(
+				"tower_ascent_route_serve_smoke: paddle_speed incoming=%.3f outgoing=%.3f"
+				% [before_velocity.length(), owner.ball_vel.length()]
+			)
+			_expect(
+				is_equal_approx(owner.ball_vel.length(), before_velocity.length()),
+				"route paddle reflection must preserve incoming speed without the combat rally floor"
+			)
 			break
 	_expect(paddle_bounced, "the returning route ball must reuse player paddle reflection physics")
 	_expect(ball_driver.reset_calls == reset_count_after_serve and owner.ball_active, "player paddle reflection must preserve the active route attempt")
@@ -1425,7 +1651,10 @@ func _verify_real_serve_owner_and_unlimited_retry() -> void:
 	_expect(owner.player_score == 7 and owner.boss_score == 3, "route ball ownership must not emit combat score events")
 	_expect(owner.boss_ai_ticks == 0 and owner.combat_rng_state == 44123, "route ball ownership must not tick boss AI or combat RNG")
 	_expect(is_equal_approx(owner.cooldown_seconds, 2.5), "route ball ownership must not tick combat cooldowns")
-	_expect(not registry.reads.has("game_audio") and not registry.reads.has("boss_ai"), "selective route simulation must not acquire loop audio or boss AI")
+	_expect(
+		registry.reads.has("game_audio") and not registry.reads.has("boss_ai"),
+		"selective route simulation must acquire one-shot wall audio without boss AI"
+	)
 	runtime.cancel()
 	owner.free()
 

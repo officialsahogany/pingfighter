@@ -4,7 +4,6 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload(
 	"res://scripts/core/battle_scene_owner_reader.gd"
 )
-const BallSpeedPolicy := preload("res://scripts/ball/ball_speed_policy.gd")
 const PlayerCharacterRuntime := preload(
 	"res://scripts/characters/player_character_runtime.gd"
 )
@@ -33,6 +32,7 @@ var _active := false
 var _fixture_mode := false
 var _owner: Object = null
 var _registry: Object = null
+var _game_audio: Object = null
 var _round_state: Object = null
 var _ball_driver: Object = null
 var _motion_stepper: Object = null
@@ -63,6 +63,7 @@ func begin(owner: Object, registry: Object, wind_model: Variant = {}) -> Diction
 	_update_aim_oscillator(0.0)
 	_owner = owner
 	_registry = registry
+	_game_audio = _get_instance(registry, "game_audio")
 	_fixture_mode = owner == null or not (owner is Node)
 	_serve_attempt_count = 0
 	_serve_arm_remaining = TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS
@@ -103,6 +104,7 @@ func cancel() -> void:
 	_fixture_mode = false
 	_owner = null
 	_registry = null
+	_game_audio = null
 	_round_state = null
 	_ball_driver = null
 	_motion_stepper = null
@@ -373,24 +375,38 @@ func _advance_live_ball(
 	match str(step_result.get("event", "none")):
 		"wall":
 			var side := str(step_result.get("side", ""))
+			var impact_speed := velocity.length()
 			velocity.x = absf(velocity.x) if side == "left" else -absf(velocity.x)
+			velocity = _normalize_route_bounce_velocity(velocity)
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", velocity)
+			var impact_position := _vector2(
+				step_result.get("impact_pos", current),
+				current
+			)
+			_play_route_wall_hit(impact_speed, impact_position.x)
 			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"player_paddle":
 			_set_owner_value("ball_pos", current)
-			_set_owner_value("ball_vel", _resolve_player_paddle_bounce(
+			var resolved_velocity := _resolve_player_paddle_bounce(
 				current,
 				velocity,
 				float(step_result.get("paddle_x", 0.0)),
 				maxf(1.0, float(step_result.get("paddle_w", 155.0)))
-			))
+			)
+			_set_owner_value(
+				"ball_vel",
+				_normalize_route_bounce_velocity(resolved_velocity)
+			)
 			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"player_scored":
+			var impact_speed := velocity.length()
 			current.y = _ball_radius()
 			velocity.y = absf(velocity.y)
+			velocity = _normalize_route_bounce_velocity(velocity)
 			_set_owner_value("ball_pos", current)
 			_set_owner_value("ball_vel", velocity)
+			_play_route_wall_hit(impact_speed, current.x)
 			return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 		"boss_scored":
 			_prepare_next_serve()
@@ -425,9 +441,14 @@ func _update_fixture_flight(
 		_sync_fixture_to_owner()
 		return {"status": STATUS_HIT, "target_id": target_id, "pickup_ids": pickup_ids}
 	if _fixture_ball_position.y < _ball_radius():
+		var impact_speed := _fixture_ball_velocity.length()
 		_fixture_ball_position.y = _ball_radius()
 		_fixture_ball_velocity.y = absf(_fixture_ball_velocity.y)
+		_fixture_ball_velocity = _normalize_route_bounce_velocity(
+			_fixture_ball_velocity
+		)
 		_sync_fixture_to_owner()
+		_play_route_wall_hit(impact_speed, _fixture_ball_position.x)
 		return {"status": STATUS_FLIGHT, "pickup_ids": pickup_ids}
 	if _fixture_ball_position.y > BattleSceneConfig.HEIGHT:
 		_fixture_ball_active = false
@@ -534,14 +555,10 @@ func _resolve_player_paddle_bounce(
 		-1.0,
 		1.0
 	)
-	var accel_scale := 1.0
-	if _ball_physics.has_method("get_rally_speed_increase_multiplier"):
-		accel_scale *= float(_ball_physics.get_rally_speed_increase_multiplier())
-	if _ball_physics.has_method("get_junior_speed_increase_multiplier"):
-		accel_scale *= float(_ball_physics.get_junior_speed_increase_multiplier())
-	var minimum_speed := 3.0
-	if _ball_physics.has_method("get_minimum_rally_speed"):
-		minimum_speed = maxf(minimum_speed, float(_ball_physics.get_minimum_rally_speed()))
+	var incoming_speed := ball_velocity.length()
+	var minimum_speed := (
+		TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+	)
 	var bounce_result: Dictionary = _paddle_bounce_state.resolve_velocity(
 		ball_velocity,
 		hit_position,
@@ -551,19 +568,35 @@ func _resolve_player_paddle_bounce(
 		float(_paddle_bounce_state.get_initial_speed(ball_velocity)),
 		deg_to_rad(hit_position * 60.0),
 		false,
-		accel_scale,
+		1.0,
 		0,
 		_ball_physics,
 		null,
 		0.0,
 		0.0,
 		minimum_speed,
-		maxf(minimum_speed, BallSpeedPolicy.DEFAULT_MAX_BALL_SPEED)
+		maxf(minimum_speed, incoming_speed)
 	)
 	var resolved := _vector2(bounce_result.get("ball_vel", ball_velocity), ball_velocity)
 	if resolved.y >= 0.0:
 		resolved.y = -maxf(minimum_speed, absf(ball_velocity.y))
+	var resolved_speed := resolved.length()
+	if incoming_speed > 0.0001 and resolved_speed > incoming_speed:
+		resolved *= incoming_speed / resolved_speed
 	return resolved
+
+
+func _normalize_route_bounce_velocity(velocity: Vector2) -> Vector2:
+	if velocity == Vector2.ZERO:
+		return velocity
+	return velocity.normalized() * (
+		TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
+	)
+
+
+func _play_route_wall_hit(impact_speed: float, source_x: float) -> void:
+	if _game_audio != null and _game_audio.has_method("play_wall_hit"):
+		_game_audio.play_wall_hit(impact_speed, source_x)
 
 
 func _ball_radius() -> float:

@@ -58,9 +58,11 @@ const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 # Live feedback 2026-08-22: the route serve read as too fast to aim, so this
 # is a deliberate 30 percent cut from the original 522.0. 피드백2 7항
 # (2026-08-23): still too fast in live play, so a further 25 percent cut
-# (522.0 -> 365.4 -> 274.0). Misses only lengthen flight; there is no
-# flight timeout to retune.
-const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 274.0
+# (522.0 -> 365.4 -> 274.0). 피드백5 8항 (2026-08-25): the user's explicit
+# +50 percent direction sets 411.0 even though it is faster than the rejected
+# 365.4; wall/paddle acceleration is removed in the same change, so contact is
+# now a pure reflection. Misses only lengthen flight; there is no timeout.
+const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 411.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
@@ -69,12 +71,13 @@ const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 # 피드백2 6항 (2026-08-23): the 2026-08-21 "bias-only, no in-flight force"
 # ruling is reversed by the user's follow-up feedback. Wind now applies a
 # lateral acceleration to the route ball per physics frame (x delta x 60
-# convention), scaled by strength level 1..3. At serve speed 274 the full
-# flight (~2s) drifts roughly 64/129/193px, versus the 49px target hit
-# radius, so strength must actually be aimed against. Feedback 3 candidates
-# 0.014, 0.012, and 0.010 failed the full two-target reachability sweep; 0.009
-# is the highest adopted GREEN value. Battle weather owns its own constants
-# (weather_event_state.gd); never share them here.
+# convention), scaled by strength level 1..3. At the user-directed serve speed
+# 411 the full flight drifts roughly 28/57/86px for strengths 1/2/3, versus the
+# 49px target hit radius, so strength still must be aimed against. Feedback 3
+# candidates 0.014, 0.012, and 0.010 failed the full two-target reachability
+# sweep; 0.009 remains the highest adopted GREEN value and is remeasured at
+# 411. Battle weather owns its own constants (weather_event_state.gd); never
+# share them here.
 const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.009
 const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
 const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
