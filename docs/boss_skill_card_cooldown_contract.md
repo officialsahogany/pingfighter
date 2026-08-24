@@ -39,6 +39,9 @@ adapter일 뿐이며 보스 전수 목록의 원천이 아니다.
 - `trigger_type`: 표시 전용 발동 분류. 공용
   `BossSkillTriggerClass.TRIGGER_INSTANT` 또는
   `BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT` 중 하나다.
+- `round_transition_policy`: time 계열 쿨다운을 라운드마다 다시 채우는 명시적
+  예외에만 `reset`을 게시한다. 생략값은 `preserve`다.
+- `round_transition_reason`: `round_transition_policy=reset`이면 필수인 안정적 근거 ID.
 - `implemented`: `placeholder`이면 반드시 `false`.
 
 기존 렌더러 호환 키(`active`, `cooldown`, `cooldown_progress` 등)는 소비자가
@@ -51,7 +54,7 @@ adapter일 뿐이며 보스 전수 목록의 원천이 아니다.
 보스 타격을 기다리는 카드다. 공통 카드 렌더러는 `on_boss_hit`에만 황동·먹색의
 열린 타격 표식을 그린다. `instant`와 선언 없는 링펫 카드는 무표식이 기본이다.
 
-## reset, 진행, 재충전
+## reset, reset_round, 진행, 재충전
 
 `time` 스킬은 스킬별 `*_INITIAL_COOLDOWN_*` 상수를 선언하고 `reset()`에서
 `remaining = initial > 0`, `total > 0`, `progress < 1`, `ready = false`로
@@ -59,6 +62,37 @@ adapter일 뿐이며 보스 전수 목록의 원천이 아니다.
 암묵적으로 쓰지 않는다. 정말 즉시 시전이 디자인이면
 `initial_ready_allowed=true`를 payload에 명시하고 이 문서에 이유를 기록한다.
 현재 허용 예외는 0개다.
+
+`reset()`은 매치/스테이지 전체 리셋이다. 양수 초기 대기값으로 다시 채우는 것이
+맞다. `reset_round()`는 득점 뒤 다음 라운드로 넘어가는 경계다. 여기서는 게이지,
+활성 플래그, 연출 타이머, 투사체를 각 보스의 라운드 규칙에 맞게 정리하되 이미
+흐른 cooldown 잔량은 보존한다. 시전 중이던 스킬도 `casting -> charging`으로
+취소하지만, 그 취소가 cooldown을 0 또는 초기값으로 덮어쓰면 안 된다.
+
+라운드 전환 숫자 계약은 기존 `cooldown_contract` metadata로 나눈다.
+
+| 계약 | `reset_round()` 계약 | 전수 씰 |
+|---|---|---|
+| `time` | 부분 소진 잔량 보존 | 기본 보존 |
+| `deferred_time` | arm된 랜덤/스케줄 잔량 보존 | 기본 보존 |
+| `event_cycle` | 남은 physics tick 보존 | 기본 보존 |
+| `score_latched` | 라운드가 latch 발동 경계일 수 있음 | 숫자 동등성 제외, latch 시전 계약으로 검사 |
+| `resource_gauge` | 보스별 round carry/reset 규칙 적용 | 숫자 동등성 제외, 자원 충전 계약으로 검사 |
+| `placeholder` | 실행 owner 없음 | 숫자 동등성 제외, unavailable 계약으로 검사 |
+
+time 계열을 정말 라운드마다 재시작해야 한다면 암묵적으로 덮어쓰지 않는다.
+`round_transition_policy=reset`과 `round_transition_reason`을 카드에 게시하고 씰과
+이 문서에 근거를 등재해야 한다. 현재 유일한 예외는 홍련 화염탄이다. 원본/상태
+주석의 “라운드 시작 2.5초 후 활성” 오프닝 스케줄 때문에 매 라운드
+`FIREBALL_INITIAL_DELAY_SEC`로 재장전하며 reason은 `per_round_opening_delay`다.
+청린귀 `speed_defense`는 라운드 직후 3초 serve-grace를 카드에 잠시 게시하지만
+실제 25초 interval인 `speed_defense_since_activation`은 보존한다. 씰은 이 연출
+lock이 아니라 실제 cooldown owner의 잔량을 비교한다.
+
+전수 라운드 레그를 처음 적용하면서 2~3층 진단 대상 밖의 Stage 4 퐁크에서도
+자기역장과 명상이 각각 25초·18초 총량으로 되감기는 결함을 실측했다. 두 스킬은
+라운드 재시작 근거가 없는 일반 `time` 레일이므로 활성/연출 정리만 유지하고 잔량을
+보존한다. 별도 reset 예외로 등록하지 않는다.
 
 각 activation owner는 시전 성공 뒤 양수 cooldown 또는 양수 재충전 자원을
 복구한다. 다음 production update/event를 진행하면 remaining은 줄고 progress는
@@ -136,6 +170,9 @@ Remove-Item Env:BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE
 $env:BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE='1'
 ./tools/run_smoke_tests.ps1 -Tests res://tests/boss_skill_card_cooldown_contract_smoke.gd
 Remove-Item Env:BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE
+$env:BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE='1'
+./tools/run_smoke_tests.ps1 -Tests res://tests/boss_skill_card_cooldown_contract_smoke.gd
+Remove-Item Env:BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE
 ```
 
 첫 명령은 현재 14보스·39스킬의 required keys, 양수 total, reset 비-ready,
@@ -143,9 +180,14 @@ Remove-Item Env:BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE
 전수 검사하고, 39개 전부의 `trigger_type` 존재와 실동작 분류 일치를 함께 봉인한다.
 현재 발동 분류는 `TRIGGER_INSTANT=22`, `TRIGGER_ON_BOSS_HIT=17`이고 계약 분포는
 `TIME=32 DEFERRED_TIME=1 EVENT_CYCLE=1 SCORE_LATCHED=2 RESOURCE_GAUGE=2 PLACEHOLDER=1`이다.
+이 중 라운드 숫자 검사는 time/deferred/event 34개를 전수로 돌며,
+`ROUND_PRESERVE=33`, 명시적 홍련 예외 `ROUND_RESET_EXCEPTIONS=1`을 출력한다.
+지굴왕·옥토선자 6스킬은 활성 시전 취소 뒤에도 재장전 잔량이 보존되는지 별도
+`ROUND_CAST_CANCEL=6` 레그로 확인한다.
 
 두 번째 명령은 새 전수 범위인 Stage 7 아카무 `stage7_clone` 초기값을 0으로
 되돌리는 반증 픽스처이며 반드시 러너 RED여야 한다. 씰은 focused CI와 pre-push
 두 목록에 같은 경로로 등재한다. 세 번째 명령은 `instant`로 선언된 1층 자동 스킬의
 production activation을 막는다. 레일이 가득 찬 뒤에도 발동하지 않으므로 반드시
-RED여야 한다.
+RED여야 한다. 네 번째 명령은 지굴왕 `spinning_claw`의 `reset_round()` 직후 잔량을
+0으로 만드는 test-only 반증이며 반드시 RED여야 한다.

@@ -91,13 +91,11 @@ func reset_round() -> void:
 	tunnel_spikes.clear()
 	tunnel_strike_applied = false
 	spinning_claw_timer = 0.0
-	spinning_claw_cooldown = 0.0
 	hit_emerge_timer = 0.0
 	_stop_friend_moles()
 	if friend_moles_pending:
 		friend_moles_pending = false
 		friend_moles_triggered = true
-		friend_moles_cooldown_ticks_remaining = 0
 	status = "charging"
 
 

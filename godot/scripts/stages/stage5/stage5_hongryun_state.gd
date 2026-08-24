@@ -1199,6 +1199,8 @@ func _get_fireball_hud_skill() -> Dictionary:
 		"cooldown_remaining": remaining,
 		"cooldown_total": total,
 		"cooldown_contract": "time",
+		"round_transition_policy": "reset",
+		"round_transition_reason": "per_round_opening_delay",
 		"initial_ready_allowed": false,
 		"progress": clamp(1.0 - remaining / total, 0.0, 1.0),
 		"ready": skill_status == "ready",

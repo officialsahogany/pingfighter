@@ -40,7 +40,6 @@ func reset() -> void:
 
 
 func reset_round() -> void:
-	magnetic_cooldown_seconds = COOLDOWN_SEC
 	magnetic_active = false
 	magnetic_timer_frames = 0.0
 	magnet_curve_angle_degrees = 0.0

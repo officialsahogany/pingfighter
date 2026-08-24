@@ -87,15 +87,12 @@ func _reset_round_effects(deps: Dictionary = {}) -> void:
 	status = "charging"
 	mirror_active = false
 	mirror_timer = 0.0
-	mirror_cooldown = 0.0
 	mirror_elapsed = 0.0
 	size_shift_active = false
 	size_shift_timer = 0.0
-	size_shift_cooldown = 0.0
 	size_shift_scale = 1.0
 	rabbit_active = false
 	rabbit_windup = 0.0
-	rabbit_cooldown = 0.0
 	rabbit_projectiles.clear()
 	perched_rabbits.clear()
 	rabbit_burst_particles.clear()

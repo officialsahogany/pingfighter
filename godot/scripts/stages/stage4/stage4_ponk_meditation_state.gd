@@ -65,7 +65,6 @@ func reset_round() -> void:
 	meditation_circles.clear()
 	meditation_release_pending = false
 	meditation_release_velocity = Vector2.ZERO
-	meditation_cooldown_seconds = COOLDOWN_SEC
 	reset_release_fx(true)
 
 

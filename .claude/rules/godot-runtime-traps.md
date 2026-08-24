@@ -638,5 +638,6 @@ Full rule: `docs/godot_runtime_traps.md`.
 - 필수: 감소 owner는 정확히 하나이고, 성공한 시전은 양수 cooldown을 다시 적재해야 한다.
 - 필수: 전 보스 카드가 공용 `instant`/`on_boss_hit` 표시 metadata를 선언하고 실동작 owner와 일치해야 한다. 발동 분기를 metadata로 옮기지 않는다.
 - 표시: `on_boss_hit` 카드만 열린 황동·먹 타격 표식을 쓰고 `instant` 카드는 무표식으로 둔다.
-- 예외: 즉시 ready 디자인은 `initial_ready_allowed=true`로 선언하고 문서와 전수 씰에 등재한다.
-- 검증: 1~8층 런타임 HUD producer 자동 발견으로 전 보스·전 스킬 reset/진행/시전/재충전, 선언 존재·실동작 일치, 0-초기화 및 자동발동 차단 RED 픽스처를 봉인한다.
+- 필수: `reset()`은 초기 대기를 재장전하지만 `reset_round()`는 time/deferred/event 잔량을 보존한다. 시전 취소가 잔량을 0으로 만들면 안 된다.
+- 예외: 라운드 재시작 time 레일은 `round_transition_policy=reset`+reason을, 즉시 ready 디자인은 `initial_ready_allowed=true`를 선언하고 문서와 전수 씰에 등재한다.
+- 검증: 1~8층 런타임 HUD producer 자동 발견으로 전 보스·전 스킬 reset/진행/시전/재충전/라운드 유지, 선언 존재·실동작 일치, 두 0-초기화 및 자동발동 차단 RED 픽스처를 봉인한다.

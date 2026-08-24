@@ -11,10 +11,10 @@ const Stage7AkamuState := preload("res://scripts/stages/stage7/stage7_akamu_stat
 const VIEW_SIZE := Vector2i(2020, 1246)
 const LOGICAL_GAME_SIZE := Vector2(760.0, 750.0)
 const VARIANT_SPECS := [
-	{"id": "molewang", "stage": 2},
+	{"id": "molewang", "stage": 2, "round_transition": true},
 	{"id": "arachne", "stage": 2},
 	{"id": "teddy_bear", "stage": 3},
-	{"id": "alice", "stage": 3},
+	{"id": "alice", "stage": 3, "round_transition": true},
 	{"id": "akamu", "stage": 7},
 ]
 const CAPTURE_COUNT := 5
@@ -24,11 +24,13 @@ const OUTPUT_SCALE := 2
 const STRIP_GAP_PX := 8
 const OUTPUT_DIR := "res://.godot/codex_captures/boss_skill_card_cooldown_motion"
 const BACKGROUND_COLOR := Color("101317")
+const ROUND_TRANSITION_GAP_COLOR := Color("55d7e6")
 const PROGRESS_EPSILON := 0.0001
 const PIXEL_MOTION_EPSILON := 0.0001
 
 var failures: Array[String] = []
 var saved_paths: Array[String] = []
+var round_transition_count := 0
 
 
 class SkillCardCanvas:
@@ -59,10 +61,11 @@ func _run() -> void:
 		return
 	for spec_value in VARIANT_SPECS:
 		await _capture_variant(spec_value as Dictionary, output_dir)
+	_expect(round_transition_count == 2, "visual QA must capture both Molewang and Alice round transitions")
 	if failures.is_empty():
 		for path in saved_paths:
 			print("[BossSkillCardCooldownMotionQA] evidence=%s" % path)
-		print("[BossSkillCardCooldownMotionQA] BOSSES=5 STRIPS=5 FRAMES_PER_STRIP=%d VULKAN=true" % CAPTURE_COUNT)
+		print("[BossSkillCardCooldownMotionQA] BOSSES=5 STRIPS=5 FRAMES_PER_STRIP=%d ROUND_TRANSITIONS=%d VULKAN=true" % [CAPTURE_COUNT, round_transition_count])
 		print("boss_skill_card_cooldown_motion_visual_qa: ok")
 		quit(0)
 		return
@@ -99,6 +102,8 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 
 	var images: Array[Image] = []
 	var progress_samples: Array[Dictionary] = []
+	var round_before_remaining := {}
+	var round_after_remaining := {}
 	var crop_rect := Rect2i()
 	for frame_index in range(CAPTURE_COUNT):
 		var hud_context := _build_screen_hud_context(state, live_context, stage)
@@ -121,6 +126,18 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 		if frame_image != null and not frame_image.is_empty():
 			images.append(frame_image)
 		if frame_index < CAPTURE_COUNT - 1:
+			if frame_index == 1 and bool(spec.get("round_transition", false)):
+				var before_context := _build_screen_hud_context(state, live_context, stage)
+				round_before_remaining = _time_remaining_map(before_context, stage)
+				_call_reset_round(state, variant_id)
+				var after_context := _build_screen_hud_context(state, live_context, stage)
+				round_after_remaining = _time_remaining_map(after_context, stage)
+				for skill_id in round_before_remaining:
+					_expect(
+						absf(float(round_after_remaining.get(skill_id, -1.0)) - float(round_before_remaining.get(skill_id, -1.0))) <= PROGRESS_EPSILON,
+						"%s/%s Vulkan round boundary must preserve cooldown remaining" % [variant_id, skill_id]
+					)
+				round_transition_count += 1
 			_advance_live_state(state, live_context, SAMPLE_STEP_SEC)
 
 	if images.size() != CAPTURE_COUNT:
@@ -130,15 +147,17 @@ func _capture_variant(spec: Dictionary, output_dir: String) -> void:
 		var difference := _mean_rgb_difference(images[index - 1], images[index])
 		adjacent_differences.append(difference)
 		_expect(difference > PIXEL_MOTION_EPSILON, "%s frames %d/%d must contain visible cooldown-fill motion" % [variant_id, index - 1, index])
-	var strip := _compose_strip(images)
-	var output_path := output_dir.path_join("%s_cooldown_motion_strip_%df.png" % [variant_id, CAPTURE_COUNT])
+	var transition_after_frame := 1 if bool(spec.get("round_transition", false)) else -1
+	var strip := _compose_strip(images, transition_after_frame)
+	var output_name := "%s_round_transition_cooldown_strip_%df.png" % [variant_id, CAPTURE_COUNT] if transition_after_frame >= 0 else "%s_cooldown_motion_strip_%df.png" % [variant_id, CAPTURE_COUNT]
+	var output_path := output_dir.path_join(output_name)
 	var save_error := strip.save_png(output_path)
 	_expect(save_error == OK, "%s cooldown motion strip must save" % variant_id)
 	if save_error == OK:
 		saved_paths.append(output_path)
 	print(
-		"[BossSkillCardCooldownMotionQA] variant=%s frames=%d first=%s last=%s adjacent_rgb_delta=%s"
-		% [variant_id, CAPTURE_COUNT, JSON.stringify(progress_samples[0]), JSON.stringify(progress_samples[-1]), JSON.stringify(adjacent_differences)]
+		"[BossSkillCardCooldownMotionQA] variant=%s frames=%d first=%s last=%s round_before_remaining=%s round_after_remaining=%s adjacent_rgb_delta=%s"
+		% [variant_id, CAPTURE_COUNT, JSON.stringify(progress_samples[0]), JSON.stringify(progress_samples[-1]), JSON.stringify(round_before_remaining), JSON.stringify(round_after_remaining), JSON.stringify(adjacent_differences)]
 	)
 
 
@@ -188,6 +207,33 @@ func _time_progress_map(context: Dictionary, stage: int) -> Dictionary:
 		if value is Dictionary and str(value.get("cooldown_contract", "")) == "time":
 			result[str(value.get("id", ""))] = float(value.get("progress", -1.0))
 	return result
+
+
+func _time_remaining_map(context: Dictionary, stage: int) -> Dictionary:
+	var key := _skills_key(stage)
+	var result := {}
+	for value in _as_array(context.get(key, [])):
+		if value is Dictionary and str(value.get("cooldown_contract", "")) == "time":
+			result[str(value.get("id", ""))] = float(value.get("cooldown_remaining", -1.0))
+	return result
+
+
+func _call_reset_round(state: Object, variant_id: String) -> void:
+	_expect(state.has_method("reset_round"), "%s visual state must expose reset_round" % variant_id)
+	if not state.has_method("reset_round"):
+		return
+	var args: Array = []
+	if _method_argument_count(state, "reset_round") >= 1:
+		args = [{}]
+	state.callv("reset_round", args)
+
+
+func _method_argument_count(state: Object, method_name: String) -> int:
+	for method_value in state.get_method_list():
+		var method: Dictionary = method_value
+		if str(method.get("name", "")) == method_name:
+			return (method.get("args", []) as Array).size()
+	return 0
 
 
 func _advance_live_state(state: Object, live_context: Dictionary, duration_sec: float) -> void:
@@ -266,7 +312,7 @@ func _skills_key(stage: int) -> String:
 	return ""
 
 
-func _compose_strip(images: Array[Image]) -> Image:
+func _compose_strip(images: Array[Image], transition_after_frame: int) -> Image:
 	var frame_size := images[0].get_size() * OUTPUT_SCALE
 	var strip_size := Vector2i(
 		frame_size.x * images.size() + STRIP_GAP_PX * (images.size() - 1),
@@ -280,7 +326,8 @@ func _compose_strip(images: Array[Image]) -> Image:
 		var target_x := index * (frame_size.x + STRIP_GAP_PX)
 		strip.blit_rect(scaled, Rect2i(Vector2i.ZERO, frame_size), Vector2i(target_x, 0))
 		if index < images.size() - 1:
-			strip.fill_rect(Rect2i(target_x + frame_size.x, 0, STRIP_GAP_PX, frame_size.y), Color("e7b84b"))
+			var gap_color := ROUND_TRANSITION_GAP_COLOR if index == transition_after_frame else Color("e7b84b")
+			strip.fill_rect(Rect2i(target_x + frame_size.x, 0, STRIP_GAP_PX, frame_size.y), gap_color)
 	return strip
 
 

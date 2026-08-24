@@ -4032,14 +4032,26 @@ float 잔여 영구 정지를 피한다.
 `on_boss_hit` 카드에만 황동·먹색의 열린 타격 표식을 그려 "타격 대기"를 알리고,
 `instant` 카드는 무표식으로 둔다.
 
+**라운드 전환 규칙.** 전체 `reset()`은 양수 초기 대기로 재장전하지만
+`reset_round()`는 time/deferred_time/event_cycle의 부분 소진 잔량을 보존한다.
+활성 플래그·연출·투사체를 취소해도 cooldown을 0으로 만들면 안 된다. 의도적
+재시작은 카드의 `round_transition_policy=reset`과 reason으로 선언한다. 현재 예외는
+“라운드 시작 2.5초 후 화염탄” 스케줄을 다시 여는 홍련 화염탄 하나다. 이 전수
+레그는 최초 대상 밖이던 Stage 4 퐁크 자기역장·명상의 총량 되감기도 함께 발견해
+일반 보존 계약으로 수리했다.
+
 **봉인.** `boss_skill_card_cooldown_contract_smoke.gd`는 catalog를 전수 원천으로
 사용하지 않는다. `scripts/stages/stage*/`의 실제 HUD producer를 자동 발견하므로 새
 보스가 payload를 게시하는 즉시 대상에 들어온다. 현재 1~8층 14보스·39스킬의 required
 keys, 양수 total, reset 비-ready, 여러 tick/event의 progress 변화, 실제 시전 owner,
-양수 재충전, production controller의 정확히 한 번 감소를 단언한다. 계약 분포도
+양수 재충전, production controller의 정확히 한 번 감소와 라운드 전환 34스킬을
+단언한다. 라운드 마커는 보존 33개, 명시적 reset 예외 1개, 지굴왕·옥토선자 활성
+시전 취소 6개를 별도 출력한다. 계약 분포도
 `TIME=32 DEFERRED_TIME=1 EVENT_CYCLE=1 SCORE_LATCHED=2 RESOURCE_GAUGE=2 PLACEHOLDER=1`로
 출력하며, 선언 39개와 실동작 일치(`instant=22`, `on_boss_hit=17`)도 함께 센다.
 환경 변수 `BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE=1`은 새 전수 범위인 아카무
 그림자분신 초기값을 0으로 되돌려 즉시-ready와 progress 정지를 모두 RED로 만든다.
 `BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE=1`은 가득 찬 `instant` 카드의 자동 발동을
 차단해 선언과 실동작 불일치를 RED로 만든다.
+`BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE=1`은 지굴왕 선조율풍의 라운드 잔량을
+0으로 덮어써 반드시 RED가 되는 반증이다.

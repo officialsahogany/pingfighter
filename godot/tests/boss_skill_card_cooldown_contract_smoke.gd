@@ -16,6 +16,7 @@ const Stage4PillarBackground := preload("res://scripts/stages/stage4/stage4_pill
 const PRODUCER_ROOT := "res://scripts/stages"
 const ZERO_INITIAL_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE"
 const AUTO_TRIGGER_BLOCK_FIXTURE_ENV := "BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE"
+const ZERO_ROUND_RESET_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE"
 const EPSILON := 0.0001
 const VALID_CONTRACTS := [
 	"time",
@@ -52,6 +53,10 @@ var _skill_count := 0
 var _trigger_instant_count := 0
 var _trigger_on_boss_hit_count := 0
 var _trigger_match_count := 0
+var _round_preserve_skill_count := 0
+var _round_reset_exception_count := 0
+var _round_transition_check_count := 0
+var _round_cast_cancel_count := 0
 var _contract_counts := {
 	"time": 0,
 	"deferred_time": 0,
@@ -124,6 +129,7 @@ func _init() -> void:
 		return
 	_discover_all_producers()
 	_verify_every_reset_and_update()
+	_verify_target_cast_round_cleanup_preserves()
 	_verify_every_cast_reloads_and_ticks()
 	_verify_production_update_owner()
 	if not _failures.is_empty():
@@ -132,7 +138,7 @@ func _init() -> void:
 		quit(1)
 		return
 	print(
-		"[BossSkillCardCooldownContract] BOSSES=%d SKILLS=%d TIME=%d DEFERRED_TIME=%d EVENT_CYCLE=%d SCORE_LATCHED=%d RESOURCE_GAUGE=%d PLACEHOLDER=%d"
+		"[BossSkillCardCooldownContract] BOSSES=%d SKILLS=%d TIME=%d DEFERRED_TIME=%d EVENT_CYCLE=%d SCORE_LATCHED=%d RESOURCE_GAUGE=%d PLACEHOLDER=%d ROUND_TRANSITION_CHECKS=%d ROUND_PRESERVE=%d ROUND_RESET_EXCEPTIONS=%d ROUND_CAST_CANCEL=%d"
 		% [
 			_boss_count,
 			_skill_count,
@@ -142,9 +148,16 @@ func _init() -> void:
 			int(_contract_counts.get("score_latched", 0)),
 			int(_contract_counts.get("resource_gauge", 0)),
 			int(_contract_counts.get("placeholder", 0)),
+			_round_transition_check_count,
+			_round_preserve_skill_count,
+			_round_reset_exception_count,
+			_round_cast_cancel_count,
 		]
 	)
-	print("[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true NEGATIVE_FIXTURE_ENV=%s" % ZERO_INITIAL_FIXTURE_ENV)
+	print(
+		"[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true ROUND_TRANSITION=contract_metadata NEGATIVE_FIXTURE_ENVS=%s,%s"
+		% [ZERO_INITIAL_FIXTURE_ENV, ZERO_ROUND_RESET_FIXTURE_ENV]
+	)
 	print(
 		"[BossSkillCardCooldownContract] TRIGGER_DECLARATIONS=%d TRIGGER_INSTANT=%d TRIGGER_ON_BOSS_HIT=%d TRIGGER_MATCH=%d AUTO_BLOCK_NEGATIVE_FIXTURE_ENV=%s"
 		% [_skill_count, _trigger_instant_count, _trigger_on_boss_hit_count, _trigger_match_count, AUTO_TRIGGER_BLOCK_FIXTURE_ENV]
@@ -262,6 +275,159 @@ func _verify_every_reset_and_update() -> void:
 				"%s/%s progress must advance through its live owner (%.6f -> %.6f)"
 				% [producer_id, skill_id, before, after]
 			)
+		_verify_round_transition_preserves(path, producer_id, state, context, background, advanced_skills)
+
+
+func _verify_round_transition_preserves(
+	path: String,
+	producer_id: String,
+	state: Object,
+	context: Dictionary,
+	background: FakeStage2Background,
+	advanced_skills: Dictionary
+) -> void:
+	var preserve_ids: Array[String] = []
+	var reset_exception_ids: Array[String] = []
+	for skill_id_value in advanced_skills.keys():
+		var skill_id := str(skill_id_value)
+		var skill: Dictionary = advanced_skills[skill_id]
+		var contract := str(skill.get("cooldown_contract", ""))
+		if contract not in ["time", "deferred_time", "event_cycle"]:
+			continue
+		if str(skill.get("round_transition_policy", "preserve")) == "reset":
+			reset_exception_ids.append(skill_id)
+		else:
+			preserve_ids.append(skill_id)
+	if preserve_ids.is_empty() and reset_exception_ids.is_empty():
+		return
+	# event_cycle uses a score latch to expose its tick rail. Consume a few live
+	# ticks while still pending so this same reset_round call covers the historical
+	# friend_moles branch that zeroed the remaining ticks.
+	if "friend_moles" in preserve_ids:
+		state.handle_score_event("player", {"player_score": 4}, {})
+		_tick_state(path, state, context, background, 3)
+	var before_skills := _skill_map(path, state, context, background)
+	var before_remaining := {}
+	var before_totals := {}
+	var checked_ids := preserve_ids + reset_exception_ids
+	preserve_ids.sort()
+	reset_exception_ids.sort()
+	for skill_id in checked_ids:
+		var skill: Dictionary = before_skills.get(skill_id, {})
+		var remaining := _round_remaining(state, skill_id, skill)
+		var total := _round_total(skill_id, skill)
+		_expect(
+			remaining > EPSILON and remaining < total - EPSILON,
+			"%s/%s round probe must partially consume cooldown before reset_round (remaining %.6f / total %.6f)"
+			% [producer_id, skill_id, remaining, total]
+		)
+		before_remaining[skill_id] = remaining
+		before_totals[skill_id] = total
+
+	_call_reset_round(state, producer_id)
+	if OS.get_environment(ZERO_ROUND_RESET_FIXTURE_ENV) == "1" and path.ends_with("stage2_molewang_boss_state.gd"):
+		# Test-only counterfactual: reproduce the removed round-boundary write
+		# without teaching production code about a test environment variable.
+		state.spinning_claw_cooldown = 0.0
+	var after_skills := _skill_map(path, state, context, background)
+	for skill_id in preserve_ids:
+		var after_skill: Dictionary = after_skills.get(skill_id, {})
+		var before := float(before_remaining.get(skill_id, -1.0))
+		var after := _round_remaining(state, skill_id, after_skill)
+		_expect(
+			absf(after - before) <= EPSILON,
+			"%s/%s reset_round must preserve cooldown remaining (%.6f -> %.6f)"
+			% [producer_id, skill_id, before, after]
+		)
+		_round_preserve_skill_count += 1
+		_round_transition_check_count += 1
+	for skill_id in reset_exception_ids:
+		var after_skill: Dictionary = after_skills.get(skill_id, {})
+		var before := float(before_remaining.get(skill_id, -1.0))
+		var total := float(before_totals.get(skill_id, -1.0))
+		var after := _round_remaining(state, skill_id, after_skill)
+		_expect(
+			after > before + EPSILON and absf(after - total) <= EPSILON,
+			"%s/%s declared round reset must re-arm its documented total (%.6f -> %.6f / total %.6f)"
+			% [producer_id, skill_id, before, after, total]
+		)
+		_round_transition_check_count += 1
+
+
+func _verify_target_cast_round_cleanup_preserves() -> void:
+	var specs := [
+		{
+			"path": "res://scripts/stages/stage2/stage2_molewang_boss_state.gd",
+			"skills": ["tunnel_raid", "spinning_claw", "friend_moles"],
+		},
+		{
+			"path": "res://scripts/stages/stage3/stage3_alice_boss_state.gd",
+			"skills": ["mirror_world", "size_shift", "rabbit_projectile"],
+		},
+	]
+	for spec_value in specs:
+		var spec: Dictionary = spec_value
+		var path := str(spec.get("path", ""))
+		for skill_id_value in spec.get("skills", []):
+			var skill_id := str(skill_id_value)
+			var producer_id := path.get_file().trim_suffix(".gd")
+			var state := _new_state(path)
+			var context := _context_for_path(path)
+			var background := FakeStage2Background.new()
+			var cast := _cast_skill(skill_id, state, context, background)
+			_expect(cast, "%s/%s cast-round fixture must activate" % [producer_id, skill_id])
+			if not cast:
+				continue
+			var before_skill: Dictionary = _skill_map(path, state, context, background).get(skill_id, {})
+			var before := _round_remaining(state, skill_id, before_skill)
+			_expect(before > EPSILON, "%s/%s active cast must have a positive reloaded cooldown" % [producer_id, skill_id])
+			_call_reset_round(state, producer_id)
+			var after_skill: Dictionary = _skill_map(path, state, context, background).get(skill_id, {})
+			var after := _round_remaining(state, skill_id, after_skill)
+			_expect(absf(after - before) <= EPSILON, "%s/%s cast cancellation must preserve cooldown (%.6f -> %.6f)" % [producer_id, skill_id, before, after])
+			_expect(_cast_transients_cleared(state, skill_id), "%s/%s reset_round must cancel active cast transients" % [producer_id, skill_id])
+			_round_cast_cancel_count += 1
+
+
+func _cast_transients_cleared(state: Object, skill_id: String) -> bool:
+	match skill_id:
+		"tunnel_raid":
+			return not bool(state.tunnel_active) and str(state.tunnel_phase) == "idle"
+		"spinning_claw":
+			return float(state.spinning_claw_timer) <= EPSILON
+		"friend_moles":
+			return not bool(state.friend_moles_active) and (state.friend_moles as Array).is_empty()
+		"mirror_world":
+			return not bool(state.mirror_active) and float(state.mirror_timer) <= EPSILON
+		"size_shift":
+			return not bool(state.size_shift_active) and float(state.size_shift_timer) <= EPSILON and absf(float(state.size_shift_scale) - 1.0) <= EPSILON
+		"rabbit_projectile":
+			return not bool(state.rabbit_active) and float(state.rabbit_windup) <= EPSILON and (state.rabbit_projectiles as Array).is_empty()
+	return false
+
+
+func _round_remaining(state: Object, skill_id: String, skill: Dictionary) -> float:
+	if skill_id == "friend_moles":
+		return float(state.friend_moles_cooldown_ticks_remaining) / float(Stage2MolewangState.PHYSICS_TICKS_PER_SECOND)
+	if skill_id == "speed_defense":
+		return maxf(0.0, Stage2BossState.SPEED_DEFENSE_INTERVAL_SEC - float(state.speed_defense_since_activation))
+	return float(skill.get("cooldown_remaining", -1.0))
+
+
+func _round_total(skill_id: String, skill: Dictionary) -> float:
+	if skill_id == "speed_defense":
+		return Stage2BossState.SPEED_DEFENSE_INTERVAL_SEC
+	return float(skill.get("cooldown_total", 0.0))
+
+
+func _call_reset_round(state: Object, producer_id: String) -> void:
+	_expect(state.has_method("reset_round"), "%s must implement reset_round for the round cooldown contract" % producer_id)
+	if not state.has_method("reset_round"):
+		return
+	var args: Array = []
+	if _method_argument_count(state, "reset_round") >= 1:
+		args = [{}]
+	state.callv("reset_round", args)
 
 
 func _prime_optional_activation_gates(state: Object, skills: Dictionary) -> void:
@@ -309,6 +475,13 @@ func _validate_initial_skill(producer_id: String, skill_id: String, skill: Dicti
 		_trigger_on_boss_hit_count += 1
 	elif trigger_type == BossSkillTriggerClass.TRIGGER_INSTANT:
 		_trigger_instant_count += 1
+	var round_policy := str(skill.get("round_transition_policy", "preserve"))
+	if skill.has("round_transition_policy"):
+		_expect(contract in ["time", "deferred_time", "event_cycle"], "%s/%s round transition policy is only valid for cooldown rails" % [producer_id, skill_id])
+		_expect(round_policy == "reset", "%s/%s explicit round transition policy must declare the exceptional reset" % [producer_id, skill_id])
+		_expect(not str(skill.get("round_transition_reason", "")).is_empty(), "%s/%s round reset exception must publish a reason" % [producer_id, skill_id])
+		if round_policy == "reset":
+			_round_reset_exception_count += 1
 	if _contract_counts.has(contract):
 		_contract_counts[contract] = int(_contract_counts.get(contract, 0)) + 1
 	if contract == "placeholder":
@@ -456,6 +629,9 @@ func _cast_skill(skill_id: String, state: Object, context: Dictionary, backgroun
 		"friend_moles":
 			state.handle_score_event("player", {"player_score": 4}, {})
 			state.reset_round()
+			# Round transition starts the preserved 40-second event cycle. Move
+			# that test-only clock to expiry so the activation owner can reload it.
+			state.friend_moles_cooldown_ticks_remaining = 0
 			state.update(0.0, context, {})
 			return state.friend_moles_active
 		"web_trap":
