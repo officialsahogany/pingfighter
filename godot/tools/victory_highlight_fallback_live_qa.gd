@@ -1,7 +1,10 @@
 extends SceneTree
 
 const BattleBootResourcePrewarmController := preload("res://scripts/core/battle_boot_resource_prewarm_controller.gd")
+const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
 const BattleSceneMatchFlowDriver := preload("res://scripts/core/battle_scene_match_flow_driver.gd")
+const MatchFlowController := preload("res://scripts/core/match_flow_controller.gd")
+const MatchResetController := preload("res://scripts/core/match_reset_controller.gd")
 const VictoryHighlightFrameCaptureState := preload("res://scripts/core/victory_highlight_frame_capture_state.gd")
 const VictoryHighlightFrameRenderer := preload("res://scripts/core/victory_highlight_frame_renderer.gd")
 const VictoryHighlightPlaybackState := preload("res://scripts/core/victory_highlight_playback_state.gd")
@@ -11,7 +14,7 @@ const VictoryHighlightRenderer := preload("res://scripts/core/victory_highlight_
 const OUTPUT_DIR := "res://.godot/codex_captures/victory_highlight_fallback"
 const GAME_SIZE := Vector2(760.0, 750.0)
 const PREWARM_TIMEOUT_FRAMES := 360
-const EXTENDED_MATCH_FRAMES := 360
+const DEFEAT_MATCH_FRAMES := 180
 const REMATCH_FRAMES := 240
 
 
@@ -24,10 +27,49 @@ class ModuleRegistry:
 		return value as Object if typeof(value) == TYPE_OBJECT else null
 
 
+class ContinueContextBuilder:
+	extends RefCounted
+	var recorder: Object = null
+	var reset_controller: Object = MatchResetController.new()
+
+	func build_match_flow_deps(
+		_registry: Object,
+		_current_stage: int,
+		_perf_logger: Object,
+		_perf_label_prefix: String,
+		_include_all_stage_deps: bool,
+		_character_type: String
+	) -> Dictionary:
+		return {
+			"match_reset_controller": reset_controller,
+			"victory_highlight_recorder": recorder,
+		}
+
+
+class ResetResultApplier:
+	extends RefCounted
+	var apply_calls := 0
+
+	func apply_reset_result(_owner: Object, _result: Dictionary) -> void:
+		apply_calls += 1
+
+
+class LiveReadiness:
+	extends RefCounted
+
+	func is_intro_or_warmup_blocking(
+		_module_getter: Callable,
+		_battle_initialized: bool,
+		_stage_landing_intro_started: bool
+	) -> bool:
+		return false
+
+
 class LiveBattleOwner:
 	extends Node2D
 	var victory_highlight_active := false
 	var current_stage := 1
+	var selected_character_type := "smasher"
 	var ball_pos := Vector2(380.0, 375.0)
 	var ball_prev := ball_pos
 	var frame_index := 0
@@ -62,6 +104,7 @@ var _capture := VictoryHighlightFrameCaptureState.new()
 var _recorder := VictoryHighlightRecorder.new()
 var _playback := VictoryHighlightPlaybackState.new()
 var _prewarm := BattleBootResourcePrewarmController.new()
+var _frame_controller := BattleSceneFrameController.new()
 var _match_flow := BattleSceneMatchFlowDriver.new()
 var _frame_renderer := VictoryHighlightFrameRenderer.new()
 var _base_renderer := VictoryHighlightRenderer.new()
@@ -84,44 +127,44 @@ func _run() -> void:
 	root.add_child(_owner)
 	_layout_owner()
 	_registry.values = {
+		"battle_boot_resource_prewarm_controller": _prewarm,
+		"battle_scene_readiness_controller": LiveReadiness.new(),
+		"battle_update_context": ContinueContextBuilder.new(),
+		"match_flow_controller": MatchFlowController.new(),
+		"battle_scene_match_reset_result_applier": ResetResultApplier.new(),
 		"victory_highlight_frame_capture_state": _capture,
 		"victory_highlight_recorder": _recorder,
 		"victory_highlight_playback_state": _playback,
 		"victory_highlight_frame_renderer": _frame_renderer,
 		"victory_highlight_renderer": _base_renderer,
 	}
+	(_registry.values["battle_update_context"] as ContinueContextBuilder).recorder = _recorder
 	_recorder.reset()
 	await _frames(8)
 	if not await _prewarm_frame_lane(false):
 		return
-	if not await _record_match("extended", EXTENDED_MATCH_FRAMES, true):
+	if not await _record_defeat("defeat_before_continue", DEFEAT_MATCH_FRAMES):
 		return
-	var first_capture := await _start_and_capture_replay("extended_match_replay")
-	if first_capture.is_empty():
-		return
-	_playback.reset()
+	_match_flow.reset_for_continue(_owner, _registry, Callable(), Callable())
 	await _frames(4)
-	_recorder.reset()
-	_prewarm.set("stage_runtime_resources_prewarmed_for_stage", _owner.current_stage)
 	var released: Dictionary = _capture.get_debug_snapshot()
 	if bool(released.get("ready", true)) or int(released.get("owned_rid_count", -1)) != 0:
-		await _fail("match release did not close the frame capture owner before rematch")
+		await _fail("continue reset did not close the frame capture owner before rematch")
 		return
-	if not await _prewarm_frame_lane(true):
+	if not await _revive_frame_lane_through_live_tick():
 		return
-	if not await _record_match("same_stage_rematch", REMATCH_FRAMES, false):
+	if not await _record_match("continue_rematch_victory", REMATCH_FRAMES, false):
 		return
-	var second_capture := await _start_and_capture_replay("same_stage_rematch_replay")
-	if second_capture.is_empty():
+	var replay_capture := await _start_and_capture_replay("defeat_continue_rematch_replay")
+	if replay_capture.is_empty():
 		return
 	var final_snapshot: Dictionary = _capture.get_debug_snapshot()
 	var playback_snapshot: Dictionary = _playback.get_host_debug_snapshot()
-	print("[VictoryHighlightFallbackLiveQA] first_capture=%s" % first_capture)
-	print("[VictoryHighlightFallbackLiveQA] second_capture=%s" % second_capture)
+	print("[VictoryHighlightFallbackLiveQA] replay_capture=%s" % replay_capture)
 	print("[VictoryHighlightFallbackLiveQA] capture_snapshot=%s" % JSON.stringify(final_snapshot))
 	print("[VictoryHighlightFallbackLiveQA] payload_log=%s" % str(playback_snapshot.get("payload_log", "")))
 	print(
-		"victory_highlight_fallback_live_qa: ok extended_frame_replay=1 same_stage_frame_replay=1 fallback_replays=0"
+		"victory_highlight_fallback_live_qa: ok defeat_continue_frame_replay=1 fallback_replays=0"
 	)
 	_playback.reset()
 	await _shutdown(0)
@@ -159,29 +202,53 @@ func _prewarm_frame_lane(through_stage_gate: bool) -> bool:
 	return false
 
 
-func _record_match(label: String, frame_count: int, deuce_mode: bool) -> bool:
-	_owner.match_label = label
-	var logical_time := 0.0
-	var previous_ball_pos := _owner.ball_pos
-	for frame_index in range(frame_count):
-		logical_time = float(frame_index) / 60.0
-		var phase := float(frame_index % 180) / 180.0
-		var ball_pos := Vector2(
-			90.0 + 580.0 * phase,
-			375.0 + sin(float(frame_index) * 0.08) * 250.0
+func _revive_frame_lane_through_live_tick() -> bool:
+	for _frame in range(PREWARM_TIMEOUT_FRAMES):
+		_frame_controller.process_idle(
+			1.0 / 60.0,
+			_owner,
+			_registry,
+			Callable(_registry, "get_instance"),
+			{
+				"is_battle_initialized": Callable(self, "_return_true"),
+				"is_stage_landing_intro_started": Callable(self, "_return_true"),
+			}
 		)
-		_owner.frame_index = frame_index
-		_owner.ball_prev = previous_ball_pos
-		_owner.ball_pos = ball_pos
-		_owner.queue_redraw()
-		_recorder.capture_visual(
-			_build_actor_context(),
-			_build_draw_context(ball_pos, previous_ball_pos),
-			logical_time
-		)
-		previous_ball_pos = ball_pos
 		await process_frame
-	await _frames(8)
+		if bool(_capture.is_available()):
+			print(
+				"[VictoryHighlightFallbackLiveQA] continue_revival snapshot=%s"
+				% JSON.stringify(_capture.get_debug_snapshot())
+			)
+			return true
+	await _fail("frame lane revival through live process_idle timed out")
+	return false
+
+
+func _record_defeat(label: String, frame_count: int) -> bool:
+	var logical_time: float = await _record_live_motion(label, frame_count)
+	_recorder.record_score_event(
+		"boss",
+		{
+			"player_score": 0,
+			"boss_score": 5,
+			"deuce_mode": false,
+			"match_finished": true,
+		},
+		8,
+		"boss",
+		"",
+		logical_time
+	)
+	if not _recorder.get_selected_victory_clips().is_empty():
+		await _fail("defeat fixture unexpectedly promoted a player victory clip")
+		return false
+	print("[VictoryHighlightFallbackLiveQA] match=%s result=defeat" % label)
+	return true
+
+
+func _record_match(label: String, frame_count: int, deuce_mode: bool) -> bool:
+	var logical_time: float = await _record_live_motion(label, frame_count)
 	var before_goal: Dictionary = _capture.get_debug_snapshot()
 	if int(before_goal.get("capture_produced_count", 0)) <= 0:
 		await _fail("%s produced no real frame captures" % label)
@@ -217,6 +284,32 @@ func _record_match(label: String, frame_count: int, deuce_mode: bool) -> bool:
 		]
 	)
 	return true
+
+
+func _record_live_motion(label: String, frame_count: int) -> float:
+	_owner.match_label = label
+	var logical_time := 0.0
+	var previous_ball_pos := _owner.ball_pos
+	for frame_index in range(frame_count):
+		logical_time = float(frame_index) / 60.0
+		var phase := float(frame_index % 180) / 180.0
+		var ball_pos := Vector2(
+			90.0 + 580.0 * phase,
+			375.0 + sin(float(frame_index) * 0.08) * 250.0
+		)
+		_owner.frame_index = frame_index
+		_owner.ball_prev = previous_ball_pos
+		_owner.ball_pos = ball_pos
+		_owner.queue_redraw()
+		_recorder.capture_visual(
+			_build_actor_context(),
+			_build_draw_context(ball_pos, previous_ball_pos),
+			logical_time
+		)
+		previous_ball_pos = ball_pos
+		await process_frame
+	await _frames(8)
+	return logical_time
 
 
 func _build_actor_context() -> Dictionary:
@@ -279,6 +372,10 @@ func _start_and_capture_replay(label: String) -> String:
 func _frames(count: int) -> void:
 	for _frame in range(count):
 		await process_frame
+
+
+func _return_true() -> bool:
+	return true
 
 
 func _fail(message: String) -> void:

@@ -166,6 +166,7 @@ $focusedSmoke = @(
     "res://tests/victory_highlight_replay_smoke.gd",
     "res://tests/victory_highlight_frame_product_smoke.gd",
     "res://tests/victory_highlight_frame_failure_recovery_smoke.gd",
+    "res://tests/victory_highlight_frame_lane_revival_smoke.gd",
     "res://tests/stage7_akamu_prebattle_live_frame_smoke.gd",
     "res://tests/stage7_akamu_slice6_result_loading_smoke.gd",
     "res://tests/stage7_akamu_result_scene_smoke.gd",
