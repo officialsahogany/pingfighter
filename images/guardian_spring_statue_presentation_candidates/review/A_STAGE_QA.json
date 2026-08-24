@@ -1,0 +1,186 @@
+{
+  "stage": "A_candidate_only",
+  "runtime_wired": false,
+  "base_commit": "c6038daeb198e74b6cebdf269fb254895ebf1d7a",
+  "recommended": {
+    "background": "guardian_spring_background_A_760x750.png",
+    "statue": "guardian_spring_statue_A_palm_stele.png",
+    "glow_overlay": "guardian_spring_statue_A_glow_overlay.png",
+    "capsule": "guardian_spring_capsule_B_jade_seed.png"
+  },
+  "assets": {
+    "background_A": {
+      "size": [
+        760,
+        750
+      ],
+      "alpha_bbox": [
+        0,
+        0,
+        760,
+        750
+      ],
+      "corner_alpha": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "transparent_pixels": 0,
+      "intermediate_alpha_pixels": 0,
+      "opaque_pixels": 570000,
+      "visible_pixels": 570000
+    },
+    "background_B": {
+      "size": [
+        760,
+        750
+      ],
+      "alpha_bbox": [
+        0,
+        0,
+        760,
+        750
+      ],
+      "corner_alpha": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "transparent_pixels": 0,
+      "intermediate_alpha_pixels": 0,
+      "opaque_pixels": 570000,
+      "visible_pixels": 570000
+    },
+    "statue_A": {
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_bbox": [
+        0,
+        9,
+        1010,
+        1520
+      ],
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_pixels": 643243,
+      "intermediate_alpha_pixels": 929621,
+      "opaque_pixels": 0,
+      "visible_pixels": 929621
+    },
+    "statue_B": {
+      "size": [
+        1302,
+        1208
+      ],
+      "alpha_bbox": [
+        0,
+        0,
+        1299,
+        1208
+      ],
+      "corner_alpha": [
+        0,
+        0,
+        1,
+        0
+      ],
+      "transparent_pixels": 604745,
+      "intermediate_alpha_pixels": 967641,
+      "opaque_pixels": 430,
+      "visible_pixels": 968071
+    },
+    "statue_A_glow": {
+      "size": [
+        1024,
+        1536
+      ],
+      "alpha_bbox": [
+        0,
+        9,
+        1010,
+        1520
+      ],
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_pixels": 643243,
+      "intermediate_alpha_pixels": 929621,
+      "opaque_pixels": 0,
+      "visible_pixels": 929621
+    },
+    "capsule_A": {
+      "size": [
+        1044,
+        1507
+      ],
+      "alpha_bbox": [
+        0,
+        0,
+        1044,
+        1507
+      ],
+      "corner_alpha": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "transparent_pixels": 0,
+      "intermediate_alpha_pixels": 0,
+      "opaque_pixels": 1573308,
+      "visible_pixels": 1573308
+    },
+    "capsule_B": {
+      "size": [
+        1086,
+        1448
+      ],
+      "alpha_bbox": [
+        0,
+        9,
+        1052,
+        1448
+      ],
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "transparent_pixels": 935536,
+      "intermediate_alpha_pixels": 636681,
+      "opaque_pixels": 311,
+      "visible_pixels": 636992
+    }
+  },
+  "statue_glow_alignment": {
+    "alpha_exact_match": true,
+    "alpha_sha256": "e1c83eebb80e09b40a0e42617765de5b67f0ac5562d73a6d1d7aa58407ba21ef",
+    "strong_hover_delta_pixels_luma_ge_32": 71308
+  },
+  "capsule_B_center_window": {
+    "sample_size": [
+      478,
+      652
+    ],
+    "alpha_le_64_ratio": 0.677022,
+    "alpha_eq_0_ratio": 0.383169
+  },
+  "rejected_candidates": {
+    "background_B": "원문보다 지나치게 어둡고, 누각이 우측으로 치우쳐 중앙 석상 장면의 위계가 약함",
+    "statue_B": "샘물 분수대 인상이 강하고 손바닥을 올릴 접촉면이 즉시 읽히지 않음",
+    "statue_A_background_extraction": "투명 배경 대신 체크 무늬가 픽셀에 구워져 사용 불가",
+    "capsule_A": "투명 중앙창 대신 체크 무늬가 픽셀에 구워져 컷인 합성 불가"
+  }
+}
