@@ -1,5 +1,11 @@
 extends SceneTree
 
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -129,7 +135,13 @@ func _verify_invalid_snapshot_contracts_fail_closed() -> void:
 
 func _advance_to_stable_map_transition(flow: Object) -> void:
 	flow.debug_launch_at_target(0)
-	flow.update_selective(1.5)
+	# GRT-054 형제(bc5890dd1 도달 픽스처 수리의 누락 소비자): 고정 1.5초는
+	# 구 522px/s 발사 속도 기준이라 274px/s 재감속 후 표적에 못 미친다.
+	flow.update_selective(
+		TowerAscentNodeArrivalTestFixture.REFERENCE_FLIGHT_SECONDS
+		* TowerAscentNodeArrivalTestFixture.REFERENCE_SERVE_SPEED_PER_SECOND
+		/ maxf(1.0, TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND)
+	)
 	_expect(flow.get_phase_name() == "MAP_TRANSITION", "snapshot fixture must reach the stable map-transition boundary")
 
 
