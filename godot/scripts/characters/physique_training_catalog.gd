@@ -16,7 +16,7 @@ const ACCUMULATED_LABEL_BY_LOCALE := {
 }
 
 # 습득 횟수 상한 없음(2026-08-08 사용자 결정). 상한제 폐지 전에는 능력치별 4~5회 +
-# 런 전체 6회였다 — 지금은 수납술(액티브 슬롯 +1)만 3회 한정으로 남고, 나머지 10종은
+# 런 전체 6회였다 — 지금은 수납술(액티브 슬롯 +1)만 5회 한정으로 남고, 나머지 10종은
 # 런 내 퍽 선택 횟수 자체가 실효 한도다. `max_count`에 이 값을 쓰면 무한 반복이다.
 const UNLIMITED_COUNT := -1
 
@@ -58,14 +58,14 @@ const TRAINING_IDS: Array[String] = [
 const DATA := {
 	"physique_dash_recharge": {
 		"name": "회기보 수련", "source_perk_id": "dash_lightweight",
-		"stat_key": "dash_recharge_reduction_pct", "amount": 6.0,
+		"stat_key": "dash_recharge_reduction_pct", "amount": 4.0,
 		"max_count": UNLIMITED_COUNT, "weight": 1.0, "value_label": "활주 재충전 시간", "unit": "%",
 		"effective_ceiling": CEILING_FULL_REDUCTION,
 		"detail": "활주가 다시 채워지는 시간이 짧아집니다. 무공 슬롯을 쓰지 않습니다.",
 	},
 	"physique_dash_recovery": {
 		"name": "수세결 수련", "source_perk_id": "dash_module_control",
-		"stat_key": "dash_recovery_reduction_pct", "amount": 8.0,
+		"stat_key": "dash_recovery_reduction_pct", "amount": 6.0,
 		"max_count": UNLIMITED_COUNT, "weight": 1.0, "value_label": "활주 후딜", "unit": "%",
 		"effective_ceiling": CEILING_FULL_REDUCTION,
 		"detail": "활주 뒤 굳는 시간이 줄어 다음 행동이 빨라집니다. 무공 슬롯을 쓰지 않습니다.",
@@ -91,7 +91,7 @@ const DATA := {
 	},
 	"physique_paddle_size": {
 		"name": "철산공 수련", "source_perk_id": "common_bulk_up",
-		"stat_key": "paddle_size_bonus_pct", "amount": 4.0,
+		"stat_key": "paddle_size_bonus_pct", "amount": 2.0,
 		"max_count": UNLIMITED_COUNT, "weight": 1.0, "value_label": "몸집 크기", "unit": "%",
 		"detail": "몸집이 커져 공을 받는 범위가 넓어집니다. 무공 슬롯을 쓰지 않습니다.",
 	},
@@ -116,7 +116,7 @@ const DATA := {
 	},
 	"physique_chosik_cooldown": {
 		"name": "조식심법 수련", "source_perk_id": "common_training",
-		"stat_key": "chosik_cooldown_reduction_pct", "amount": 5.0,
+		"stat_key": "chosik_cooldown_reduction_pct", "amount": 3.0,
 		"max_count": UNLIMITED_COUNT, "weight": 1.0, "value_label": "초식 쿨타임", "unit": "%",
 		"effective_ceiling": CEILING_COOLDOWN_REDUCTION,
 		"detail": "모든 초식을 다시 펼치기까지의 시간이 짧아집니다. 무공 슬롯을 쓰지 않습니다.",
@@ -124,9 +124,9 @@ const DATA := {
 	"physique_storage": {
 		"name": "수납술 수련", "source_perk_id": "",
 		"stat_key": "active_item_slot_bonus", "amount": 1.0,
-		# 3회까지 연장 가능(2026-08-08 사용자 결정, 기존 1회 한정에서 확대). 무한이 아닌
+		# 5회까지 연장 가능(2026-08-25 사용자 결정, 기존 3회 한정에서 확대). 무한이 아닌
 		# 이유는 슬롯 무한 증식 방지 — 상한제 폐지의 유일한 예외로 남는다.
-		"max_count": 3, "weight": 0.5, "value_label": "액티브 아이템 슬롯", "unit": "",
+		"max_count": 5, "weight": 0.5, "value_label": "액티브 아이템 슬롯", "unit": "",
 		"unit_ko": "칸",
 		"detail": "액티브 아이템을 넣는 칸이 한 칸 늘어납니다. 무공 슬롯을 쓰지 않습니다.",
 	},

@@ -1,6 +1,8 @@
 extends SceneTree
 
 const ActiveItemCooldownComposer := preload("res://scripts/items/active_item_cooldown_composer.gd")
+const ActiveItemHudLayout := preload("res://scripts/hud/active_item_hud_layout.gd")
+const ActiveItemSlotController := preload("res://scripts/items/active_item_slot_controller.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const PhysiqueTrainingCatalog := preload("res://scripts/characters/physique_training_catalog.gd")
 const PhysiqueTrainingOfferPlanner := preload("res://scripts/characters/physique_training_offer_planner.gd")
@@ -50,18 +52,18 @@ func _verify_catalog_and_acquisition_rules() -> void:
 	var catalog := PhysiqueTrainingCatalog.new()
 	_expect(not RuntimePerkState.DEBUG_PHYSIQUE_TRAINING_OFFER_LOG, "shipping defaults must keep Physique Training offer telemetry silent")
 	_expect(PhysiqueTrainingCatalog.TRAINING_IDS.size() == 11, "training catalog should contain eleven cards")
-	_expect(is_equal_approx(catalog.get_amount("physique_dash_recharge"), 6.0), "dash recharge training should grant 6 percent")
-	_expect(is_equal_approx(catalog.get_amount("physique_dash_recovery"), 8.0), "dash recovery training should grant 8 percent")
+	_expect(is_equal_approx(catalog.get_amount("physique_dash_recharge"), 4.0), "dash recharge training should grant 4 percent")
+	_expect(is_equal_approx(catalog.get_amount("physique_dash_recovery"), 6.0), "dash recovery training should grant 6 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_dash_distance"), 5.0), "dash distance training should grant 5 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_move_speed"), 4.0), "move speed training should grant 4 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_posture"), 5.0), "posture training should grant 5 percent")
-	_expect(is_equal_approx(catalog.get_amount("physique_paddle_size"), 4.0), "paddle training should grant 4 percent")
+	_expect(is_equal_approx(catalog.get_amount("physique_paddle_size"), 2.0), "paddle training should grant 2 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_max_gauge"), 30.0), "max-vigor training should grant 30 flat")
 	_expect(is_equal_approx(catalog.get_amount("physique_hit_gauge"), 7.0), "hit-vigor training should grant 7 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_active_item_cooldown"), 7.0), "cooldown training should grant 7 percent")
-	_expect(is_equal_approx(catalog.get_amount("physique_chosik_cooldown"), 5.0), "Chosik cooldown training should grant 5 percent")
+	_expect(is_equal_approx(catalog.get_amount("physique_chosik_cooldown"), 3.0), "Chosik cooldown training should grant 3 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_storage"), 1.0), "storage training should stay at one slot")
-	# 상한제 폐지(2026-08-08): 능력치별 상한도 런 전체 상한도 없다. 수납술만 3회 한정.
+	# 상한제 폐지(2026-08-08): 능력치별 상한도 런 전체 상한도 없다. 수납술만 5회 한정.
 	for training_id: String in PhysiqueTrainingCatalog.TRAINING_IDS:
 		if training_id == "physique_storage":
 			continue
@@ -70,7 +72,7 @@ func _verify_catalog_and_acquisition_rules() -> void:
 			"%s should carry no acquisition cap" % training_id
 		)
 		_expect(catalog.is_unlimited(training_id), "%s should report itself as unlimited" % training_id)
-	_expect(catalog.get_max_count("physique_storage") == 3, "storage training should remain the only capped entry, extended to three")
+	_expect(catalog.get_max_count("physique_storage") == 5, "storage training should remain the only capped entry, extended to five")
 	_expect(not catalog.is_unlimited("physique_storage"), "storage training must stay capped")
 	var state := PhysiqueTrainingState.new()
 	for _index: int in range(12):
@@ -89,19 +91,19 @@ func _verify_catalog_and_acquisition_rules() -> void:
 	var deep_card := catalog.build_card("physique_dash_recharge", 12)
 	_expect(int(deep_card.get("training_count_after", 0)) == 13, "an unlimited card should keep counting past the retired cap")
 	_expect(
-		str(deep_card.get("description", "")).contains("78%"),
+		str(deep_card.get("description", "")).contains("52%"),
 		"an unlimited card should state the full accumulated value, got '%s'" % str(deep_card.get("description", ""))
 	)
 	var storage_state := PhysiqueTrainingState.new()
-	for _index: int in range(3):
-		_expect(bool(storage_state.commit("physique_storage", catalog).get("accepted", false)), "storage should accept three acquisitions")
-	_expect(not bool(storage_state.commit("physique_storage", catalog).get("accepted", true)), "storage should not reappear after its third acquisition")
-	_expect(not bool(storage_state.can_acquire("physique_storage", catalog)), "storage should report itself exhausted at three")
-	_expect(is_equal_approx(storage_state.get_bonus("active_item_slot_bonus", catalog), 3.0), "three storage acquisitions should grant three slots")
+	for _index: int in range(5):
+		_expect(bool(storage_state.commit("physique_storage", catalog).get("accepted", false)), "storage should accept five acquisitions")
+	_expect(not bool(storage_state.commit("physique_storage", catalog).get("accepted", true)), "storage should reject its sixth acquisition")
+	_expect(not bool(storage_state.can_acquire("physique_storage", catalog)), "storage should report itself exhausted at five")
+	_expect(is_equal_approx(storage_state.get_bonus("active_item_slot_bonus", catalog), 5.0), "five storage acquisitions should grant five slots")
 	var restored_deep := PhysiqueTrainingState.new()
 	restored_deep.restore({"acquired_counts": {"physique_dash_recharge": 12, "physique_storage": 5}}, catalog)
 	_expect(restored_deep.get_count("physique_dash_recharge") == 12, "restore should preserve an uncapped acquisition count")
-	_expect(restored_deep.get_count("physique_storage") == 3, "restore should still clamp the capped storage entry")
+	_expect(restored_deep.get_count("physique_storage") == 5, "restore should preserve the new capped storage entry")
 
 
 # 상한제 폐지의 뒷면: 소비자가 포화한 뒤의 습득은 죽은 카드다. 천장 도달 시 후보 제외 +
@@ -132,24 +134,24 @@ func _verify_effective_ceilings() -> void:
 	for _index: int in range(14):
 		live_cooldown._apply_physique_training_choice(catalog.build_card("physique_active_item_cooldown", _index), null, null)
 	_expect(live_cooldown.get_active_item_cooldown_msec(1000) == 50, "a saturated cooldown training should land exactly on the 5 percent floor")
-	# 조식심법 수련 −5%/회: 18회 = 90%(유효) → 19회차가 95% 최종 하한에 닿는다.
+	# 조식심법 수련 −3%/회: 31회 = 93%(유효) → 32회차가 95% 최종 하한에 닿는다.
 	var chosik_state := RuntimePerkState.new()
-	for index: int in range(18):
+	for index: int in range(31):
 		chosik_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", index), null, null)
-	_expect(not chosik_state.is_physique_training_saturated("physique_chosik_cooldown"), "the nineteenth Chosik cooldown training should remain improving")
-	_expect(chosik_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 18), null, null), "the nineteenth Chosik cooldown training should commit")
-	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_multiplier(), 0.05), "nineteen Chosik trainings should reach the 5 percent multiplier")
+	_expect(not chosik_state.is_physique_training_saturated("physique_chosik_cooldown"), "the thirty-second Chosik cooldown training should remain improving")
+	_expect(chosik_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 31), null, null), "the thirty-second Chosik cooldown training should commit")
+	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_multiplier(), 0.05), "thirty-two Chosik trainings should reach the 5 percent multiplier")
 	_expect(chosik_state.is_physique_training_saturated("physique_chosik_cooldown"), "Chosik cooldown training should saturate at the final floor")
-	_expect(not chosik_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 19), null, null), "a dead twentieth Chosik training must be rejected")
+	_expect(not chosik_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 32), null, null), "a dead thirty-third Chosik training must be rejected")
 	var live_recharge := RuntimePerkState.new()
-	for _index: int in range(17):
+	for _index: int in range(25):
 		live_recharge._apply_physique_training_choice(catalog.build_card("physique_dash_recharge", _index), null, null)
 	_expect(is_equal_approx(live_recharge.get_dash_recharge_frames(300.0), 6.0), "full-reduction training should land on the shipped recharge frame floor")
 	_expect(
-		not live_recharge._apply_physique_training_choice(catalog.build_card("physique_dash_recharge", 17), null, null),
+		not live_recharge._apply_physique_training_choice(catalog.build_card("physique_dash_recharge", 25), null, null),
 		"a saturated training must be rejected on the real choice path, not only by the offer gate"
 	)
-	_expect(live_recharge.get_physique_training_count("physique_dash_recharge") == 17, "a rejected dead acquisition must not increment the count")
+	_expect(live_recharge.get_physique_training_count("physique_dash_recharge") == 25, "a rejected dead acquisition must not increment the count")
 	var posture_state := PhysiqueTrainingState.new()
 	for _index: int in range(20):
 		posture_state.commit("physique_posture", catalog)
@@ -181,13 +183,13 @@ func _verify_legacy_compat_saturation() -> void:
 		{
 			"training_id": "physique_dash_recovery",
 			"legacy_perk": "dash_module_control",
-			"last_improving_count": 10,
+			"last_improving_count": 13,
 			"label": "수세결 + 수세결 무공 Lv.5 (후딜 1프레임 하한)",
 		},
 		{
 			"training_id": "physique_dash_recharge",
 			"legacy_perk": "dash_lightweight",
-			"last_improving_count": 16,
+			"last_improving_count": 24,
 			"label": "회기보 + 회기보 무공 Lv.5 (재충전 6프레임 하한)",
 		},
 		{
@@ -248,13 +250,13 @@ func _verify_legacy_compat_saturation() -> void:
 			"%s: a training-only run must NOT be saturated at the same count" % label
 		)
 
-	# 조식심법은 호환 ID의 기존 8%/레벨 효과를 유지하고, 새 수련 5% 계층과 곱으로
+	# 조식심법은 호환 ID의 기존 8%/레벨 효과를 유지하고, 새 수련 3% 계층과 곱으로
 	# 합성한다. 기존 저장을 무효화하거나 새 수련으로 이중 변환하지 않는다.
 	var legacy_chosik := RuntimePerkState.new()
 	legacy_chosik.runtime_skill_levels["common_training"] = 5
 	_expect(is_equal_approx(legacy_chosik.get_player_skill_cooldown_multiplier(), 0.6), "legacy common_training Lv.5 should retain its 40 percent reduction")
 	_expect(legacy_chosik._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 0), null, null), "new Chosik training should coexist with a legacy-owned common_training")
-	_expect(is_equal_approx(legacy_chosik.get_player_skill_cooldown_multiplier(), 0.57), "legacy and new Chosik cooldown layers should compose multiplicatively")
+	_expect(is_equal_approx(legacy_chosik.get_player_skill_cooldown_multiplier(), 0.582), "legacy and new Chosik cooldown layers should compose multiplicatively")
 
 	# 재리뷰 P1: 중간 게터로 재면 **신화 계층**을 놓친다. 순환결 무공 Lv.5(−65%) +
 	# master Lv.5(−12%)는 실제 최종 합성에서 12회차에 이미 하한(50ms)에 닿으므로
@@ -323,13 +325,13 @@ func _verify_legacy_compat_saturation() -> void:
 
 	# 초식 쿨타임도 신화 아이템 배수까지 합친 최종 5% 하한을 후보 판정에 사용한다.
 	var chosik_mythic_state := RuntimePerkState.new()
-	for index: int in range(18):
+	for index: int in range(30):
 		chosik_mythic_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", index), null, null)
 	var chosik_mythic_registry := TrainingRegistry.new()
 	chosik_mythic_registry.instances = {"mythic_item_runtime": SkillCooldownMythicStub.new()}
 	_expect(chosik_mythic_state.is_physique_training_saturated("physique_chosik_cooldown", chosik_mythic_registry), "the skill-cooldown saturation probe must include the mythic item multiplier")
-	_expect(not chosik_mythic_state.is_physique_training_saturated("physique_chosik_cooldown"), "without the mythic registry, the nineteenth Chosik training should still improve")
-	_expect(not chosik_mythic_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 18), null, chosik_mythic_registry), "a mythic-saturated Chosik training must be rejected")
+	_expect(not chosik_mythic_state.is_physique_training_saturated("physique_chosik_cooldown"), "without the mythic registry, the thirty-first Chosik training should still improve")
+	_expect(not chosik_mythic_state._apply_physique_training_choice(catalog.build_card("physique_chosik_cooldown", 30), null, chosik_mythic_registry), "a mythic-saturated Chosik training must be rejected")
 
 
 func _verify_offer_planner() -> void:
@@ -359,11 +361,11 @@ func _verify_offer_planner() -> void:
 	_expect(str(storage.get("training_id", "")) == "physique_storage", "storage should occupy its final half-weight interval")
 	_expect(is_equal_approx(float((catalog.get_training_data("physique_storage")).get("weight", 0.0)), 0.5), "storage weight should be 0.5")
 	# 상한제 폐지 후 "후보 0장"은 런 총량이 아니라 남은 후보가 전부 소진된 경우에만
-	# 성립한다 — 상한 있는 항목(수납술 3회)만 남은 카탈로그로 그 경로를 계속 봉인한다.
+	# 성립한다 — 상한 있는 항목(수납술 5회)만 남은 카탈로그로 그 경로를 계속 봉인한다.
 	var storage_only_catalog := StorageOnlyCatalog.new()
 	var exhausted := PhysiqueTrainingState.new()
-	for _index: int in range(3):
-		_expect(bool(exhausted.commit("physique_storage", storage_only_catalog).get("accepted", false)), "the capped entry should accept its three acquisitions")
+	for _index: int in range(5):
+		_expect(bool(exhausted.commit("physique_storage", storage_only_catalog).get("accepted", false)), "the capped entry should accept its five acquisitions")
 	var dead_offer := planner.plan_offer(choices, "battle_starpoint", exhausted, storage_only_catalog, 0.0, 0.0, 0.0)
 	_expect(not bool(dead_offer.get("rolled", true)), "a fully exhausted candidate pool should produce no dead training card and consume no roll")
 	_expect(_choices(dead_offer) == choices, "an exhausted no-op should preserve the exact offer")
@@ -460,13 +462,13 @@ func _verify_dispatch_and_stat_queries() -> void:
 	move_state.runtime_skill_levels["item_polish"] = 5
 	_expect(is_equal_approx(move_state.get_player_speed_multiplier(), 1.04), "polish should not amplify the 4 percent training bonus")
 	var dash_state := _state_with_training("physique_dash_recharge")
-	_expect(is_equal_approx(dash_state.get_dash_recharge_frames(100.0), 94.0), "dash recharge training should reduce frames by 6 percent")
+	_expect(is_equal_approx(dash_state.get_dash_recharge_frames(100.0), 96.0), "dash recharge training should reduce frames by 4 percent")
 	var recovery_state := _state_with_training("physique_dash_recovery")
-	_expect(is_equal_approx(recovery_state.get_dash_recovery_frames(100.0), 92.0), "dash recovery training should reduce frames by 8 percent")
+	_expect(is_equal_approx(recovery_state.get_dash_recovery_frames(100.0), 94.0), "dash recovery training should reduce frames by 6 percent")
 	var distance_state := _state_with_training("physique_dash_distance")
 	_expect(is_equal_approx(distance_state.get_dash_duration_frames(100.0), 105.0), "dash distance training should increase duration/distance by 5 percent")
 	var paddle_state := _state_with_training("physique_paddle_size")
-	_expect(is_equal_approx(paddle_state.get_player_paddle_size_multiplier(), 1.04), "paddle training should add 4 percent")
+	_expect(is_equal_approx(paddle_state.get_player_paddle_size_multiplier(), 1.02), "paddle training should add 2 percent")
 	var live_paddle_state := RuntimePerkState.new()
 	var live_paddle_owner := TrainingGaugeOwner.new()
 	var live_paddle_registry := TrainingRegistry.new()
@@ -477,8 +479,8 @@ func _verify_dispatch_and_stat_queries() -> void:
 		live_paddle_state.apply_choice(catalog.build_card("physique_paddle_size", 0), live_paddle_owner, live_paddle_registry),
 		"paddle training should be accepted through the complete choice path"
 	)
-	_expect(is_equal_approx(live_paddle_owner.player_paddle_width, 161.2), "paddle training should resize the live paddle width immediately")
-	_expect(is_equal_approx(live_paddle_owner.player_paddle_height, 52.0), "paddle training should resize the live paddle height immediately")
+	_expect(is_equal_approx(live_paddle_owner.player_paddle_width, 158.1), "paddle training should resize the live paddle width immediately")
+	_expect(is_equal_approx(live_paddle_owner.player_paddle_height, 51.0), "paddle training should resize the live paddle height immediately")
 	_expect(is_equal_approx(live_paddle_owner.player_pos.x + live_paddle_owner.player_paddle_width * 0.5, paddle_center_before), "paddle training should preserve the live paddle center")
 	_expect(is_equal_approx(live_paddle_owner.player_pos.y + live_paddle_owner.player_paddle_height, paddle_bottom_before), "paddle training should preserve the live paddle bottom anchor")
 	var gauge_state := _state_with_training("physique_max_gauge")
@@ -550,16 +552,42 @@ func _verify_dispatch_and_stat_queries() -> void:
 	_expect(is_equal_approx(restored_posture_status.get_player_posture_correction_pct(), 5.0), "posture training restore should republish stun resistance")
 	var storage_state := _state_with_training("physique_storage")
 	_expect(storage_state.get_active_item_slot_capacity(3) == 4, "storage training should add one slot through the canonical capacity query")
-	var triple_storage := RuntimePerkState.new()
-	for _index: int in range(3):
-		triple_storage._apply_physique_training_choice(catalog.build_card("physique_storage", _index), null, null)
-	_expect(triple_storage.get_active_item_slot_capacity(3) == 6, "three storage acquisitions should add three slots through the canonical query")
+	var five_storage := RuntimePerkState.new()
+	for _index: int in range(5):
+		five_storage._apply_physique_training_choice(catalog.build_card("physique_storage", _index), null, null)
+	_expect(five_storage.get_active_item_slot_capacity(3) == 8, "five storage acquisitions should raise the canonical capacity from three to eight")
+	_expect(
+		not five_storage._apply_physique_training_choice(catalog.build_card("physique_storage", 5), null, null),
+		"the sixth storage acquisition must be rejected on the complete choice path"
+	)
+	var slot_registry := TrainingRegistry.new()
+	slot_registry.instances = {"runtime_perk_state": five_storage}
+	var active_slots: Array = []
+	for slot_index: int in range(7):
+		active_slots.append({"name": "fixture_%d" % slot_index, "revealed": true})
+	var slot_controller := ActiveItemSlotController.new()
+	_expect(
+		slot_controller.store_active_item({"item_data": {"name": "fixture_8"}}, active_slots, slot_registry, Callable()),
+		"the production slot controller should accept the eighth active item"
+	)
+	_expect(
+		not slot_controller.store_active_item({"item_data": {"name": "fixture_9"}}, active_slots, slot_registry, Callable()),
+		"the production slot controller should reject a ninth active item"
+	)
+	var slot_layout: Dictionary = ActiveItemHudLayout.new().build_layout(
+		Vector2(760.0, 900.0), Vector2.ZERO, Vector2(760.0, 750.0), 760.0, active_slots.size(), 8
+	)
+	var slot_rects: Array = slot_layout.get("slot_rects", []) as Array
+	_expect(bool(slot_layout.get("visible", false)), "the eight-slot desktop HUD should remain visible")
+	_expect(slot_rects.size() == 8, "the production HUD layout should allocate all eight active-item rects")
+	_expect(not bool(slot_layout.get("overflow_visible", true)), "eight owned items should fit the eight-slot main box without an overflow lane")
+	print("physique_training_category_smoke: storage=5 capacity=8 sixth=rejected slots_rendered=%d ninth_item=rejected" % slot_rects.size())
 	var cooldown_state := _state_with_training("physique_active_item_cooldown")
 	_expect(cooldown_state.get_active_item_cooldown_msec(1000) == 930, "cooldown training should enter the perk stage at 7 percent")
 	_expect(ActiveItemCooldownComposer.compose_effective_cooldown_msec(1000, cooldown_state, FloorBreakingMythic.new()) == 50, "the composer should retain the final 5 percent cooldown floor")
 	var chosik_state := _state_with_training("physique_chosik_cooldown")
-	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_multiplier(), 0.95), "one Chosik training should reduce every player-skill cooldown by 5 percent")
-	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_seconds(20.0), 19.0), "the shared cooldown-seconds query should include Chosik training")
+	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_multiplier(), 0.97), "one Chosik training should reduce every player-skill cooldown by 3 percent")
+	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_seconds(20.0), 19.4), "the shared cooldown-seconds query should include Chosik training")
 	var live_chosik_state := RuntimePerkState.new()
 	var live_chosik_owner := TrainingGaugeOwner.new()
 	var live_chosik_registry := TrainingRegistry.new()
@@ -571,7 +599,7 @@ func _verify_dispatch_and_stat_queries() -> void:
 		live_chosik_registry.instances[key] = probe
 	_expect(live_chosik_state.apply_choice(catalog.build_card("physique_chosik_cooldown", 0), live_chosik_owner, live_chosik_registry), "Chosik training should apply through the complete choice path")
 	for probe_value: Variant in config_probes:
-		_expect(is_equal_approx((probe_value as SkillCooldownConfigProbe).last_multiplier, 0.95), "Chosik training should sync the 5 percent reduction to every character skill config")
+		_expect(is_equal_approx((probe_value as SkillCooldownConfigProbe).last_multiplier, 0.97), "Chosik training should sync the 3 percent reduction to every character skill config")
 
 
 func _verify_character_info_source_attribution() -> void:
@@ -621,7 +649,7 @@ func _verify_save_reset_and_localization() -> void:
 		# 판정 배율까지 포함한 다음 누적값이다. 첫 수련 전에는 괄호를 생략한다.
 		var description := str(card.get("description", ""))
 		_expect(not description.contains("→"), "%s should drop the before-to-after machine notation" % locale)
-		_expect(description.contains("12%"), "%s should state the accumulated result value" % locale)
+		_expect(description.contains("8%"), "%s should state the accumulated result value" % locale)
 		var accumulated_labels := {
 			LanguageSettings.LANGUAGE_KOREAN: "누적",
 			LanguageSettings.LANGUAGE_ENGLISH: "Total",
@@ -636,14 +664,26 @@ func _verify_save_reset_and_localization() -> void:
 			"%s should localize the accumulated label, got '%s'" % [locale, description]
 		)
 		if locale == LanguageSettings.LANGUAGE_KOREAN:
-			_expect(description == "활주 재충전 시간 6% 감소 (누적 12%)", "korean training accent should separate per-level and accumulated values, got '%s'" % description)
+			_expect(description == "활주 재충전 시간 4% 감소 (누적 8%)", "korean training accent should separate per-level and accumulated values, got '%s'" % description)
 		else:
-			_expect(description.contains("-6%") and description.contains("-12%"), "%s should sign both the per-level and accumulated reductions, got '%s'" % [locale, description])
+			_expect(description.contains("-4%") and description.contains("-8%"), "%s should sign both the per-level and accumulated reductions, got '%s'" % [locale, description])
 		# 카드 카피 계약(정본 §2.3): 등장 확률·체감률·런 총량 같은 튜닝 상수는
 		# 플레이어 카드에 노출하지 않는다 — 설계 문서·계측 로그 전용.
 		_expect(not str(card.get("detail", "")).contains("40%"), "%s detail must not expose tuning rates" % locale)
 		_expect(not str(card.get("detail", "")).contains("30%"), "%s detail must not expose effective rates" % locale)
 		_expect(not str(card.get("detail", "")).strip_edges().is_empty(), "%s should keep a simplified training detail" % locale)
+		for tuned_id: String in [
+			"physique_paddle_size",
+			"physique_dash_recovery",
+			"physique_chosik_cooldown",
+			"physique_dash_recharge",
+		]:
+			var tuned_description := str(catalog.build_card(tuned_id, 0).get("description", ""))
+			var tuned_amount := int(round(catalog.get_amount(tuned_id)))
+			_expect(
+				tuned_description.contains("%d%%" % tuned_amount),
+				"%s %s card must carry the canonical tuned amount %d%%, got '%s'" % [locale, tuned_id, tuned_amount, tuned_description]
+			)
 		# 설명문은 10종이 한 문장을 공유하던 "무공 슬롯을 차지하지 않는 기초 수련입니다"
 		# 상태에서 항목별 문장으로 갈라졌다. 로케일 맵(PERK_SUMMARY_*)까지 항목별로
 		# 채워졌는지 검사하지 않으면 한국어만 갈라지고 나머지가 공용 문장으로 남는다.
@@ -657,9 +697,9 @@ func _verify_save_reset_and_localization() -> void:
 		_expect(not str(chosik_card.get("detail", "")).strip_edges().is_empty(), "%s should localize the Chosik training detail" % locale)
 		if locale == LanguageSettings.LANGUAGE_KOREAN:
 			_expect(str(chosik_card.get("name", "")) == "조식심법 수련", "the Korean Chosik training name should preserve the retired art's identity")
-			_expect(str(chosik_card.get("description", "")) == "초식 쿨타임 5% 감소", "the Korean Chosik training effect line should state the approved 5 percent reduction")
+			_expect(str(chosik_card.get("description", "")) == "초식 쿨타임 3% 감소", "the Korean Chosik training effect line should state the approved 3 percent reduction")
 		else:
-			_expect(str(chosik_card.get("description", "")).contains("-5%"), "%s should localize the Chosik reduction label and retain -5%%" % locale)
+			_expect(str(chosik_card.get("description", "")).contains("-3%"), "%s should localize the Chosik reduction label and retain -3%%" % locale)
 			_expect(not str(chosik_card.get("description", "")).contains("초식 쿨타임"), "%s should not leak the Korean Chosik label" % locale)
 		_expect(not str(chosik_card.get("description", "")).contains("("), "%s first training card must omit an empty accumulation suffix" % locale)
 
@@ -668,8 +708,9 @@ func _verify_flag_off_isolation() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var debug_ids := _ids(catalog.get_debug_perk_entries())
 	_expect(not "physique_move_speed" in debug_ids, "flag-OFF debug picker should not expose training")
-	_expect("common_swiftness" in _ids(catalog.get_choices("smasher", {}, true, 500)), "flag-OFF offers should retain the legacy Mugong")
-	_expect("common_training" in _ids(catalog.get_choices("smasher", {}, true, 500)), "flag-OFF offers should retain legacy common_training")
+	var unlock_registry := UnlockAllRegistry.new()
+	_expect("common_swiftness" in _ids(catalog.get_choices("smasher", {}, true, 500, null, unlock_registry)), "flag-OFF offers should retain the legacy Mugong")
+	_expect("common_training" in _ids(catalog.get_choices("smasher", {}, true, 500, null, unlock_registry)), "flag-OFF offers should retain legacy common_training")
 	var state := RuntimePerkState.new()
 	state.restore_physique_training_snapshot({"acquired_counts": {"physique_move_speed": 1}})
 	_expect(is_equal_approx(state.get_player_speed_multiplier(), 1.0), "flag-OFF runtime queries should ignore stored training")
@@ -779,7 +820,7 @@ class SkillCooldownMythicStub:
 
 
 # 상한제 폐지 후 "후보 0장 → 완전 no-op" 경로를 봉인하기 위한 카탈로그 스텁.
-# 상한 있는 항목(수납술 3회)만 노출하므로 그 상한을 채우면 후보가 실제로 비게 된다.
+# 상한 있는 항목(수납술 5회)만 노출하므로 그 상한을 채우면 후보가 실제로 비게 된다.
 class StorageOnlyCatalog:
 	extends RefCounted
 
@@ -802,8 +843,24 @@ class StorageOnlyCatalog:
 	func get_all_training_data() -> Array:
 		return [_inner.get_training_data(CAPPED_ID)]
 
-	func build_card(training_id: String, acquired_count: int) -> Dictionary:
-		return _inner.build_card(training_id, acquired_count)
+	func build_card(training_id: String, acquired_count: int, training_multiplier: float = 1.0) -> Dictionary:
+		return _inner.build_card(training_id, acquired_count, training_multiplier)
+
+
+class UnlockAllRegistry:
+	extends RefCounted
+
+	var _store := UnlockAllStore.new()
+
+	func get_instance(key: String) -> Object:
+		return _store if key == "tower_ascent_unlock_store" else null
+
+
+class UnlockAllStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
 
 
 class RuntimeBridge:

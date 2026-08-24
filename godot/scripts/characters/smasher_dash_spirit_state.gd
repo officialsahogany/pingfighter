@@ -4,7 +4,8 @@ const SmasherDashSpiritRenderer := preload("res://scripts/characters/smasher_das
 const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const PERK_ID := "dash_spirit"
-const LASER_DURATION_FRAMES := 360.0
+const LASER_DURATION_BASE_FRAMES := 360.0
+const LASER_DURATION_BONUS_PER_STAR := 0.20
 const LASER_WIDTH := 8.0
 const INVINCIBLE_FRAMES := 10.0
 const FULL_DASH_FRAMES := 15.0
@@ -89,7 +90,15 @@ func try_spawn_from_dash(
 	# 시각 이동보다 짧아진다.
 	var dash_distance: float = floor(frames * DASH_FRAME_SPEED * DASH_DISTANCE_SCALE * LASER_DISTANCE_RATIO * maxf(0.0, dash_distance_multiplier))
 	var player_center: Vector2 = player_pos + safe_player_size * 0.5
-	create_laser(player_center, normalized_direction, dash_distance, safe_player_size.x, safe_player_size.y)
+	var star_level := _get_dash_spirit_star(runtime_perk_state)
+	create_laser(
+		player_center,
+		normalized_direction,
+		dash_distance,
+		safe_player_size.x,
+		safe_player_size.y,
+		get_laser_duration_frames(star_level)
+	)
 	return true
 
 
@@ -98,7 +107,8 @@ func create_laser(
 	direction: float,
 	dash_distance: float,
 	paddle_width: float = PLAYER_DEFAULT_SIZE.x,
-	paddle_height: float = PLAYER_DEFAULT_SIZE.y
+	paddle_height: float = PLAYER_DEFAULT_SIZE.y,
+	duration_frames: float = LASER_DURATION_BASE_FRAMES
 ) -> Dictionary:
 	var normalized_direction: float = -1.0 if direction < 0.0 else 1.0
 	var half_width: float = floor(max(1.0, paddle_width) * 0.5)
@@ -107,11 +117,12 @@ func create_laser(
 	# 확대 패들에서도 원본 절대 위치를 유지하려면 중심이 아니라 하단 기준이어야 한다.
 	var paddle_bottom: float = player_center.y + max(1.0, paddle_height) * 0.5
 	var y: float = paddle_bottom - PLAYER_BACK_LASER_FLOOR_INSET
+	var safe_duration_frames := maxf(1.0, duration_frames)
 	var laser: Dictionary = {
 		"start": Vector2(start_x, y),
 		"end": Vector2(end_x, y),
-		"remaining_time": LASER_DURATION_FRAMES,
-		"duration": LASER_DURATION_FRAMES,
+		"remaining_time": safe_duration_frames,
+		"duration": safe_duration_frames,
 		"direction": normalized_direction,
 		"alpha": 255.0,
 		"invincible_time": INVINCIBLE_FRAMES,
@@ -188,6 +199,19 @@ func _get_dash_spirit_chance(runtime_perk_state: Object) -> float:
 	return 0.0
 
 
+func _get_dash_spirit_star(runtime_perk_state: Object) -> int:
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_level"):
+		return maxi(1, int(runtime_perk_state.get_runtime_skill_level(PERK_ID)))
+	return 1
+
+
+static func get_laser_duration_frames(star_level: int) -> float:
+	var normalized_star := maxi(1, star_level)
+	return LASER_DURATION_BASE_FRAMES * (
+		1.0 + LASER_DURATION_BONUS_PER_STAR * float(normalized_star - 1)
+	)
+
+
 func _update_lasers(fps_scale: float) -> void:
 	var write_index := 0
 	for read_index in range(lasers.size()):
@@ -195,7 +219,8 @@ func _update_lasers(fps_scale: float) -> void:
 		var remaining: float = float(laser.get("remaining_time", 0.0)) - fps_scale
 		laser["remaining_time"] = remaining
 		laser["invincible_time"] = max(0.0, float(laser.get("invincible_time", 0.0)) - fps_scale)
-		laser["alpha"] = 255.0 * clamp(remaining / LASER_DURATION_FRAMES, 0.0, 1.0)
+		var duration: float = maxf(1.0, float(laser.get("duration", LASER_DURATION_BASE_FRAMES)))
+		laser["alpha"] = 255.0 * clamp(remaining / duration, 0.0, 1.0)
 		if remaining > 0.0:
 			lasers[write_index] = laser
 			write_index += 1

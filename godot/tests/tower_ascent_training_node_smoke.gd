@@ -291,7 +291,7 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 func _verify_finite_maximum_rejection_is_no_op() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
-	runtime_state.training_counts["physique_storage"] = 2
+	runtime_state.training_counts["physique_storage"] = 4
 	var unlock_store := FakeUnlockStore.new()
 	unlock_store.allowed_ids.assign([
 		"physique_storage",
@@ -313,13 +313,13 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "finite-maximum fixture must arrive at training")
 	var action_id := "training_stat:physique_storage"
 	var before := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
-	_expect(str(before.get("payload", {}).get("choice", {}).get("level_text", "")) == "2/3", "finite training must expose the pre-maximum level")
+	_expect(str(before.get("payload", {}).get("choice", {}).get("level_text", "")) == "4/5", "finite training must expose the pre-maximum level")
 	var final_purchase := flow.execute_node_action(action_id, "training-maximum:final")
 	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite training final level must commit")
 	var maximum_action := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
 	_expect(not bool(maximum_action.get("enabled", true)), "finite training must disable at its canonical maximum")
 	_expect(str(maximum_action.get("disabled_reason", "")) == "training_maximum_reached", "finite maximum must have a distinct disabled reason")
-	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "3/3", "finite training maximum card must show current and maximum")
+	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "5/5", "finite training maximum card must show current and maximum")
 	var muhon_before_rejection := int(flow.get_run_state_snapshot().get("muhon", -1))
 	var rejected := flow.execute_node_action(action_id, "training-maximum:blocked")
 	_expect(str(rejected.get("reason", "")) == "training_maximum_reached", "direct finite-maximum execution must reject before transaction")
@@ -355,7 +355,7 @@ func _verify_unlimited_physique_level_contract() -> void:
 		catalog.build_card(storage_id, 2),
 		runtime_state
 	)
-	_expect(str(storage_projection.get("level_text", "")) == "2/3", "finite storage training must show current and canonical maximum")
+	_expect(str(storage_projection.get("level_text", "")) == "2/5", "finite storage training must show current and canonical maximum")
 
 
 func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
@@ -370,7 +370,7 @@ func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
 		"physique_max_gauge",
 		"physique_hit_gauge",
 	])
-	runtime_state.training_counts["physique_storage"] = 3
+	runtime_state.training_counts["physique_storage"] = 5
 	runtime_state.saturated_ids.append("physique_storage")
 	var saturated_offer: Dictionary = builder.build_offer(
 		"training-saturated-fill",

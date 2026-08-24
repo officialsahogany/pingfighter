@@ -39,8 +39,16 @@ var _frame_count := 0
 class GuaranteedDashSpiritPerkState:
 	extends RefCounted
 
+	var star_level := 1
+
+	func _init(configured_star_level: int = 1) -> void:
+		star_level = configured_star_level
+
 	func get_runtime_skill_bonus(_perk_id: String) -> float:
 		return 1.0
+
+	func get_runtime_skill_level(_perk_id: String) -> int:
+		return star_level
 
 
 class DashSpiritLaserProbe:
@@ -80,6 +88,7 @@ func _init() -> void:
 
 	_verify_half_dash_never_spawns()
 	_verify_length_matches_dash_frames()
+	_verify_duration_scales_by_star()
 	var particle_state: RefCounted = _verify_evaporation_particles()
 
 	_probe = DashSpiritLaserProbe.new()
@@ -208,6 +217,77 @@ func _verify_length_matches_dash_frames() -> void:
 		_expect(
 			is_equal_approx(length, float(leg[2])),
 			"[%s] 레이저 길이는 원본 `int(frames) × 14` = %.0fpx여야 한다 (got %.1f)" % [str(leg[0]), float(leg[2]), length]
+		)
+
+
+func _verify_duration_scales_by_star() -> void:
+	const BASE_DURATION := 360.0
+	var measured_durations: Array[float] = []
+	for leg: Array in [
+		[1, 1.0],
+		[2, 1.2],
+		[3, 1.4],
+	]:
+		var star_level := int(leg[0])
+		var expected_ratio := float(leg[1])
+		var state: RefCounted = SmasherDashSpiritState.new()
+		var spawned: bool = state.try_spawn_from_dash(
+			1.0,
+			false,
+			Vector2(302.5, 700.0),
+			Vector2(155.0, 50.0),
+			{"runtime_perk_state": GuaranteedDashSpiritPerkState.new(star_level)},
+			15.0,
+			1.0
+		)
+		if not spawned or state.lasers.is_empty():
+			_expect(false, "[%d성] 지속시간 검증용 레이저가 생성돼야 한다" % star_level)
+			continue
+		var laser: Dictionary = state.lasers[0] as Dictionary
+		var duration := float(laser.get("duration", 0.0))
+		measured_durations.append(duration)
+		_expect(
+			is_equal_approx(duration / BASE_DURATION, expected_ratio),
+			"[%d성] 지속시간은 기본값의 ×%.1f여야 한다 (got %.3f)" % [star_level, expected_ratio, duration / BASE_DURATION]
+		)
+		_expect(
+			is_equal_approx(float(laser.get("remaining_time", 0.0)), duration),
+			"[%d성] 생성 시 단일 남은시간 키가 전체 지속시간과 같아야 한다" % star_level
+		)
+		state.update_effects(1.0)
+		laser = state.lasers[0] as Dictionary
+		_expect(
+			is_equal_approx(float(laser.get("remaining_time", 0.0)), duration - 1.0),
+			"[%d성] 갱신은 공통 remaining_time 키 하나만 감소시켜야 한다" % star_level
+		)
+
+	var source := FileAccess.get_file_as_string("res://scripts/characters/smasher_dash_spirit_state.gd")
+	var duration_body := _function_body(source, "static func get_laser_duration_frames(")
+	_expect(
+		duration_body.contains("LASER_DURATION_BASE_FRAMES")
+		and duration_body.contains("LASER_DURATION_BONUS_PER_STAR")
+		and duration_body.contains("normalized_star - 1"),
+		"GRT-054: 지속시간은 기본값 × (1 + 별당 보너스 × (성급-1)) 식에서 파생돼야 한다"
+	)
+	_expect(
+		not source.contains("432.0") and not source.contains("504.0"),
+		"GRT-054 RED: 2·3성 파생 지속시간 리터럴을 생산 코드에 추가하면 안 된다"
+	)
+	_expect(
+		not source.contains("remaining_time_star") and not source.contains("star_remaining_time"),
+		"GRT-007: 성급별 별도 타이머 키를 만들지 않고 effect family의 remaining_time 하나를 공유해야 한다"
+	)
+	if measured_durations.size() == 3:
+		print(
+			"smasher_dash_spirit_laser_geometry_smoke: duration=%.1f/%.1f/%.1f ratio=%.1f/%.1f/%.1f timer_key=remaining_time"
+			% [
+				measured_durations[0],
+				measured_durations[1],
+				measured_durations[2],
+				measured_durations[0] / BASE_DURATION,
+				measured_durations[1] / BASE_DURATION,
+				measured_durations[2] / BASE_DURATION,
+			]
 		)
 
 
@@ -395,3 +475,16 @@ func _finish() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\n\nfunc ", start + signature.length())
+	var next_static := source.find("\n\nstatic func ", start + signature.length())
+	if next < 0 or (next_static >= 0 and next_static < next):
+		next = next_static
+	if next < 0:
+		next = source.length()
+	return source.substr(start, next - start)
