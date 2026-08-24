@@ -4,10 +4,14 @@ const JUDGMENT_CRITICAL := "critical"
 const JUDGMENT_GREAT := "great"
 const JUDGMENT_BASE := "base"
 
-const BASE_LUCK_PERCENT := 2.0
+const BASE_LUCK_PERCENT := 3.0
 const MIN_LUCK_PERCENT := 1.0
 const MAX_LUCK_PERCENT := 8.0
-const GREAT_CELL_MULTIPLIER := 2.0
+const BASE_GREAT_WIDTH_PERCENT := 2.0
+# GRT-054: the great-band ratio derives from the approved base widths. Keep
+# the 2% band in lockstep with the 3% critical cell instead of freezing the
+# rounded 0.667 ratio as a second tuning literal.
+const GREAT_CELL_MULTIPLIER := BASE_GREAT_WIDTH_PERCENT / BASE_LUCK_PERCENT
 const JUDGMENT_BOUNDARY_EPSILON := 0.000001
 const CRITICAL_MULTIPLIER := 1.5
 const GREAT_MULTIPLIER := 1.3
@@ -17,11 +21,9 @@ const TARGET_RNG_VERSION := "training_timing_target_v1"
 
 
 static func cell_width_ratio(luck_percent: float) -> float:
-	# 피드백2 2항: the jackpot cell must be genuinely hard to hit, so the base
-	# critical cell is 2% of the track and each great band is twice that
-	# (GREAT_CELL_MULTIPLIER). Every +1 Luck widens the critical cell by one
-	# track-percent; the 8% ceiling keeps the full reward block (critical +
-	# both great bands = 5 cells) at or below 40% of the track.
+	# 피드백5 1항: the base critical cell is 3% of the track and each
+	# great band is 2%. Luck still maps one-to-one to a 1..8% critical width;
+	# GREAT_CELL_MULTIPLIER preserves the approved 2:3 band proportion.
 	return clampf(luck_percent, MIN_LUCK_PERCENT, MAX_LUCK_PERCENT) / 100.0
 
 

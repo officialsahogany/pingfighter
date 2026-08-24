@@ -178,6 +178,7 @@ var _dummy_bitmap_comparison_ok := false
 var _gauge_bitmap_comparison_ok := false
 var _critical_zone_readable := false
 var _gauge_luck_variant_count := 0
+var _gauge_zone_only_contract_ok := false
 
 
 func _init() -> void:
@@ -299,6 +300,9 @@ func _run() -> void:
 	))
 	print("tower_training_timing_visual_qa: gauge_luck_variants=%d" % (
 		_gauge_luck_variant_count
+	))
+	print("tower_training_timing_visual_qa: gauge_zone_only_contract=%s" % (
+		"ok" if _gauge_zone_only_contract_ok else "failed"
 	))
 	print("tower_training_timing_visual_qa: ok")
 	quit(0)
@@ -516,7 +520,7 @@ func _capture_gauge_luck_variants(
 		return
 	var variants: Array[Dictionary] = [
 		{"label": "minimum_1_percent", "luck_percent": 1.0},
-		{"label": "base_2_percent", "luck_percent": 2.0},
+		{"label": "base_3_percent", "luck_percent": 3.0},
 		{"label": "maximum_8_percent", "luck_percent": 8.0},
 	]
 	for index in range(variants.size()):
@@ -554,6 +558,7 @@ func _capture_gauge_luck_variants(
 		):
 			return
 		_gauge_luck_variant_count += 1
+	_gauge_zone_only_contract_ok = _gauge_luck_variant_count == variants.size()
 	modal_state.cancel_training_timing()
 
 
@@ -572,27 +577,48 @@ func _verify_and_save_gauge_luck_variant(
 		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
 		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
 	)
-	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	var track_rect := TowerAscentFlowRenderer.build_training_timing_gauge_track_rect(
+		gauge_rect
+	)
 	var timing_model: Dictionary = modal_state.get_training_timing_visual_model_for_tests()
 	var target := float(timing_model.get("target_position", -1.0))
+	var great_left_start := float(timing_model.get("great_left_start", -1.0))
 	var critical_start := float(timing_model.get("critical_start", -1.0))
 	var critical_end := float(timing_model.get("critical_end", -1.0))
+	var great_right_end := float(timing_model.get("great_right_end", -1.0))
 	var expected_cell_width := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
 		luck_percent
+	)
+	var expected_great_width := (
+		expected_cell_width * TowerTrainingTimingJudgmentPolicy.GREAT_CELL_MULTIPLIER
 	)
 	if (
 		not is_equal_approx(target, 0.5)
 		or not is_equal_approx(critical_end - critical_start, expected_cell_width)
+		or not is_equal_approx(critical_start - great_left_start, expected_great_width)
+		or not is_equal_approx(great_right_end - critical_end, expected_great_width)
 	):
-		_fail("%s gauge Luck variant drifted from the state-model cell" % label)
+		_fail("%s gauge Luck variant drifted from the state-model 2/3/2 proportion" % label)
 		return false
-	var critical_rect := Rect2(
-		Vector2(
-			track_rect.position.x + track_rect.size.x * critical_start,
-			track_rect.position.y
-		),
-		Vector2(track_rect.size.x * expected_cell_width, track_rect.size.y)
+	var zone_layout := TowerAscentFlowRenderer.build_training_timing_gauge_zone_layout(
+		track_rect,
+		great_left_start,
+		critical_start,
+		critical_end,
+		great_right_end,
+		1.0 * content_scale
 	)
+	var zone_rects: Array = zone_layout.get("zone_rects", [])
+	var inset_zone_rects: Array = zone_layout.get("inset_zone_rects", [])
+	if not _verify_gauge_zone_only_pixels(
+		image,
+		track_rect,
+		zone_rects,
+		inset_zone_rects,
+		label
+	):
+		return false
+	var critical_rect: Rect2 = zone_rects[1]
 	var sample_rect := Rect2i(critical_rect).intersection(
 		Rect2i(Vector2i.ZERO, image.get_size())
 	)
@@ -606,7 +632,7 @@ func _verify_and_save_gauge_luck_variant(
 			if pixel.r >= 0.34 and pixel.r > pixel.g * 1.35 and pixel.r > pixel.b * 1.35:
 				red_pixel_count += 1
 	if red_pixel_count < sample_rect.size.y:
-		_fail("%s gauge Luck critical cell was hidden by its target tick" % label)
+		_fail("%s gauge Luck critical block was not readable inside the track" % label)
 		return false
 	var crop_rect := Rect2i(gauge_rect.grow(14.0 * content_scale)).intersection(
 		Rect2i(Vector2i.ZERO, image.get_size())
@@ -622,6 +648,73 @@ func _verify_and_save_gauge_luck_variant(
 		_fail("%s gauge Luck 4x proof save failed" % label)
 		return false
 	return true
+
+
+func _verify_gauge_zone_only_pixels(
+	image: Image,
+	track_rect: Rect2,
+	zone_rects: Array,
+	inset_zone_rects: Array,
+	label: String
+) -> bool:
+	if zone_rects.size() != 3 or inset_zone_rects.size() != 3:
+		_fail("%s gauge did not expose exactly three color-zone rects" % label)
+		return false
+	for index in range(zone_rects.size()):
+		if not zone_rects[index] is Rect2 or not inset_zone_rects[index] is Rect2:
+			_fail("%s gauge zone %d did not expose Rect2 geometry" % [label, index])
+			return false
+		var zone_rect: Rect2 = zone_rects[index]
+		var inset_zone_rect: Rect2 = inset_zone_rects[index]
+		if (
+			not track_rect.encloses(zone_rect)
+			or not track_rect.encloses(inset_zone_rect)
+			or not is_equal_approx(zone_rect.position.y, track_rect.position.y)
+			or not is_equal_approx(zone_rect.size.y, track_rect.size.y)
+		):
+			_fail("%s gauge zone %d protruded outside the track" % [label, index])
+			return false
+	var center_y := clampi(int(roundf(track_rect.get_center().y)), 0, image.get_height() - 1)
+	var first_zone: Rect2 = zone_rects[0]
+	var last_zone: Rect2 = zone_rects[2]
+	var scan_start := clampi(int(floorf(first_zone.position.x)), 0, image.get_width())
+	var scan_end := clampi(int(ceilf(last_zone.end.x)), 0, image.get_width())
+	var observed_classes := PackedInt32Array()
+	var last_class := 0
+	for x in range(scan_start, scan_end):
+		var color_class := _gauge_zone_color_class(image.get_pixel(x, center_y))
+		if color_class == 0:
+			continue
+		if color_class != last_class:
+			observed_classes.append(color_class)
+			last_class = color_class
+	var expected_classes := PackedInt32Array([2, 1, 2])
+	if observed_classes != expected_classes:
+		_fail("%s gauge centerline was not exactly blue-red-blue" % label)
+		return false
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var gauge_start := renderer_source.find("func _draw_training_timing_gauge(")
+	var gauge_end := renderer_source.find("static func _training_timing_segment_rect", gauge_start)
+	var gauge_source := renderer_source.substr(gauge_start, gauge_end - gauge_start)
+	if (
+		gauge_start < 0
+		or gauge_end <= gauge_start
+		or gauge_source.contains("tick")
+		or not gauge_source.contains('model.get("pendulum_position"')
+	):
+		_fail("%s gauge source did not preserve the zone-only plus moving-pointer contract" % label)
+		return false
+	return true
+
+
+func _gauge_zone_color_class(pixel: Color) -> int:
+	if pixel.r >= 0.28 and pixel.r > pixel.g * 1.5 and pixel.r > pixel.b * 1.5:
+		return 1
+	if pixel.b >= 0.22 and pixel.b > pixel.r * 1.3 and pixel.b > pixel.g * 1.08:
+		return 2
+	return 0
 
 
 func _capture_timing_gauge_bitmap_and_fallback(
@@ -640,13 +733,11 @@ func _capture_timing_gauge_bitmap_and_fallback(
 		not bool(bitmap_state.get("loaded", false))
 		or str(bitmap_state.get("render_mode", "")) != "bitmap"
 		or Vector2i(bitmap_state.get("frame_size", Vector2i.ZERO)) != Vector2i(1593, 156)
-		or Vector2i(bitmap_state.get("tick_size", Vector2i.ZERO)) != Vector2i(123, 517)
-		or Vector2i(bitmap_state.get("blue_tick_size", Vector2i.ZERO)) != Vector2i(123, 517)
 		or Vector2i(bitmap_state.get("pointer_size", Vector2i.ZERO)) != Vector2i(218, 918)
 	):
-		_fail("approved four-piece timing-gauge bitmap set was not prewarmed for Vulkan capture")
+		_fail("approved frame-and-pointer timing-gauge set was not prewarmed for Vulkan capture")
 		return
-	renderer.debug_set_training_timing_gauge_textures(null, null, null, null)
+	renderer.debug_set_training_timing_gauge_textures(null, null)
 	var fallback_image := await _capture_frame(
 		viewport,
 		canvas,
@@ -740,11 +831,16 @@ func _verify_training_timing_critical_zone_readable(
 		stage_rect.position + Vector2(24.0, 11.0) * content_scale,
 		Vector2(stage_rect.size.x - 48.0 * content_scale, 29.0 * content_scale)
 	)
-	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	var track_rect := TowerAscentFlowRenderer.build_training_timing_gauge_track_rect(
+		gauge_rect
+	)
 	var timing_debug: Dictionary = flow.get_training_timing_debug_state()
 	var target := clampf(float(timing_debug.get("target_position", 0.5)), 0.0, 1.0)
 	var cell_width := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
-		float(timing_debug.get("luck_percent", 2.0))
+		float(timing_debug.get(
+			"luck_percent",
+			TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
+		))
 	)
 	var critical_rect := Rect2(
 		Vector2(
@@ -766,7 +862,7 @@ func _verify_training_timing_critical_zone_readable(
 			if pixel.r >= 0.34 and pixel.r > pixel.g * 1.35 and pixel.r > pixel.b * 1.35:
 				red_pixel_count += 1
 	if red_pixel_count < 6:
-		_fail("2 percent critical zone was hidden by the bitmap frame")
+		_fail("base 3 percent critical zone was hidden by the bitmap frame")
 		return
 	var proof_rect := sample_rect.grow(10).intersection(
 		Rect2i(Vector2i.ZERO, image.get_size())

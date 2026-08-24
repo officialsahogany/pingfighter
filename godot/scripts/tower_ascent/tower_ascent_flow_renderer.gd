@@ -81,12 +81,6 @@ const TRAINING_DUMMY_TEXTURE_PATH := (
 const TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH := (
 	"res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png"
 )
-const TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH := (
-	"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png"
-)
-const TRAINING_TIMING_GAUGE_BLUE_TICK_TEXTURE_PATH := (
-	"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_blue_v1.png"
-)
 const TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH := (
 	"res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png"
 )
@@ -109,9 +103,7 @@ const TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT := 174.0
 const TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP := 60.0
 const TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT := 173.0
 const TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM := 51.0
-const TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE := Vector2(123.0, 517.0)
 const TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE := Vector2(218.0, 918.0)
-const TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO := 41.0 / 29.0
 const TRAINING_TIMING_GAUGE_POINTER_HEIGHT_RATIO := 43.0 / 29.0
 
 const NODE_ART_PATHS := {
@@ -192,8 +184,6 @@ var _map_cloud_layer := TowerAscentMapCloudLayer.new()
 var _route_wind_vane_atlas_texture: Texture2D = null
 var _training_dummy_texture: Texture2D = null
 var _training_timing_gauge_frame_texture: Texture2D = null
-var _training_timing_gauge_tick_texture: Texture2D = null
-var _training_timing_gauge_blue_tick_texture: Texture2D = null
 var _training_timing_gauge_pointer_texture: Texture2D = null
 var _training_hanji_surface_texture: Texture2D = null
 var _training_ledger_frame_texture: Texture2D = null
@@ -295,22 +285,12 @@ func debug_set_training_dummy_texture(texture: Variant) -> void:
 
 func prewarm_training_timing_gauge_assets() -> void:
 	# The flow state constructs this renderer before the training modal can draw.
-	# Resolve all four approved pieces here so the active gauge only consumes
+	# Resolve the approved frame and moving pointer here so the active gauge only consumes
 	# cached textures and never performs file lookup or decoding in _draw.
 	_training_timing_gauge_frame_texture = ProjectResourceLoader.load_imported_texture(
 		TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH,
 		"Tower training timing-gauge frame is missing; using the procedural fallback",
 		"Tower training timing-gauge frame failed to load; using the procedural fallback"
-	)
-	_training_timing_gauge_tick_texture = ProjectResourceLoader.load_imported_texture(
-		TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH,
-		"Tower training timing-gauge red tick is missing; using the procedural fallback",
-		"Tower training timing-gauge red tick failed to load; using the procedural fallback"
-	)
-	_training_timing_gauge_blue_tick_texture = ProjectResourceLoader.load_imported_texture(
-		TRAINING_TIMING_GAUGE_BLUE_TICK_TEXTURE_PATH,
-		"Tower training timing-gauge blue tick is missing; using the procedural fallback",
-		"Tower training timing-gauge blue tick failed to load; using the procedural fallback"
 	)
 	_training_timing_gauge_pointer_texture = ProjectResourceLoader.load_imported_texture(
 		TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH,
@@ -322,8 +302,6 @@ func prewarm_training_timing_gauge_assets() -> void:
 func get_training_timing_gauge_asset_paths() -> PackedStringArray:
 	return PackedStringArray([
 		TRAINING_TIMING_GAUGE_FRAME_TEXTURE_PATH,
-		TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH,
-		TRAINING_TIMING_GAUGE_BLUE_TICK_TEXTURE_PATH,
 		TRAINING_TIMING_GAUGE_POINTER_TEXTURE_PATH,
 	])
 
@@ -337,11 +315,8 @@ func get_training_timing_gauge_asset_contract() -> Dictionary:
 			TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT,
 			TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
 		),
-		"tick_source_size": Vector2i(TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE),
-		"blue_tick_source_size": Vector2i(TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE),
 		"pointer_source_size": Vector2i(TRAINING_TIMING_GAUGE_POINTER_SOURCE_SIZE),
 		"runtime_gauge_size": Vector2i(357, 29),
-		"tick_height_ratio": TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO,
 		"pointer_height_ratio": TRAINING_TIMING_GAUGE_POINTER_HEIGHT_RATIO,
 	}
 
@@ -355,30 +330,18 @@ func get_training_timing_gauge_asset_debug_state() -> Dictionary:
 			else "procedural_fallback"
 		),
 		"frame_loaded": _training_timing_gauge_frame_texture != null,
-		"tick_loaded": _training_timing_gauge_tick_texture != null,
-		"blue_tick_loaded": _training_timing_gauge_blue_tick_texture != null,
 		"pointer_loaded": _training_timing_gauge_pointer_texture != null,
 		"frame_size": _texture_size(_training_timing_gauge_frame_texture),
-		"tick_size": _texture_size(_training_timing_gauge_tick_texture),
-		"blue_tick_size": _texture_size(_training_timing_gauge_blue_tick_texture),
 		"pointer_size": _texture_size(_training_timing_gauge_pointer_texture),
 	}
 
 
 func debug_set_training_timing_gauge_textures(
 	frame_texture: Variant,
-	tick_texture: Variant,
-	blue_tick_texture: Variant,
 	pointer_texture: Variant
 ) -> void:
 	_training_timing_gauge_frame_texture = (
 		frame_texture as Texture2D if frame_texture is Texture2D else null
-	)
-	_training_timing_gauge_tick_texture = (
-		tick_texture as Texture2D if tick_texture is Texture2D else null
-	)
-	_training_timing_gauge_blue_tick_texture = (
-		blue_tick_texture as Texture2D if blue_tick_texture is Texture2D else null
 	)
 	_training_timing_gauge_pointer_texture = (
 		pointer_texture as Texture2D if pointer_texture is Texture2D else null
@@ -388,8 +351,6 @@ func debug_set_training_timing_gauge_textures(
 func _has_training_timing_gauge_assets() -> bool:
 	return (
 		_training_timing_gauge_frame_texture != null
-		and _training_timing_gauge_tick_texture != null
-		and _training_timing_gauge_blue_tick_texture != null
 		and _training_timing_gauge_pointer_texture != null
 	)
 
@@ -398,37 +359,69 @@ static func _texture_size(texture: Texture2D) -> Vector2i:
 	return Vector2i(texture.get_size()) if texture != null else Vector2i.ZERO
 
 
-static func build_training_timing_gauge_tick_layout(
-	track_width_px: float,
-	target_position: float,
+static func build_training_timing_gauge_track_rect(gauge_rect: Rect2) -> Rect2:
+	# The authored frame's transparent opening is exactly its nine-patch center.
+	# Reuse that destination rect for the live track so zone pixels cannot show
+	# through transparent parts of the top/bottom rails (feedback5 1, GRT-018).
+	if not gauge_rect.has_area():
+		return Rect2(gauge_rect.position, Vector2.ZERO)
+	var frame_scale := gauge_rect.size.y / TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
+	var left_width := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT * frame_scale,
+		gauge_rect.size.x * 0.45
+	)
+	var right_width := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT * frame_scale,
+		gauge_rect.size.x * 0.45
+	)
+	var top_height := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP * frame_scale,
+		gauge_rect.size.y * 0.45
+	)
+	var bottom_height := minf(
+		TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM * frame_scale,
+		gauge_rect.size.y * 0.45
+	)
+	return Rect2(
+		gauge_rect.position + Vector2(left_width, top_height),
+		Vector2(
+			maxf(0.0, gauge_rect.size.x - left_width - right_width),
+			maxf(0.0, gauge_rect.size.y - top_height - bottom_height)
+		)
+	)
+
+
+static func build_training_timing_gauge_zone_layout(
+	track_rect: Rect2,
 	great_left_start: float,
 	critical_start: float,
 	critical_end: float,
 	great_right_end: float,
-	natural_tick_width_px: float
+	erosion_px: float
 ) -> Dictionary:
-	# GRT-018: this helper only projects state-owned positions into live pixels.
-	# Judgment widths and boundaries must never be recomputed in the renderer.
-	var safe_track_width := maxf(0.0, track_width_px)
-	var safe_critical_start := clampf(critical_start, 0.0, 1.0)
+	# GRT-018: project only the state-owned zone boundaries. The renderer must
+	# neither recompute judgment widths nor let any fill escape the live track.
+	if not track_rect.has_area():
+		return {"zone_rects": [], "inset_zone_rects": []}
+	var safe_great_left_start := clampf(great_left_start, 0.0, 1.0)
+	var safe_critical_start := clampf(critical_start, safe_great_left_start, 1.0)
 	var safe_critical_end := clampf(critical_end, safe_critical_start, 1.0)
-	var critical_cell_px := safe_track_width * (
-		safe_critical_end - safe_critical_start
-	)
-	var draw_width := minf(
-		maxf(0.0, natural_tick_width_px),
-		critical_cell_px * 0.8
-	)
+	var safe_great_right_end := clampf(great_right_end, safe_critical_end, 1.0)
+	var zone_rects: Array[Rect2] = [
+		_training_timing_segment_rect(
+			track_rect,
+			safe_great_left_start,
+			safe_critical_start
+		),
+		_training_timing_segment_rect(track_rect, safe_critical_start, safe_critical_end),
+		_training_timing_segment_rect(track_rect, safe_critical_end, safe_great_right_end),
+	]
+	var inset_zone_rects: Array[Rect2] = []
+	for zone_rect in zone_rects:
+		inset_zone_rects.append(_training_timing_eroded_rect(zone_rect, erosion_px))
 	return {
-		"red_tick_x": safe_track_width * clampf(target_position, 0.0, 1.0),
-		"blue_tick_xs": PackedFloat32Array([
-			safe_track_width * clampf(great_left_start, 0.0, 1.0),
-			safe_track_width * safe_critical_start,
-			safe_track_width * safe_critical_end,
-			safe_track_width * clampf(great_right_end, 0.0, 1.0),
-		]),
-		"critical_cell_px": critical_cell_px,
-		"draw_width": draw_width,
+		"zone_rects": zone_rects,
+		"inset_zone_rects": inset_zone_rects,
 	}
 
 
@@ -4439,7 +4432,7 @@ func _draw_training_timing_gauge(
 	)
 	if not gauge_rect.has_area():
 		return
-	var track_rect := gauge_rect.grow(-5.0 * content_scale)
+	var track_rect := build_training_timing_gauge_track_rect(gauge_rect)
 	var use_bitmap_chrome := _has_training_timing_gauge_assets()
 	if use_bitmap_chrome:
 		canvas.draw_rect(track_rect, Color(0.055, 0.045, 0.038, 0.98), true)
@@ -4451,13 +4444,12 @@ func _draw_training_timing_gauge(
 			content_scale
 		)
 	# GRT-018 guard: consume the state's precomputed zone boundaries so the
-	# drawn cells and every tick can never drift from the judgment math.
-	var target_position := clampf(float(model.get("target_position", 0.5)), 0.0, 1.0)
+	# three color blocks can never drift from the judgment math.
 	var critical_start := clampf(
-		float(model.get("critical_start", target_position)), 0.0, 1.0
+		float(model.get("critical_start", 0.5)), 0.0, 1.0
 	)
 	var critical_end := clampf(
-		float(model.get("critical_end", target_position)), critical_start, 1.0
+		float(model.get("critical_end", critical_start)), critical_start, 1.0
 	)
 	var great_left_start := clampf(
 		float(model.get("great_left_start", critical_start)), 0.0, critical_start
@@ -4465,104 +4457,39 @@ func _draw_training_timing_gauge(
 	var great_right_end := clampf(
 		float(model.get("great_right_end", critical_end)), critical_end, 1.0
 	)
-	var critical_rect := _training_timing_segment_rect(
+	var zone_layout := build_training_timing_gauge_zone_layout(
 		track_rect,
-		critical_start,
-		critical_end
-	)
-	var great_left_rect := _training_timing_segment_rect(
-		track_rect,
-		great_left_start,
-		critical_start
-	)
-	var great_right_rect := _training_timing_segment_rect(
-		track_rect,
-		critical_end,
-		great_right_end
-	)
-	for great_rect in [great_left_rect, great_right_rect]:
-		canvas.draw_rect(great_rect, Color(0.13, 0.34, 0.54, 0.72), true)
-		canvas.draw_rect(great_rect.grow(-1.0 * content_scale), Color(0.30, 0.58, 0.76, 0.18), true)
-	var pulse := clampf(float(model.get("pulse_strength", 0.0)), 0.0, 1.0)
-	canvas.draw_rect(
-		critical_rect.grow((4.0 + 5.0 * pulse) * content_scale),
-		Color(0.92, 0.08, 0.045, 0.055 + pulse * 0.045),
-		true
-	)
-	canvas.draw_rect(critical_rect, Color(0.68, 0.045, 0.028, 0.94), true)
-	canvas.draw_rect(
-		critical_rect.grow(-2.0 * content_scale),
-		Color(1.0, 0.20, 0.08, 0.18 + pulse * 0.12),
-		true
-	)
-	# The jackpot cell is a UI contract, so its requested gold border is explicit;
-	# aura and impact VFX remain fill-and-broad-stroke only.
-	canvas.draw_rect(
-		critical_rect,
-		Color(0.95, 0.72, 0.24, 0.96),
-		false,
-		2.0 * content_scale
-	)
-	if use_bitmap_chrome:
-		_draw_training_timing_gauge_bitmap_frame(canvas, gauge_rect)
-	var tick_draw_height := (
-		gauge_rect.size.y * TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO
-	)
-	var natural_tick_width := (
-		tick_draw_height
-		* TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE.x
-		/ TRAINING_TIMING_GAUGE_TICK_SOURCE_SIZE.y
-	)
-	var tick_layout := build_training_timing_gauge_tick_layout(
-		track_rect.size.x,
-		target_position,
 		great_left_start,
 		critical_start,
 		critical_end,
 		great_right_end,
-		natural_tick_width
+		1.0 * content_scale
 	)
-	var blue_tick_xs: PackedFloat32Array = tick_layout.get(
-		"blue_tick_xs",
-		PackedFloat32Array()
-	)
-	for blue_tick_x in blue_tick_xs:
-		var boundary_x := track_rect.position.x + blue_tick_x
-		if use_bitmap_chrome:
-			_draw_training_timing_gauge_bitmap_tick(
-				canvas,
-				gauge_rect,
-				boundary_x,
-				float(tick_layout.get("draw_width", 0.0)),
-				_training_timing_gauge_blue_tick_texture,
-				Color.WHITE
+	var zone_rects: Array = zone_layout.get("zone_rects", [])
+	var inset_zone_rects: Array = zone_layout.get("inset_zone_rects", [])
+	if zone_rects.size() != 3 or inset_zone_rects.size() != 3:
+		return
+	for zone_index in range(zone_rects.size()):
+		var zone_rect: Rect2 = zone_rects[zone_index]
+		var inset_zone_rect: Rect2 = inset_zone_rects[zone_index]
+		var is_critical_zone := zone_index == 1
+		canvas.draw_rect(
+			zone_rect,
+			Color(0.68, 0.045, 0.028, 0.94)
+			if is_critical_zone
+			else Color(0.13, 0.34, 0.54, 0.72),
+			true
+		)
+		if inset_zone_rect.has_area():
+			canvas.draw_rect(
+				inset_zone_rect,
+				Color(1.0, 0.20, 0.08, 0.24)
+				if is_critical_zone
+				else Color(0.30, 0.58, 0.76, 0.18),
+				true
 			)
-		else:
-			_draw_training_timing_gauge_procedural_tick(
-				canvas,
-				track_rect,
-				boundary_x,
-				Color(0.30, 0.66, 0.96, 0.88),
-				content_scale
-			)
-	var red_tick_x := track_rect.position.x + float(tick_layout.get("red_tick_x", 0.0))
 	if use_bitmap_chrome:
-		_draw_training_timing_gauge_bitmap_tick(
-			canvas,
-			gauge_rect,
-			red_tick_x,
-			float(tick_layout.get("draw_width", 0.0)),
-			_training_timing_gauge_tick_texture,
-			Color.WHITE
-		)
-	else:
-		_draw_training_timing_gauge_procedural_tick(
-			canvas,
-			track_rect,
-			red_tick_x,
-			Color(1.0, 0.18, 0.10, 0.94),
-			content_scale
-		)
+		_draw_training_timing_gauge_bitmap_frame(canvas, gauge_rect)
 	var pendulum_position := clampf(float(model.get("pendulum_position", 0.0)), 0.0, 1.0)
 	var marker_x := track_rect.position.x + track_rect.size.x * pendulum_position
 	var marker_color := Color(0.98, 0.91, 0.70, 1.0)
@@ -4613,25 +4540,13 @@ func _draw_training_timing_gauge_bitmap_frame(
 ) -> void:
 	# Manual nine-patch keeps the ornamental caps and rail thickness stable while
 	# only the approved quiet center spans stretch with the live gauge width.
-	var frame_scale := gauge_rect.size.y / TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.y
-	var left_width := minf(
-		TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT * frame_scale,
-		gauge_rect.size.x * 0.45
-	)
-	var right_width := minf(
-		TRAINING_TIMING_GAUGE_FRAME_SLICE_RIGHT * frame_scale,
-		gauge_rect.size.x * 0.45
-	)
-	var top_height := minf(
-		TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP * frame_scale,
-		gauge_rect.size.y * 0.45
-	)
-	var bottom_height := minf(
-		TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM * frame_scale,
-		gauge_rect.size.y * 0.45
-	)
-	var center_width := maxf(0.0, gauge_rect.size.x - left_width - right_width)
-	var center_height := maxf(0.0, gauge_rect.size.y - top_height - bottom_height)
+	var destination_center_rect := build_training_timing_gauge_track_rect(gauge_rect)
+	var left_width := destination_center_rect.position.x - gauge_rect.position.x
+	var right_width := gauge_rect.end.x - destination_center_rect.end.x
+	var top_height := destination_center_rect.position.y - gauge_rect.position.y
+	var bottom_height := gauge_rect.end.y - destination_center_rect.end.y
+	var center_width := destination_center_rect.size.x
+	var center_height := destination_center_rect.size.y
 	var source_center_width := (
 		TRAINING_TIMING_GAUGE_FRAME_SOURCE_SIZE.x
 		- TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT
@@ -4642,7 +4557,7 @@ func _draw_training_timing_gauge_bitmap_frame(
 		- TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
 		- TRAINING_TIMING_GAUGE_FRAME_SLICE_BOTTOM
 	)
-	var destination_center := gauge_rect.position + Vector2(left_width, top_height)
+	var destination_center := destination_center_rect.position
 	var source_center := Vector2(
 		TRAINING_TIMING_GAUGE_FRAME_SLICE_LEFT,
 		TRAINING_TIMING_GAUGE_FRAME_SLICE_TOP
@@ -4781,44 +4696,6 @@ func _draw_training_timing_gauge_frame_patch(
 	)
 
 
-func _draw_training_timing_gauge_bitmap_tick(
-	canvas: CanvasItem,
-	gauge_rect: Rect2,
-	boundary_x: float,
-	draw_width: float,
-	tick_texture: Texture2D,
-	tick_modulate: Color
-) -> void:
-	var draw_height := gauge_rect.size.y * TRAINING_TIMING_GAUGE_TICK_HEIGHT_RATIO
-	canvas.draw_texture_rect(
-		tick_texture,
-		Rect2(
-			Vector2(
-				boundary_x - draw_width * 0.5,
-				gauge_rect.get_center().y - draw_height * 0.5
-			),
-			Vector2(draw_width, draw_height)
-		),
-		false,
-		tick_modulate
-	)
-
-
-func _draw_training_timing_gauge_procedural_tick(
-	canvas: CanvasItem,
-	track_rect: Rect2,
-	boundary_x: float,
-	tick_color: Color,
-	content_scale: float
-) -> void:
-	canvas.draw_line(
-		Vector2(boundary_x, track_rect.position.y),
-		Vector2(boundary_x, track_rect.end.y),
-		tick_color,
-		1.0 * content_scale
-	)
-
-
 func _draw_training_timing_gauge_bitmap_pointer(
 	canvas: CanvasItem,
 	gauge_rect: Rect2,
@@ -4872,7 +4749,7 @@ func _draw_training_timing_gauge_procedural_pointer(
 	)
 
 
-func _training_timing_segment_rect(
+static func _training_timing_segment_rect(
 	track_rect: Rect2,
 	start_ratio: float,
 	end_ratio: float
@@ -4886,6 +4763,17 @@ func _training_timing_segment_rect(
 		),
 		Vector2(track_rect.size.x * (clamped_end - clamped_start), track_rect.size.y)
 	)
+
+
+static func _training_timing_eroded_rect(rect: Rect2, erosion_px: float) -> Rect2:
+	if not rect.has_area():
+		return Rect2(rect.position, Vector2.ZERO)
+	var safe_erosion := clampf(
+		maxf(0.0, erosion_px),
+		0.0,
+		minf(rect.size.x, rect.size.y) * 0.5
+	)
+	return rect.grow(-safe_erosion)
 
 
 func _draw_training_judgment_aura(
