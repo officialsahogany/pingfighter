@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v12_gate_chokepoint"
+const GENERATOR_VERSION := "tower_map_v13_early_guardian_spring"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -42,6 +42,9 @@ const FLOOR_ONE_EXPANSION_ROW_ROLES: Array[String] = [
 ]
 const FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT := 1
 const FLOOR_ONE_OPTIONAL_ENCOUNTER_SEED_SALT := 0x31464C52
+const TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MIN := 1
+const TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MAX := 2
+const TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT := 1
 
 
 func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
@@ -228,12 +231,152 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 		decorated,
 		skipped_boss_ids
 	)
-	var split := _split_tower_realms(marked)
+	var early_guaranteed := _apply_early_guardian_spring_guarantee(marked)
+	var split := _split_tower_realms(early_guaranteed)
 	var split_integrity := analyze_graph_integrity(split, true, true)
 	if not bool(split_integrity.get("valid", false)):
 		return {}
 	split["integrity"] = split_integrity
 	return split
+
+
+func _apply_early_guardian_spring_guarantee(graph: Dictionary) -> Dictionary:
+	var early_nodes: Array[Dictionary] = []
+	var kind_counts: Dictionary = {}
+	var existing_spring_count := 0
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if not _is_early_guardian_spring_service_node(node):
+				continue
+			early_nodes.append(node)
+			var node_kind := str(node.get("kind", ""))
+			kind_counts[node_kind] = int(kind_counts.get(node_kind, 0)) + 1
+			if node_kind == "guardian_spring":
+				existing_spring_count += 1
+	var missing_count := maxi(
+		0,
+		TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT - existing_spring_count
+	)
+	var boss_or_gate_contact_ids := _boss_or_gate_contact_node_ids(graph)
+	for _replacement_index in range(missing_count):
+		var replacement := _find_early_guardian_spring_replacement(
+			early_nodes,
+			kind_counts,
+			boss_or_gate_contact_ids,
+			true,
+			true
+		)
+		if replacement.is_empty():
+			replacement = _find_early_guardian_spring_replacement(
+				early_nodes,
+				kind_counts,
+				boss_or_gate_contact_ids,
+				false,
+				true
+			)
+		if replacement.is_empty():
+			replacement = _find_early_guardian_spring_replacement(
+				early_nodes,
+				kind_counts,
+				boss_or_gate_contact_ids,
+				true,
+				false
+			)
+		if replacement.is_empty():
+			replacement = _find_early_guardian_spring_replacement(
+				early_nodes,
+				kind_counts,
+				boss_or_gate_contact_ids,
+				false,
+				false
+			)
+		if replacement.is_empty():
+			break
+		var replaced_kind := str(replacement.get("kind", ""))
+		replacement["kind"] = "guardian_spring"
+		replacement["label"] = _label_for_kind("guardian_spring")
+		kind_counts[replaced_kind] = maxi(
+			0,
+			int(kind_counts.get(replaced_kind, 0)) - 1
+		)
+		kind_counts["guardian_spring"] = int(
+			kind_counts.get("guardian_spring", 0)
+		) + 1
+	return graph
+
+
+func _is_early_guardian_spring_service_node(node: Dictionary) -> bool:
+	var segment_floor := int(node.get("segment_floor", 0))
+	return (
+		segment_floor >= TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MIN
+		and segment_floor <= TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MAX
+		and str(node.get("content_state", "")) == "generated"
+		and str(node.get("kind", "")) in NONCOMBAT_NODE_KINDS
+	)
+
+
+func _boss_or_gate_contact_node_ids(graph: Dictionary) -> Dictionary:
+	var boss_or_gate_ids: Dictionary = {}
+	var contact_ids: Dictionary = {}
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		var phase := phase_variant as Dictionary
+		for node_variant in phase.get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if (
+				bool(node.get("gatekeeper", false))
+				or str(node.get("kind", "")) in COMBAT_NODE_KINDS
+				or str(node.get("boss_assignment_state", "")) == "assigned"
+			):
+				boss_or_gate_ids[str(node.get("id", ""))] = true
+		for edge_variant in phase.get("edges", []):
+			if not (edge_variant is Dictionary):
+				continue
+			var edge := edge_variant as Dictionary
+			var from_id := str(edge.get("from", ""))
+			var to_id := str(edge.get("to", ""))
+			if boss_or_gate_ids.has(from_id):
+				contact_ids[to_id] = true
+			if boss_or_gate_ids.has(to_id):
+				contact_ids[from_id] = true
+	return contact_ids
+
+
+func _find_early_guardian_spring_replacement(
+	early_nodes: Array[Dictionary],
+	kind_counts: Dictionary,
+	boss_or_gate_contact_ids: Dictionary,
+	require_duplicate_kind: bool,
+	require_no_boss_or_gate_contact: bool
+) -> Dictionary:
+	for node in early_nodes:
+		var node_kind := str(node.get("kind", ""))
+		if node_kind == "guardian_spring":
+			continue
+		if (
+			bool(node.get("gatekeeper", false))
+			or bool(node.get("floor_one_boss_choice", false))
+			or bool(node.get("standin_duplicate_gate", false))
+			or str(node.get("boss_assignment_state", "")) == "assigned"
+		):
+			continue
+		if require_duplicate_kind and int(kind_counts.get(node_kind, 0)) <= 1:
+			continue
+		if (
+			require_no_boss_or_gate_contact
+			and boss_or_gate_contact_ids.has(str(node.get("id", "")))
+		):
+			continue
+		return node
+	return {}
 
 
 func generate(map_seed: int, floor_specs: Array) -> Dictionary:

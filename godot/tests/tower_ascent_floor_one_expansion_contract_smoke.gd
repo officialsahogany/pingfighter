@@ -28,6 +28,14 @@ const TowerAscentTuning := preload(
 const SAMPLE_SEED_COUNT := 128
 const MAP_DRAW_CALL_LIMIT := 1536
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+const EXPECTED_GENERATOR_VERSION := "tower_map_v13_early_guardian_spring"
+
+
+class EarlyGuaranteeDisabledGenerator:
+	extends "res://scripts/tower_ascent/tower_ascent_map_generator.gd"
+
+	func _apply_early_guardian_spring_guarantee(graph: Dictionary) -> Dictionary:
+		return graph
 
 var _failures: Array[String] = []
 var _optional_second_count := 0
@@ -48,6 +56,14 @@ var _minimum_fit_all_zoom := INF
 var _maximum_world_height := 0.0
 var _negative_leg_count := 0
 var _negative_fixture: Dictionary = {}
+var _early_replacement_seed_count := 0
+var _early_preexisting_seed_count := 0
+var _early_disabled_zero_seed_count := 0
+var _early_replaced_from_counts: Dictionary = {}
+var _maximum_replacement_draw_calls := 0
+var _maximum_replacement_draw_seed := 0
+var _maximum_replacement_path_draw_calls := 0
+var _maximum_replacement_cloud_draw_calls := 0
 
 
 func _init() -> void:
@@ -89,6 +105,20 @@ func _init() -> void:
 				_negative_leg_count,
 			]
 		)
+		print(
+			"tower_ascent_floor_one_expansion_contract_smoke: early_guardian_spring replacement_seeds=%d preexisting_seeds=%d disabled_zero_seeds=%d replaced_from=%s replacement_budget_seed=%d path=%d clouds=%d total=%d limit=%d"
+			% [
+				_early_replacement_seed_count,
+				_early_preexisting_seed_count,
+				_early_disabled_zero_seed_count,
+				str(_early_replaced_from_counts),
+				_maximum_replacement_draw_seed,
+				_maximum_replacement_path_draw_calls,
+				_maximum_replacement_cloud_draw_calls,
+				_maximum_replacement_draw_calls,
+				MAP_DRAW_CALL_LIMIT,
+			]
+		)
 		print("tower_ascent_floor_one_expansion_contract_smoke: ok")
 		quit(0)
 		return
@@ -99,12 +129,22 @@ func _init() -> void:
 
 func _verify_standard_seeds() -> void:
 	var generator := TowerAscentMapGenerator.new()
+	var disabled_generator := EarlyGuaranteeDisabledGenerator.new()
+	_expect(
+		TowerAscentMapGenerator.GENERATOR_VERSION == EXPECTED_GENERATOR_VERSION,
+		"generator version must advance to the early guardian spring contract"
+	)
 	for seed_offset in range(SAMPLE_SEED_COUNT):
 		var map_seed := 7001 + seed_offset * 7919
 		var graph := generator.generate_tower(map_seed)
 		var repeated := generator.generate_tower(map_seed)
+		var disabled_graph := disabled_generator.generate_tower(map_seed)
 		_expect(not graph.is_empty(), "seed %d must generate an expanded tower" % map_seed)
-		if graph.is_empty():
+		_expect(
+			not disabled_graph.is_empty(),
+			"seed %d disabled guarantee fixture must generate" % map_seed
+		)
+		if graph.is_empty() or disabled_graph.is_empty():
 			continue
 		_expect(
 			generator.encode_graph(graph) == generator.encode_graph(repeated),
@@ -120,6 +160,11 @@ func _verify_standard_seeds() -> void:
 		if phases.is_empty() or not (phases[0] is Dictionary):
 			continue
 		var human_phase := phases[0] as Dictionary
+		var replacement_applied := _verify_early_guardian_spring_guarantee(
+			map_seed,
+			graph,
+			disabled_graph
+		)
 		_verify_floor_one_graph(map_seed, human_phase)
 		var integrity := generator.analyze_graph_integrity(graph, true, true)
 		_expect(
@@ -189,7 +234,7 @@ func _verify_standard_seeds() -> void:
 					) + 1
 		if _negative_fixture.is_empty():
 			_negative_fixture = graph.duplicate(true)
-		_verify_fit_all_budget(map_seed)
+		_verify_fit_all_budget(map_seed, replacement_applied)
 	# 피드백2 4항: the derived 50% skip is retired — the full roster contract
 	# requires the second encounter on every seed while a unique slot remains.
 	_expect(
@@ -210,6 +255,233 @@ func _verify_standard_seeds() -> void:
 			+ 0.000001 >= TowerAscentTuning.TEMP_MAP_DEGREE_TWO_MIN_RATIO,
 		"128-seed two-choice ratio must stay at or above seventy percent"
 	)
+	_expect(
+		_early_replacement_seed_count > 0,
+		"128-seed fixture must exercise the early guardian spring replacement leg"
+	)
+	_expect(
+		_early_preexisting_seed_count > 0,
+		"128-seed fixture must exercise the preexisting no-change leg"
+	)
+	_expect(
+		_early_replacement_seed_count + _early_preexisting_seed_count
+			== SAMPLE_SEED_COUNT,
+		"every seed must resolve through replacement or preexisting spring"
+	)
+	_expect(
+		_early_disabled_zero_seed_count == _early_replacement_seed_count,
+		"disabling the guarantee must expose every replacement seed as RED"
+	)
+	_negative_leg_count += 1
+
+
+func _verify_early_guardian_spring_guarantee(
+	map_seed: int,
+	graph: Dictionary,
+	disabled_graph: Dictionary
+) -> bool:
+	var before_count := _count_early_guardian_springs(disabled_graph)
+	var after_count := _count_early_guardian_springs(graph)
+	_expect(
+		after_count >= TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT,
+		"seed %d must guarantee an early guardian spring" % map_seed
+	)
+	if before_count >= TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT:
+		_early_preexisting_seed_count += 1
+		_expect(
+			TowerAscentMapGenerator.new().encode_graph(graph)
+				== TowerAscentMapGenerator.new().encode_graph(disabled_graph),
+			"seed %d with an existing spring must remain byte-identical" % map_seed
+		)
+		return false
+	_early_disabled_zero_seed_count += 1
+	_early_replacement_seed_count += 1
+	_expect(
+		after_count == TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT,
+		"seed %d replacement must add exactly the guaranteed spring count" % map_seed
+	)
+	_expect(
+		TowerAscentMapGenerator.new().encode_graph(
+			_normalize_service_kind_and_label(graph)
+		) == TowerAscentMapGenerator.new().encode_graph(
+			_normalize_service_kind_and_label(disabled_graph)
+		),
+		"seed %d guarantee must preserve every field except service kind and label"
+		% map_seed
+	)
+	var before_nodes := _all_node_index(disabled_graph)
+	var after_nodes := _all_node_index(graph)
+	var changed_node_ids: Array[String] = []
+	for node_id_variant in before_nodes.keys():
+		var node_id := str(node_id_variant)
+		if before_nodes.get(node_id, {}) != after_nodes.get(node_id, {}):
+			changed_node_ids.append(node_id)
+	_expect(
+		changed_node_ids.size() == 1,
+		"seed %d guarantee must replace exactly one node" % map_seed
+	)
+	if changed_node_ids.size() != 1:
+		return true
+	var changed_node_id := changed_node_ids[0]
+	var before_node: Dictionary = before_nodes.get(changed_node_id, {})
+	var after_node: Dictionary = after_nodes.get(changed_node_id, {})
+	var replaced_kind := str(before_node.get("kind", ""))
+	_expect(
+		replaced_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS
+			and replaced_kind != "guardian_spring",
+		"seed %d replacement source must be a non-spring service" % map_seed
+	)
+	_expect(
+		str(after_node.get("kind", "")) == "guardian_spring"
+			and str(after_node.get("label", "")) == "샘터",
+		"seed %d replacement target must be the guardian spring service" % map_seed
+	)
+	_expect(
+		_count_early_kind(disabled_graph, replaced_kind) > 1,
+		"seed %d replacement must prefer a duplicated service kind" % map_seed
+	)
+	_expect(
+		_not_boss_or_gate(before_node),
+		"seed %d replacement must not touch boss or gate semantics" % map_seed
+	)
+	var duplicate_noncontact_available := _has_early_replacement_candidate(
+		disabled_graph,
+		true,
+		true
+	)
+	var noncontact_available := _has_early_replacement_candidate(
+		disabled_graph,
+		false,
+		true
+	)
+	if duplicate_noncontact_available:
+		_expect(
+			_count_early_kind(disabled_graph, replaced_kind) > 1
+				and not _has_boss_or_gate_contact(disabled_graph, changed_node_id),
+			"seed %d must prefer a duplicated service away from bosses and gates"
+			% map_seed
+		)
+	elif noncontact_available:
+		_expect(
+			not _has_boss_or_gate_contact(disabled_graph, changed_node_id),
+			"seed %d must prefer a service away from bosses and gates" % map_seed
+		)
+	_early_replaced_from_counts[replaced_kind] = int(
+		_early_replaced_from_counts.get(replaced_kind, 0)
+	) + 1
+	return true
+
+
+func _count_early_guardian_springs(graph: Dictionary) -> int:
+	return _count_early_kind(graph, "guardian_spring")
+
+
+func _count_early_kind(graph: Dictionary, expected_kind: String) -> int:
+	var result := 0
+	for node_variant in _all_node_index(graph).values():
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var segment_floor := int(node.get("segment_floor", 0))
+		if (
+			segment_floor >= TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MIN
+			and segment_floor <= TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MAX
+			and str(node.get("content_state", "")) == "generated"
+			and str(node.get("kind", "")) == expected_kind
+		):
+			result += 1
+	return result
+
+
+func _not_boss_or_gate(node: Dictionary) -> bool:
+	return (
+		str(node.get("kind", "")) in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS
+		and not bool(node.get("gatekeeper", false))
+		and not bool(node.get("floor_one_boss_choice", false))
+		and not bool(node.get("standin_duplicate_gate", false))
+		and str(node.get("boss_assignment_state", "")) != "assigned"
+	)
+
+
+func _has_early_replacement_candidate(
+	graph: Dictionary,
+	require_duplicate_kind: bool,
+	require_no_boss_or_gate_contact: bool
+) -> bool:
+	for node_variant in _all_node_index(graph).values():
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var node_kind := str(node.get("kind", ""))
+		var segment_floor := int(node.get("segment_floor", 0))
+		if (
+			segment_floor < TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MIN
+			or segment_floor > TowerAscentMapGenerator.TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MAX
+			or str(node.get("content_state", "")) != "generated"
+			or node_kind not in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS
+			or node_kind == "guardian_spring"
+			or not _not_boss_or_gate(node)
+		):
+			continue
+		if require_duplicate_kind and _count_early_kind(graph, node_kind) <= 1:
+			continue
+		if (
+			require_no_boss_or_gate_contact
+			and _has_boss_or_gate_contact(graph, str(node.get("id", "")))
+		):
+			continue
+		return true
+	return false
+
+
+func _has_boss_or_gate_contact(graph: Dictionary, candidate_id: String) -> bool:
+	var node_by_id := _all_node_index(graph)
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for edge_variant in (phase_variant as Dictionary).get("edges", []):
+			if not (edge_variant is Dictionary):
+				continue
+			var edge := edge_variant as Dictionary
+			var other_id := ""
+			if str(edge.get("from", "")) == candidate_id:
+				other_id = str(edge.get("to", ""))
+			elif str(edge.get("to", "")) == candidate_id:
+				other_id = str(edge.get("from", ""))
+			if other_id.is_empty():
+				continue
+			var other: Dictionary = node_by_id.get(other_id, {})
+			if (
+				bool(other.get("gatekeeper", false))
+				or str(other.get("kind", "")) in TowerAscentMapGenerator.COMBAT_NODE_KINDS
+				or str(other.get("boss_assignment_state", "")) == "assigned"
+			):
+				return true
+	return false
+
+
+func _normalize_service_kind_and_label(graph: Dictionary) -> Dictionary:
+	var normalized := graph.duplicate(true)
+	for phase_variant in normalized.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if node_variant is Dictionary:
+				(node_variant as Dictionary).erase("kind")
+				(node_variant as Dictionary).erase("label")
+	return normalized
+
+
+func _all_node_index(graph: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if node_variant is Dictionary:
+				var node := node_variant as Dictionary
+				result[str(node.get("id", ""))] = node
+	return result
 
 
 func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
@@ -310,7 +582,7 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 	)
 
 
-func _verify_fit_all_budget(map_seed: int) -> void:
+func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 	var flow := TowerAscentFlowOwner.new()
 	_expect(
 		flow.begin_vertical_slice(null, Callable(), {
@@ -352,6 +624,13 @@ func _verify_fit_all_budget(map_seed: int) -> void:
 		_maximum_draw_seed = map_seed
 		_maximum_path_draw_calls = int(cache.get("path_draw_call_budget", 0))
 		_maximum_cloud_draw_calls = cloud_calls
+	if replacement_applied and total_draw_calls > _maximum_replacement_draw_calls:
+		_maximum_replacement_draw_calls = total_draw_calls
+		_maximum_replacement_draw_seed = map_seed
+		_maximum_replacement_path_draw_calls = int(
+			cache.get("path_draw_call_budget", 0)
+		)
+		_maximum_replacement_cloud_draw_calls = cloud_calls
 	_maximum_dot_gap = maxf(_maximum_dot_gap, float(cache.get("path_dot_gap", 0.0)))
 	_minimum_fit_all_zoom = minf(
 		_minimum_fit_all_zoom,
