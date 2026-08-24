@@ -26,6 +26,7 @@ func _run() -> void:
 	_verify_training_stage_reservations()
 	_verify_layout_cache_is_size_owned()
 	_verify_compact_description_three_row_budget()
+	_verify_compact_unavailable_reason_reserves_description_row()
 	_verify_compact_hover_detail_lane_geometry()
 	_verify_training_hanji_chrome_assets_and_gate()
 	if _failures.is_empty():
@@ -258,6 +259,102 @@ func _verify_compact_description_three_row_budget() -> void:
 	_expect(live_badge_rows.is_empty(), "large Vulkan viewport must also reserve no ordinary training badge row")
 
 
+func _verify_compact_unavailable_reason_reserves_description_row() -> void:
+	var shop_modal := _build_six_card_modal("shop")
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var reason := "금화 150 필요, 30 부족"
+	var disabled_action := _chance_gem_shop_action(false, reason)
+	var no_reason_action := _chance_gem_shop_action(false, "")
+	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
+		var card_rect := shop_modal.get_action_rects(view_size)[5] as Rect2
+		var disabled_layout := renderer.build_tower_node_card_text_layout(
+			disabled_action,
+			card_rect
+		)
+		var no_reason_layout := renderer.build_tower_node_card_text_layout(
+			no_reason_action,
+			card_rect
+		)
+		var no_reason_rows: Array = no_reason_layout.get("description_rows", [])
+		var disabled_rows: Array = disabled_layout.get("description_rows", [])
+		_expect(
+			bool(disabled_layout.get("compact_card", false)),
+			"chance-gem overlap leg requires the compact shop profile at %s" % view_size
+		)
+		_expect(
+			no_reason_rows.size() >= 2,
+			"counterproof fixture must expose at least two compact description rows at %s" % view_size
+		)
+		_expect(
+			bool(disabled_layout.get("unavailable_reason_row_reserved", false)),
+			"a disabled compact card with a visible reason must reserve one description row at %s" % view_size
+		)
+		_expect(
+			int(disabled_layout.get("description_row_budget", -1))
+			<= int(no_reason_layout.get("description_row_budget", -1)) - 1,
+			"compact unavailable reason must reduce the description row budget by at least one at %s" % view_size
+		)
+		_expect(
+			int(disabled_layout.get("unavailable_reason_row_omitted_count", 0))
+			== no_reason_rows.size() - disabled_rows.size(),
+			"compact unavailable reason must report every wholly omitted row at %s" % view_size
+		)
+		if view_size == LIVE_VIEW_SIZE:
+			_expect(
+				int(disabled_layout.get("unavailable_reason_row_omitted_count", 0)) == 1,
+				"the acceptance-resolution compact card must yield exactly one description row"
+			)
+		for row_index in range(disabled_rows.size()):
+			_expect(
+				str(disabled_rows[row_index]) == str(no_reason_rows[row_index]),
+				"reason reservation must keep every retained description row whole at %s" % view_size
+			)
+		var compact_scale := float(disabled_layout.get("compact_scale", 0.0))
+		var description_font_size := int(disabled_layout.get("description_font_size", 0))
+		var description_start := card_rect.position.y + 64.0 * compact_scale
+		var description_step := 12.0 * compact_scale
+		var reason_center_y := card_rect.end.y - 31.0 * compact_scale
+		var unreserved_last_baseline := (
+			description_start + float(no_reason_rows.size() - 1) * description_step
+		)
+		_expect(
+			absf(unreserved_last_baseline - reason_center_y) < float(description_font_size),
+			"RED counterproof requires the unreserved last description baseline to overlap the reason lane at %s" % view_size
+		)
+		if not disabled_rows.is_empty():
+			var reserved_last_baseline := (
+				description_start + float(disabled_rows.size() - 1) * description_step
+			)
+			_expect(
+				absf(reserved_last_baseline - reason_center_y) >= float(description_font_size),
+				"reserved compact description rows must clear the unavailable-reason lane at %s" % view_size
+			)
+
+	var legacy_modal := _build_six_card_modal("fallen_monk")
+	var legacy_rect := legacy_modal.get_action_rects(BASE_VIEW_SIZE)[0] as Rect2
+	var legacy_reason_layout := renderer.build_tower_node_card_text_layout(
+		disabled_action,
+		legacy_rect
+	)
+	var legacy_no_reason_layout := renderer.build_tower_node_card_text_layout(
+		no_reason_action,
+		legacy_rect
+	)
+	_expect(
+		not bool(legacy_reason_layout.get("compact_card", true)),
+		"negative leg requires the established noncompact card profile"
+	)
+	_expect(
+		not bool(legacy_reason_layout.get("unavailable_reason_row_reserved", true)),
+		"noncompact cards must not reserve a description row for the legacy reason lane"
+	)
+	_expect(
+		int(legacy_reason_layout.get("description_row_budget", -1))
+		== int(legacy_no_reason_layout.get("description_row_budget", -2)),
+		"noncompact unavailable reasons must preserve the established description budget"
+	)
+
+
 func _verify_compact_hover_detail_lane_geometry() -> void:
 	var modal := _build_six_card_modal("training")
 	var renderer := RuntimePerkOverlayRenderer.new()
@@ -440,6 +537,26 @@ func _training_card_action(index: int, node_kind: String = "training") -> Dictio
 				"name": "체질 수련 선택지 %d" % index,
 				"description": "몸을 단련해 실제 전투 능력치를 높입니다.",
 				"level_text": "Lv.2 → Lv.3",
+			},
+		},
+	}
+
+
+func _chance_gem_shop_action(enabled: bool, unavailable_reason: String) -> Dictionary:
+	return {
+		"id": "shop_purchase:chance_gem_1",
+		"label": "기회의 보석",
+		"cost_text": "150 금화",
+		"enabled": enabled,
+		"unavailable_reason": unavailable_reason,
+		"payload": {
+			"choice": {
+				"id": "chance_gem",
+				"name": "기회의 보석",
+				"description": "패배 후 도전을 이어갈 때 쓰는 보석을 1개 얻습니다.",
+				"level_text": "탑 물자",
+				"card_content_kind": "chance_gem",
+				"icon_color": Color(0.33, 0.72, 1.0),
 			},
 		},
 	}

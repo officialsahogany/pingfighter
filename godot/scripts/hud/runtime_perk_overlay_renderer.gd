@@ -693,10 +693,44 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		text_font
 	)
 	var description_rows: Array = description_wrap.get("lines", [])
+	var unreserved_description_row_count := description_rows.size()
+	var unavailable_reason_row_reserved := (
+		compact_card
+		and not bool(action.get("enabled", true))
+		and not str(action.get("unavailable_reason", "")).strip_edges().is_empty()
+		and not description_rows.is_empty()
+	)
+	var unavailable_reason_row_omitted_count := 0
+	if unavailable_reason_row_reserved:
+		# GRT-021: the unavailable receipt owns the lower compact text lane. Yield
+		# one complete description row; vertically clipping the last row can turn
+		# its remaining glyphs into a different promise. At the 760px logical size
+		# the same sentence may wrap to one extra row, so keep yielding whole rows
+		# until the last retained baseline clears the fixed receipt lane.
+		while not description_rows.is_empty():
+			description_rows.resize(description_rows.size() - 1)
+			unavailable_reason_row_omitted_count += 1
+			if description_rows.is_empty():
+				break
+			var last_description_baseline := (
+				rect.position.y
+				+ 64.0 * compact_scale
+				+ float(description_rows.size() - 1) * 12.0 * compact_scale
+			)
+			var unavailable_reason_center_y := rect.end.y - 31.0 * compact_scale
+			if (
+				absf(last_description_baseline - unavailable_reason_center_y)
+				>= float(font_size)
+			):
+				break
+	var description_row_budget := description_rows.size()
 	var strict_text_budget := bool(choice.get("tower_node_strict_text_budget", false))
 	var description_hidden_by_budget := (
 		strict_text_budget
-		and int(description_wrap.get("discarded_line_count", 0)) > 0
+		and (
+			int(description_wrap.get("discarded_line_count", 0)) > 0
+			or unavailable_reason_row_reserved
+		)
 	)
 	if description_hidden_by_budget:
 		# GRT-021: Spring/Rest presentation sentences are semantic contracts.
@@ -736,6 +770,10 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		"text_font": text_font,
 		"description_font_size": font_size,
 		"description_rows": description_rows,
+		"unreserved_description_row_count": unreserved_description_row_count,
+		"description_row_budget": description_row_budget,
+		"unavailable_reason_row_reserved": unavailable_reason_row_reserved,
+		"unavailable_reason_row_omitted_count": unavailable_reason_row_omitted_count,
 		# GRT-021: this is the count of rows actually appended by the same
 		# width-aware builder consumed by draw_tower_node_card below.
 		"appended_description_row_count": description_rows.size(),
