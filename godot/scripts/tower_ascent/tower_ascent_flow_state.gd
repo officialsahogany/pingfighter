@@ -84,6 +84,12 @@ const TowerNoncombatNodeBackgroundCatalog := preload(
 const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
+const TowerGuardianSpringPresentationAssetCatalog := preload(
+	"res://scripts/tower_ascent/tower_guardian_spring_presentation_asset_catalog.gd"
+)
+const TowerCardAbsorptionTargetResolver := preload(
+	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
+)
 
 const SNAPSHOT_SCHEMA_VERSION := TowerAscentRunState.SNAPSHOT_SCHEMA_VERSION
 const MAP_GENERATOR_VERSION := TowerAscentMapGenerator.GENERATOR_VERSION
@@ -200,6 +206,12 @@ var _header_subtitle := ""
 var _transition_fade_state: Object = TowerAscentTransitionFadeState.new()
 var _noncombat_node_background_catalog: Object = TowerNoncombatNodeBackgroundCatalog.new()
 var _map_scroll_asset_catalog: Object = TowerMapScrollAssetCatalog.new()
+var _guardian_spring_presentation_asset_catalog: Object = (
+	TowerGuardianSpringPresentationAssetCatalog.new()
+)
+var _guardian_spring_absorption_target_resolver: Object = (
+	TowerCardAbsorptionTargetResolver.new()
+)
 
 func _get_registry_instance(registry: Object, key: String) -> Object:
 	if registry == null:
@@ -300,6 +312,7 @@ func _reset_runtime_state() -> void:
 	_transition_fade_state.reset()
 	_noncombat_node_background_catalog.clear_cache()
 	_map_scroll_asset_catalog.clear_cache()
+	_guardian_spring_presentation_asset_catalog.clear_cache()
 	_finish_callback = Callable()
 	_reset_selector()
 
@@ -318,6 +331,18 @@ func get_noncombat_node_background_debug_state() -> Dictionary:
 
 func _prewarm_map_scroll_assets() -> Dictionary:
 	return _map_scroll_asset_catalog.prewarm_all()
+
+
+func prewarm_guardian_spring_presentation_assets() -> Dictionary:
+	return _guardian_spring_presentation_asset_catalog.prewarm_all()
+
+
+func get_guardian_spring_presentation_asset_bundle() -> Dictionary:
+	return _guardian_spring_presentation_asset_catalog.get_cached_bundle()
+
+
+func get_guardian_spring_presentation_asset_debug_state() -> Dictionary:
+	return _guardian_spring_presentation_asset_catalog.get_debug_state()
 
 
 func get_map_scroll_asset_resolution(asset_key: String) -> Dictionary:

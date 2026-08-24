@@ -60,6 +60,8 @@ const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_c
 const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
 const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
 const KEY_SPRING_PALM_OPTION := "tower_ascent.node_modal.guardian_spring.palm_option"
+const KEY_SPRING_STATUE_DIALOGUE := "tower_ascent.node_modal.guardian_spring.statue_dialogue"
+const KEY_SPRING_STATUE_PROMPT := "tower_ascent.node_modal.guardian_spring.statue_prompt"
 const KEY_SPRING_PRAYER_OPTION := "tower_ascent.node_modal.guardian_spring.prayer_option"
 const KEY_SPRING_BROWSE_OPTION := "tower_ascent.node_modal.guardian_spring.browse_option"
 const KEY_SPRING_PALM_COMPLETED := "tower_ascent.node_modal.guardian_spring.palm_completed"
@@ -170,6 +172,8 @@ const TEXT_BY_LOCALE := {
 		KEY_MONK_OFFER_UNAVAILABLE: "파계승의 초식 선택지를 준비할 수 없습니다.",
 		KEY_COST_FREE: "무료",
 		KEY_SPRING_PALM_OPTION: "손바닥을 대본다",
+		KEY_SPRING_STATUE_DIALOGUE: "바위에서 영험한 기운이 흘러나옵니다",
+		KEY_SPRING_STATUE_PROMPT: "돌에 손을 대어 기운을 살펴보세요",
 		KEY_SPRING_PRAYER_OPTION: "기도한다",
 		KEY_SPRING_BROWSE_OPTION: "수호령들을 살핀다",
 		KEY_SPRING_PALM_COMPLETED: "이미 샘터의 기운을 받아들였습니다.",
@@ -219,6 +223,8 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
 		KEY_SPRING_PALM_OPTION: "Place your palm",
+		KEY_SPRING_STATUE_DIALOGUE: "A sacred energy flows from the stone.",
+		KEY_SPRING_STATUE_PROMPT: "Touch the stone and feel its presence.",
 		KEY_SPRING_PRAYER_OPTION: "Offer a prayer",
 		KEY_SPRING_BROWSE_OPTION: "View the guardians",
 		KEY_SPRING_PALM_COMPLETED: "You have already received the spring's energy.",
@@ -269,6 +275,8 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
 		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
+		KEY_SPRING_STATUE_DIALOGUE: "神圣的气息正从岩石中流淌而出。",
+		KEY_SPRING_STATUE_PROMPT: "触碰岩石，感受其中的气息。",
 		KEY_SPRING_PRAYER_OPTION: "祈祷",
 		KEY_SPRING_BROWSE_OPTION: "查看守护灵",
 		KEY_SPRING_PALM_COMPLETED: "你已经接受了泉水的力量。",
@@ -319,6 +327,8 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
 		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
+		KEY_SPRING_STATUE_DIALOGUE: "岩から霊妙な気が流れ出しています。",
+		KEY_SPRING_STATUE_PROMPT: "岩に触れて、その気配を感じてください。",
 		KEY_SPRING_PRAYER_OPTION: "祈る",
 		KEY_SPRING_BROWSE_OPTION: "守護霊たちを見る",
 		KEY_SPRING_PALM_COMPLETED: "すでに泉の力を受け入れました。",

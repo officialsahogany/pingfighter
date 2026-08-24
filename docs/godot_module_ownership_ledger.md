@@ -11348,6 +11348,17 @@ active-item entry above. Design note: `docs/void_phantom_smasher_skill.md`.
   click selection is pointer focus only because selector-ball collision remains
   the authoritative route-commit owner. The chain must not lazy-create modules
   from `update_selective()` or `draw()`.
+- `scripts/tower_ascent/tower_guardian_spring_presentation_asset_catalog.gd`
+  owns the approved Guardian Spring scene/statue/glow/capsule bitmap manifest,
+  all-or-nothing prewarm/cache readiness, cold-entry timing, and exact v1
+  fallback gate. `tower_guardian_spring_presentation_state.gd` owns retained
+  statue/menu/ritual phases, shared draw/hit rectangles, the two-second ritual,
+  discard-all/no-skip input policy, presentation-only capsule float clock, and
+  exactly-once palm/acquisition handoff. `tower_ascent_flow_renderer.gd` draws
+  those projections and reuses the existing acquisition absorption renderer;
+  `tower_ascent_guardian_spring_node.gd` remains the business-transaction owner.
+  Stage-entry prewarm is orchestrated by `tower_ascent_flow_map_progress.gd` and
+  a missing approved member must retain the complete prior v1 presentation.
 - `scripts/tower_ascent/tower_ascent_feature_flags.gd`,
   `tower_ascent_map_generator.gd`, `tower_ascent_boss_registry.gd`,
   `tower_ascent_route_candidate_policy.gd`, `tower_ascent_enraged_policy.gd`,

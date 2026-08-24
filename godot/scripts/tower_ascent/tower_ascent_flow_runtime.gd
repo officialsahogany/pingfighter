@@ -415,6 +415,14 @@ func update_selective(delta: float, owner: Object = null) -> void:
 			)
 		):
 			_node_modal_state.update_training_presentations_wall_clock()
+		elif (
+			_node_modal_kind == "guardian_spring"
+			and _node_modal_state.has_guardian_spring_presentation()
+		):
+			# Presentation-only time advances in the existing modal selective-idle
+			# lane. It never touches gameplay RNG or authoritative physics state.
+			_node_modal_state.advance_guardian_spring_presentation(maxf(0.0, delta))
+			_complete_guardian_spring_palm_ritual_if_ready()
 	_request_redraw(owner)
 
 

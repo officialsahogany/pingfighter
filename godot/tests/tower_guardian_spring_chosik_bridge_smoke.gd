@@ -84,6 +84,22 @@ class FakeLingpetRuntime:
 	func deploy_soul_summon_egg(_owner: Object, _registry: Object) -> Dictionary:
 		return {"dropped": false, "skipped_reason": "sealed_fixture_has_no_field_drop"}
 
+	func grant_and_activate_tower_spring_guardian(
+		pet_id: String,
+		_owner: Object = null,
+		_registry: Object = null
+	) -> bool:
+		var normalized := pet_id.strip_edges().to_lower()
+		if normalized.is_empty():
+			return false
+		snapshot["state"] = "companion"
+		snapshot["pet_id"] = normalized
+		snapshot["owned_pet_ids"] = [normalized]
+		snapshot["collected_pet_ids"] = [normalized]
+		snapshot["battle_slot_pet_ids"] = [normalized]
+		snapshot["lingpet_slots"] = [normalized]
+		return true
+
 
 class Registry:
 	extends RefCounted
@@ -117,6 +133,8 @@ func _verify_spring_grant_reaches_next_battle_chosik_slots() -> void:
 	var runtime_state := RuntimePerkState.new()
 	var runtime_catalog := RuntimePerkCatalog.new()
 	var skill_config := SmasherSkillConfig.new()
+	var map_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed("guardian_spring")
+	_expect(map_seed > 0, "bridge fixture must resolve a current guardian-spring route seed")
 	registry.instances = {
 		"guardian_codex_store": FakeGuardianCodex.new(),
 		"lingpet_egg_runtime": FakeLingpetRuntime.new(),
@@ -128,7 +146,7 @@ func _verify_spring_grant_reaches_next_battle_chosik_slots() -> void:
 	registry.instances["tower_ascent_flow_owner"] = flow
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "guardian-spring-chosik-bridge",
-		"map_seed": 2,
+		"map_seed": map_seed,
 		"node_modal_kind": "guardian_spring",
 		"run_state": {"muhon": 0, "gold": 0, "chance_gems": 3},
 		"registry": registry,
@@ -138,17 +156,54 @@ func _verify_spring_grant_reaches_next_battle_chosik_slots() -> void:
 		"seal fixture must arrive at the production guardian-spring modal"
 	)
 	var grant_result: Dictionary = flow.execute_node_action(
-		"guardian_spring:soul_summoning",
+		# The production S1-S3 action vocabulary names the unlock interaction
+		# "palm"; keep this business-path bridge on that canonical action ID.
+		"guardian_spring:palm",
 		"guardian-spring-chosik-bridge:grant"
 	)
 	_expect(
 		bool(grant_result.get("accepted", false)) and bool(grant_result.get("applied", false)),
 		"guardian-spring acquisition must commit before leaving the node"
 	)
+	var modal_model: Dictionary = flow.get_node_modal_view_model(Vector2(760.0, 750.0))
+	var first_pick_action: Dictionary = {}
+	for action_value in modal_model.get("actions", []):
+		if (
+			action_value is Dictionary
+			and str((action_value as Dictionary).get("payload", {}).get("operation", "")) == "first_pick"
+		):
+			first_pick_action = action_value as Dictionary
+			break
+	var first_pick_result: Dictionary = flow.execute_node_action(
+		str(first_pick_action.get("id", "")),
+		"guardian-spring-chosik-bridge:first-pick"
+	)
+	_expect(
+		bool(first_pick_result.get("accepted", false)) and bool(first_pick_result.get("applied", false)),
+		"guardian-spring bridge must complete the mandatory three-pick before leaving"
+	)
 
 	flow.debug_advance_to_route_aim()
-	var combat_target := _find_battle_target(flow.get_route_aim_targets())
-	_expect(not combat_target.is_empty(), "guardian spring must expose a next combat target")
+	var route_targets: Array = []
+	var combat_target: Dictionary = {}
+	var traversed_noncombat_nodes := 0
+	for _route_step in range(4):
+		route_targets = flow.get_route_aim_targets()
+		combat_target = _find_battle_target(route_targets)
+		if not combat_target.is_empty() or route_targets.is_empty():
+			break
+		var next_node: Dictionary = route_targets[0]
+		flow.call("_resolve_route_target", str(next_node.get("id", "")))
+		flow.call("_complete_map_transition")
+		traversed_noncombat_nodes += 1
+		if not flow.is_active():
+			break
+		flow.debug_advance_to_route_aim()
+	_expect(
+		not combat_target.is_empty(),
+		"guardian spring must reach a combat target within four route steps; traversed=%d targets=%s"
+		% [traversed_noncombat_nodes, str(route_targets)]
+	)
 	if not combat_target.is_empty():
 		flow.call("_resolve_route_target", str(combat_target.get("id", "")))
 		flow.call("_complete_map_transition")
@@ -181,7 +236,7 @@ func _find_battle_target(targets: Array) -> Dictionary:
 		if not (target_value is Dictionary):
 			continue
 		var kind := str((target_value as Dictionary).get("kind", ""))
-		if kind == "combat" or kind == "boss":
+		if kind in ["combat", "boss", "enraged"]:
 			return target_value as Dictionary
 	return {}
 

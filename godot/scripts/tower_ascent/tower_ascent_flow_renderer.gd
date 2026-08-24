@@ -3561,6 +3561,27 @@ func _draw_node_modal(
 	var embedded_render_context: Variant = model.get("render_context", {})
 	if render_context.is_empty() and embedded_render_context is Dictionary:
 		render_context = embedded_render_context as Dictionary
+	var guardian_presentation_value: Variant = model.get(
+		"guardian_spring_presentation",
+		{}
+	)
+	var guardian_assets_value: Variant = render_context.get(
+		"guardian_spring_presentation_assets",
+		{}
+	)
+	if (
+		guardian_presentation_value is Dictionary
+		and bool((guardian_presentation_value as Dictionary).get("enabled", false))
+		and guardian_assets_value is Dictionary
+		and bool((guardian_assets_value as Dictionary).get("ready", false))
+	):
+		_draw_guardian_spring_presentation(
+			canvas,
+			model,
+			guardian_presentation_value as Dictionary,
+			render_context
+		)
+		return
 	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
 	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
 	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
@@ -3743,6 +3764,480 @@ func _draw_node_modal(
 		508.0 * content_scale,
 		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
+	)
+
+
+func _draw_guardian_spring_presentation(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var asset_bundle: Dictionary = render_context.get(
+		"guardian_spring_presentation_assets",
+		{}
+	)
+	var textures: Dictionary = asset_bundle.get("textures", {})
+	var background: Texture2D = textures.get("background", null) as Texture2D
+	var statue: Texture2D = textures.get("statue", null) as Texture2D
+	var glow: Texture2D = textures.get("glow", null) as Texture2D
+	var capsule: Texture2D = textures.get("capsule", null) as Texture2D
+	if background == null or statue == null or glow == null or capsule == null:
+		return
+	var view_size: Vector2 = model.get("view_size", Vector2(760.0, 750.0))
+	var view_rect := Rect2(Vector2.ZERO, view_size)
+	var background_source := _texture_cover_source_rect(background, view_rect)
+	canvas.draw_texture_rect_region(
+		background,
+		view_rect,
+		background_source,
+		Color.WHITE,
+		false,
+		true
+	)
+	canvas.draw_rect(view_rect, Color(0.015, 0.055, 0.050, 0.18), true)
+	_draw_guardian_spring_title(canvas, model)
+	var phase := str(presentation.get("phase", "statue"))
+	if phase == "ritual":
+		_draw_guardian_spring_statue(canvas, statue, glow, presentation, true)
+		_draw_guardian_spring_ritual(canvas, presentation, render_context)
+		return
+	if bool(presentation.get("capsule_mode", false)):
+		_draw_guardian_spring_capsules(
+			canvas,
+			model,
+			presentation,
+			capsule,
+			render_context
+		)
+		return
+	_draw_guardian_spring_statue(canvas, statue, glow, presentation, false)
+	if phase == "menu":
+		_draw_guardian_spring_dialogue(canvas, model, presentation)
+		_draw_guardian_spring_menu_actions(canvas, model, render_context)
+	else:
+		_draw_guardian_spring_statue_prompt(canvas, model, presentation)
+
+
+func _draw_guardian_spring_title(
+	canvas: CanvasItem,
+	model: Dictionary
+) -> void:
+	var scale_value := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var title_rect := Rect2(
+		offset + Vector2(190.0, 24.0) * scale_value,
+		Vector2(380.0, 54.0) * scale_value
+	)
+	canvas.draw_rect(title_rect, Color(0.02, 0.09, 0.075, 0.78), true)
+	canvas.draw_line(
+		Vector2(title_rect.position.x + 18.0 * scale_value, title_rect.end.y),
+		Vector2(title_rect.end.x - 18.0 * scale_value, title_rect.end.y),
+		Color(0.82, 0.72, 0.42, 0.86),
+		2.0 * scale_value
+	)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		Vector2(title_rect.position.x, title_rect.position.y + 37.0 * scale_value),
+		str(model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		title_rect.size.x,
+		maxi(16, int(round(28.0 * scale_value))),
+		Color(0.96, 0.91, 0.73)
+	)
+
+
+func _draw_guardian_spring_statue(
+	canvas: CanvasItem,
+	statue: Texture2D,
+	glow: Texture2D,
+	presentation: Dictionary,
+	ritual: bool
+) -> void:
+	var statue_rect: Rect2 = presentation.get("statue_rect", Rect2())
+	if not statue_rect.has_area():
+		return
+	canvas.draw_texture_rect(statue, statue_rect, false, Color.WHITE)
+	var glow_alpha := 0.0
+	if ritual:
+		var ritual_elapsed := float(presentation.get("ritual_elapsed_sec", 0.0))
+		# Keep the approved filled core luminous without washing out the three
+		# modular ritual pieces layered above it.
+		glow_alpha = 0.44 + 0.16 * sin(ritual_elapsed * 7.0)
+	elif bool(presentation.get("statue_hovered", false)):
+		glow_alpha = 0.92
+		if bool(presentation.get("statue_pressed", false)):
+			glow_alpha = 1.0
+	if glow_alpha > 0.0:
+		# GRT-047/GRT-057: only the approved alpha-matched silhouette texture is
+		# modulated. No rectangular halo is drawn behind transparent pixels.
+		canvas.draw_texture_rect(
+			glow,
+			statue_rect,
+			false,
+			Color(1.0, 1.0, 1.0, glow_alpha)
+		)
+
+
+func _draw_guardian_spring_statue_prompt(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary
+) -> void:
+	var statue_rect: Rect2 = presentation.get("statue_rect", Rect2())
+	var prompt_rect := Rect2(
+		Vector2(statue_rect.position.x - 30.0, statue_rect.end.y + 10.0),
+		Vector2(statue_rect.size.x + 60.0, 34.0)
+	)
+	canvas.draw_rect(prompt_rect, Color(0.02, 0.08, 0.07, 0.68), true)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		prompt_rect.position + Vector2(0.0, prompt_rect.size.y * 0.72),
+		str(model.get("guardian_spring_prompt_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		prompt_rect.size.x,
+		14,
+		Color(0.91, 0.93, 0.78)
+	)
+
+
+func _draw_guardian_spring_dialogue(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary
+) -> void:
+	var dialogue_rect: Rect2 = presentation.get("dialogue_rect", Rect2())
+	if not dialogue_rect.has_area():
+		return
+	canvas.draw_rect(dialogue_rect, Color(0.02, 0.08, 0.07, 0.88), true)
+	canvas.draw_rect(dialogue_rect, Color(0.77, 0.70, 0.43, 0.82), false, 2.0)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		dialogue_rect.position + Vector2(0.0, dialogue_rect.size.y * 0.67),
+		str(model.get("status_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		dialogue_rect.size.x,
+		maxi(13, int(round(16.0 * float(model.get("content_scale", 1.0))))),
+		Color(0.96, 0.93, 0.80)
+	)
+
+
+func _draw_guardian_spring_menu_actions(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var actions: Array = model.get("actions", [])
+	var rects: Array = model.get("action_rects", [])
+	var visuals: Array = model.get("interaction_visuals", [])
+	var selected_index := int(model.get("selected_index", 0))
+	var card_renderer: Object = render_context.get("card_renderer", null)
+	for index in range(mini(actions.size(), rects.size())):
+		if not (actions[index] is Dictionary) or not (rects[index] is Rect2):
+			continue
+		var rect := rects[index] as Rect2
+		if not rect.has_area():
+			continue
+		var action := actions[index] as Dictionary
+		if str(action.get("id", "")) == "end_work":
+			_draw_modal_action_row(
+				canvas,
+				rect,
+				action,
+				index == selected_index,
+				maxf(0.001, float(model.get("content_scale", 1.0)))
+			)
+			continue
+		if card_renderer != null and card_renderer.has_method("draw_tower_node_card"):
+			var visual_state: Dictionary = (
+				(visuals[index] as Dictionary).duplicate(true)
+				if index < visuals.size() and visuals[index] is Dictionary
+				else {}
+			)
+			visual_state["node_accent"] = Color(0.34, 0.86, 0.68)
+			card_renderer.call(
+				"draw_tower_node_card",
+				canvas,
+				action,
+				rect,
+				index == selected_index,
+				render_context.get("icon_renderer", null),
+				index,
+				render_context.get("active_item_hud_visuals", null),
+				visual_state
+			)
+		else:
+			_draw_modal_action_row(
+				canvas,
+				rect,
+				action,
+				index == selected_index,
+				maxf(0.001, float(model.get("content_scale", 1.0)))
+			)
+
+
+func _draw_guardian_spring_ritual(
+	canvas: CanvasItem,
+	presentation: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var statue_rect: Rect2 = presentation.get("statue_rect", Rect2())
+	var center := statue_rect.position + Vector2(
+		statue_rect.size.x * 0.50,
+		statue_rect.size.y * 0.47
+	)
+	var progress := float(presentation.get("ritual_progress", 0.0))
+	var pulse := sin(progress * PI)
+	# Modular piece 1: filled layered radiance. No outlined or closed ring.
+	for layer_index in range(4, 0, -1):
+		var layer_ratio := float(layer_index) / 4.0
+		canvas.draw_circle(
+			center,
+			(34.0 + 58.0 * layer_ratio) * (0.72 + 0.28 * pulse),
+			Color(0.58, 1.0, 0.84, (0.035 + 0.035 * layer_ratio) * pulse)
+		)
+	# Modular piece 2: broad filled light fans.
+	for fan_index in range(5):
+		var angle := -PI * 0.82 + float(fan_index) * PI * 0.41
+		var direction := Vector2(cos(angle), sin(angle))
+		var normal := Vector2(-direction.y, direction.x)
+		canvas.draw_colored_polygon(PackedVector2Array([
+			center + normal * 8.0,
+			center + direction * (118.0 + 24.0 * pulse),
+			center - normal * 8.0,
+		]), Color(0.64, 1.0, 0.86, 0.14 * pulse))
+	# Modular piece 3: deterministic filled light points; presentation RNG is absent.
+	var elapsed := float(presentation.get("ritual_elapsed_sec", 0.0))
+	for point_index in range(14):
+		var phase := elapsed * (1.4 + float(point_index % 3) * 0.18) + float(point_index) * 1.91
+		var radius := 42.0 + float((point_index * 17) % 68)
+		var point := center + Vector2(cos(phase), sin(phase * 0.83)) * radius
+		canvas.draw_circle(
+			point,
+			2.2 + float(point_index % 3),
+			Color(0.76, 1.0, 0.90, 0.42 + 0.30 * pulse)
+		)
+	var icon_renderer: Object = render_context.get("icon_renderer", null)
+	if icon_renderer == null or not icon_renderer.has_method("draw_icon"):
+		return
+	var icon_rect: Rect2 = presentation.get("ritual_icon_rect", Rect2())
+	if bool(presentation.get("acquisition_started", false)):
+		var source_rect: Rect2 = presentation.get("ritual_icon_source_rect", icon_rect)
+		var effect := {
+			"progress": float(presentation.get("acquisition_progress", 0.0)),
+			"target_pos": presentation.get("acquisition_target_pos", Vector2(380.0, 690.0)),
+		}
+		# Reuse the existing Tower Chosik card-to-slot absorption geometry and trail.
+		var card_renderer: Object = render_context.get("card_renderer", null)
+		if (
+			card_renderer != null
+			and card_renderer.has_method("draw_tower_acquisition_absorption")
+			and card_renderer.has_method("build_tower_acquisition_absorbing_rect")
+		):
+			card_renderer.call(
+				"draw_tower_acquisition_absorption",
+				canvas,
+				source_rect,
+				effect
+			)
+			var animated_rect_value: Variant = card_renderer.call(
+				"build_tower_acquisition_absorbing_rect",
+				source_rect,
+				effect
+			)
+			if animated_rect_value is Rect2:
+				icon_rect = animated_rect_value as Rect2
+	canvas.draw_circle(
+		icon_rect.get_center(),
+		maxf(4.0, minf(icon_rect.size.x, icon_rect.size.y) * 0.54),
+		Color(0.04, 0.17, 0.14, 0.88)
+	)
+	icon_renderer.call(
+		"draw_icon",
+		canvas,
+		"unlock_soul_summon_art",
+		icon_rect,
+		1.0,
+		true
+	)
+
+
+func _draw_guardian_spring_capsules(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary,
+	capsule_texture: Texture2D,
+	render_context: Dictionary
+) -> void:
+	var actions: Array = model.get("actions", [])
+	var rects: Array = model.get("action_rects", [])
+	var selected_index := int(model.get("selected_index", 0))
+	var hovered_index := int(model.get("hovered_index", -1))
+	var icon_renderer: Object = render_context.get("icon_renderer", null)
+	for index in range(mini(actions.size(), rects.size())):
+		if not (actions[index] is Dictionary) or not (rects[index] is Rect2):
+			continue
+		var action := actions[index] as Dictionary
+		var rect := rects[index] as Rect2
+		if not rect.has_area():
+			continue
+		var payload_value: Variant = action.get("payload", {})
+		var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
+		var operation := str(payload.get("operation", ""))
+		if operation not in ["first_pick", "browse_candidate"]:
+			_draw_modal_action_row(
+				canvas,
+				rect,
+				action,
+				index == selected_index,
+				maxf(0.001, float(model.get("content_scale", 1.0)))
+			)
+			continue
+		var active := bool(action.get("enabled", true))
+		var portrait_rect := Rect2(
+			rect.position + Vector2(rect.size.x * 0.26, rect.size.y * 0.24),
+			Vector2(rect.size.x * 0.48, rect.size.y * 0.52)
+		)
+		canvas.draw_circle(
+			portrait_rect.get_center(),
+			minf(portrait_rect.size.x, portrait_rect.size.y) * 0.54,
+			Color(0.025, 0.11, 0.10, 0.88)
+		)
+		var pet_id := str(payload.get("pet_id", ""))
+		var portrait_drawn := (
+			icon_renderer != null
+			and icon_renderer.has_method("draw_guardian_portrait")
+			and bool(icon_renderer.call(
+				"draw_guardian_portrait",
+				canvas,
+				pet_id,
+				portrait_rect,
+				1.0,
+				active
+			))
+		)
+		if not portrait_drawn:
+			canvas.draw_circle(
+				portrait_rect.get_center(),
+				minf(portrait_rect.size.x, portrait_rect.size.y) * 0.24,
+				Color(0.34, 0.78, 0.65, 0.84 if active else 0.42)
+			)
+		canvas.draw_texture_rect(
+			capsule_texture,
+			rect,
+			false,
+			Color.WHITE if active else Color(0.56, 0.56, 0.56, 0.78)
+		)
+		if index == selected_index or index == hovered_index:
+			canvas.draw_line(
+				rect.position + Vector2(rect.size.x * 0.20, rect.size.y * 0.10),
+				rect.position + Vector2(rect.size.x * 0.80, rect.size.y * 0.10),
+				Color(1.0, 0.91, 0.55, 0.96),
+				3.0
+			)
+		var label_rect := Rect2(
+			rect.position + Vector2(rect.size.x * 0.12, rect.size.y * 0.78),
+			Vector2(rect.size.x * 0.76, rect.size.y * 0.13)
+		)
+		canvas.draw_rect(label_rect, Color(0.015, 0.07, 0.065, 0.78), true)
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			label_rect.position + Vector2(0.0, label_rect.size.y * 0.70),
+			str(action.get("label", "")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			label_rect.size.x,
+			13,
+			Color(0.96, 0.92, 0.77) if active else Color(0.60, 0.61, 0.58)
+		)
+	if hovered_index >= 0 and hovered_index < actions.size():
+		var hovered_action_value: Variant = actions[hovered_index]
+		if hovered_action_value is Dictionary:
+			_draw_guardian_spring_capsule_tooltip(
+				canvas,
+				hovered_action_value as Dictionary,
+				model,
+				render_context
+			)
+	_draw_guardian_spring_capsule_status(canvas, model, presentation)
+
+
+func _draw_guardian_spring_capsule_tooltip(
+	canvas: CanvasItem,
+	action: Dictionary,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var payload_value: Variant = action.get("payload", {})
+	var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
+	var choice_value: Variant = payload.get("choice", {})
+	var choice: Dictionary = choice_value as Dictionary if choice_value is Dictionary else {}
+	if str(payload.get("operation", "")) not in ["first_pick", "browse_candidate"]:
+		return
+	var scale_value := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var tooltip_rect := Rect2(
+		offset + Vector2(74.0, 472.0) * scale_value,
+		Vector2(612.0, 128.0) * scale_value
+	)
+	canvas.draw_rect(tooltip_rect, Color(0.015, 0.065, 0.058, 0.94), true)
+	canvas.draw_rect(tooltip_rect, Color(0.82, 0.73, 0.44, 0.88), false, 2.0 * scale_value)
+	var font := ThemeDB.fallback_font
+	canvas.draw_string(
+		font,
+		tooltip_rect.position + Vector2(16.0, 26.0) * scale_value,
+		str(choice.get("name", action.get("label", ""))),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		tooltip_rect.size.x - 32.0 * scale_value,
+		maxi(12, int(round(17.0 * scale_value))),
+		Color(0.98, 0.92, 0.72)
+	)
+	var description := str(choice.get("description", "")).strip_edges()
+	var description_lines := description.split("\n", false)
+	var max_description_lines := 1 if bool(choice.get("guardian_blind_preview", false)) else 3
+	for line_index in range(mini(max_description_lines, description_lines.size())):
+		canvas.draw_string(
+			font,
+			tooltip_rect.position + Vector2(16.0, 52.0 + float(line_index) * 20.0) * scale_value,
+			str(description_lines[line_index]),
+			HORIZONTAL_ALIGNMENT_LEFT,
+			tooltip_rect.size.x - 32.0 * scale_value,
+			maxi(11, int(round(13.0 * scale_value))),
+			Color(0.84, 0.91, 0.83)
+		)
+	var cost_text := str(action.get("cost_text", ""))
+	canvas.draw_string(
+		font,
+		tooltip_rect.position + Vector2(16.0, tooltip_rect.size.y - 13.0 * scale_value),
+		cost_text,
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		tooltip_rect.size.x - 32.0 * scale_value,
+		maxi(11, int(round(13.0 * scale_value))),
+		Color(0.98, 0.78, 0.40)
+	)
+	var card_renderer: Object = render_context.get("card_renderer", null)
+	if card_renderer != null and card_renderer.has_method("build_tower_node_hover_detail_layout"):
+		# Consume the canonical semantic row builder even though the capsule owns
+		# the visual chrome. First-pick blind/full-preview policy remains action data.
+		card_renderer.call("build_tower_node_hover_detail_layout", action, tooltip_rect)
+
+
+func _draw_guardian_spring_capsule_status(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary
+) -> void:
+	var dialogue_rect: Rect2 = presentation.get("dialogue_rect", Rect2())
+	if not dialogue_rect.has_area():
+		return
+	canvas.draw_rect(dialogue_rect, Color(0.02, 0.08, 0.07, 0.82), true)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		dialogue_rect.position + Vector2(0.0, dialogue_rect.size.y * 0.68),
+		str(model.get("status_text", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		dialogue_rect.size.x,
+		14,
+		Color(0.94, 0.91, 0.77)
 	)
 
 

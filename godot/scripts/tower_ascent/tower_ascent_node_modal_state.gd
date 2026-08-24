@@ -9,6 +9,9 @@ const TowerTrainingStrikePresentationState := preload(
 const TowerTrainingTimingState := preload(
 	"res://scripts/tower_ascent/tower_training_timing_state.gd"
 )
+const TowerGuardianSpringPresentationState := preload(
+	"res://scripts/tower_ascent/tower_guardian_spring_presentation_state.gd"
+)
 
 const ACTION_END_WORK := "end_work"
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
@@ -74,6 +77,7 @@ var _training_stage_presentation: Object = null
 var _training_timing_state: Object = null
 var _training_timing_pending: Dictionary = {}
 var _training_timing_strike_started := false
+var _guardian_spring_presentation: Object = TowerGuardianSpringPresentationState.new()
 var _pointer_position := Vector2(-1.0, -1.0)
 var _training_stats_hovered := false
 # GRT-028: layout geometry is a retained size/flag product. The fullscreen
@@ -92,6 +96,7 @@ func open(
 ) -> void:
 	_clear_training_stage_presentation()
 	_clear_training_timing()
+	_guardian_spring_presentation.close_scene(false)
 	_node_id = node_id.strip_edges()
 	_node_kind = node_kind.strip_edges().to_lower()
 	if not TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.has(_node_kind):
@@ -116,6 +121,7 @@ func open(
 func close() -> void:
 	_clear_training_stage_presentation()
 	_clear_training_timing()
+	_guardian_spring_presentation.close_scene()
 	_node_id = ""
 	_actions.clear()
 	_keyboard_selected_index = 0
@@ -142,6 +148,66 @@ func configure_training_stage_presentation(
 	_training_stage_presentation = TowerTrainingStrikePresentationState.new()
 	_training_stage_presentation.configure(character_type, texture_cache, audio)
 	return bool(_training_stage_presentation.is_configured())
+
+
+func configure_guardian_spring_presentation(
+	ready: bool,
+	acquisition_target_pos: Vector2 = Vector2(380.0, 690.0)
+) -> bool:
+	var enabled := _node_kind == "guardian_spring" and ready
+	_guardian_spring_presentation.configure(enabled, acquisition_target_pos)
+	return enabled
+
+
+func has_guardian_spring_presentation() -> bool:
+	return (
+		_node_kind == "guardian_spring"
+		and bool(_guardian_spring_presentation.is_enabled())
+	)
+
+
+func has_guardian_spring_statue_interaction() -> bool:
+	return (
+		has_guardian_spring_presentation()
+		and bool(_guardian_spring_presentation.is_statue_phase())
+	)
+
+
+func has_active_guardian_spring_ritual() -> bool:
+	return (
+		has_guardian_spring_presentation()
+		and bool(_guardian_spring_presentation.is_ritual_active())
+	)
+
+
+func reveal_guardian_spring_menu() -> bool:
+	if not has_guardian_spring_statue_interaction():
+		return false
+	cancel_pointer_press()
+	return bool(_guardian_spring_presentation.reveal_menu())
+
+
+func begin_guardian_spring_palm_ritual(action: Dictionary) -> bool:
+	if not has_guardian_spring_presentation():
+		return false
+	cancel_pointer_press()
+	return bool(_guardian_spring_presentation.begin_palm_ritual(action))
+
+
+func advance_guardian_spring_presentation(delta: float) -> bool:
+	if not has_guardian_spring_presentation():
+		return false
+	return bool(_guardian_spring_presentation.advance(delta))
+
+
+func take_completed_guardian_spring_palm_action() -> Dictionary:
+	if not has_guardian_spring_presentation():
+		return {}
+	return _guardian_spring_presentation.take_completed_palm_action()
+
+
+func get_guardian_spring_presentation_debug_state() -> Dictionary:
+	return _guardian_spring_presentation.get_debug_state()
 
 
 func begin_training_strike(
@@ -322,6 +388,8 @@ func set_status_text(value: String) -> void:
 
 
 func move_selection(direction: int) -> void:
+	if has_guardian_spring_statue_interaction() or has_active_guardian_spring_ritual():
+		return
 	if _actions.is_empty() or direction == 0:
 		return
 	_keyboard_selected_index = posmod(
@@ -351,6 +419,12 @@ func update_hover_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	_pointer_position = position
+	if has_guardian_spring_statue_interaction():
+		_hovered_index = -1
+		_hovered_page_direction = 0
+		return bool(_guardian_spring_presentation.update_statue_hover(position, view_size))
+	if has_active_guardian_spring_ritual():
+		return false
 	var previous_stats_hovered := _training_stats_hovered
 	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	var next_hovered_index := _action_index_at_position(position, view_size)
@@ -381,6 +455,12 @@ func begin_pointer_press(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	_pointer_position = position
+	if has_guardian_spring_statue_interaction():
+		_pressed_index = -1
+		_pressed_page_direction = 0
+		return bool(_guardian_spring_presentation.begin_statue_press(position, view_size))
+	if has_active_guardian_spring_ritual():
+		return false
 	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	_pressed_index = _action_index_at_position(position, view_size)
 	_pressed_page_direction = (
@@ -396,6 +476,12 @@ func release_pointer_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> Dictionary:
 	_pointer_position = position
+	if has_guardian_spring_statue_interaction():
+		if bool(_guardian_spring_presentation.release_statue_press(position, view_size)):
+			return {"_modal_control": "guardian_statue"}
+		return {}
+	if has_active_guardian_spring_ritual():
+		return {}
 	_training_stats_hovered = _training_stats_rect(view_size).has_point(position)
 	var armed_index := _pressed_index
 	var armed_page_direction := _pressed_page_direction
@@ -417,6 +503,7 @@ func release_pointer_at_position(
 func cancel_pointer_press() -> void:
 	_pressed_index = -1
 	_pressed_page_direction = 0
+	_guardian_spring_presentation.cancel_pointer_press()
 
 
 func record_action_feedback(action: Dictionary, result: Dictionary) -> void:
@@ -540,6 +627,8 @@ func get_action_rects(
 	view_size: Vector2 = BASE_VIEW_SIZE,
 	layout_flags: Dictionary = {}
 ) -> Array[Rect2]:
+	if has_guardian_spring_presentation():
+		return _guardian_spring_presentation.get_action_rects(_actions, view_size)
 	var result: Array[Rect2] = []
 	var layout := build_screen_layout(view_size, layout_flags)
 	if _node_kind in CARD_NODE_KINDS:
@@ -614,7 +703,7 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"balance_receipt_texts",
 		{}
 	)
-	return {
+	var result := {
 		"node_id": _node_id,
 		"node_kind": _node_kind,
 		"title": TowerAscentNodeModalLocalization.node_title(_node_kind),
@@ -659,6 +748,14 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"pointer_position": _pointer_position,
 		"status_baseline": layout.get("status_baseline", STATUS_BASELINE),
 	}
+	if has_guardian_spring_presentation():
+		result["guardian_spring_presentation"] = (
+			_guardian_spring_presentation.build_visual_model(_actions, view_size)
+		)
+		result["guardian_spring_prompt_text"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_PROMPT
+		)
+	return result
 
 
 func build_screen_layout(

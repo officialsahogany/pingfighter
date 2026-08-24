@@ -56,6 +56,12 @@ func get_training_stage_presentation_debug_state() -> Dictionary:
 	return _node_modal_state.get_training_stage_debug_state()
 
 
+func get_guardian_spring_presentation_debug_state() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_guardian_spring_presentation_debug_state()
+
+
 func set_training_stage_clock_msec_for_tests(value: int) -> void:
 	if _node_modal_state != null:
 		_node_modal_state.set_training_stage_clock_msec_for_tests(value)
@@ -122,6 +128,16 @@ func get_node_modal_render_context() -> Dictionary:
 			# GRT-028/GRT-043: this RefCounted and its draw model exist only from
 			# a valid card release until the owned strike presentation completes.
 			context["training_timing_presentation"] = training_timing_presentation
+	if (
+		_node_modal_kind == "guardian_spring"
+		and _node_modal_state != null
+		and _node_modal_state.has_guardian_spring_presentation()
+	):
+		# Draw consumes only this already-warmed bundle. No ResourceLoader or
+		# filesystem probe is reachable from the first visible node frame.
+		context["guardian_spring_presentation_assets"] = (
+			get_guardian_spring_presentation_asset_bundle()
+		)
 	return context
 
 
@@ -180,6 +196,7 @@ func _open_node_modal() -> void:
 		_build_node_modal_actions()
 	)
 	_configure_training_stage_presentation()
+	_configure_guardian_spring_presentation()
 	_prepare_training_stats_panel()
 	if _node_modal_kind == "shop" and _get_shop_inventory_entry().is_empty():
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
@@ -200,6 +217,13 @@ func _open_node_modal() -> void:
 
 func _handle_node_modal_input(event: InputEvent) -> void:
 	var view_size := _get_node_modal_view_size()
+	if (
+		_node_modal_kind == "guardian_spring"
+		and _node_modal_state.has_active_guardian_spring_ritual()
+	):
+		# GRT-050 policy: the full two-second ritual is unskippable. Every key,
+		# pointer, wheel, and touch event is consumed and discarded, never deferred.
+		return
 	if (
 		_node_modal_kind == "training"
 		and _node_modal_state.has_training_timing_interaction()
@@ -235,6 +259,8 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 			_try_enter_route_aim_from_node_modal()
 			return
 		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			if _reveal_guardian_spring_menu():
+				return
 			_confirm_node_modal_action()
 		return
 	if event is InputEventMouseMotion:
@@ -258,6 +284,9 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				mouse_event.position,
 				view_size
 			)
+			if str(released_action.get("_modal_control", "")) == "guardian_statue":
+				_reveal_guardian_spring_menu()
+				return
 			if str(released_action.get("_modal_control", "")) == "page":
 				return
 			if not released_action.is_empty():
@@ -272,6 +301,9 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				touch_event.position,
 				view_size
 			)
+			if str(released_action.get("_modal_control", "")) == "guardian_statue":
+				_reveal_guardian_spring_menu()
+				return
 			if str(released_action.get("_modal_control", "")) == "page":
 				return
 			if not released_action.is_empty():
@@ -363,6 +395,14 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 				timing_result.get("reason", "")
 			)))
 		return
+	var payload_value: Variant = action.get("payload", {})
+	var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
+	if (
+		_node_modal_kind == "guardian_spring"
+		and str(payload.get("operation", "")) == "palm"
+		and _node_modal_state.begin_guardian_spring_palm_ritual(action)
+	):
+		return
 	var action_result := execute_node_action(str(action.get("id", "")))
 	_node_modal_state.record_action_feedback(action, action_result)
 	if not bool(action_result.get("accepted", false)):
@@ -405,6 +445,62 @@ func _configure_training_stage_presentation() -> void:
 		texture_cache,
 		audio
 	)
+
+
+func _configure_guardian_spring_presentation() -> void:
+	if _node_modal_kind != "guardian_spring" or _node_modal_state == null:
+		return
+	var bundle := get_guardian_spring_presentation_asset_bundle()
+	var acquisition_target_pos := Vector2(380.0, 690.0)
+	var view_size := _get_node_modal_view_size()
+	if (
+		bool(bundle.get("ready", false))
+		and _guardian_spring_absorption_target_resolver != null
+		and _guardian_spring_absorption_target_resolver.has_method("resolve_target")
+	):
+		var target_value: Variant = _guardian_spring_absorption_target_resolver.call(
+			"resolve_target",
+			{
+				"id": "unlock_soul_summon_art",
+				"unlocks_skill": "soul_summon_art",
+				"is_skill_manual": true,
+				"start_card_kind": "chosik",
+			},
+			_active_owner,
+			_active_registry,
+			view_size
+		)
+		if target_value is Dictionary:
+			var target: Dictionary = target_value as Dictionary
+			if target.get("target_pos", null) is Vector2:
+				var screen_target: Vector2 = target.get("target_pos", acquisition_target_pos)
+				var content_scale := minf(
+					maxf(1.0, view_size.x) / TowerAscentNodeModalState.BASE_VIEW_SIZE.x,
+					maxf(1.0, view_size.y) / TowerAscentNodeModalState.BASE_VIEW_SIZE.y
+				)
+				var content_offset := (
+					view_size - TowerAscentNodeModalState.BASE_VIEW_SIZE * content_scale
+				) * 0.5
+				acquisition_target_pos = (
+					(screen_target - content_offset) / maxf(0.001, content_scale)
+				)
+	_node_modal_state.configure_guardian_spring_presentation(
+		bool(bundle.get("ready", false)),
+		acquisition_target_pos
+	)
+
+
+func _reveal_guardian_spring_menu() -> bool:
+	if (
+		_node_modal_kind != "guardian_spring"
+		or _node_modal_state == null
+		or not _node_modal_state.reveal_guardian_spring_menu()
+	):
+		return false
+	_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_DIALOGUE
+	))
+	return true
 
 func _build_node_modal_actions() -> Array[Dictionary]:
 	if _node_modal_kind == "shop":
@@ -493,6 +589,20 @@ func _refresh_guardian_spring_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_guardian_spring_actions())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
+
+
+func _complete_guardian_spring_palm_ritual_if_ready() -> bool:
+	if _node_modal_kind != "guardian_spring" or _node_modal_state == null:
+		return false
+	var action: Dictionary = _node_modal_state.take_completed_guardian_spring_palm_action()
+	if action.is_empty():
+		return false
+	action["_feedback_index"] = _node_modal_state.get_action_index_by_id(
+		str(action.get("id", ""))
+	)
+	var action_result := execute_node_action(str(action.get("id", "")))
+	_node_modal_state.record_action_feedback(action, action_result)
+	return true
 
 
 func has_pending_guardian_spring_browse_compare(pet_id: String = "") -> bool:

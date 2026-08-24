@@ -2025,6 +2025,21 @@ func _fit_tower_reward_title_position(
 	return Vector2(title_pos.x, minf(title_pos.y, first_drawn_y - plaque_height * 0.5))
 
 
+func build_tower_acquisition_absorbing_rect(
+	source_rect: Rect2,
+	effect: Dictionary
+) -> Rect2:
+	return _build_tower_reward_absorbing_rect(source_rect, effect)
+
+
+func draw_tower_acquisition_absorption(
+	canvas: CanvasItem,
+	source_rect: Rect2,
+	effect: Dictionary
+) -> void:
+	_draw_tower_reward_absorption(canvas, source_rect, effect)
+
+
 func _build_tower_reward_absorbing_rect(source_rect: Rect2, effect: Dictionary) -> Rect2:
 	var progress: float = clampf(float(effect.get("progress", 0.0)), 0.0, 1.0)
 	var center: Vector2 = _tower_reward_absorption_position(source_rect, effect, progress)

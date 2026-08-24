@@ -96,6 +96,10 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 				str(opening_variant_value)
 			)
 	_prewarm_map_scroll_assets()
+	# S5: the rich Spring scene is warmed at Tower stage entry, not on the first
+	# guardian-spring node frame. Its catalog is all-or-nothing and the modal keeps
+	# the existing card v1 path when any member is unavailable (GRT-004/GRT-042).
+	prewarm_guardian_spring_presentation_assets()
 	_route_pickup_state.prewarm_candidates()
 	if restore_existing_progress and not _restore_reentry_progress(existing_progress):
 		push_warning("[TowerAscent] prepare rejected: reentry_progress_invalid")
