@@ -16,7 +16,9 @@ func record_guardian_identity_reveal(pet_id: String, registry: Object = null) ->
 			"reason": "tower_run_inactive",
 		}
 	var result: Dictionary = _guardian_spring_node.record_identity_reveal(pet_id, registry)
-	if bool(result.get("accepted", false)):
+	# Prayer becomes unavailable on the acquisition event itself. Codex storage
+	# is a separate best-effort side effect and must not keep prayer unlocked.
+	if not str(result.get("pet_id", "")).strip_edges().is_empty():
 		_run_state.lock_guardian_prayer()
 	var codex_result: Dictionary = _dictionary_copy(result.get("codex_result", {}))
 	if bool(codex_result.get("accepted", false)) and bool(codex_result.get("changed", false)):
@@ -230,7 +232,7 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 					TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_REQUIRED
 				))
 				return
-			_enter_route_aim()
+			_try_enter_route_aim_from_node_modal()
 			return
 		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 			_confirm_node_modal_action()
@@ -347,7 +349,7 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 		})
 		return
 	if str(action.get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK:
-		_enter_route_aim()
+		_try_enter_route_aim_from_node_modal()
 		return
 	if (
 		_node_modal_kind == "training"
@@ -365,6 +367,22 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	_node_modal_state.record_action_feedback(action, action_result)
 	if not bool(action_result.get("accepted", false)):
 		_node_modal_state.set_status_text(str(action_result.get("message", action_result.get("reason", ""))))
+
+
+func _try_enter_route_aim_from_node_modal() -> bool:
+	# A comparison overlay is part of the Spring node transaction. Never close
+	# the backing NODE_MODAL while that transaction is pending: the public input
+	# route gives ESC to the overlay, which cancels it and clears runtime state.
+	if (
+		_node_modal_kind == "guardian_spring"
+		and _guardian_spring_node.has_pending_browse_compare()
+	):
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
+		))
+		return false
+	_enter_route_aim()
+	return true
 
 
 func _configure_training_stage_presentation() -> void:

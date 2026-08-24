@@ -19,6 +19,26 @@ func reset_store() -> void:
 	reset_stage_observer()
 
 
+func build_store_snapshot() -> Dictionary:
+	return {
+		"state_by_pet_id": state_by_pet_id.duplicate(true),
+		"trigger_count": trigger_count,
+		"shared_cooldown": shared_cooldown,
+		"last_seen_stage": _last_seen_stage,
+	}
+
+
+func restore_store_snapshot(snapshot: Dictionary) -> bool:
+	var state_value: Variant = snapshot.get("state_by_pet_id", {})
+	if not (state_value is Dictionary):
+		return false
+	state_by_pet_id = (state_value as Dictionary).duplicate(true)
+	trigger_count = maxi(0, int(snapshot.get("trigger_count", 0)))
+	shared_cooldown = maxf(0.0, float(snapshot.get("shared_cooldown", 0.0)))
+	_last_seen_stage = int(snapshot.get("last_seen_stage", -1))
+	return true
+
+
 func forget_pet(pet_id: String) -> bool:
 	var normalized_pet_id := pet_id.strip_edges().to_lower()
 	if normalized_pet_id == "" or not state_by_pet_id.has(normalized_pet_id):

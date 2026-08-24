@@ -89,8 +89,6 @@ class FakeLingpetRuntime:
 		"guardian_run_state": {"pets": {}},
 	}
 	var enhance_calls := 0
-	var activate_calls := 0
-	var absorb_calls := 0
 	var restore_calls := 0
 	var last_rng_was_isolated := false
 	var fail_next_enhance := false
@@ -109,9 +107,6 @@ class FakeLingpetRuntime:
 			return []
 		return [{"type": "duration", "label": "지속시간 강화", "weight": 1.0}]
 
-	func deploy_soul_summon_egg(_owner: Object, _registry: Object = null) -> Dictionary:
-		return {"dropped": false, "skipped_reason": "sealed_fixture_has_no_field_drop"}
-
 	func apply_guardian_enhance_random_roll(
 		candidates: Array,
 		_owner: Object = null,
@@ -128,34 +123,6 @@ class FakeLingpetRuntime:
 			"accepted": not candidates.is_empty(),
 			"applied_candidate": candidates[0] if not candidates.is_empty() else {},
 		}
-
-	func activate_tower_sealed_guardian(
-		pet_id: String,
-		owner: Object = null,
-		_registry: Object = null
-	) -> Dictionary:
-		activate_calls += 1
-		var previous_pet_id := str(snapshot.get("pet_id", ""))
-		snapshot["state"] = "companion"
-		snapshot["pet_id"] = pet_id
-		snapshot["owned_pet_ids"] = [pet_id]
-		snapshot["collected_pet_ids"] = [pet_id]
-		snapshot["battle_slot_pet_ids"] = [pet_id]
-		snapshot["lingpet_slots"] = [pet_id]
-		_publish_owner(owner)
-		return {
-			"accepted": true,
-			"previous_pet_id": previous_pet_id,
-			"pet_id": pet_id,
-		}
-
-	func absorb_tower_sealed_guardian(
-		pet_id: String,
-		_owner: Object = null,
-		_registry: Object = null
-	) -> Dictionary:
-		absorb_calls += 1
-		return {"accepted": str(snapshot.get("state", "")) == "companion", "absorbed_pet_id": pet_id}
 
 	func _publish_owner(owner: Object) -> void:
 		if not (owner is FakeOwner):
@@ -267,6 +234,14 @@ func _verify_real_flow_transactions_snapshot_and_display_only_tabs() -> void:
 	var later_flow := TowerAscentFlowOwner.new()
 	fixture.registry.instances["tower_ascent_flow_owner"] = later_flow
 	_expect(later_flow.restore_snapshot(snapshot, Callable(), later_owner, fixture.registry), "later spring visit must restore the run snapshot without rerolling guardian state")
+	fixture.registry.instances.erase("guardian_codex_store")
+	var failed_codex_reveal := later_flow.record_guardian_identity_reveal("lunabi", fixture.registry)
+	_expect(not bool(failed_codex_reveal.get("accepted", true)), "missing codex store must fail independently")
+	_expect(
+		bool(later_flow.get_run_state_snapshot().get("prayer_locked", false)),
+		"actual guardian acquisition must lock prayer even when codex persistence fails"
+	)
+	fixture.registry.instances["guardian_codex_store"] = fixture.codex
 	var reveal_lunabi := later_flow.record_guardian_identity_reveal("lunabi", fixture.registry)
 	var reveal_maribo := later_flow.record_guardian_identity_reveal("maribo", fixture.registry)
 	_expect(not bool(reveal_lunabi.get("tower_sealed", true)) and not bool(reveal_maribo.get("tower_sealed", true)), "tower reveal must keep the existing overflow UI route active")
@@ -352,7 +327,7 @@ func _verify_flag_off_is_untouched() -> void:
 		"node_modal_kind": "guardian_spring",
 		"registry": fixture.registry,
 	}), "flag OFF must not enter the guardian spring")
-	_expect(not flow.has_soul_summoning() and fixture.runtime.activate_calls == 0 and fixture.runtime.enhance_calls == 0, "flag OFF must not grant access or touch guardian runtime")
+	_expect(not flow.has_soul_summoning() and fixture.runtime.enhance_calls == 0, "flag OFF must not grant access or touch guardian runtime")
 	fixture.registry.instances.clear()
 	fixture.codex.clear()
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)

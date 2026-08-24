@@ -257,10 +257,13 @@ func _verify_first_pick_browse_compare_purchase_and_rollback() -> void:
 	)
 	_expect(bool(browse_result.get("applied", false)), "browse must commit its deterministic reroll sequence")
 	actions = spring.build_actions("spring-05", 5005, run_state, owner, registry)
-	_expect(actions.size() == 3, "browse must replace the menu with three elite cards")
+	_expect(actions.size() == 4, "browse must expose three elite cards plus a reroll card")
 	for action in actions:
+		if str(action.get("payload", {}).get("operation", "")) != "browse_candidate":
+			continue
 		_expect(str(action.get("cost_text", "")).contains("280"), "floor-five elite cards must display 280 Gold")
 		_expect(bool(action.get("payload", {}).get("choice", {}).get("guardian_full_preview", false)), "elite cards must expose full preview data")
+	_expect(not _find_action_with_prefix(actions, "guardian_spring:browse:").is_empty(), "elite-card screen must expose a reroll execution path")
 	var compare_result := spring.execute_action(
 		str(actions[0].get("id", "")),
 		"spring-s3:compare-open",

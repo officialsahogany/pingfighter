@@ -52,9 +52,17 @@ func is_bluetooth_ring_active(runtime: Object) -> bool:
 func get_bluetooth_ring_gauge_gain_pct(runtime: Object) -> float:
 	if PerkConversionFlags.is_enabled():
 		return _get_converted_perk_value(runtime, ITEM_BLUETOOTH_RING, "gauge_gain_pct")
-	if not is_bluetooth_ring_equipped(runtime):
-		return 0.0
-	return clamp(runtime.roll_query.get_equipped_roll_sum(runtime, ITEM_BLUETOOTH_RING, "gauge_gain_pct"), 0.0, 500.0)
+	var legacy_item_pct := 0.0
+	if is_bluetooth_ring_equipped(runtime):
+		legacy_item_pct = float(runtime.roll_query.get_equipped_roll_sum(
+			runtime,
+			ITEM_BLUETOOTH_RING,
+			"gauge_gain_pct"
+		))
+	# Tower Spring prayer is a global final-stat modifier. In the converted path
+	# it is already injected by get_converted_perk_option_value; the legacy item
+	# path must add the same runtime-state projection even without a ring equipped.
+	return clamp(legacy_item_pct + _get_tower_spring_prayer_bonus_pct(runtime), 0.0, 500.0)
 
 
 func get_bluetooth_ring_gauge_multiplier(runtime: Object) -> float:
@@ -164,3 +172,14 @@ func _get_converted_perk_value(
 	if level <= 0:
 		return 0.0
 	return PerkConversionValues.get_value(perk_id, key, level, runtime_state)
+
+
+func _get_tower_spring_prayer_bonus_pct(runtime: Object) -> float:
+	var runtime_state: Object = runtime.runtime_perk_state_ref if runtime != null else null
+	if (
+		runtime_state == null
+		or not is_instance_valid(runtime_state)
+		or not runtime_state.has_method("get_tower_spring_prayer_bonus_pct")
+	):
+		return 0.0
+	return maxf(0.0, float(runtime_state.get_tower_spring_prayer_bonus_pct()))

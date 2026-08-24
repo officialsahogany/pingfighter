@@ -184,7 +184,9 @@ func build_actions(
 			_state["browse_offers"] = []
 			_state["pending_browse_offer"] = {}
 		if not browse_offers.is_empty():
-			return _build_browse_candidate_actions(browse_offers, balances)
+			var browse_actions := _build_browse_candidate_actions(browse_offers, balances)
+			browse_actions.append(_build_browse_action(runtime != null))
+			return browse_actions
 		return [_build_enhance_action(
 			node_id,
 			map_seed,
@@ -369,6 +371,12 @@ func commit_browse_purchase(
 	var history: Array = _state.get("history", [])
 	history.append(record)
 	_state["history"] = history
+	if runtime.has_method("record_tower_spring_guardian_purchase_discovery"):
+		runtime.call(
+			"record_tower_spring_guardian_purchase_discovery",
+			pet_id,
+			registry
+		)
 	_state["pending_browse_offer"] = {}
 	_state["browse_offers"] = []
 	_capture_committed_runtime_snapshot(owner, registry)
@@ -1006,6 +1014,9 @@ func _capture_rollback(owner: Object, registry: Object, run_state: Object = null
 	_pending_rollback = {
 		"state": _state.duplicate(true),
 		"runtime_snapshot": _capture_runtime_snapshot(registry),
+		"runtime_replace_rollback_snapshot": _capture_runtime_replace_rollback_snapshot(
+			registry
+		),
 		"perk_runtime_snapshot": _capture_perk_runtime_snapshot(runtime_state),
 		"equipped_skills": _equipped_skills(skill_config),
 		"prayer_count": _prayer_count(run_state),
@@ -1038,9 +1049,29 @@ func _rollback_operation(owner: Object, registry: Object, run_state: Object = nu
 		and runtime_state.has_method("apply_unlock_save_snapshot")
 	):
 		runtime_state.call("apply_unlock_save_snapshot", perk_runtime_snapshot, owner, registry)
-	var runtime_snapshot := _dictionary(_pending_rollback.get("runtime_snapshot", {}))
 	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
-	if not runtime_snapshot.is_empty() and runtime != null and runtime.has_method("apply_save_snapshot"):
+	var replace_rollback_snapshot := _dictionary(
+		_pending_rollback.get("runtime_replace_rollback_snapshot", {})
+	)
+	var restored_replace_snapshot := false
+	if (
+		runtime != null
+		and not replace_rollback_snapshot.is_empty()
+		and runtime.has_method("restore_tower_spring_replace_rollback_snapshot")
+	):
+		restored_replace_snapshot = bool(runtime.call(
+			"restore_tower_spring_replace_rollback_snapshot",
+			replace_rollback_snapshot,
+			owner,
+			registry
+		))
+	var runtime_snapshot := _dictionary(_pending_rollback.get("runtime_snapshot", {}))
+	if (
+		not restored_replace_snapshot
+		and not runtime_snapshot.is_empty()
+		and runtime != null
+		and runtime.has_method("apply_save_snapshot")
+	):
 		runtime.call("apply_save_snapshot", runtime_snapshot, owner, registry)
 	var pending_offer := _dictionary(_state.get("pending_browse_offer", {}))
 	if (
@@ -1158,6 +1189,17 @@ func _capture_runtime_snapshot(registry: Object) -> Dictionary:
 	if runtime == null or not runtime.has_method("build_save_snapshot"):
 		return {}
 	var value: Variant = runtime.call("build_save_snapshot")
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _capture_runtime_replace_rollback_snapshot(registry: Object) -> Dictionary:
+	var runtime := _get_registry_instance(registry, "lingpet_egg_runtime")
+	if (
+		runtime == null
+		or not runtime.has_method("build_tower_spring_replace_rollback_snapshot")
+	):
+		return {}
+	var value: Variant = runtime.call("build_tower_spring_replace_rollback_snapshot")
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
 
 

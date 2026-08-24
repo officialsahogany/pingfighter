@@ -88,6 +88,24 @@ func set_active_slot_index(value: int) -> void:
 	active_slot_index = clampi(value, 0, MAX_BATTLE_SLOTS - 1)
 
 
+func restore_exact_transaction_snapshot(owner: Object, snapshot: Dictionary) -> bool:
+	var owned_value: Variant = snapshot.get("owned_pet_ids", [])
+	var collected_value: Variant = snapshot.get("collected_pet_ids", owned_value)
+	var slots_value: Variant = snapshot.get(
+		"battle_slot_pet_ids",
+		snapshot.get("lingpet_slots", [])
+	)
+	if not (owned_value is Array) or not (collected_value is Array) or not (slots_value is Array):
+		return false
+	set_owned_pet_ids(owned_value)
+	set_collected_pet_ids(collected_value)
+	set_battle_slots(slots_value)
+	set_active_slot_index(int(snapshot.get("active_slot_index", 0)))
+	_sync_owner_collections(owner)
+	_sync_owner_slots(owner)
+	return true
+
+
 func get_active_slot_index() -> int:
 	return active_slot_index
 

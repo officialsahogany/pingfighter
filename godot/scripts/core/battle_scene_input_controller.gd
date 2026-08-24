@@ -56,7 +56,7 @@ func handle_unhandled_input(
 		return
 	if _handle_victory_highlight_input(event, owner, module_getter):
 		return
-	if _handle_tower_ascent_flow_input(event, owner, registry, module_getter):
+	if _handle_tower_ascent_flow_input(event, owner, registry, module_getter, context):
 		return
 	if _is_stage_transition_loading_active(module_getter):
 		_queue_redraw(owner)
@@ -181,7 +181,8 @@ func _handle_tower_ascent_flow_input(
 	event: InputEvent,
 	owner: Object,
 	registry: Object,
-	module_getter: Callable
+	module_getter: Callable,
+	context: Dictionary
 ) -> bool:
 	var flow_owner := _get_cached_module(registry, "tower_ascent_flow_owner")
 	if (
@@ -190,6 +191,36 @@ func _handle_tower_ascent_flow_input(
 		or not bool(flow_owner.is_active())
 	):
 		return false
+	# The Tower flow remains active while its NODE_MODAL is visible, but these
+	# two Lingpet overlays own input while they are on top of that modal. Route
+	# only input-driven overlays here; timer-only welcome overlays must keep the
+	# Tower flow's ordinary input ownership.
+	var modal_gate := _get_module(module_getter, "battle_scene_modal_gate_controller")
+	var lingpet_overlay_active := (
+		modal_gate != null
+		and (
+			(
+				modal_gate.has_method("is_lingpet_overflow_choice_active")
+				and bool(modal_gate.call("is_lingpet_overflow_choice_active", module_getter))
+			)
+			or (
+				modal_gate.has_method("is_lingpet_acquire_cutin_active")
+				and bool(modal_gate.call("is_lingpet_acquire_cutin_active", module_getter))
+			)
+		)
+	)
+	if lingpet_overlay_active:
+		var overlay_input := _get_overlay_input_controller(module_getter)
+		if overlay_input != null and overlay_input.has_method("handle_input"):
+			if bool(overlay_input.call(
+				"handle_input",
+				event,
+				owner,
+				registry,
+				module_getter,
+				context
+			)):
+				return true
 	if flow_owner.has_method("handle_input"):
 		var phase_name := (
 			str(flow_owner.get_phase_name())

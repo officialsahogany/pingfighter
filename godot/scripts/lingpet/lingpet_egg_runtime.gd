@@ -1391,6 +1391,7 @@ func begin_tower_spring_overflow_compare(
 ) -> bool:
 	var pet_id: String = _current_profile.normalize_pet_id(str(offer.get("pet_id", "")))
 	var loadout: Dictionary = offer.get("base_loadout", {}) as Dictionary
+	var final_loadout: Dictionary = offer.get("loadout", {}) as Dictionary
 	_collection_state.sync_from_owner(owner)
 	if (
 		pet_id == ""
@@ -1398,6 +1399,7 @@ func begin_tower_spring_overflow_compare(
 		or _state != STATE_COMPANION
 		or _collection_state.get_battle_slots().is_empty()
 		or loadout.is_empty()
+		or final_loadout.is_empty()
 		or _overflow_choice_state.has_pending_or_active()
 	):
 		return false
@@ -1462,12 +1464,24 @@ func begin_tower_spring_overflow_compare(
 					_loadout_state.forget_pet_loadout_and_invalidate(owner, pet_id, _snapshot_builder)
 					_guardian_run_state.forget_pet_data(pet_id)
 					return false
+	_loadout_state.set_pet_loadout_and_invalidate(
+		owner,
+		pet_id,
+		str(final_loadout.get("active_skill_id", "")),
+		str(final_loadout.get("passive_skill_id", "")),
+		maxi(1, int(final_loadout.get("active_skill_level", 1))),
+		maxi(1, int(final_loadout.get("passive_skill_level", 1))),
+		_snapshot_builder,
+		str(final_loadout.get("second_active_skill_id", "")),
+		str(final_loadout.get("second_passive_skill_id", "")),
+		maxi(1, int(final_loadout.get("second_active_skill_level", 1))),
+		maxi(1, int(final_loadout.get("second_passive_skill_level", 1)))
+	)
 	_overflow_guardian_snapshot_builder.invalidate_replacement()
 	_overflow_choice_state.begin_main_overflow(pet_id, false, true)
 	if not _overflow_choice_state.activate_after_cutin():
 		_overflow_choice_state.reset()
 		return false
-	_record_guardian_discovery_at_reveal(pet_id, registry)
 	_sync_owner(owner, registry)
 	return true
 
@@ -1502,9 +1516,19 @@ func commit_tower_spring_overflow_replace(
 		_guardian_run_state.forget_pet_data(old_pet_id)
 		_companion_skill_persistence.forget_pet(old_pet_id)
 	_finish_overflow_hatch_commit(owner, registry)
-	_acquisition_lifecycle.start_acquire_cutin("", registry)
+	_acquisition_lifecycle.start_acquire_cutin(expected_pet_id, registry)
 	_sync_owner(owner, registry)
 	return true
+
+
+func record_tower_spring_guardian_purchase_discovery(
+	pet_id: String,
+	registry: Object = null
+) -> Dictionary:
+	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
+	if normalized_pet_id == "" or normalized_pet_id != _pet_id:
+		return {"accepted": false, "reason": "guardian_purchase_not_active"}
+	return _record_guardian_discovery_at_reveal(normalized_pet_id, registry)
 
 
 func _try_commit_tower_spring_browse_purchase(
@@ -1738,7 +1762,7 @@ func _grant_and_activate_pet(
 	))
 	_initialize_companion_patrol(owner, true)
 	if show_acquire_cutin:
-		_acquisition_lifecycle.start_acquire_cutin("", registry)
+		_acquisition_lifecycle.start_acquire_cutin(normalized_pet_id, registry)
 	_sync_owner(owner, registry)
 	return true
 
@@ -2291,6 +2315,38 @@ func get_save_snapshot() -> Dictionary:
 
 func build_save_snapshot() -> Dictionary:
 	return get_save_snapshot()
+
+
+func build_tower_spring_replace_rollback_snapshot() -> Dictionary:
+	return {
+		"save_snapshot": build_save_snapshot().duplicate(true),
+		"companion_skill_persistence": _companion_skill_persistence.build_store_snapshot(),
+	}
+
+
+func restore_tower_spring_replace_rollback_snapshot(
+	snapshot: Dictionary,
+	owner: Object = null,
+	registry: Object = null
+) -> bool:
+	var save_value: Variant = snapshot.get("save_snapshot", {})
+	var persistence_value: Variant = snapshot.get("companion_skill_persistence", {})
+	if not (save_value is Dictionary) or not (persistence_value is Dictionary):
+		return false
+	var restore_result := apply_save_snapshot(save_value as Dictionary, owner, registry)
+	if not bool(restore_result.get("restored", false)):
+		return false
+	if not _collection_state.restore_exact_transaction_snapshot(
+		owner,
+		save_value as Dictionary
+	):
+		return false
+	if not _companion_skill_persistence.restore_store_snapshot(
+		persistence_value as Dictionary
+	):
+		return false
+	_sync_owner(owner, registry)
+	return true
 
 
 func export_guardian_run_state() -> Dictionary:

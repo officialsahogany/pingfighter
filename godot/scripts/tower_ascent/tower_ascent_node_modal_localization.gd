@@ -59,11 +59,9 @@ const KEY_MONK_SWAP_COMPLETED := "tower_ascent.node_modal.fallen_monk.swap_compl
 const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_completed"
 const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
 const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
-const KEY_SPRING_SOUL_SUMMONING_OPTION := "tower_ascent.node_modal.guardian_spring.soul_summoning_option"
 const KEY_SPRING_PALM_OPTION := "tower_ascent.node_modal.guardian_spring.palm_option"
 const KEY_SPRING_PRAYER_OPTION := "tower_ascent.node_modal.guardian_spring.prayer_option"
 const KEY_SPRING_BROWSE_OPTION := "tower_ascent.node_modal.guardian_spring.browse_option"
-const KEY_SPRING_BROWSE_PLACEHOLDER := "tower_ascent.node_modal.guardian_spring.browse_placeholder"
 const KEY_SPRING_PALM_COMPLETED := "tower_ascent.node_modal.guardian_spring.palm_completed"
 const KEY_SPRING_PRAYER_COMPLETED := "tower_ascent.node_modal.guardian_spring.prayer_completed"
 const KEY_SPRING_PRAYER_RESULT := "tower_ascent.node_modal.guardian_spring.prayer_result"
@@ -78,30 +76,17 @@ const KEY_SPRING_CARD_BADGE_ELITE := "tower_ascent.node_modal.guardian_spring.ca
 const KEY_SPRING_FIRST_PICK_COMPLETED := "tower_ascent.node_modal.guardian_spring.first_pick_completed"
 const KEY_SPRING_BROWSE_COMPLETED := "tower_ascent.node_modal.guardian_spring.browse_completed"
 const KEY_SPRING_FIRST_PICK_REQUIRED := "tower_ascent.node_modal.guardian_spring.first_pick_required"
-const KEY_SPRING_FIRST_VISIT_COMPLETE := "tower_ascent.node_modal.guardian_spring.first_visit_complete"
 const KEY_SPRING_ENHANCE_OPTION := "tower_ascent.node_modal.guardian_spring.enhance_option"
-const KEY_SPRING_SWAP_OPTION := "tower_ascent.node_modal.guardian_spring.swap_option"
-const KEY_SPRING_ABSORB_OPTION := "tower_ascent.node_modal.guardian_spring.absorb_option"
 const KEY_SPRING_RUNTIME_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.runtime_unavailable"
 const KEY_SPRING_ENHANCE_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.enhance_unavailable"
-const KEY_SPRING_ACTIVE_GUARDIAN_REQUIRED := "tower_ascent.node_modal.guardian_spring.active_guardian_required"
-const KEY_SPRING_SOUL_SUMMONING_COMPLETED := "tower_ascent.node_modal.guardian_spring.soul_summoning_completed"
 const KEY_SPRING_ENHANCE_COMPLETED := "tower_ascent.node_modal.guardian_spring.enhance_completed"
-const KEY_SPRING_SWAP_COMPLETED := "tower_ascent.node_modal.guardian_spring.swap_completed"
-const KEY_SPRING_ABSORB_COMPLETED := "tower_ascent.node_modal.guardian_spring.absorb_completed"
 const KEY_SPRING_ACTION_UNAVAILABLE := "tower_ascent.node_modal.guardian_spring.action_unavailable"
 const KEY_SPRING_CARD_BADGE_SOUL := "tower_ascent.node_modal.guardian_spring.card_badge.soul"
 const KEY_SPRING_CARD_BADGE_ENHANCE := "tower_ascent.node_modal.guardian_spring.card_badge.enhance"
-const KEY_SPRING_CARD_BADGE_SWAP := "tower_ascent.node_modal.guardian_spring.card_badge.swap"
-const KEY_SPRING_CARD_BADGE_ABSORB := "tower_ascent.node_modal.guardian_spring.card_badge.absorb"
 const KEY_SPRING_CARD_SOUL_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.soul"
 const KEY_SPRING_CARD_ENHANCE_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.enhance"
-const KEY_SPRING_CARD_SWAP_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.swap"
-const KEY_SPRING_CARD_ABSORB_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.absorb"
 const KEY_SPRING_STATE_ACTIVE := "tower_ascent.node_modal.guardian_spring.state.active"
-const KEY_SPRING_STATE_SEALED := "tower_ascent.node_modal.guardian_spring.state.sealed"
 const KEY_SPRING_STATE_ENHANCED := "tower_ascent.node_modal.guardian_spring.state.enhanced"
-const KEY_SPRING_STATE_ABSORBED := "tower_ascent.node_modal.guardian_spring.state.absorbed"
 const KEY_REST_RESTORE_OPTION := "tower_ascent.node_modal.rest.restore_option"
 const KEY_REST_ALREADY_USED := "tower_ascent.node_modal.rest.already_used"
 const KEY_REST_CHANCE_GEMS_FULL := "tower_ascent.node_modal.rest.chance_gems_full"
@@ -184,11 +169,9 @@ const TEXT_BY_LOCALE := {
 		KEY_MONK_REMOVE_COMPLETED: "{name} 제거 완료",
 		KEY_MONK_OFFER_UNAVAILABLE: "파계승의 초식 선택지를 준비할 수 없습니다.",
 		KEY_COST_FREE: "무료",
-		KEY_SPRING_SOUL_SUMMONING_OPTION: "영혼소환술 습득",
 		KEY_SPRING_PALM_OPTION: "손바닥을 대본다",
 		KEY_SPRING_PRAYER_OPTION: "기도한다",
 		KEY_SPRING_BROWSE_OPTION: "수호령들을 살핀다",
-		KEY_SPRING_BROWSE_PLACEHOLDER: "수호령 살피기는 다음 단계에서 열립니다.",
 		KEY_SPRING_PALM_COMPLETED: "이미 샘터의 기운을 받아들였습니다.",
 		KEY_SPRING_PRAYER_COMPLETED: "기도가 닿아 전능력치가 상승했습니다.",
 		KEY_SPRING_PRAYER_RESULT: "전능력치 상승",
@@ -203,30 +186,17 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_FIRST_PICK_COMPLETED: "{name}과 첫 인연을 맺었습니다.",
 		KEY_SPRING_BROWSE_COMPLETED: "정예 수호령 셋이 샘터에 모습을 드러냈습니다.",
 		KEY_SPRING_FIRST_PICK_REQUIRED: "첫 인연을 맺을 수호령 하나를 선택해야 합니다.",
-		KEY_SPRING_FIRST_VISIT_COMPLETE: "영혼소환술을 익혔습니다. 다음 샘터부터 수호령을 정비할 수 있습니다.",
 		KEY_SPRING_ENHANCE_OPTION: "수호령 강화: {name}",
-		KEY_SPRING_SWAP_OPTION: "봉인 해제 및 교체: {name}",
-		KEY_SPRING_ABSORB_OPTION: "봉인 수호령 흡수: {name}",
 		KEY_SPRING_RUNTIME_UNAVAILABLE: "수호령 기능을 준비할 수 없습니다.",
 		KEY_SPRING_ENHANCE_UNAVAILABLE: "현재 수호령에 적용할 강화가 없습니다.",
-		KEY_SPRING_ACTIVE_GUARDIAN_REQUIRED: "흡수할 힘을 받을 동행 수호령이 필요합니다.",
-		KEY_SPRING_SOUL_SUMMONING_COMPLETED: "영혼소환술 습득 완료",
 		KEY_SPRING_ENHANCE_COMPLETED: "수호령 강화 완료",
-		KEY_SPRING_SWAP_COMPLETED: "{name} 교체 완료",
-		KEY_SPRING_ABSORB_COMPLETED: "{name} 흡수 완료",
 		KEY_SPRING_ACTION_UNAVAILABLE: "샘터에서 처리할 수호령 업무가 없습니다.",
 		KEY_SPRING_CARD_BADGE_SOUL: "영혼소환술",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "활성 · 강화",
-		KEY_SPRING_CARD_BADGE_SWAP: "봉인 · 교체",
-		KEY_SPRING_CARD_BADGE_ABSORB: "봉인 · 흡수",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "영혼소환술을 익혀 첫 수호령을 맞이합니다.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "활성 수호령에 다음 강화 결과를 적용합니다.",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "봉인 수호령을 활성 수호령과 교체합니다.",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "봉인 수호령의 힘을 활성 수호령에 흡수합니다.",
 		KEY_SPRING_STATE_ACTIVE: "활성",
-		KEY_SPRING_STATE_SEALED: "봉인",
 		KEY_SPRING_STATE_ENHANCED: "강화",
-		KEY_SPRING_STATE_ABSORBED: "흡수",
 		KEY_REST_RESTORE_OPTION: "기회의 보석 {amount}개 회복",
 		KEY_REST_ALREADY_USED: "이 휴식 노드의 회복을 이미 마쳤습니다.",
 		KEY_REST_CHANCE_GEMS_FULL: "기회의 보석이 최대 {maximum}개입니다.",
@@ -251,7 +221,6 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PALM_OPTION: "Place your palm",
 		KEY_SPRING_PRAYER_OPTION: "Offer a prayer",
 		KEY_SPRING_BROWSE_OPTION: "View the guardians",
-		KEY_SPRING_BROWSE_PLACEHOLDER: "Guardian browsing opens in the next stage.",
 		KEY_SPRING_PALM_COMPLETED: "You have already received the spring's energy.",
 		KEY_SPRING_PRAYER_COMPLETED: "Your prayer raised all player stats.",
 		KEY_SPRING_PRAYER_RESULT: "All stats increased",
@@ -268,16 +237,10 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_FIRST_PICK_REQUIRED: "Choose one guardian for your first bond.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Soul Summoning",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Active · Enhance",
-		KEY_SPRING_CARD_BADGE_SWAP: "Sealed · Swap",
-		KEY_SPRING_CARD_BADGE_ABSORB: "Sealed · Absorb",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Learn Soul Summoning and welcome your first guardian.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Apply the next enhancement to the active guardian.",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Swap this sealed guardian with the active guardian.",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorb this sealed guardian into the active guardian.",
 		KEY_SPRING_STATE_ACTIVE: "Active",
-		KEY_SPRING_STATE_SEALED: "Sealed",
 		KEY_SPRING_STATE_ENHANCED: "Enhanced",
-		KEY_SPRING_STATE_ABSORBED: "Absorbed",
 		KEY_REST_CARD_BADGE: "Restore",
 		KEY_REST_CARD_COMPLETE_BADGE: "Complete",
 		KEY_REST_CARD_DESCRIPTION: "Chance Gems {current} → {result}",
@@ -308,7 +271,6 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
 		KEY_SPRING_PRAYER_OPTION: "祈祷",
 		KEY_SPRING_BROWSE_OPTION: "查看守护灵",
-		KEY_SPRING_BROWSE_PLACEHOLDER: "守护灵查看功能将在下一阶段开放。",
 		KEY_SPRING_PALM_COMPLETED: "你已经接受了泉水的力量。",
 		KEY_SPRING_PRAYER_COMPLETED: "祈祷使玩家全属性提升。",
 		KEY_SPRING_PRAYER_RESULT: "全属性提升",
@@ -325,16 +287,10 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_FIRST_PICK_REQUIRED: "请选择一位守护灵结下最初的缘分。",
 		KEY_SPRING_CARD_BADGE_SOUL: "灵魂召唤术",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "出战 · 强化",
-		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交换",
-		KEY_SPRING_CARD_BADGE_ABSORB: "封印 · 吸收",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "习得灵魂召唤术，迎接首位守护灵。",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "为当前守护灵应用下一次强化。",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "将封印守护灵与当前守护灵交换。",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "将封印守护灵的力量融入当前守护灵。",
 		KEY_SPRING_STATE_ACTIVE: "出战",
-		KEY_SPRING_STATE_SEALED: "封印",
 		KEY_SPRING_STATE_ENHANCED: "强化",
-		KEY_SPRING_STATE_ABSORBED: "吸收",
 		KEY_REST_CARD_BADGE: "恢复",
 		KEY_REST_CARD_COMPLETE_BADGE: "完成",
 		KEY_REST_CARD_DESCRIPTION: "机会宝石 {current} → {result}",
@@ -365,7 +321,6 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
 		KEY_SPRING_PRAYER_OPTION: "祈る",
 		KEY_SPRING_BROWSE_OPTION: "守護霊たちを見る",
-		KEY_SPRING_BROWSE_PLACEHOLDER: "守護霊の閲覧は次の段階で開放されます。",
 		KEY_SPRING_PALM_COMPLETED: "すでに泉の力を受け入れました。",
 		KEY_SPRING_PRAYER_COMPLETED: "祈りによりプレイヤーの全能力値が上昇しました。",
 		KEY_SPRING_PRAYER_RESULT: "全能力値上昇",
@@ -382,16 +337,10 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_FIRST_PICK_REQUIRED: "最初の縁を結ぶ守護霊を1体選んでください。",
 		KEY_SPRING_CARD_BADGE_SOUL: "魂召喚術",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "同行 · 強化",
-		KEY_SPRING_CARD_BADGE_SWAP: "封印 · 交代",
-		KEY_SPRING_CARD_BADGE_ABSORB: "封印 · 吸収",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "魂召喚術を学び、最初の守護霊を迎えます。",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "同行中の守護霊に次の強化を適用します。",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "封印した守護霊を同行中の守護霊と交代します。",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "封印した守護霊の力を同行中の守護霊へ吸収します。",
 		KEY_SPRING_STATE_ACTIVE: "同行",
-		KEY_SPRING_STATE_SEALED: "封印",
 		KEY_SPRING_STATE_ENHANCED: "強化",
-		KEY_SPRING_STATE_ABSORBED: "吸収",
 		KEY_REST_CARD_BADGE: "回復",
 		KEY_REST_CARD_COMPLETE_BADGE: "完了",
 		KEY_REST_CARD_DESCRIPTION: "機会の宝石 {current} → {result}",
@@ -421,16 +370,10 @@ const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_SPANISH: {
 		KEY_SPRING_CARD_BADGE_SOUL: "Invocación",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Activo · Mejora",
-		KEY_SPRING_CARD_BADGE_SWAP: "Sellado · Cambio",
-		KEY_SPRING_CARD_BADGE_ABSORB: "Sellado · Absorción",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprende Invocación y recibe a tu primer guardián.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Aplica la siguiente mejora al guardián activo.",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Cambia este guardián sellado por el guardián activo.",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorbe este guardián sellado en el guardián activo.",
 		KEY_SPRING_STATE_ACTIVE: "Activo",
-		KEY_SPRING_STATE_SEALED: "Sellado",
 		KEY_SPRING_STATE_ENHANCED: "Mejorado",
-		KEY_SPRING_STATE_ABSORBED: "Absorbido",
 		KEY_REST_CARD_BADGE: "Recuperar",
 		KEY_REST_CARD_COMPLETE_BADGE: "Completo",
 		KEY_REST_CARD_DESCRIPTION: "Gemas de oportunidad {current} → {result}",
@@ -460,16 +403,10 @@ const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
 		KEY_SPRING_CARD_BADGE_SOUL: "Invocação",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Ativo · Reforço",
-		KEY_SPRING_CARD_BADGE_SWAP: "Selado · Troca",
-		KEY_SPRING_CARD_BADGE_ABSORB: "Selado · Absorção",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprenda Invocação e receba seu primeiro guardião.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Aplique o próximo reforço ao guardião ativo.",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Troque este guardião selado pelo guardião ativo.",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Absorva este guardião selado no guardião ativo.",
 		KEY_SPRING_STATE_ACTIVE: "Ativo",
-		KEY_SPRING_STATE_SEALED: "Selado",
 		KEY_SPRING_STATE_ENHANCED: "Reforçado",
-		KEY_SPRING_STATE_ABSORBED: "Absorvido",
 		KEY_REST_CARD_BADGE: "Recuperar",
 		KEY_REST_CARD_COMPLETE_BADGE: "Concluído",
 		KEY_REST_CARD_DESCRIPTION: "Gemas de chance {current} → {result}",
@@ -499,16 +436,10 @@ const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_RUSSIAN: {
 		KEY_SPRING_CARD_BADGE_SOUL: "Призыв духа",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Активный · Усиление",
-		KEY_SPRING_CARD_BADGE_SWAP: "Печать · Замена",
-		KEY_SPRING_CARD_BADGE_ABSORB: "Печать · Поглощение",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Изучите призыв и встретьте первого хранителя.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Примените следующее усиление к активному хранителю.",
-		KEY_SPRING_CARD_SWAP_DESCRIPTION: "Замените активного хранителя этим запечатанным.",
-		KEY_SPRING_CARD_ABSORB_DESCRIPTION: "Поглотите силу этого хранителя активным хранителем.",
 		KEY_SPRING_STATE_ACTIVE: "Активный",
-		KEY_SPRING_STATE_SEALED: "Печать",
 		KEY_SPRING_STATE_ENHANCED: "Усилен",
-		KEY_SPRING_STATE_ABSORBED: "Поглощён",
 		KEY_REST_CARD_BADGE: "Восстановить",
 		KEY_REST_CARD_COMPLETE_BADGE: "Готово",
 		KEY_REST_CARD_DESCRIPTION: "Камни шанса {current} → {result}",

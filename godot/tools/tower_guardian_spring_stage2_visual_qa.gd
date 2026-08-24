@@ -6,6 +6,7 @@ const RuntimePerkOverlayRenderer := preload(
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
+const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 
 const VIEW_SIZE := Vector2i(1280, 900)
 const OUTPUT_PATH := "res://.godot/codex_captures/guardian_spring_stage2/prayer_count_2_stats.png"
@@ -22,13 +23,17 @@ class QaOwner:
 
 class QaRegistry:
 	extends RefCounted
-	var runtime_state: Object
+	var instances: Dictionary = {}
 
-	func _init(value: Object) -> void:
-		runtime_state = value
+	func _init(runtime_state: Object, mythic_runtime: Object) -> void:
+		instances = {
+			"runtime_perk_state": runtime_state,
+			"mythic_item_runtime": mythic_runtime,
+		}
 
 	func get_instance(key: String) -> Object:
-		return runtime_state if key == "runtime_perk_state" else null
+		var value: Variant = instances.get(key, null)
+		return value as Object if value is Object else null
 
 	func get_cached_instance(key: String) -> Object:
 		return get_instance(key)
@@ -71,8 +76,10 @@ func _run() -> void:
 		return
 	var runtime_state := RuntimePerkState.new()
 	runtime_state.set_tower_spring_prayer_count(2)
+	var mythic_runtime := MythicItemRuntime.new()
+	mythic_runtime.runtime_perk_state_ref = runtime_state
 	var owner := QaOwner.new()
-	var registry := QaRegistry.new(runtime_state)
+	var registry := QaRegistry.new(runtime_state, mythic_runtime)
 	var renderer := RuntimePerkOverlayRenderer.new()
 	renderer.prewarm_traditional_choice_assets()
 	var prepared: Dictionary = renderer.prepare_tower_training_stats_panel(owner, registry)
@@ -85,12 +92,17 @@ func _run() -> void:
 	var values: Array = stats.get("values", [])
 	var speed_index := labels.find("이동 속도")
 	var gauge_index := labels.find("최대 기력")
-	if speed_index < 0 or gauge_index < 0:
+	var gauge_gain_index := labels.find("기력 획득량")
+	if speed_index < 0 or gauge_index < 0 or gauge_gain_index < 0:
 		push_error("S2 prayer stats panel is missing production rows")
 		quit(1)
 		return
-	if str(values[speed_index]) == "800.00" or str(values[gauge_index]) != "530pt":
-		push_error("S2 prayer stats panel did not render divergent +6% values: %s" % [values])
+	if (
+		str(values[speed_index]) == "800.00"
+		or str(values[gauge_index]) != "530pt"
+		or str(values[gauge_gain_index]) != "53pt"
+	):
+		push_error("S2 prayer stats panel did not render divergent +6%% values: %s" % [values])
 		quit(1)
 		return
 	var output_path := ProjectSettings.globalize_path(OUTPUT_PATH)
@@ -114,6 +126,6 @@ func _run() -> void:
 		quit(1)
 		return
 	print("[GuardianSpringS2VisualQA] %s" % output_path)
-	print("tower_guardian_spring_stage2_visual_qa: prayer_count=2 speed=%s max_gauge=%s" % [values[speed_index], values[gauge_index]])
+	print("tower_guardian_spring_stage2_visual_qa: prayer_count=2 speed=%s max_gauge=%s gauge_gain=%s" % [values[speed_index], values[gauge_index], values[gauge_gain_index]])
 	print("tower_guardian_spring_stage2_visual_qa: ok")
 	quit(0)

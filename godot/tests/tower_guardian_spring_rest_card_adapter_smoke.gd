@@ -224,6 +224,76 @@ func _verify_visible_page_contract(fixture: Dictionary) -> void:
 	_expect(modal.select_at_position(action_corner, BASE_VIEW_SIZE), "spring action top corner must share the rendered rect")
 	_expect(modal.get_selected_action() == actions[0], "spring top corner must select the sole enhancement action")
 
+	# GRT-022 regression seal: the production roster is intentionally short, so
+	# exercise the shared paging owner with seven synthetic cards. Draw geometry,
+	# hit testing, and press/release page controls must remain one authority.
+	var synthetic_actions: Array[Dictionary] = []
+	for index in range(7):
+		synthetic_actions.append({
+			"id": "guardian_spring:synthetic:%d" % index,
+			"label": "합성 수호령 %d" % index,
+			"cost_text": "무료",
+			"enabled": true,
+			"payload": {
+				"operation": "synthetic",
+				"choice": {"name": "합성 수호령 %d" % index},
+				"presentation": {},
+			},
+		})
+	var paged_modal := TowerAscentNodeModalState.new()
+	paged_modal.open("s4-page-synthetic", "guardian_spring", {"muhon": 99}, synthetic_actions)
+	_expect(paged_modal.get_page_count() == 2, "seven-card synthetic fixture must expose two pages")
+	var page_zero_model: Dictionary = paged_modal.build_view_model(BASE_VIEW_SIZE)
+	var page_flags: Dictionary = page_zero_model.get("layout_flags", {})
+	_expect(
+		bool(page_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, false)),
+		"multi-page Spring model must expose page controls"
+	)
+	var next_rect: Rect2 = page_zero_model.get("page_next_rect", Rect2()) as Rect2
+	_expect(next_rect.has_area(), "page-next draw rect must have area")
+	var next_corner := next_rect.position + Vector2(2.0, 2.0)
+	paged_modal.begin_pointer_press(next_corner, BASE_VIEW_SIZE)
+	var page_release: Dictionary = paged_modal.release_pointer_at_position(
+		next_corner,
+		BASE_VIEW_SIZE
+	)
+	_expect(
+		str(page_release.get("_modal_control", "")) == "page"
+		and bool(page_release.get("changed", false))
+		and paged_modal.get_visible_page() == 1,
+		"page-next top-corner press/release must change the visible page"
+	)
+	var page_one_model: Dictionary = paged_modal.build_view_model(BASE_VIEW_SIZE)
+	var page_one_actions: Array = page_one_model.get("actions", [])
+	var page_one_rects: Array = page_one_model.get("action_rects", [])
+	var seventh_index := _find_action_index(
+		page_one_actions,
+		"guardian_spring:synthetic:6"
+	)
+	_expect(seventh_index >= 0, "page one must keep the seventh synthetic card identity")
+	if seventh_index >= 0:
+		var seventh_rect: Rect2 = page_one_rects[seventh_index] as Rect2
+		var seventh_corner := seventh_rect.position + Vector2(2.0, 2.0)
+		_expect(seventh_rect.has_area(), "page-one seventh card must have a rendered rect")
+		_expect(
+			paged_modal.select_at_position(seventh_corner, BASE_VIEW_SIZE),
+			"page-one card top corner must use the same draw and hit-test rect"
+		)
+		_expect(
+			str(paged_modal.get_selected_action().get("id", ""))
+			== "guardian_spring:synthetic:6",
+			"page-one top corner must select the seventh synthetic card"
+		)
+	var live_model: Dictionary = paged_modal.build_view_model(LIVE_VIEW_SIZE)
+	var live_flags: Dictionary = live_model.get("layout_flags", {})
+	var live_layout: Dictionary = paged_modal.build_screen_layout(LIVE_VIEW_SIZE, live_flags)
+	_expect(
+		(live_model.get("page_next_rect", Rect2()) as Rect2).is_equal_approx(
+			live_layout.get("page_next_rect", Rect2()) as Rect2
+		),
+		"live-resolution page control draw and hit-test rects must share layout authority"
+	)
+
 
 func _verify_rest_hero_adapter() -> void:
 	var run_state := FakeRunState.new()

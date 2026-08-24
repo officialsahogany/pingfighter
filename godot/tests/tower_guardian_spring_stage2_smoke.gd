@@ -3,6 +3,10 @@ extends SceneTree
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
+const CharacterInfoOverlayStatsPresenter := preload(
+	"res://scripts/hud/character_info_overlay_stats_presenter.gd"
+)
+const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
 const TowerAscentGuardianSpringNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_guardian_spring_node.gd"
 )
@@ -173,6 +177,19 @@ func _verify_effective_stat_projection_and_caps() -> void:
 	_expect(runtime_state.get_active_item_cooldown_msec(100000) == 94000, "prayer_count 2 must reduce cooldown by 6 percent")
 	_expect(is_equal_approx(runtime_state.get_tower_spring_prayer_flat_bonus(500.0), 30.0), "flat stats must gain six percent of their baseline")
 	_expect(is_equal_approx(runtime_state.get_converted_perk_option_value("bluetooth_ring", "gauge_gain_pct"), 6.0), "gauge gain query must include the global prayer percentage")
+	var mythic_runtime := MythicItemRuntime.new()
+	mythic_runtime.runtime_perk_state_ref = runtime_state
+	_expect(
+		is_equal_approx(
+			CharacterInfoOverlayStatsPresenter.effective_gauge_gain_per_hit(
+				null,
+				mythic_runtime,
+				null
+			),
+			53.0
+		),
+		"production stats presenter must display prayer +6% as 50pt to 53pt vigor gain"
+	)
 	runtime_state.set_tower_spring_prayer_count(100)
 	_expect(runtime_state.get_active_item_cooldown_msec(100000) == 5000, "cooldown prayer reduction must respect the 95 percent cap")
 

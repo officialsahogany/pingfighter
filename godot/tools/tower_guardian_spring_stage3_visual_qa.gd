@@ -158,11 +158,13 @@ func _run() -> void:
 		QaOwner.new(),
 		QaRegistry.new(QaLingpetRuntime.new(active_pet_id))
 	)
-	if actions.size() != 3:
-		push_error("S3 visual fixture must expose exactly three elite cards")
+	if actions.size() != 4:
+		push_error("S3 visual fixture must expose three elite cards plus reroll")
 		quit(1)
 		return
 	for action in actions:
+		if str(action.get("payload", {}).get("operation", "")) != "browse_candidate":
+			continue
 		if not str(action.get("cost_text", "")).contains("280"):
 			push_error("S3 floor-five elite card is missing its 280 Gold price")
 			quit(1)
@@ -206,7 +208,7 @@ func _run() -> void:
 		quit(1)
 		return
 	print("[GuardianSpringS3VisualQA] %s" % output_path)
-	print("tower_guardian_spring_stage3_visual_qa: cards=3 floor=5 price=280")
+	print("tower_guardian_spring_stage3_visual_qa: cards=4 elite=3 reroll=1 floor=5 price=280")
 	print("tower_guardian_spring_stage3_visual_qa: ok")
 	quit(0)
 
