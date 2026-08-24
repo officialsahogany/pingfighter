@@ -4,11 +4,14 @@ const TowerMapScrollAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_map_scroll_asset_catalog.gd"
 )
 
-const BITMAP_FRONT_CLOUD_COUNT := 4
+const BITMAP_FRONT_CLOUD_COUNT := 8
 const BITMAP_MAX_MOTIF_DRAW_CALLS := BITMAP_FRONT_CLOUD_COUNT * 2
 const BITMAP_DISSOLVE_DRAW_CALLS := 2
 const BITMAP_REVEAL_SPLIT_DRAW_CALLS := 1
 const PROCEDURAL_DRAW_CALL_COUNT := 1
+const WALL_INTERIOR_TILE_Y_SCALE := 3.0
+const LOW_ZOOM_MOTIF_SCALE_MAXIMUM := 3.5
+const LOW_ZOOM_MOTIF_SCALE_END := 0.52
 const WALL_INTERIOR_OPACITY := 1.0
 const WALL_MINIMUM_CONCEAL_OPACITY := 0.90
 const DISSOLVE_JOIN_BLEND_RATIO := 0.075
@@ -19,10 +22,38 @@ const FRONT_CLOUD_ASSET_KEYS: Array[String] = [
 	TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM,
 	TowerMapScrollAssetCatalog.CLOUD_WISP,
 	TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM,
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE,
+	TowerMapScrollAssetCatalog.CLOUD_WISP,
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_MEDIUM,
+	TowerMapScrollAssetCatalog.CLOUD_SWIRL_LARGE,
 ]
-const FRONT_CLOUD_CENTER_Y_RATIOS: Array[float] = [0.18, 0.39, 0.63, 0.84]
-const FRONT_CLOUD_SCALE_MINIMUMS: Array[float] = [1.16, 1.06, 1.24, 0.90]
-const FRONT_CLOUD_SCALE_MAXIMUMS: Array[float] = [1.36, 1.26, 1.56, 1.12]
+const FRONT_CLOUD_CENTER_Y_RATIOS: Array[float] = [
+	0.07, 0.19, 0.31, 0.43, 0.57, 0.69, 0.81, 0.93,
+]
+const FRONT_CLOUD_SCALE_MINIMUMS: Array[float] = [
+	1.62, 1.44, 1.90, 1.34, 1.56, 1.82, 1.42, 1.50,
+]
+const FRONT_CLOUD_SCALE_MAXIMUMS: Array[float] = [
+	2.02, 1.82, 2.42, 1.70, 1.96, 2.30, 1.80, 1.92,
+]
+
+static var _textured_quad_points := PackedVector2Array([
+	Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO,
+])
+static var _textured_quad_colors := PackedColorArray([
+	Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
+])
+static var _textured_quad_uvs := PackedVector2Array([
+	Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO,
+])
+
+
+static func interior_tile_world_size(map_scale: float = 1.0) -> Vector2:
+	var base_size := Vector2(TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR_WORLD_SIZE)
+	return Vector2(
+		base_size.x,
+		base_size.y * WALL_INTERIOR_TILE_Y_SCALE
+	) * maxf(0.001, map_scale)
 
 
 static func estimate_draw_calls(
@@ -48,14 +79,10 @@ static func estimate_draw_calls(
 	if floors.is_empty() or not is_finite(minimum_y) or not is_finite(maximum_y):
 		return 0
 	var vertical_padding := maxf(art_size * 1.35, 20.0)
-	var tile_height := maxf(
-		1.0,
-		float(TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR_WORLD_SIZE.y)
-			* maxf(0.001, map_scale)
-	)
+	var tile_height := maxf(1.0, interior_tile_world_size(map_scale).y)
 	# The merged wall is tiled from its moving dissolve join upward. A reveal can
 	# split one tile between the stable and fading portions, hence the single
-	# extra interior call. The four accents may each straddle one horizontal edge.
+	# extra interior call. The eight accents may each straddle one horizontal edge.
 	var conservative_height := maximum_y - minimum_y + vertical_padding * 2.0
 	var interior_calls := maxi(1, ceili(conservative_height / tile_height))
 	return (
@@ -112,12 +139,7 @@ func build(
 		bitmap_assets.size() == TowerMapScrollAssetCatalog.CLOUD_ASSET_KEYS.size()
 	)
 	var safe_scale := maxf(0.001, map_scale)
-	var interior_size: Vector2 = (
-		(bitmap_assets.get(TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR, {}) as Dictionary)
-			.get("world_size", Vector2(
-				TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR_WORLD_SIZE
-			))
-	)
+	var interior_size := interior_tile_world_size(safe_scale)
 	var dissolve_size: Vector2 = (
 		(bitmap_assets.get(TowerMapScrollAssetCatalog.CLOUD_WALL_DISSOLVE, {}) as Dictionary)
 			.get("world_size", Vector2(
@@ -145,7 +167,7 @@ func build(
 		"interior_spec": {
 			"kind": "wall_interior",
 			"asset_key": TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR,
-			"world_size": Vector2(interior_size) * safe_scale,
+			"world_size": interior_size,
 			"opacity": WALL_INTERIOR_OPACITY,
 		},
 		"dissolve_spec": {
@@ -194,7 +216,8 @@ func draw(
 			model,
 			state,
 			bitmap_assets_value as Dictionary,
-			float(reveal_visual.get("drift_time_sec", 0.0))
+			float(reveal_visual.get("drift_time_sec", 0.0)),
+			zoom
 		)
 	else:
 		var wall_fill_rect: Rect2 = state.get("wall_fill_rect", Rect2())
@@ -309,16 +332,25 @@ static func wall_visual_state(model: Dictionary, reveal_visual: Dictionary) -> D
 		wall_rect.position,
 		Vector2(wall_rect.size.x, maxf(0.0, dissolve_rect.position.y - wall_rect.position.y))
 	)
-	var end_dissolve_top := maxf(
-		wall_rect.position.y,
-		end_boundary - dissolve_height
-	)
 	var reveal_segment_rect := Rect2()
-	if reveal_pending and interior_rect.end.y > end_dissolve_top + 0.001:
+	if reveal_pending and interior_rect.end.y > end_boundary + 0.001:
 		reveal_segment_rect = Rect2(
-			Vector2(wall_rect.position.x, end_dissolve_top),
-			Vector2(wall_rect.size.x, interior_rect.end.y - end_dissolve_top)
+			Vector2(wall_rect.position.x, end_boundary),
+			Vector2(wall_rect.size.x, interior_rect.end.y - end_boundary)
 		)
+	var stable_dissolve_rect := dissolve_rect
+	var fading_dissolve_rect := Rect2()
+	if reveal_pending:
+		stable_dissolve_rect = dissolve_rect.intersection(Rect2(
+			wall_rect.position,
+			Vector2(wall_rect.size.x, maxf(0.0, end_boundary - wall_rect.position.y))
+		))
+		var fade_top := maxf(dissolve_rect.position.y, end_boundary)
+		if dissolve_rect.end.y > fade_top + 0.001:
+			fading_dissolve_rect = Rect2(
+				Vector2(wall_rect.position.x, fade_top),
+				Vector2(wall_rect.size.x, dissolve_rect.end.y - fade_top)
+			)
 	return {
 		"visible": true,
 		"wall_fill_rect": Rect2(
@@ -327,11 +359,16 @@ static func wall_visual_state(model: Dictionary, reveal_visual: Dictionary) -> D
 		),
 		"interior_rect": interior_rect,
 		"dissolve_rect": dissolve_rect,
+		"stable_dissolve_rect": stable_dissolve_rect,
+		"fading_dissolve_rect": fading_dissolve_rect,
 		"reveal_segment_rect": reveal_segment_rect,
 		"start_boundary_y": start_boundary,
 		"end_boundary_y": end_boundary,
 		"boundary_y": boundary_y,
 		"reveal_alpha": 1.0 - progress if reveal_pending else 1.0,
+		"dissolve_alpha": 1.0,
+		"reveal_fade_start_y": end_boundary if reveal_pending else boundary_y,
+		"reveal_fade_end_y": boundary_y,
 		"reveal_pending": reveal_pending,
 	}
 
@@ -379,7 +416,8 @@ func _draw_bitmap_wall(
 	model: Dictionary,
 	state: Dictionary,
 	bitmap_assets: Dictionary,
-	drift_time: float
+	drift_time: float,
+	render_zoom: float
 ) -> void:
 	var interior_spec: Dictionary = model.get("interior_spec", {})
 	var interior_asset: Dictionary = bitmap_assets.get(
@@ -410,19 +448,14 @@ func _draw_bitmap_wall(
 				float(state.get("boundary_y", interior_draw_rect.end.y))
 					- interior_draw_rect.position.y
 			)
-		var reveal_segment_rect: Rect2 = state.get("reveal_segment_rect", Rect2())
-		if reveal_segment_rect.has_area():
-			reveal_segment_rect.size.y = maxf(
-				0.0,
-				interior_draw_rect.end.y - reveal_segment_rect.position.y
-			)
 		_draw_wall_interior(
 			canvas,
 			interior_texture,
 			interior_source_size,
 			interior_world_size,
 			interior_draw_rect,
-			reveal_segment_rect,
+			float(state.get("reveal_fade_start_y", interior_draw_rect.end.y)),
+			float(state.get("reveal_fade_end_y", interior_draw_rect.end.y)),
 			float(state.get("reveal_alpha", 1.0))
 		)
 	var dissolve_spec: Dictionary = model.get("dissolve_spec", {})
@@ -433,23 +466,25 @@ func _draw_bitmap_wall(
 	var dissolve_texture := dissolve_asset.get("texture", null) as Texture2D
 	var dissolve_source_size: Vector2 = dissolve_asset.get("texture_size", Vector2.ZERO)
 	var dissolve_rect: Rect2 = state.get("dissolve_rect", Rect2())
-	if (
-		dissolve_texture != null
-		and dissolve_rect.has_area()
-		and dissolve_source_size.x > 0.0
-		and dissolve_source_size.y > 0.0
-	):
-		_draw_dissolve_with_join_blend(
-			canvas,
-			dissolve_texture,
-			dissolve_rect,
-			dissolve_source_size,
-			float(dissolve_spec.get("join_blend_ratio", 0.0)),
-			Color(1.0, 1.0, 1.0, float(state.get("reveal_alpha", 1.0)))
-		)
 	var wall_rect: Rect2 = model.get("wall_rect", Rect2())
 	var motif_clip: Rect2 = state.get("interior_rect", Rect2())
-	var fade_rect: Rect2 = state.get("reveal_segment_rect", Rect2())
+	var motif_join_blend_height := _dissolve_join_blend_height(
+		dissolve_rect,
+		float(dissolve_spec.get("join_blend_ratio", 0.0))
+	)
+	if motif_clip.has_area() and motif_join_blend_height > 0.0:
+		motif_clip.size.y = minf(
+			motif_clip.size.y + motif_join_blend_height,
+			float(state.get("boundary_y", motif_clip.end.y)) - motif_clip.position.y
+		)
+	var reveal_fade_start_y := float(state.get("reveal_fade_start_y", motif_clip.end.y))
+	var reveal_fade_end_y := float(state.get("reveal_fade_end_y", motif_clip.end.y))
+	var reveal_alpha := float(state.get("reveal_alpha", 1.0))
+	var motif_render_scale := lerpf(
+		LOW_ZOOM_MOTIF_SCALE_MAXIMUM,
+		1.0,
+		smoothstep(0.0, LOW_ZOOM_MOTIF_SCALE_END, maxf(0.0, render_zoom))
+	)
 	for spec_variant in model.get("motif_specs", []):
 		if not (spec_variant is Dictionary):
 			continue
@@ -457,7 +492,9 @@ func _draw_bitmap_wall(
 		var asset: Dictionary = bitmap_assets.get(str(spec.get("asset_key", "")), {})
 		var texture := asset.get("texture", null) as Texture2D
 		var source_size: Vector2 = asset.get("texture_size", Vector2.ZERO)
-		var target_size: Vector2 = spec.get("size", Vector2.ZERO)
+		var target_size: Vector2 = (
+			(spec.get("size", Vector2.ZERO) as Vector2) * motif_render_scale
+		)
 		if texture == null or source_size.x <= 0.0 or target_size.x <= 0.0:
 			continue
 		var target_rect := Rect2(
@@ -467,17 +504,48 @@ func _draw_bitmap_wall(
 			),
 			target_size
 		)
-		var motif_alpha := float(spec.get("opacity", 1.0))
-		if fade_rect.has_area() and target_rect.end.y > fade_rect.position.y:
-			motif_alpha *= float(state.get("reveal_alpha", 1.0))
-		var modulate := Color(1.0, 1.0, 1.0, motif_alpha)
-		_draw_texture_clipped(canvas, texture, target_rect, motif_clip, source_size, modulate)
+		var modulate := Color(1.0, 1.0, 1.0, float(spec.get("opacity", 1.0)))
+		_draw_texture_clipped_with_vertical_fade(
+			canvas,
+			texture,
+			target_rect,
+			motif_clip,
+			source_size,
+			modulate,
+			reveal_fade_start_y,
+			reveal_fade_end_y,
+			reveal_alpha
+		)
 		if target_rect.position.x < wall_rect.position.x:
 			target_rect.position.x += wall_rect.size.x
-			_draw_texture_clipped(canvas, texture, target_rect, motif_clip, source_size, modulate)
+			_draw_texture_clipped_with_vertical_fade(
+				canvas, texture, target_rect, motif_clip, source_size, modulate,
+				reveal_fade_start_y, reveal_fade_end_y, reveal_alpha
+			)
 		elif target_rect.end.x > wall_rect.end.x:
 			target_rect.position.x -= wall_rect.size.x
-			_draw_texture_clipped(canvas, texture, target_rect, motif_clip, source_size, modulate)
+			_draw_texture_clipped_with_vertical_fade(
+				canvas, texture, target_rect, motif_clip, source_size, modulate,
+				reveal_fade_start_y, reveal_fade_end_y, reveal_alpha
+			)
+	if (
+		dissolve_texture != null
+		and dissolve_rect.has_area()
+		and dissolve_source_size.x > 0.0
+		and dissolve_source_size.y > 0.0
+	):
+		# Foreground dissolve owns the final join so enlarged fit-all motifs blend
+		# beneath it instead of clipping to a new horizontal edge.
+		_draw_dissolve_with_join_blend(
+			canvas,
+			dissolve_texture,
+			dissolve_rect,
+			dissolve_source_size,
+			float(dissolve_spec.get("join_blend_ratio", 0.0)),
+			float(state.get("reveal_fade_start_y", dissolve_rect.end.y)),
+			float(state.get("reveal_fade_end_y", dissolve_rect.end.y)),
+			float(state.get("reveal_alpha", 1.0))
+		)
 
 
 static func _dissolve_join_blend_height(
@@ -493,42 +561,35 @@ static func _draw_dissolve_with_join_blend(
 	target_rect: Rect2,
 	source_size: Vector2,
 	join_blend_ratio: float,
-	modulate: Color
+	fade_start_y: float,
+	fade_end_y: float,
+	tail_alpha: float
 ) -> void:
 	var blend_ratio := clampf(join_blend_ratio, 0.0, 0.25)
 	var blend_height := _dissolve_join_blend_height(target_rect, blend_ratio)
 	if blend_height <= 0.001:
-		canvas.draw_texture_rect_region(
+		_draw_texture_rect_region_vertical_alpha(
+			canvas,
 			texture,
 			target_rect,
 			Rect2(Vector2.ZERO, source_size),
-			modulate
+			source_size,
+			_reveal_fade_alpha_at_y(target_rect.position.y, fade_start_y, fade_end_y, tail_alpha),
+			_reveal_fade_alpha_at_y(target_rect.end.y, fade_start_y, fade_end_y, tail_alpha)
 		)
 		return
 	var blend_rect := Rect2(
 		target_rect.position,
 		Vector2(target_rect.size.x, blend_height)
 	)
-	canvas.draw_polygon(
-		PackedVector2Array([
-			blend_rect.position,
-			Vector2(blend_rect.end.x, blend_rect.position.y),
-			blend_rect.end,
-			Vector2(blend_rect.position.x, blend_rect.end.y),
-		]),
-		PackedColorArray([
-			Color(modulate, 0.0),
-			Color(modulate, 0.0),
-			modulate,
-			modulate,
-		]),
-		PackedVector2Array([
-			Vector2(0.0, 0.0),
-			Vector2(1.0, 0.0),
-			Vector2(1.0, blend_ratio),
-			Vector2(0.0, blend_ratio),
-		]),
-		texture
+	_draw_texture_rect_region_vertical_alpha(
+		canvas,
+		texture,
+		blend_rect,
+		Rect2(Vector2.ZERO, Vector2(source_size.x, source_size.y * blend_ratio)),
+		source_size,
+		0.0,
+		_reveal_fade_alpha_at_y(blend_rect.end.y, fade_start_y, fade_end_y, tail_alpha)
 	)
 	var remainder_rect := Rect2(
 		Vector2(target_rect.position.x, blend_rect.end.y),
@@ -536,14 +597,17 @@ static func _draw_dissolve_with_join_blend(
 	)
 	if not remainder_rect.has_area():
 		return
-	canvas.draw_texture_rect_region(
+	_draw_texture_rect_region_vertical_alpha(
+		canvas,
 		texture,
 		remainder_rect,
 		Rect2(
 			Vector2(0.0, source_size.y * blend_ratio),
 			Vector2(source_size.x, source_size.y * (1.0 - blend_ratio))
 		),
-		modulate
+		source_size,
+		_reveal_fade_alpha_at_y(remainder_rect.position.y, fade_start_y, fade_end_y, tail_alpha),
+		_reveal_fade_alpha_at_y(remainder_rect.end.y, fade_start_y, fade_end_y, tail_alpha)
 	)
 
 
@@ -553,7 +617,8 @@ static func _draw_wall_interior(
 	source_size: Vector2,
 	tile_world_size: Vector2,
 	interior_rect: Rect2,
-	fade_rect: Rect2,
+	fade_start_y: float,
+	fade_end_y: float,
 	fade_alpha: float
 ) -> void:
 	if not interior_rect.has_area() or tile_world_size.y <= 0.001:
@@ -573,51 +638,118 @@ static func _draw_wall_interior(
 			Vector2(0.0, source_size.y - source_height),
 			Vector2(source_size.x, source_height)
 		)
-		if (
-			fade_rect.has_area()
-			and chunk_rect.position.y < fade_rect.position.y
-			and chunk_rect.end.y > fade_rect.position.y
-		):
-			var upper_height := fade_rect.position.y - chunk_rect.position.y
-			var upper_ratio := upper_height / chunk_rect.size.y
-			var upper_target := Rect2(chunk_rect.position, Vector2(chunk_rect.size.x, upper_height))
-			var upper_source := Rect2(
-				source_rect.position,
-				Vector2(source_rect.size.x, source_rect.size.y * upper_ratio)
+		if chunk_rect.end.y > fade_start_y + 0.001 and fade_end_y > fade_start_y + 0.001:
+			var upper_height := clampf(
+				fade_start_y - chunk_rect.position.y,
+				0.0,
+				chunk_rect.size.y
 			)
-			canvas.draw_texture_rect_region(texture, upper_target, upper_source)
+			var upper_ratio := upper_height / chunk_rect.size.y
+			if upper_height > 0.001:
+				var upper_target := Rect2(
+					chunk_rect.position,
+					Vector2(chunk_rect.size.x, upper_height)
+				)
+				var upper_source := Rect2(
+					source_rect.position,
+					Vector2(source_rect.size.x, source_rect.size.y * upper_ratio)
+				)
+				canvas.draw_texture_rect_region(texture, upper_target, upper_source)
 			var lower_target := Rect2(
-				Vector2(chunk_rect.position.x, fade_rect.position.y),
-				Vector2(chunk_rect.size.x, chunk_rect.end.y - fade_rect.position.y)
+				Vector2(chunk_rect.position.x, chunk_rect.position.y + upper_height),
+				Vector2(chunk_rect.size.x, chunk_rect.size.y - upper_height)
 			)
 			var lower_source := Rect2(
-				Vector2(source_rect.position.x, upper_source.end.y),
-				Vector2(source_rect.size.x, source_rect.end.y - upper_source.end.y)
+				Vector2(source_rect.position.x, source_rect.position.y + source_rect.size.y * upper_ratio),
+				Vector2(source_rect.size.x, source_rect.size.y * (1.0 - upper_ratio))
 			)
-			canvas.draw_texture_rect_region(
+			_draw_texture_rect_region_vertical_alpha(
+				canvas,
 				texture,
 				lower_target,
 				lower_source,
-				Color(1.0, 1.0, 1.0, fade_alpha)
+				source_size,
+				_reveal_fade_alpha_at_y(lower_target.position.y, fade_start_y, fade_end_y, fade_alpha),
+				_reveal_fade_alpha_at_y(lower_target.end.y, fade_start_y, fade_end_y, fade_alpha)
 			)
 		else:
-			var alpha := fade_alpha if fade_rect.encloses(chunk_rect) else 1.0
 			canvas.draw_texture_rect_region(
 				texture,
 				chunk_rect,
 				source_rect,
-				Color(1.0, 1.0, 1.0, alpha)
+				Color.WHITE
 			)
 		chunk_bottom = chunk_top
 
 
-static func _draw_texture_clipped(
+static func _reveal_fade_alpha_at_y(
+	world_y: float,
+	fade_start_y: float,
+	fade_end_y: float,
+	tail_alpha: float
+) -> float:
+	if fade_end_y <= fade_start_y + 0.001 or world_y <= fade_start_y:
+		return 1.0
+	var fade_progress := clampf(
+		(world_y - fade_start_y) / (fade_end_y - fade_start_y),
+		0.0,
+		1.0
+	)
+	return lerpf(1.0, clampf(tail_alpha, 0.0, 1.0), fade_progress)
+
+
+static func _draw_texture_rect_region_vertical_alpha(
+	canvas: CanvasItem,
+	texture: Texture2D,
+	target_rect: Rect2,
+	source_rect: Rect2,
+	source_size: Vector2,
+	top_alpha: float,
+	bottom_alpha: float,
+	modulate: Color = Color.WHITE
+) -> void:
+	if not target_rect.has_area() or source_size.x <= 0.001 or source_size.y <= 0.001:
+		return
+	var safe_top_alpha := clampf(top_alpha, 0.0, 1.0)
+	var safe_bottom_alpha := clampf(bottom_alpha, 0.0, 1.0)
+	if is_equal_approx(safe_top_alpha, safe_bottom_alpha):
+		canvas.draw_texture_rect_region(
+			texture,
+			target_rect,
+			source_rect,
+			Color(modulate, modulate.a * safe_top_alpha)
+		)
+		return
+	_textured_quad_points[0] = target_rect.position
+	_textured_quad_points[1] = Vector2(target_rect.end.x, target_rect.position.y)
+	_textured_quad_points[2] = target_rect.end
+	_textured_quad_points[3] = Vector2(target_rect.position.x, target_rect.end.y)
+	_textured_quad_colors[0] = Color(modulate, modulate.a * safe_top_alpha)
+	_textured_quad_colors[1] = _textured_quad_colors[0]
+	_textured_quad_colors[2] = Color(modulate, modulate.a * safe_bottom_alpha)
+	_textured_quad_colors[3] = _textured_quad_colors[2]
+	_textured_quad_uvs[0] = source_rect.position / source_size
+	_textured_quad_uvs[1] = Vector2(source_rect.end.x, source_rect.position.y) / source_size
+	_textured_quad_uvs[2] = source_rect.end / source_size
+	_textured_quad_uvs[3] = Vector2(source_rect.position.x, source_rect.end.y) / source_size
+	canvas.draw_polygon(
+		_textured_quad_points,
+		_textured_quad_colors,
+		_textured_quad_uvs,
+		texture
+	)
+
+
+static func _draw_texture_clipped_with_vertical_fade(
 	canvas: CanvasItem,
 	texture: Texture2D,
 	target_rect: Rect2,
 	clip_rect: Rect2,
 	source_size: Vector2,
-	modulate: Color
+	modulate: Color,
+	fade_start_y: float,
+	fade_end_y: float,
+	tail_alpha: float
 ) -> void:
 	var clipped_rect := target_rect.intersection(clip_rect)
 	if clipped_rect.size.x <= 0.001 or clipped_rect.size.y <= 0.001:
@@ -630,7 +762,16 @@ static func _draw_texture_clipped(
 		(clipped_rect.position - target_rect.position) * source_per_world,
 		clipped_rect.size * source_per_world
 	)
-	canvas.draw_texture_rect_region(texture, clipped_rect, source_rect, modulate)
+	_draw_texture_rect_region_vertical_alpha(
+		canvas,
+		texture,
+		clipped_rect,
+		source_rect,
+		source_size,
+		_reveal_fade_alpha_at_y(clipped_rect.position.y, fade_start_y, fade_end_y, tail_alpha),
+		_reveal_fade_alpha_at_y(clipped_rect.end.y, fade_start_y, fade_end_y, tail_alpha),
+		modulate
+	)
 
 
 static func _build_bitmap_asset_models(

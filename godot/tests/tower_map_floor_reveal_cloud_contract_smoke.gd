@@ -22,6 +22,7 @@ const TowerMapScrollAssetCatalog := preload(
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 const TICK_SEC := 1.0 / 72.0
 const CLOUD_WALL_SPLIT_COUNTERPROOF_ENV := "TOWER_CLOUD_WALL_SPLIT_COUNTERPROOF"
+const CLOUD_WALL_REVEAL_POP_COUNTERPROOF_ENV := "TOWER_CLOUD_WALL_REVEAL_POP_COUNTERPROOF"
 
 var _failures: Array[String] = []
 
@@ -165,8 +166,10 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 	var draw_body := (
 		_function_body(cloud_source, "func draw(")
 		+ _function_body(cloud_source, "func _draw_bitmap_wall(")
+		+ _function_body(cloud_source, "static func _draw_dissolve_with_join_blend(")
 		+ _function_body(cloud_source, "static func _draw_wall_interior(")
-		+ _function_body(cloud_source, "static func _draw_texture_clipped(")
+		+ _function_body(cloud_source, "static func _draw_texture_rect_region_vertical_alpha(")
+		+ _function_body(cloud_source, "static func _draw_texture_clipped_with_vertical_fade(")
 	)
 	_expect(
 		draw_body.find("RandomNumberGenerator.new") < 0
@@ -305,7 +308,7 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		sealed_model["merged_region_count"] = 2
 	_expect(
 		TowerAscentMapCloudLayer.merged_region_contract_holds(sealed_model),
-		"the locked range must remain one MIX-blended merged wall with one dissolve and four motifs"
+		"the locked range must remain one MIX-blended merged wall with one dissolve and eight motifs"
 	)
 	var split_counterproof := cloud_model.duplicate(true)
 	split_counterproof["merged_region_count"] = 2
@@ -366,8 +369,36 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		"the merged wall must own one authored lower dissolve strip"
 	)
 	_expect(
-		int(cloud_model.get("motif_count", 0)) == 4,
-		"four seeded legacy cloud motifs must drift over the merged wall"
+		int(cloud_model.get("motif_count", 0))
+			== TowerAscentMapCloudLayer.BITMAP_FRONT_CLOUD_COUNT,
+		"eight seeded cloud motifs must break up the minimum-zoom interior repetition"
+	)
+	var build_map_scale := float(model.get("map_scale", 1.0))
+	var expected_tile_world_size := TowerAscentMapCloudLayer.interior_tile_world_size(
+		build_map_scale
+	)
+	var interior_world_size: Vector2 = interior_spec.get("world_size", Vector2.ZERO)
+	_expect(
+		interior_world_size.is_equal_approx(expected_tile_world_size),
+		"build() and the draw-call estimator must consume one canonical interior tile size"
+	)
+	var base_tile_height := (
+		float(TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR_WORLD_SIZE.y)
+		* maxf(0.001, build_map_scale)
+	)
+	var adopted_y_scale := interior_world_size.y / maxf(0.001, base_tile_height)
+	_expect(
+		adopted_y_scale >= 1.999 and adopted_y_scale <= 3.001,
+		"the adopted interior Y scale must stay inside the reviewed 2x-to-3x range"
+	)
+	var legacy_unscaled_reserve := _legacy_unscaled_cloud_reserve(
+		model.get("overview_nodes", []),
+		float(model.get("art_size", 0.0)),
+		build_map_scale
+	)
+	_expect(
+		expected_reserve < legacy_unscaled_reserve,
+		"the larger canonical Y tile must automatically reduce the interior draw-call reserve"
 	)
 	var wrapped_motion_checked := false
 	var wall_rect: Rect2 = cloud_model.get("wall_rect", Rect2())
@@ -415,6 +446,16 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 		"revealed_floor": target_floor,
 		"pending": false,
 	})
+	var limit_state := TowerAscentMapCloudLayer.wall_visual_state(cloud_model, {
+		"revealed_floor": revealed_floor,
+		"target_floor": target_floor,
+		"pending": true,
+		"progress": 0.9999,
+	})
+	if OS.get_environment(CLOUD_WALL_REVEAL_POP_COUNTERPROOF_ENV) == "1":
+		# Reproduce the retired whole-strip fade: it approaches alpha zero before
+		# the completed steady state restores the same strip at alpha one.
+		limit_state["dissolve_alpha"] = limit_state.get("reveal_alpha", 0.0)
 	_expect(
 		is_equal_approx(
 			TowerAscentMapCloudLayer.floor_alpha_multiplier(target_floor, midpoint_visual),
@@ -433,16 +474,43 @@ func _verify_bitmap_density_wrap_parallax_and_fallback() -> void:
 			> float(after_state.get("boundary_y", 0.0)),
 		"the lower dissolve boundary must move upward exactly one floor during reveal"
 	)
+	var midpoint_reveal_segment: Rect2 = midpoint_state.get(
+		"reveal_segment_rect",
+		Rect2()
+	)
 	_expect(
-		(midpoint_state.get("reveal_segment_rect", Rect2()) as Rect2).has_area(),
-		"the moving floor interval must remain an explicit fading segment"
+		not midpoint_reveal_segment.has_area()
+			or midpoint_reveal_segment.position.y
+				>= float(midpoint_state.get("end_boundary_y", INF)) - 0.001,
+		"a fading interior tail must never extend above the final public boundary"
+	)
+	var limit_dissolve_rect: Rect2 = limit_state.get("dissolve_rect", Rect2())
+	var after_dissolve_rect: Rect2 = after_state.get("dissolve_rect", Rect2())
+	_expect(
+		limit_dissolve_rect.is_equal_approx(after_dissolve_rect),
+		"progress approaching one and the completed steady state must own the same dissolve rect"
+	)
+	_expect(
+		is_equal_approx(
+			float(limit_state.get("dissolve_alpha", 0.0)),
+			float(after_state.get("dissolve_alpha", 0.0))
+		),
+		"progress approaching one must keep the landing dissolve as opaque as the completed frame"
+	)
+	_expect(
+		(limit_state.get("stable_dissolve_rect", Rect2()) as Rect2).size.y
+			>= after_dissolve_rect.size.y - 0.01,
+		"the final landing strip must be opaque before the reveal completion tick"
+	)
+	_expect(
+		not (limit_state.get("reveal_segment_rect", Rect2()) as Rect2).has_area(),
+		"the public interior fade tail must collapse continuously before completion"
 	)
 
 	var build_args_nodes: Variant = model.get("overview_nodes", [])
 	var build_world_rect: Rect2 = model.get("fit_all_camera_world_rect", Rect2())
 	var build_seed := int(model.get("map_seed", 0))
 	var build_art_size := float(model.get("art_size", 0.0))
-	var build_map_scale := float(model.get("map_scale", 1.0))
 	var asset_resolutions: Dictionary = model.get("map_scroll_assets", {})
 	var cloud_layer := TowerAscentMapCloudLayer.new()
 	var same_seed := cloud_layer.build(
@@ -558,6 +626,43 @@ func _boundary_signature(model: Dictionary) -> PackedStringArray:
 			str(floor_spec.get("floor_rect", Rect2())),
 		])
 	return signature
+
+
+func _legacy_unscaled_cloud_reserve(
+	nodes_value: Variant,
+	art_size: float,
+	map_scale: float
+) -> int:
+	var nodes: Array = nodes_value if nodes_value is Array else []
+	var floors: Dictionary = {}
+	var minimum_y := INF
+	var maximum_y := -INF
+	for node_variant in nodes:
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		var floor_number := int(node.get("segment_floor", node.get("floor", 0)))
+		if floor_number <= 0:
+			continue
+		var position: Vector2 = node.get("world_position", Vector2.ZERO)
+		floors[floor_number] = true
+		minimum_y = minf(minimum_y, position.y)
+		maximum_y = maxf(maximum_y, position.y)
+	if floors.is_empty() or not is_finite(minimum_y) or not is_finite(maximum_y):
+		return 0
+	var vertical_padding := maxf(art_size * 1.35, 20.0)
+	var legacy_tile_height := maxf(
+		1.0,
+		float(TowerMapScrollAssetCatalog.CLOUD_WALL_INTERIOR_WORLD_SIZE.y)
+			* maxf(0.001, map_scale)
+	)
+	var conservative_height := maximum_y - minimum_y + vertical_padding * 2.0
+	return (
+		maxi(1, ceili(conservative_height / legacy_tile_height))
+		+ TowerAscentMapCloudLayer.BITMAP_REVEAL_SPLIT_DRAW_CALLS
+		+ TowerAscentMapCloudLayer.BITMAP_DISSOLVE_DRAW_CALLS
+		+ TowerAscentMapCloudLayer.BITMAP_MAX_MOTIF_DRAW_CALLS
+	)
 
 
 func _function_body(source: String, signature: String) -> String:

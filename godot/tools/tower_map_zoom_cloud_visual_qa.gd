@@ -19,6 +19,9 @@ const TowerAscentMapCloudLayer := preload(
 const GAME_SIZE := Vector2i(2020, 1246)
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(GAME_SIZE))
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_map_zoom_cloud"
+const CLOUD_WALL_REFERENCE_PATH := (
+	"res://../docs/reference_art/tower_map_cloud_wall_reference_20260824.png"
+)
 const PANEL_BLANK_COLORS := [
 	Color("f1dfb8"),
 	Color("63241f"),
@@ -29,10 +32,13 @@ const SURROUND_COLOR_EPSILON := 0.012
 const MINIMUM_PATTERN_BREAK_CHANGED_FRACTION := 0.55
 const MINIMUM_PATTERN_BREAK_MEAN_DELTA := 0.050
 const MAXIMUM_MOVED_JOIN_EXCESS_DELTA := 0.012
+const MAXIMUM_COMPLETION_DISSOLVE_MEAN_DELTA := 0.055
+const MAXIMUM_COMPLETION_DISSOLVE_P90_DELTA := 0.130
 
 var _failure := ""
 var _fit_all_repetition_result: Dictionary = {}
 var _moved_join_result: Dictionary = {}
+var _completion_continuity_result: Dictionary = {}
 
 
 class MapCanvas:
@@ -134,6 +140,12 @@ func _run() -> void:
 		fit_all_model
 	):
 		return
+	if not _save_fit_all_reference_comparison(
+		minimum_image,
+		output_dir.path_join("zoom_fit_all_vs_reference.png")
+	):
+		_fail("fit-all and review-reference comparison capture failed")
+		return
 	_fit_all_repetition_result = _fit_all_repetition_metrics(
 		minimum_image,
 		fit_all_model,
@@ -149,6 +161,9 @@ func _run() -> void:
 			str(_fit_all_repetition_result.get("sufficient", false)),
 		]
 	)
+	if not bool(_fit_all_repetition_result.get("sufficient", false)):
+		_fail("minimum-zoom motifs did not sufficiently break the interior tile repetition")
+		return
 	var fit_all_zoom := float((fit_all_model.get("camera", {}) as Dictionary).get(
 		"render_zoom_multiplier",
 		0.0
@@ -355,6 +370,7 @@ func _run() -> void:
 	flow.update_selective(0.7, canvas)
 	var revealed_capture_saved := false
 	var travel_seen := false
+	var previous_sequence_image: Image = null
 	for frame_index in range(18):
 		var sequence_image: Image = await _capture(canvas, viewport)
 		if not _save(
@@ -367,8 +383,23 @@ func _run() -> void:
 			not revealed_capture_saved
 			and not bool(flow.is_floor_reveal_pending())
 		):
+			if previous_sequence_image == null:
+				_fail("completed reveal frame has no immediately preceding pending frame")
+				return
 			if not _save(sequence_image, output_dir.path_join("cloud_revealed.png")):
 				_fail("revealed cloud capture failed")
+				return
+			if not _save(
+				previous_sequence_image,
+				output_dir.path_join("cloud_reveal_completion_before.png")
+			):
+				_fail("pre-completion reveal frame capture failed")
+				return
+			if not _save(
+				sequence_image,
+				output_dir.path_join("cloud_reveal_completion_after.png")
+			):
+				_fail("post-completion reveal frame capture failed")
 				return
 			var revealed_model: Dictionary = walking_renderer.build_fullscreen_map_model(
 				flow,
@@ -380,6 +411,24 @@ func _run() -> void:
 				revealed_model,
 				revealed_visual
 			)
+			_completion_continuity_result = _completion_dissolve_metrics(
+				previous_sequence_image,
+				sequence_image,
+				revealed_model,
+				revealed_visual
+			)
+			if (
+				int(_completion_continuity_result.get("sample_count", 0)) <= 0
+				or float(_completion_continuity_result.get("mean_delta", INF))
+					> MAXIMUM_COMPLETION_DISSOLVE_MEAN_DELTA
+				or float(_completion_continuity_result.get("p90_delta", INF))
+					> MAXIMUM_COMPLETION_DISSOLVE_P90_DELTA
+			):
+				_fail(
+					"reveal completion changed the settled dissolve too abruptly: %s"
+					% _completion_continuity_result
+				)
+				return
 			_moved_join_result["boundary_delta_world"] = (
 				covered_boundary_y
 				- float(_moved_join_result.get("boundary_y", covered_boundary_y))
@@ -397,6 +446,7 @@ func _run() -> void:
 		travel_seen = travel_seen or float(
 			flow.get_map_transition_visual_model().get("travel_progress", 0.0)
 		) > 0.0
+		previous_sequence_image = sequence_image
 		flow.update_selective(0.1, canvas)
 	if not revealed_capture_saved:
 		_fail("continuous sequence never reached the fully revealed state")
@@ -413,6 +463,14 @@ func _run() -> void:
 			float(_moved_join_result.get("mean_baseline_delta", 0.0)),
 			float(_moved_join_result.get("mean_excess_delta", 0.0)),
 			float(_moved_join_result.get("p90_delta", 0.0)),
+		]
+	)
+	print(
+		"[TowerMapZoomCloudVisualQA] completion_pair dissolve_samples=%d mean_delta=%.5f p90_delta=%.5f"
+		% [
+			int(_completion_continuity_result.get("sample_count", 0)),
+			float(_completion_continuity_result.get("mean_delta", 0.0)),
+			float(_completion_continuity_result.get("p90_delta", 0.0)),
 		]
 	)
 	print("[TowerMapZoomCloudVisualQA] output=%s drift_frames=8 sequence_frames=18" % output_dir)
@@ -553,6 +611,55 @@ func _dissolve_join_metrics(
 		"mean_delta": mean_delta,
 		"mean_baseline_delta": mean_baseline_delta,
 		"mean_excess_delta": maxf(0.0, mean_delta - mean_baseline_delta),
+		"p90_delta": p90_delta,
+	}
+
+
+func _completion_dissolve_metrics(
+	before_image: Image,
+	after_image: Image,
+	model: Dictionary,
+	reveal_visual: Dictionary
+) -> Dictionary:
+	var cloud_model: Dictionary = model.get("cloud_layer", {})
+	var state := TowerAscentMapCloudLayer.wall_visual_state(
+		cloud_model,
+		reveal_visual
+	)
+	var dissolve_rect: Rect2 = state.get("dissolve_rect", Rect2())
+	var camera: Dictionary = model.get("camera", {})
+	var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+	var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+	var projected := Rect2(
+		dissolve_rect.position * zoom + offset,
+		dissolve_rect.size * zoom
+	).intersection(VIEWPORT_RECT).grow(-2.0)
+	if not projected.has_area():
+		return {"sample_count": 0, "mean_delta": INF, "p90_delta": INF}
+	var deltas: Array[float] = []
+	var total_delta := 0.0
+	var start_x := clampi(int(ceil(projected.position.x)), 0, GAME_SIZE.x - 1)
+	var end_x := clampi(int(floor(projected.end.x)), 0, GAME_SIZE.x)
+	var start_y := clampi(int(ceil(projected.position.y)), 0, GAME_SIZE.y - 1)
+	var end_y := clampi(int(floor(projected.end.y)), 0, GAME_SIZE.y)
+	for y in range(start_y, end_y, 2):
+		for x in range(start_x, end_x, 2):
+			var delta := _rgb_delta(
+				before_image.get_pixel(x, y),
+				after_image.get_pixel(x, y)
+			)
+			deltas.append(delta)
+			total_delta += delta
+	deltas.sort()
+	var sample_count := deltas.size()
+	var p90_delta := (
+		deltas[clampi(int(floor(float(sample_count - 1) * 0.90)), 0, sample_count - 1)]
+		if sample_count > 0
+		else INF
+	)
+	return {
+		"sample_count": sample_count,
+		"mean_delta": total_delta / float(maxi(1, sample_count)),
 		"p90_delta": p90_delta,
 	}
 
@@ -773,6 +880,41 @@ func _transition_duration_sec() -> float:
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
 		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
 	)
+
+
+func _save_fit_all_reference_comparison(actual: Image, path: String) -> bool:
+	var reference_path := ProjectSettings.globalize_path(CLOUD_WALL_REFERENCE_PATH)
+	var reference := Image.load_from_file(reference_path)
+	if reference == null or reference.is_empty():
+		return false
+	var actual_rgba := actual.duplicate()
+	actual_rgba.convert(Image.FORMAT_RGBA8)
+	var resized_reference := reference.duplicate()
+	resized_reference.convert(Image.FORMAT_RGBA8)
+	var reference_width := maxi(
+		1,
+		int(round(
+			float(reference.get_width())
+			* float(GAME_SIZE.y)
+			/ float(reference.get_height())
+		))
+	)
+	resized_reference.resize(reference_width, GAME_SIZE.y, Image.INTERPOLATE_LANCZOS)
+	var divider_width := 8
+	var comparison := Image.create_empty(
+		GAME_SIZE.x + divider_width + reference_width,
+		GAME_SIZE.y,
+		false,
+		Image.FORMAT_RGBA8
+	)
+	comparison.fill(Color("16110c"))
+	comparison.blit_rect(actual_rgba, Rect2i(Vector2i.ZERO, GAME_SIZE), Vector2i.ZERO)
+	comparison.blit_rect(
+		resized_reference,
+		Rect2i(Vector2i.ZERO, resized_reference.get_size()),
+		Vector2i(GAME_SIZE.x + divider_width, 0)
+	)
+	return comparison.save_png(path) == OK
 
 
 func _save(image: Image, path: String) -> bool:
