@@ -1,13 +1,18 @@
 # 지시문 F — 보스 스킬카드 쿨타임 뚝뚝 끊김 (피드백3 12항)
 
-- **발행**: 관제탑 2026-08-23. 기준 HEAD `d7d5c5b6b`. CI/pre-push 락스텝 226.
-- **★선행 조건**: `D:\codex_tmp\boss_skill_round_cd_98fa`(베이스
-  `98fa51ad5`)에 라운드 전환 쿨다운 보존 WIP 11파일이 미보고 상태로 살아
-  있다. 교집합 확실: 쿨다운 계약 문서·contract 씰·motion QA gd/ps1·GRT
-  문서 2종(+게이지 레일 건드리면 molewang/alice/hongryun state 3종).
-  **그 세션의 보고→관제탑 통합이 끝난 뒤 새 워크트리에서 착수**하라.
-  (그 워크트리에서 이어서 작업하는 것은 금지 — 베이스가 5커밋 낡았다.)
-- **격리 워크트리**(선행 통합 후): `D:\codex_tmp\bosspong_fb3_cardanim_<HEAD>`
+- **발행**: 관제탑 2026-08-23. **개정 2026-08-24: 선행 조건 해소 — 착수
+  가능.** 기준 HEAD `af122f7d7`. CI/pre-push 락스텝 229.
+- **★선행 통합 완료(8/24)**: 라운드 전환 쿨다운 보존 계약이
+  `af122f7d7`로 본 트리에 착지했다(GRT-060 증보·라운드 보존 34스킬 씰·
+  ZERO_ROUND_RESET RED 픽스처·motion QA에 라운드 전환 2회 캡처 포함).
+  구 98fa 워크트리는 사용 금지 — 아래 새 워크트리에서 착수.
+- **⚠개정 주의**: motion QA gd/ps1은 이제 라운드 전환 캡처 플로
+  (`ROUND_TRANSITIONS=2` 단언, molewang/alice 스트립이
+  `*_round_transition_*` 파일명)를 내장한다. 이 지시문의 서브초 샘플링
+  확장은 **그 플로 위에 얹고** 기존 라운드 전환 단언·잔량 동등 검사를
+  깨지 말 것. 스무딩은 표시 전용 — 라운드 보존 계약(authority 잔량)을
+  절대 건드리지 않는다.
+- **격리 워크트리**: `D:\codex_tmp\bosspong_fb3_cardanim_af12`
   (브랜치 `codex/fb3-card-cooldown-smoothing-20260823`).
 - **금지**: 본 트리 직접 편집·푸시·통합. 보고 후 대기.
 
