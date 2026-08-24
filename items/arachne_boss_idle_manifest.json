@@ -1,0 +1,63 @@
+{
+  "asset": "stage2 arachne (거미각시) idle sheet + concept key art — CANDIDATE, not yet user-accepted",
+  "date": "2026-08-24",
+  "design_direction": {
+    "concept": "한국 신화풍 거미 신부 괴물 — 사람이 아닌 거미형 인간(디아블로 안다리엘 계열), 사용자 지시 2026-08-24",
+    "identity_locks": [
+      "잿빛 회색 괴물 피부, 주 눈 1쌍(홍채+흰 동공) + 이마 보조 거미눈 2쌍",
+      "진홍 송곳니 드러낸 웃음, 연지곤지 의식 도장 유지",
+      "뒤틀린 흑색 족두리 왕관(뿔 실루엣) + 이마 오색 술",
+      "찢어진 진홍 활옷(금실 자수·검정 깃·동정 흰 깃), 양팔 색동 소매 잔해 밴드",
+      "키틴 갑각 팔(갈퀴 손톱) + 역관절 키틴 다리 2개",
+      "등 뒤 흑갈색 키틴 거미다리 8개(좌우 4+4 대칭, 끝이 바닥을 찍음)",
+      "등 뒤 중앙 대칭 거대 암흑 복부(달 실루엣) — 주황 셰브론 + 크림 점 무늬(원본 아라크네 팔레트 앵커)",
+      "은빛 거미줄 실 장식",
+      "머리 옆 장식패: 진홍 바탕 + 금색 다이아 격자만(문자 금지)"
+    ],
+    "palette_anchors_from_python_original": "검갈색 몸통 / 주황·크림 중앙선·셰브론·측면 점 / 붉은 독아 — spider_boss_sprite.py 정체성 계승"
+  },
+  "provenance": {
+    "generator": "Gemini MCP image-edit session convergence (skill §8.4 out-of-distribution anatomy route, 사용자 명시 지시)",
+    "session_id": "edit-1787574022246-lsqvhg",
+    "session_output_dir": "C:/Users/woduq/AppData/Roaming/gemini-mcp/output/7584bda42b6143c6/",
+    "concept_raw": "items/arachne_boss_concept_monster_v1.jpeg (edit-1787574459465.jpeg)",
+    "bride_variant_raw": "items/arachne_boss_concept_bride_v1.jpeg (기각된 1차 방향 — 사람 새색시 + 거미다리 가마)",
+    "sheet_raw_c1": "items/arachne_boss_idle_sheet_c1.jpeg (edit-1787574539061.jpeg)",
+    "sheet_raw_c2": "items/arachne_boss_idle_sheet_c2.jpeg (edit-1787574611326.jpeg, 채택 소스)",
+    "settings": "1K 16:9 (skill §10.2 same-session 2K 금지 가드레일)"
+  },
+  "grid_authority": {
+    "texture": "items/arachne_boss_idle_sheet_c2_final.png",
+    "size": [1376, 768],
+    "cols": 4,
+    "rows": 2,
+    "frames": 8,
+    "cell": [344, 384],
+    "read_order": "row-major, f1..f8, loop",
+    "intended_motion": "제자리 idle 호흡 루프 (row1=들숨 계열, row2=날숨 계열)"
+  },
+  "pipeline": [
+    "1. 내부 세로 경계 3열(vline±3px)·외곽 2px 백색화로 프레임 분리 → arachne_boss_idle_sheet_c2_sep.jpeg (1행 다리끝 융합 절단, 프레임당 손실 ≤3px)",
+    "2. remove_bg.py (표준 2단 하드엣지 누끼)",
+    "3. halo_strip.py (외곽 파스텔 헤일로 2549px 제거)",
+    "4. 밀폐 백색 포켓 제거(§11.7 대형 케이스): near-white(min≥215→205, range≤40→70) 마스크 → binary_opening(8-conn, iter2)로 블롭만 선별(가는 거미줄/글린트 보호) → comp≥200px 제거+3px 확장, 2패스 합계 20,635px",
+    "5. 외과적 잔여 제거: bbox 지정 11건(하단 4셀 외곽 다리사이 슬리버 8, 머리높이 다리사이 포켓 f6/f8 2, f8 장식패 포켓 1) 2,003px — 동정 흰 깃(f6 rel 161,151-187,178)은 의도 요소로 보호",
+    "6. 동일 파이프라인을 원화에 적용 → arachne_boss_concept_monster_v1_final.png"
+  ],
+  "qa": {
+    "per_cell_edge_alpha": "8/8 셀 모두 0 (경계 침범 없음)",
+    "bbox_scale_spread": "높이 2.8% / 너비 0.9% (±5% 락 통과)",
+    "dark_bg_preview": "items/arachne_boss_idle_sheet_c2_darkpreview.png — 대형 백색 포켓 0, 게임플레이 스케일(172px 폭) 스트립 판독 양호",
+    "intentional_whites_verified": "눈 글린트·송곳니·동정 깃·크림 점·은빛 거미줄·소매 자락 생존 확인",
+    "known_residuals": [
+      "60px 미만 미세 밝은 플렉 다수 잔존(런타임 절반 스케일에서 비가시 판단, 승격 시 재검)",
+      "f4→f5, f8→f1 전환이 행 간 자세 차이로 가장 큼 — 라이브 재생 QA 필요",
+      "1행 다리끝 3px 평절단(경계 분리 비용) — 절반 스케일 ~1.5px"
+    ]
+  },
+  "next_steps": [
+    "사용자 취향 수락 필요 (candidate → accepted)",
+    "수락 시: 걷기 L/R 페어(§13.1)·공격·대쉬 등 세트 확장은 같은 세션 수렴 or 프롬프트 패밀리 재사용",
+    "런타임 승격은 stage2_variant_boss_renderer.gd 절차 드로잉 대체 배선(Codex 소관) + 보스몸집 1.30(130x52) 스케일 매칭 검증"
+  ]
+}
