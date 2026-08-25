@@ -549,6 +549,15 @@ func _build_training_action(
 		live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
 		)
+	else:
+		var maximum_effect := (
+			_training_base_increment(live_choice)
+			* TowerTrainingTimingJudgmentPolicy.CRITICAL_MULTIPLIER
+		)
+		live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TRAINING_JUDGMENT_MAX_BADGE,
+			{"effect": _format_training_value(maximum_effect, live_choice)}
+		)
 	var unavailable_reason := ""
 	var disabled_reason := ""
 	if at_maximum:
@@ -994,7 +1003,9 @@ func _rollback_training_choice(gameplay_rng_snapshot: Dictionary = {}) -> void:
 
 func _training_maximum_message(choice: Dictionary) -> String:
 	if str(choice.get("id", "")) == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
-		return str(choice.get("level_text", "3/3"))
+		var max_count := maxi(0, int(choice.get("training_max_count", 0)))
+		var derived_level_text := "%d/%d" % [max_count, max_count]
+		return str(choice.get("level_text", derived_level_text))
 	return TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_TRAINING_MAXIMUM
 	)

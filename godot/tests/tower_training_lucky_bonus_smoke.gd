@@ -269,7 +269,7 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	runtime.applied_counts[TARGET_ID] = 1.3
 	var flow := _open_training_flow(runtime, 10)
 	var timing_action := _find_action(flow, "training_stat:%s" % TARGET_ID)
-	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")).is_empty(), "ordinary timing cards expose no footer badge")
+	_expect(str(timing_action.get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "판정 성공 시 최대 6%", "ordinary timing cards disclose the separated maximum judgment effect")
 	_expect(
 		str(timing_action.get("payload", {}).get("choice", {}).get("description", ""))
 		== "이동 속도 4% 증가 (누적 9.2%)",
@@ -290,8 +290,8 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	var description_rows: Array = layout.get("description_rows", [])
 	_expect(int(layout.get("appended_description_row_count", -1)) == 1, "compact rail keeps the measured cumulative effect copy on one complete row")
 	_expect(description_rows.size() == 1 and str(description_rows[0]) == "이동 속도 4% 증가 (누적 9.2%)", "compact rail must preserve the complete cumulative effect copy")
-	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 0, "ordinary timing footer appends zero rows")
-	_expect(int(layout.get("appended_text_row_count", -1)) == 1, "compact card consumes its measured one-row effect budget")
+	_expect(int(layout.get("appended_bonus_badge_row_count", -1)) == 1, "ordinary timing footer appends the separated judgment row")
+	_expect(int(layout.get("appended_text_row_count", -1)) == 2, "compact card measures its effect row and judgment row separately")
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
 	_expect(str(_find_action(flow, "training_stat:%s" % TARGET_ID).get("unavailable_reason", "")) == "효과 한계", "consumer saturation retains effect-limit copy")

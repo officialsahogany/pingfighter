@@ -143,7 +143,8 @@ func _verify_shared_dash_distance_and_dash_spirit_geometry() -> void:
 	var base_distance := _run_full_dash(SmasherDashState.new(), neutral_state)
 	var boosted_distance := _run_full_dash(SmasherDashState.new(), boosted_state)
 	_expect_close(base_distance, 210.0, "baseline full dash should retain its shipped 210px motion")
-	_expect_close(boosted_distance, 216.0, "dash-distance +3 raw should produce a 216px full dash (per-frame round)")
+	# Subpixel-preserving integration applies the full 1.03 multiplier: 210px becomes 216.3px.
+	_expect_close(boosted_distance, 216.3, "dash-distance +3 raw should produce a 216.3px full dash")
 
 	var viper := ViperPlayerController.new()
 	var shared_dash_controller: Object = viper._get_shared_dash_controller()
@@ -178,7 +179,7 @@ func _verify_character_info_and_five_character_shared_route() -> void:
 	var boosted_state := _state_with_raw({"dash_distance": 3})
 	var base_display := CharacterInfoOverlayStatsPresenter.effective_dash_distance(null, null)
 	var boosted_display := CharacterInfoOverlayStatsPresenter.effective_dash_distance(boosted_state, null)
-	_expect_close(boosted_display, 216.0, "TAB dash-distance row should match the real 216px dice-boosted dash")
+	_expect_close(boosted_display, 216.3, "TAB dash-distance row should match the real 216.3px dice-boosted dash")
 
 	var character_runtime := PlayerCharacterRuntime.new()
 	for character_type: String in ["smasher", "viper", "soldier", "blacksmith", "optimus"]:

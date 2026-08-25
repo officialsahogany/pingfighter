@@ -209,6 +209,9 @@ func _run() -> void:
 	var owner := CaptureOwner.new()
 	viewport.add_child(owner)
 	var runtime_state := RuntimePerkState.new()
+	# Display/apply parity capture: the first card must visibly include the
+	# effective 3-star Training Mastery multiplier.
+	runtime_state.runtime_skill_levels["training_mastery"] = 3
 	var card_renderer := RuntimePerkOverlayRenderer.new()
 	var registry := CaptureRegistry.new()
 	var battle_resources := CaptureBattleResources.new()
@@ -250,6 +253,15 @@ func _run() -> void:
 	if after_idle == null:
 		_fail("after-overlap card capture failed")
 	else:
+		var mastery_action := _action(flow, TARGET_ACTION_ID)
+		var mastery_choice: Dictionary = mastery_action.get("payload", {}).get("choice", {})
+		if (
+			str(mastery_choice.get("description", "")) != "이동 속도 8% 증가"
+			or not str(mastery_choice.get("bonus_badge_text", "")).contains("12%")
+		):
+			_fail("mastery-held card did not expose 8% plus the separated 12% judgment maximum")
+		elif after_idle.save_png(output_dir.path_join("training_mastery_card_effective_8.png")) != OK:
+			_fail("mastery-held card evidence save failed")
 		_verify_card_text_budget(flow, card_renderer)
 		_save_before_after_card_board(flow, after_idle, output_dir)
 		await _capture_dummy_bitmap_and_fallback(
@@ -304,6 +316,7 @@ func _run() -> void:
 	print("tower_training_timing_visual_qa: gauge_zone_only_contract=%s" % (
 		"ok" if _gauge_zone_only_contract_ok else "failed"
 	))
+	print("tower_training_timing_visual_qa: display_apply_capture=8")
 	print("tower_training_timing_visual_qa: ok")
 	quit(0)
 
@@ -500,6 +513,17 @@ func _capture_tier_sequence(
 		if image == null:
 			_fail("%s %s capture failed" % [kind, frame_name])
 			return
+		if kind == "base" and frame_name == "dummy_and_message":
+			var receipt_text := str(flow.get_training_stage_presentation_debug_state().get(
+				"message_text",
+				""
+			))
+			if not receipt_text.contains("+8%"):
+				_fail("base receipt did not match the mastery-held card's 8% value: %s" % receipt_text)
+				return
+			if image.save_png(output_dir.path_join("training_mastery_receipt_effective_8.png")) != OK:
+				_fail("mastery receipt evidence save failed")
+				return
 		frames.append(image)
 	if not _save_frame_strip(
 		frames,
@@ -896,10 +920,10 @@ func _verify_card_text_budget(flow: Object, card_renderer: Object) -> void:
 	)
 	if (
 		int(production_layout.get("appended_description_row_count", -1)) != 1
-		or int(production_layout.get("appended_bonus_badge_row_count", -1)) != 0
-		or int(production_layout.get("appended_text_row_count", -1)) != 1
+		or int(production_layout.get("appended_bonus_badge_row_count", -1)) != 1
+		or int(production_layout.get("appended_text_row_count", -1)) != 2
 	):
-		_fail("production card did not retain exactly one effect row and zero timing-footer rows")
+		_fail("production card did not retain one effect row and one judgment-footer row")
 		return
 	var long_action := action.duplicate(true)
 	var choice: Dictionary = long_action.get("payload", {}).get("choice", {})
@@ -910,8 +934,8 @@ func _verify_card_text_budget(flow: Object, card_renderer: Object) -> void:
 	)
 	if (
 		int(long_layout.get("appended_description_row_count", -1)) != 2
-		or int(long_layout.get("appended_bonus_badge_row_count", -1)) != 0
-		or int(long_layout.get("appended_text_row_count", -1)) != 2
+		or int(long_layout.get("appended_bonus_badge_row_count", -1)) != 1
+		or int(long_layout.get("appended_text_row_count", -1)) != 3
 	):
 		_fail("GRT-021 live card did not preserve the complete two-description-row budget: description=%d badge=%d total=%d" % [
 			int(long_layout.get("appended_description_row_count", -1)),

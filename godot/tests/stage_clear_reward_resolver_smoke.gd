@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const GameplayCoreModuleCatalog := preload("res://scripts/resources/gameplay_core_module_catalog.gd")
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
@@ -133,6 +134,7 @@ func _run() -> void:
 	_verify_normal_box_reward_odds()
 	_verify_grant_paths()
 	_verify_result_box_mythic_grant_starts_acquisition_cinematic()
+	_verify_result_box_mythic_active_grants_slot_and_keeps_cinematic()
 	await _drain_frames(12)
 	_clear_runtime_caches_for_test()
 	await _drain_frames(30)
@@ -156,6 +158,8 @@ func _verify_module_registration() -> void:
 
 func _verify_roll_contract() -> void:
 	var resolver: Object = StageClearRewardResolver.new()
+	_expect(not resolver._is_advanced_box_kind("advanced"), "advanced must no longer be recognized as a live box tier")
+	_expect(not resolver._is_advanced_box_kind("mythic"), "the legacy mythic alias must no longer revive the advanced tier")
 	_expect(resolver._resolve_advanced_box_reward_type(0.0) == "mythic", "advanced boxes should map the low 3 percent to mythic items")
 	_expect(resolver._resolve_advanced_box_reward_type(0.029) == "mythic", "advanced box mythic range should end before 3 percent")
 	_expect(resolver._resolve_advanced_box_reward_type(0.03) == "advanced_starpoint_2", "advanced boxes should map the next 25 percent to two-starpoint rewards")
@@ -163,8 +167,8 @@ func _verify_roll_contract() -> void:
 	_expect(resolver._resolve_advanced_box_reward_type(0.28) == "advanced_starpoint_3", "advanced boxes should map the next 10 percent to three-starpoint rewards")
 	_expect(resolver._resolve_advanced_box_reward_type(0.379) == "advanced_starpoint_3", "advanced box three-starpoint range should end before 38 percent")
 	_expect(resolver._resolve_advanced_box_reward_type(0.38) == "passive", "advanced boxes should map the upper 62 percent to passive items")
-	_expect(str(resolver.roll_reward("advanced").get("type", "")) in ["mythic", "starpoint", "passive"], "advanced box kind should be accepted by the resolver")
-	_expect(str(resolver.roll_reward("mythic").get("type", "")) in ["mythic", "starpoint", "passive"], "legacy box-kind alias should remain accepted")
+	_expect(str(resolver.roll_reward("advanced").get("type", "")) in ["active", "mythic", "starpoint", "passive"], "retired advanced ids should fall through to the normal reward lane")
+	_expect(str(resolver.roll_reward("mythic").get("type", "")) in ["active", "mythic", "starpoint", "passive"], "legacy mythic ids should fall through to the normal reward lane")
 	var guaranteed_reward: Dictionary = resolver.roll_reward("guaranteed_mythic")
 	_expect(str(guaranteed_reward.get("type", "")) == "mythic", "guaranteed mythic boxes should always roll a mythic item")
 	_expect(str(guaranteed_reward.get("item_name", "")) != "", "guaranteed mythic reward should carry a grantable item name")
@@ -253,6 +257,7 @@ func _verify_grant_paths() -> void:
 	var mythic_runtime: Object = MythicItemRuntime.new()
 	var perk_state: Object = RuntimePerkState.new()
 	var perk_catalog: Object = RuntimePerkCatalog.new()
+	var active_catalog: Object = ActiveItemCatalog.new()
 	var mythic_catalog: Object = MythicItemCatalog.new()
 	var owner := FakeOwner.new()
 	var registry := FakeRegistry.new({
@@ -264,20 +269,26 @@ func _verify_grant_paths() -> void:
 
 	var speedboots: Dictionary = mythic_catalog.build_item_by_name("speedboots")
 	var megingjord: Dictionary = mythic_catalog.build_item_by_name("megingjord")
+	var elixir_of_mastery: Dictionary = active_catalog.build_item_by_name("elixir_of_mastery")
 	var resolver: Object = StageClearRewardResolver.new()
 	var summary: Dictionary = resolver.grant_rewards([
 		{"type": "active", "item_name": "gauge_charge", "label": "Gauge Charge"},
 		{"type": "passive", "item_name": "speedboots", "label": "Speed Boots", "rolls": {"speed_bonus_pct": 10.0}, "item_data": speedboots},
 		{"type": "mythic", "item_name": "megingjord", "label": "Megingjord", "rolls": {"extra_pick_chance": 40.0}, "item_data": megingjord},
+		{"type": "mythic", "item_name": "elixir_of_mastery", "label": "Daeseong Yeongdan", "item_data": elixir_of_mastery},
 		{"type": "starpoint", "label": "★ 1", "amount": 1},
 	], owner, registry)
 
-	_expect(int(summary.get("attempted", 0)) == 4, "grant summary should count all staged rewards")
-	_expect(int(summary.get("granted", 0)) == 4, "grant summary should count all successful grants")
-	_expect(owner.active_item_slots.size() == 1, "active rewards should enter active item slots")
+	_expect(int(summary.get("attempted", 0)) == 5, "grant summary should count all staged rewards")
+	_expect(int(summary.get("granted", 0)) == 5, "grant summary should count all successful grants")
+	_expect(int(summary.get("active_granted", 0)) == 2, "grant summary should count mythic-rarity active items as active grants")
+	_expect(int(summary.get("mythic_granted", 0)) == 1, "grant summary should reserve mythic grants for equipment inventory")
+	_expect(owner.active_item_slots.size() == 2, "active rewards should enter active item slots")
 	_expect(str(owner.active_item_slots[0].get("name", "")) == "gauge_charge", "active reward should preserve item identity")
+	_expect(str(owner.active_item_slots[1].get("name", "")) == "elixir_of_mastery", "mythic-lane Daeseong Yeongdan reward should enter an active slot")
 	_expect(mythic_runtime.has_owned_item_name("speedboots"), "passive reward should enter mythic/passive runtime inventory")
 	_expect(mythic_runtime.has_owned_item_name("megingjord"), "mythic reward should enter mythic/passive runtime inventory")
+	_expect(not mythic_runtime.has_owned_item_name("elixir_of_mastery"), "Daeseong Yeongdan reward should not enter mythic equipment inventory")
 	_expect(bool(perk_state.is_choice_active()), "starpoint reward should open the runtime perk choice flow")
 	_expect(owner.runtime_perk_pending_choices == 1, "starpoint reward should sync one pending perk choice to the owner")
 	active_runtime.reset()
@@ -320,6 +331,42 @@ func _verify_result_box_mythic_grant_starts_acquisition_cinematic() -> void:
 		snapshot.get("player_center", Vector2.ZERO) == Vector2(610.0, 280.0),
 		"result mythic acquisition cinematic should honor the result Live2D absorb target"
 	)
+	_cleanup_mythic_runtime_owner(mythic_runtime, registry, owner)
+
+
+func _verify_result_box_mythic_active_grants_slot_and_keeps_cinematic() -> void:
+	var active_runtime: Object = ActiveItemRuntime.new()
+	var active_catalog: Object = ActiveItemCatalog.new()
+	var mythic_runtime: Object = FakeCinematicMythicRuntime.new()
+	var owner := FakeNodeOwner.new()
+	root.add_child(owner)
+	var registry := FakeRegistry.new({
+		"active_item_runtime": active_runtime,
+		"mythic_item_runtime": mythic_runtime,
+	})
+	var resolver: Object = StageClearRewardResolver.new()
+	var summary: Dictionary = resolver.grant_rewards([
+		{
+			"type": "mythic",
+			"item_name": "elixir_of_mastery",
+			"label": "Daeseong Yeongdan",
+			"item_data": active_catalog.build_item_by_name("elixir_of_mastery"),
+			"show_acquisition_cinematic": true,
+			"pickup_position": Vector2(260.0, 320.0),
+			"target_player_center": Vector2(610.0, 280.0),
+		},
+	], owner, registry)
+
+	_expect(int(summary.get("granted", 0)) == 1, "result mythic-active reward should be granted")
+	_expect(owner.active_item_slots.size() == 1, "result mythic-active reward should append an active slot")
+	_expect(str(owner.active_item_slots[0].get("name", "")) == "elixir_of_mastery", "result reward should preserve Daeseong Yeongdan identity")
+	_expect(mythic_runtime.inventory.is_empty(), "result mythic-active reward should not enter equipment inventory")
+	_expect(mythic_runtime.is_acquisition_cinematic_active(), "result mythic-active reward should retain its acquisition cinematic")
+	var snapshot: Dictionary = mythic_runtime.get_acquisition_cinematic_snapshot()
+	_expect(str(snapshot.get("item_name", "")) == "elixir_of_mastery", "mythic-active acquisition cinematic should use Daeseong Yeongdan")
+	_expect(snapshot.get("player_center", Vector2.ZERO) == Vector2(610.0, 280.0), "mythic-active acquisition cinematic should retain its target")
+
+	active_runtime.reset()
 	_cleanup_mythic_runtime_owner(mythic_runtime, registry, owner)
 
 

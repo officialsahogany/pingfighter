@@ -66,18 +66,10 @@ func get_bonus(stat_key: String, training_multiplier: float = 1.0) -> float:
 	if not PerkConversionFlags.is_enabled():
 		return 0.0
 	var clean_key := stat_key.strip_edges()
-	var bonus := 0.0
 	if _bonus_probe_override.has(clean_key):
-		bonus = float(_bonus_probe_override[clean_key])
-	else:
-		bonus = float(_state.get_bonus(clean_key, _catalog))
-	if (
-		_catalog != null
-		and _catalog.has_method("is_training_mastery_amplifiable_stat")
-		and bool(_catalog.is_training_mastery_amplifiable_stat(clean_key))
-	):
-		bonus *= maxf(1.0, training_multiplier)
-	return bonus
+		# Probe overrides are already mastery-scaled and ceiling-clamped.
+		return float(_bonus_probe_override[clean_key])
+	return float(_state.get_bonus(clean_key, _catalog, training_multiplier))
 
 
 # Saturation compares final consumer results. Existing Mugong and mythic
@@ -94,11 +86,21 @@ func is_saturated_from_runtime_state(
 	var amount := float(_catalog.get_amount(clean_id))
 	if stat_key == "" or amount <= 0.0:
 		return false
-	var current_bonus := float(_state.get_bonus(stat_key, _catalog))
+	var training_multiplier := _training_multiplier_from_runtime_state(runtime_state)
+	var current_bonus := float(_state.get_bonus(stat_key, _catalog, training_multiplier))
 	var current_value: Variant = _probe_consumer_value(runtime_state, stat_key, current_bonus, registry)
 	if current_value == null:
 		return false
-	var next_value: Variant = _probe_consumer_value(runtime_state, stat_key, current_bonus + amount, registry)
+	var projected_state: Object = PhysiqueTrainingState.new()
+	projected_state.restore(_state.get_snapshot(), _catalog)
+	if not bool(projected_state.commit(clean_id, _catalog).get("accepted", false)):
+		return true
+	var next_bonus := float(projected_state.get_bonus(
+		stat_key,
+		_catalog,
+		training_multiplier
+	))
+	var next_value: Variant = _probe_consumer_value(runtime_state, stat_key, next_bonus, registry)
 	return is_equal_approx(float(current_value), float(next_value))
 
 
@@ -134,7 +136,7 @@ func apply_choice_from_runtime_state(
 
 # Read-only one-acquisition projection. The speculative state uses the same
 # PhysiqueTrainingState.commit path as the real choice apply; only its resulting
-# raw bonus is exposed through the existing consumer-probe seam while the
+# effective, ceiling-clamped bonus is exposed through the consumer-probe seam while the
 # caller rebuilds the production stat row. The live training state and owner
 # are never mutated.
 func project_next_choice_from_runtime_state(
@@ -167,7 +169,11 @@ func project_next_choice_from_runtime_state(
 		}
 	var had_previous_override := _bonus_probe_override.has(stat_key)
 	var previous_override: Variant = _bonus_probe_override.get(stat_key)
-	_bonus_probe_override[stat_key] = float(projected_state.get_bonus(stat_key, _catalog))
+	_bonus_probe_override[stat_key] = float(projected_state.get_bonus(
+		stat_key,
+		_catalog,
+		_training_multiplier_from_runtime_state(runtime_state)
+	))
 	var projection: Variant = projector.call()
 	if had_previous_override:
 		_bonus_probe_override[stat_key] = previous_override
@@ -306,6 +312,12 @@ func _probe_consumer_value(
 				)
 	_bonus_probe_override.erase(stat_key)
 	return value
+
+
+func _training_multiplier_from_runtime_state(runtime_state: Object) -> float:
+	if runtime_state != null and runtime_state.has_method("get_physique_training_multiplier"):
+		return maxf(1.0, float(runtime_state.call("get_physique_training_multiplier")))
+	return 1.0
 
 
 func _get_registry_instance(runtime_state: Object, registry: Object, key: String) -> Object:

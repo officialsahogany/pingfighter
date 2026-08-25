@@ -54,7 +54,10 @@ func _verify_catalog_and_acquisition_rules() -> void:
 	_expect(PhysiqueTrainingCatalog.TRAINING_IDS.size() == 11, "training catalog should contain eleven cards")
 	_expect(is_equal_approx(catalog.get_amount("physique_dash_recharge"), 4.0), "dash recharge training should grant 4 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_dash_recovery"), 6.0), "dash recovery training should grant 6 percent")
-	_expect(is_equal_approx(catalog.get_amount("physique_dash_distance"), 5.0), "dash distance training should grant 5 percent")
+	_expect(
+		is_equal_approx(catalog.get_amount("physique_dash_distance"), 20.0 / 3.0),
+		"dash distance training must keep the literal 20/3 percent contract that preserves 240px"
+	)
 	_expect(is_equal_approx(catalog.get_amount("physique_move_speed"), 4.0), "move speed training should grant 4 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_posture"), 5.0), "posture training should grant 5 percent")
 	_expect(is_equal_approx(catalog.get_amount("physique_paddle_size"), 2.0), "paddle training should grant 2 percent")
@@ -466,7 +469,10 @@ func _verify_dispatch_and_stat_queries() -> void:
 	var recovery_state := _state_with_training("physique_dash_recovery")
 	_expect(is_equal_approx(recovery_state.get_dash_recovery_frames(100.0), 94.0), "dash recovery training should reduce frames by 6 percent")
 	var distance_state := _state_with_training("physique_dash_distance")
-	_expect(is_equal_approx(distance_state.get_dash_duration_frames(100.0), 105.0), "dash distance training should increase duration/distance by 5 percent")
+	_expect(
+		is_equal_approx(distance_state.get_dash_duration_frames(100.0), 100.0 * (1.0 + (20.0 / 3.0) / 100.0)),
+		"dash distance training must apply the literal 20/3 percent duration contract"
+	)
 	var paddle_state := _state_with_training("physique_paddle_size")
 	_expect(is_equal_approx(paddle_state.get_player_paddle_size_multiplier(), 1.02), "paddle training should add 2 percent")
 	var live_paddle_state := RuntimePerkState.new()
@@ -506,7 +512,7 @@ func _verify_dispatch_and_stat_queries() -> void:
 	var hit_bridge := RuntimeBridge.new(hit_state)
 	var hit_resource_runtime := MythicItemResourceBonusRuntime.new()
 	_expect(is_equal_approx(hit_resource_runtime.get_bluetooth_ring_gauge_gain_pct(hit_bridge), 7.0), "hit-vigor training should reach the production hit-gauge consumer")
-	_expect(is_equal_approx(hit_resource_runtime.calculate_bluetooth_ring_gauge_charge(hit_bridge, 50.0), 53.0), "hit-vigor training should turn a 50-point paddle hit into 53 vigor")
+	_expect(is_equal_approx(hit_resource_runtime.calculate_bluetooth_ring_gauge_charge(hit_bridge, 50.0), 53.5), "hit-vigor training should preserve the exact 53.5 vigor result")
 	var posture_state := _state_with_training("physique_posture")
 	_expect(is_equal_approx(posture_state.get_converted_perk_option_value("bulletproof_hat", "posture_correction_pct"), 5.0), "posture training should add 5 percent")
 	var defense_runtime := MythicItemDefenseGearRuntime.new()

@@ -103,7 +103,11 @@ func note_eligible_offer_screen(dice_remaining_uses: int) -> Dictionary:
 	}
 
 
-func get_bonus(stat_key: String, catalog: Object) -> float:
+func get_bonus(
+	stat_key: String,
+	catalog: Object,
+	training_multiplier: float = 1.0
+) -> float:
 	if catalog == null or not catalog.has_method("get_all_training_data"):
 		return 0.0
 	var total := 0.0
@@ -113,7 +117,19 @@ func get_bonus(stat_key: String, catalog: Object) -> float:
 		var data: Dictionary = data_value as Dictionary
 		if str(data.get("stat_key", "")) != stat_key.strip_edges():
 			continue
-		var entry_total := float(data.get("amount", 0.0)) * get_applied_count(str(data.get("id", "")))
+		var entry_multiplier := 1.0
+		if (
+			catalog.has_method("is_training_mastery_amplifiable_stat")
+			and bool(catalog.is_training_mastery_amplifiable_stat(stat_key))
+		):
+			entry_multiplier = maxf(1.0, training_multiplier)
+		# Multiply by Training Mastery before clamping so state, card preview,
+		# and the final consumer cannot disagree above an effective ceiling.
+		var entry_total := (
+			float(data.get("amount", 0.0))
+			* get_applied_count(str(data.get("id", "")))
+			* entry_multiplier
+		)
 		# 실효 천장을 넘는 누적은 게임플레이·카드·능력치 패널이 서로 다른 값을 말하지
 		# 않도록 여기서 한 번에 깎는다(소비자 하한/clamp 와 같은 결과).
 		var ceiling := float(data.get("effective_ceiling", 0.0))

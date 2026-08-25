@@ -50,6 +50,7 @@ class FakeMovementState:
 
 func _init() -> void:
 	_verify_runtime_constant_ownership()
+	_verify_descriptions_mention_knockback()
 
 	var catalog: Object = MythicItemCatalog.new()
 	var item_data: Dictionary = catalog.build_item_by_name("celestial_armor")
@@ -81,25 +82,69 @@ func _init() -> void:
 	_expect(is_equal_approx(owner.celestial_armor_trigger_chance_pct, 100.0), "owner should sync trigger chance")
 	_expect(is_equal_approx(owner.celestial_armor_gauge_cost, 20.0), "owner should sync gauge cost")
 
+	# 부동갑주 계약 = "스턴·넉백 무시"(WIP 파괴 후 복원). (A) 순수 넉백도 차단 대상,
+	# (B) 한 히트의 스턴+넉백은 1롤로 둘 다 차단(paired 무료 우회), (C) recoil/burn은 제외.
 	var proc_deps := {"owner": owner, "registry": registry}
+	# (A) 순수 넉백(fresh, paired 타이머 0) → 독립 롤 100% → 차단 + 게이지 소비.
 	_expect(
-		not runtime.try_consume_celestial_armor_immunity("test_knockback", "knockback", proc_deps),
-		"celestial armor should ignore pure knockback"
+		runtime.try_consume_celestial_armor_immunity("pure_kb", "knockback", proc_deps),
+		"celestial armor should block pure knockback (스턴·넉백 무시 contract)"
 	)
-	_expect(is_equal_approx(owner.special_gauge, 100.0), "ignored knockback should not spend gauge")
-	_expect(
-		runtime.try_consume_celestial_armor_immunity("test_stun", "stun", proc_deps),
-		"100 percent celestial armor should block stun"
-	)
-	_expect(is_equal_approx(owner.special_gauge, 80.0), "celestial armor should spend gauge on stun block")
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "pure knockback block should spend gauge")
 	var snapshot: Dictionary = runtime.get_snapshot()
-	_expect(bool(snapshot.get("celestial_armor_wave_active", false)), "celestial armor should start wave VFX")
-	_expect(str(snapshot.get("celestial_armor_last_blocked_effect_type", "")) == "stun", "snapshot should expose blocked effect type")
+	_expect(bool(snapshot.get("celestial_armor_wave_active", false)), "celestial armor should start wave VFX on a knockback block")
+	_expect(str(snapshot.get("celestial_armor_last_blocked_effect_type", "")) == "knockback", "snapshot should expose the blocked knockback effect type")
+	# (B) 방금 넉백 차단(effect=knockback) → 같은 히트의 스턴은 paired 무료 우회(추가 롤/게이지 없음).
 	_expect(
-		not runtime.try_consume_celestial_armor_immunity("paired_knockback", "knockback", proc_deps),
-		"paired knockback should still pass through celestial armor"
+		runtime.try_consume_celestial_armor_immunity("pure_kb", "stun", proc_deps),
+		"paired stun (same hit as a blocked knockback) should bypass free"
 	)
-	_expect(is_equal_approx(owner.special_gauge, 80.0), "paired knockback should not spend gauge")
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "paired bypass should not spend additional gauge")
+	# (C) 계약 밖(recoil/burn)은 비대상 — 게이트에서 거부, 게이지 무소비.
+	_expect(
+		not runtime.try_consume_celestial_armor_immunity("recoil_hit", "recoil", proc_deps),
+		"celestial armor must NOT block recoil (contract excludes paddle-hit recoil / burn)"
+	)
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "ineligible recoil should not spend gauge")
+
+	# (D) P2-C: paired 무료 우회는 같은 물리 히트(같은 source)에만 허용. 다른 소스의 별개
+	# 적대 이벤트가 3프레임 안에 반대 CC로 들어와도 무료로 막히면 안 된다(정상 확률·기력 경로).
+	runtime.reset_round(registry)
+	owner.special_gauge = 100.0
+	_expect(
+		runtime.try_consume_celestial_armor_immunity("src_a", "stun", proc_deps),
+		"first hit (src_a stun) should block"
+	)
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "src_a stun block should spend gauge once")
+	# 다른 소스(src_b)의 넉백: paired 창이 열려 있어도 무료가 아니라 재-소비해야 한다.
+	_expect(
+		runtime.try_consume_celestial_armor_immunity("src_b", "knockback", proc_deps),
+		"different-source hit should still block via a fresh roll"
+	)
+	_expect(
+		is_equal_approx(owner.special_gauge, 60.0),
+		"different-source opposite-CC hit must spend gauge AGAIN (no cross-source free bypass)"
+	)
+	# 같은 소스(src_a)의 반대 CC는 무료 우회 — 단 "두 번째 CC 성분 1회"만.
+	runtime.reset_round(registry)
+	owner.special_gauge = 100.0
+	_expect(runtime.try_consume_celestial_armor_immunity("src_a", "stun", proc_deps), "src_a stun re-block")
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "src_a stun spends once")
+	_expect(
+		runtime.try_consume_celestial_armor_immunity("src_a", "knockback", proc_deps),
+		"same-source paired opposite-CC should bypass free (once)"
+	)
+	_expect(is_equal_approx(owner.special_gauge, 80.0), "first same-source paired bypass spends no extra gauge")
+	# 무료 우회권은 1회 소모: 같은 창(같은 프레임, 타이머 미경과)에서 같은 반대 CC를 또
+	# 부르면 정상 확률·기력 경로로 복귀해야 한다(계약 = 두 번째 CC 성분 1회).
+	_expect(
+		runtime.try_consume_celestial_armor_immunity("src_a", "knockback", proc_deps),
+		"second same-source opposite-CC should block via a fresh roll (paired consumed)"
+	)
+	_expect(
+		is_equal_approx(owner.special_gauge, 60.0),
+		"paired free bypass is single-use: the second same call must spend gauge again"
+	)
 
 	runtime.reset_round(registry)
 	var context_only := {
@@ -236,6 +281,37 @@ func _expect_original_icon_assets(item_data: Dictionary, item_label: String) -> 
 	_expect(sheet != null, "%s animated icon sheet should load" % item_label)
 	if sheet != null:
 		_expect(sheet.get_width() == 1024 and sheet.get_height() == 32, "%s animated icon sheet should be the smooth 32-frame render" % item_label)
+
+
+func _verify_descriptions_mention_knockback() -> void:
+	# P2-B: 런타임이 스턴 AND 넉백을 막으므로 모든 표시 문구가 넉백을 언급해야 한다
+	# (문구=다국어 동기화). 각 celestial_armor 설명 줄에 스턴 토큰이 있으면 넉백 토큰도
+	# 반드시 있어야 한다 — 6개 언어 × MYTHIC_DESCRIPTION/PERK_SUMMARY 2계통 표류 봉인.
+	var stun_tokens := ["스턴", "stun", "眩晕", "スタン", "aturdimiento", "atordoamento", "оглушение"]
+	var kb_tokens := ["넉백", "knockback", "击退", "ノックバック", "empuje", "empurrão", "отбрасывание"]
+	var loc: String = FileAccess.get_file_as_string("res://scripts/core/language_settings_data.gd")
+	_expect(loc != "", "language_settings_data should be readable")
+	for line in loc.split("\n"):
+		if not line.contains("\"celestial_armor\""):
+			continue
+		if not _contains_any(line, stun_tokens):
+			continue  # 이름 전용 줄(ITEM_DISPLAY/PERK_NAME)은 효과 문구가 없어 스킵
+		_expect(
+			_contains_any(line, kb_tokens),
+			"celestial_armor localized desc mentions stun but not knockback: %s" % line.strip_edges()
+		)
+	# 한국어 소스 2파일(로컬라이제이션에 없음 — 직접 렌더): 갱신 문자열 존재 확인.
+	var perk: String = FileAccess.get_file_as_string("res://scripts/characters/runtime_perk_catalog.gd")
+	_expect(perk.contains("스턴·넉백 무시 65%"), "perk catalog celestial_armor description must say 스턴·넉백")
+	var cat: String = FileAccess.get_file_as_string("res://scripts/items/mythic_item_catalog_build_router.gd")
+	_expect(cat.contains("스턴·넉백이 들어올 때 롤 확률로"), "item catalog celestial_armor description must say 스턴·넉백")
+
+
+func _contains_any(text: String, tokens: Array) -> bool:
+	for token in tokens:
+		if text.contains(String(token)):
+			return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -73,7 +73,9 @@ func calculate_bluetooth_ring_gauge_charge(runtime: Object, base_charge: float) 
 	var gain_pct: float = get_bluetooth_ring_gauge_gain_pct(runtime)
 	if gain_pct <= 0.0:
 		return float(base_charge)
-	return floor(max(0.0, float(base_charge)) * max(0.0, 1.0 + gain_pct / 100.0))
+	# Gauge owners accumulate floats, so preserve fractional training gains
+	# instead of discarding them on every hit.
+	return max(0.0, float(base_charge)) * max(0.0, 1.0 + gain_pct / 100.0)
 
 
 func is_star_detector_equipped(runtime: Object) -> bool:

@@ -179,7 +179,7 @@ static func build_player_stat_rows(
 			include_breakdown
 		),
 		with_breakdown(
-			delta_stat_row("기력 획득량", "%dpt" % int(round(gauge_gain)), base_gauge_gain_value, gauge_gain, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_gain", "tooltip_body": "공을 쳐낼 때마다 차오르는 기력의 1회 획득량입니다. 높을수록 기력이 빨리 모입니다."}),
+			delta_stat_row("기력 획득량", format_gauge_point_value(gauge_gain), base_gauge_gain_value, gauge_gain, true, stat_buff_color, stat_debuff_color).merged({"icon": "gauge_gain", "tooltip_body": "공을 쳐낼 때마다 차오르는 기력의 1회 획득량입니다. 높을수록 기력이 빨리 모입니다."}),
 			gauge_breakdown_from_steps(gauge_steps, runtime_state, mythic_item_runtime, lingpet_runtime),
 			include_breakdown
 		),
@@ -189,7 +189,7 @@ static func build_player_stat_rows(
 			include_breakdown
 		),
 		with_breakdown(
-			delta_stat_row("활주 거리", "%dpx" % int(round(dash_distance)), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "활주 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
+			delta_stat_row("활주 거리", format_dash_distance_value(dash_distance), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "활주 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
 			dash_distance_breakdown(dash_duration_steps, runtime_state, mythic_item_runtime, dash_distance_multiplier) if include_breakdown else [],
 			include_breakdown
 		),
@@ -1198,6 +1198,14 @@ static func stat_bar_breakdown_text(base_value: float, current_value: float, hig
 
 # Compact number text for the breakdown line (no %g support in GDScript's format
 # strings): integers stay bare, fractions keep up to two trimmed decimals.
+static func format_gauge_point_value(value: float) -> String:
+	return "%spt" % CharacterInfoOverlayFormatter.format_plain_number(value)
+
+
+static func format_dash_distance_value(value: float) -> String:
+	return "%spx" % CharacterInfoOverlayFormatter.format_plain_number(value)
+
+
 static func _format_stat_number(value: float) -> String:
 	if absf(value - roundf(value)) < 0.005:
 		return str(int(roundf(value)))

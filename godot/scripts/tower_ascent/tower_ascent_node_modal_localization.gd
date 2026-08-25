@@ -37,7 +37,7 @@ const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
 const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_TIMING_BADGE := "tower_ascent.node_modal.training.timing_badge"
-const KEY_TRAINING_BONUS_BADGE := KEY_TRAINING_TIMING_BADGE
+const KEY_TRAINING_JUDGMENT_MAX_BADGE := "tower_ascent.node_modal.training.judgment_max_badge"
 const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
 const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
 const KEY_TRAINING_TIMING_PROMPT := "tower_ascent.node_modal.training.timing_prompt"
@@ -151,6 +151,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "효과 한계",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
 		KEY_TRAINING_TIMING_BADGE: "행운 판정 폭 {width}% · 최대 효과 +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "판정 성공 시 최대 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "고정 +1칸",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 적용",
 		KEY_TRAINING_TIMING_PROMPT: "움직이는 중심추를 클릭하여 멈추세요.",
@@ -263,6 +264,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "Requires {required} Gold, {shortfall} short",
 		KEY_TRAINING_MAXIMUM: "Effect limit",
 		KEY_TRAINING_TIMING_BADGE: "Luck window {width}% · Max effect +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Up to {effect} on judgment success",
 		KEY_TRAINING_STORAGE_BADGE: "Fixed +1 slot",
 		KEY_TRAINING_BASE_RECEIPT: "Applied {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Click to stop the moving marker.",
@@ -315,6 +317,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "需要 {required} 金币，还差 {shortfall}",
 		KEY_TRAINING_MAXIMUM: "效果上限",
 		KEY_TRAINING_TIMING_BADGE: "幸运判定宽度 {width}% · 最大效果 +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功时最多 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "固定 +1 格",
 		KEY_TRAINING_BASE_RECEIPT: "已应用 {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "点击停止移动的指针。",
@@ -367,6 +370,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "金貨が{required}必要、あと{shortfall}",
 		KEY_TRAINING_MAXIMUM: "効果上限",
 		KEY_TRAINING_TIMING_BADGE: "幸運判定幅 {width}% · 最大効果 +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功時は最大 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "固定 +1枠",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 適用",
 		KEY_TRAINING_TIMING_PROMPT: "クリックして動く指針を止めてください。",
@@ -400,6 +404,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "Se necesitan {required} de oro, faltan {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Límite de efecto",
 		KEY_TRAINING_TIMING_BADGE: "Zona de suerte {width}% · Efecto máx. +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Hasta {effect} al acertar el juicio",
 		KEY_TRAINING_STORAGE_BADGE: "+1 espacio fijo",
 		KEY_TRAINING_BASE_RECEIPT: "Se aplicó {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Haz clic para detener el marcador móvil.",
@@ -433,6 +438,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "Requer {required} de ouro, faltam {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Limite do efeito",
 		KEY_TRAINING_TIMING_BADGE: "Faixa de sorte {width}% · Efeito máx. +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Até {effect} ao acertar o julgamento",
 		KEY_TRAINING_STORAGE_BADGE: "+1 espaço fixo",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} aplicado",
 		KEY_TRAINING_TIMING_PROMPT: "Clique para parar o marcador em movimento.",
@@ -466,6 +472,7 @@ const TEXT_BY_LOCALE := {
 		KEY_INSUFFICIENT_GOLD: "Нужно {required} золота, не хватает {shortfall}",
 		KEY_TRAINING_MAXIMUM: "Предел эффекта",
 		KEY_TRAINING_TIMING_BADGE: "Ширина удачи {width}% · Макс. эффект +{effect}%",
+		KEY_TRAINING_JUDGMENT_MAX_BADGE: "До {effect} при успешной оценке",
 		KEY_TRAINING_STORAGE_BADGE: "Фикс. +1 ячейка",
 		KEY_TRAINING_BASE_RECEIPT: "Применено: {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Нажмите, чтобы остановить бегущий маркер.",

@@ -71,6 +71,17 @@ func _verify_project_action_contract() -> void:
 	_expect(has_ctrl, "guardian_toggle should map Ctrl")
 	_expect(has_r3, "guardian_toggle should map R3")
 
+	_expect(InputMap.has_action("vision_modifier"), "project input map should declare vision_modifier")
+	var has_shift := false
+	var has_vision_ctrl := false
+	for event in InputMap.action_get_events("vision_modifier"):
+		if event is InputEventKey:
+			var key_event: InputEventKey = event
+			has_shift = has_shift or key_event.keycode == KEY_SHIFT or key_event.physical_keycode == KEY_SHIFT
+			has_vision_ctrl = has_vision_ctrl or key_event.keycode == KEY_CTRL or key_event.physical_keycode == KEY_CTRL
+	_expect(has_shift, "vision_modifier should map Shift")
+	_expect(not has_vision_ctrl, "vision_modifier must leave Ctrl reserved for guardian_toggle")
+
 
 func _verify_ctrl_and_r3_edges_are_idempotent() -> void:
 	var runtime := FakeToggleRuntime.new()

@@ -105,7 +105,7 @@ func _test_reproduces_every_authored_level() -> void:
 
 func _test_linear_overflow_values() -> void:
 	# The reported bug: 비천보 Lv.7 must show 49%, not the Lv.5 35%.
-	_expect_text("dash_jump", 7, "활주 거리 49% 증가")
+	_expect_text("dash_jump", 7, "활주 지속 49% 증가")
 	_expect_text("dash_lightweight", 6, "활주 재충전 72% 감소")
 	_expect_text("common_swiftness", 6, "이동속도 36% 증가")
 	_expect_text("perk_laurel_shield", 5, "벽사 잎 7개 보호")
@@ -198,7 +198,7 @@ func _test_presenter_consumes_overflow_text() -> void:
 	)
 	var stats: String = str(data.get("description", ""))
 	_expect(
-		stats == "활주 거리 49% 증가",
+		stats == "활주 지속 49% 증가",
 		"TAB perk tooltip must show the generated Lv.7 stats, got: %s" % stats
 	)
 
@@ -211,7 +211,7 @@ func _test_overlay_renderer_consumes_overflow_text() -> void:
 	skill["level"] = 7
 	var stats: String = renderer._perk_stats_for_level(skill)
 	_expect(
-		stats == "활주 거리 49% 증가",
+		stats == "활주 지속 49% 증가",
 		"perk overlay owned-perk tooltip must show the generated Lv.7 stats, got: %s" % stats
 	)
 

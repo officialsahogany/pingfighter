@@ -6,11 +6,8 @@ const StageClearResultBoxPlanData := preload("res://scripts/ui/stage_clear_resul
 const StageClearResultBoxResolvedRewardData := preload("res://scripts/ui/stage_clear_result_box_resolved_reward_data.gd")
 
 const BOX_KIND_NORMAL := "normal"
-const BOX_KIND_ADVANCED := "advanced"
 const BOX_KIND_GUARANTEED_MYTHIC := "guaranteed_mythic"
-const LEGACY_BOX_KIND_MYTHIC := "mythic"
 const BOX_LABEL_NORMAL := "일반 상자"
-const BOX_LABEL_ADVANCED := "고급 상자"
 const BOX_LABEL_GUARANTEED_MYTHIC := "신화 확정 상자"
 const BOX_BASE_SIZE := Vector2(65.0, 56.0)
 const BOX_FLOAT_AMPLITUDE := 5.0
