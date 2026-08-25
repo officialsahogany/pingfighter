@@ -2103,7 +2103,7 @@ func _draw_fullscreen_walker(
 
 
 func _draw_fullscreen_map_node(
-	canvas: Object,
+	canvas: CanvasItem,
 	node: Dictionary,
 	active_candidate_ids: Array,
 	current_node_id: String,
@@ -5514,18 +5514,6 @@ func _draw_route_wind_effect(canvas: Object, flow: Object) -> int:
 
 func debug_draw_route_wind_effect(canvas: Object, flow: Object) -> int:
 	return _draw_route_wind_effect(canvas, flow)
-
-
-func debug_draw_fullscreen_map_footer(canvas: Object, panel_rect: Rect2) -> void:
-	_draw_fullscreen_map_footer(canvas, panel_rect, ThemeDB.fallback_font, INK_SOFT)
-
-
-func debug_draw_fullscreen_map_node(
-	canvas: Object,
-	node: Dictionary,
-	content_rect: Rect2
-) -> void:
-	_draw_fullscreen_map_node(canvas, node, [], "", "", "", content_rect)
 
 
 func debug_draw_route_aim(canvas: Object, flow: Object) -> void:
