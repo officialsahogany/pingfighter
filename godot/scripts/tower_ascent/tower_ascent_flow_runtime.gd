@@ -416,6 +416,7 @@ func get_map_camera_manual_offset() -> Vector2:
 func reanchor_map_camera_manual_offset(
 	anchor_screen_position: Vector2,
 	previous_camera_offset: Vector2,
+	previous_manual_camera_offset: Vector2,
 	previous_zoom_multiplier: float,
 	next_zoom_multiplier: float
 ) -> Vector2:
@@ -424,11 +425,21 @@ func reanchor_map_camera_manual_offset(
 		or _map_drag_state.has_manual_zoom_override()
 	):
 		return _map_drag_state.get_manual_camera_offset()
+	var manual_camera_offset: Vector2 = _map_drag_state.get_manual_camera_offset()
+	var safe_previous_zoom := maxf(0.001, previous_zoom_multiplier)
+	var safe_next_zoom := maxf(0.001, next_zoom_multiplier)
 	var reanchored_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
 		anchor_screen_position,
 		previous_camera_offset,
-		previous_zoom_multiplier,
-		next_zoom_multiplier
+		safe_previous_zoom,
+		safe_next_zoom
+	)
+	# Start from the previously applied (and therefore clamped) camera. Carry
+	# only pointer movement received since that frame through the zoom ratio;
+	# fitted-axis overflow from an older drag must never reopen as latent pan.
+	reanchored_offset += (
+		(manual_camera_offset - previous_manual_camera_offset)
+		* (safe_next_zoom / safe_previous_zoom)
 	)
 	_map_drag_state.reanchor_manual_camera_offset(reanchored_offset)
 	return reanchored_offset

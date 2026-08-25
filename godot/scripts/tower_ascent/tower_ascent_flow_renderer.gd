@@ -849,9 +849,14 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 					"view_rect",
 					model.get("camera_view_rect", Rect2())
 				)
+				var previous_manual_camera_offset: Vector2 = previous_camera.get(
+					"manual_camera_offset",
+					manual_camera_offset
+				)
 				manual_camera_offset = flow.reanchor_map_camera_manual_offset(
 					previous_view_rect.get_center(),
-					manual_camera_offset,
+					previous_camera.get("offset", manual_camera_offset),
+					previous_manual_camera_offset,
 					previous_zoom,
 					camera_render_multiplier
 				)
@@ -859,6 +864,10 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 			camera_model,
 			manual_camera_offset
 		)
+		# Keep the last requested offset beside the clamped presentation offset.
+		# The next zoom step may carry only pointer movement accumulated since this
+		# frame; fitted-axis overflow must not become a latent pan when cover opens.
+		camera_model["manual_camera_offset"] = manual_camera_offset
 	camera_model["base_zoom_multiplier"] = camera_base_multiplier
 	camera_model["render_zoom_multiplier"] = camera_render_multiplier
 	# Keep the established intro-only diagnostic field stable; all drawing and

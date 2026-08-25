@@ -248,6 +248,7 @@ func _verify_surround_start_and_cover_counterproof() -> void:
 
 
 func _verify_manual_camera_priority_and_release_retention() -> void:
+	var failure_count_before := _failures.size()
 	var fixture := _new_transition_fixture(
 		"map-drag-priority",
 		TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.25
@@ -258,11 +259,7 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 	var renderer: Object = fixture["renderer"]
 	var model: Dictionary = fixture["model"]
 	var press_position := VIEWPORT_RECT.get_center()
-	# This leg owns world-anchor retention, so exercise the vertical axis that is
-	# open throughout the transition. Horizontal cover clamping has its own
-	# reverse leg and can legitimately defer a latent X displacement until zoom
-	# opens that axis.
-	var drag_position := press_position + Vector2(0.0, 72.0)
+	var drag_position := press_position + Vector2(48.0, 72.0)
 	flow.handle_input(_mouse_button(press_position, true))
 	flow.handle_input(_mouse_motion(drag_position))
 	flow.handle_input(_mouse_button(drag_position, false))
@@ -273,6 +270,10 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 		(released_camera.get("visible_world_rect", Rect2()) as Rect2).get_center()
 	)
 	var released_focus: Vector2 = released_camera.get("focus_world_position", Vector2.ZERO)
+	_expect(
+		bool(released_camera.get("horizontal_world_fits", false)),
+		"(48,72) release fixture must begin with the horizontal world center-pinned"
+	)
 
 	var later_elapsed := (
 		_zoom_end_elapsed_sec()
@@ -290,8 +291,12 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 		(later_camera.get("visible_world_rect", Rect2()) as Rect2).get_center()
 	)
 	_expect(
+		not bool(later_camera.get("horizontal_world_fits", true)),
+		"(48,72) release fixture must reopen horizontal range during automatic zoom"
+	)
+	_expect(
 		later_world_anchor.is_equal_approx(released_world_anchor),
-		"manual drag must preserve its released world anchor across automatic zoom"
+		"(48,72) manual drag must preserve its released world anchor across automatic zoom"
 	)
 	_expect(
 		not later_offset.is_equal_approx(released_offset),
@@ -303,6 +308,10 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 		not bool(flow.has_map_camera_manual_override()),
 		"transition completion must restore automatic tracking for the next map surface"
 	)
+	if _failures.size() == failure_count_before:
+		print(
+			"tower_map_camera_drag_contract_smoke: (48,72) horizontal-fit release anchor: ok"
+		)
 
 
 func _verify_drag_accumulates_while_transition_zoom_changes() -> void:
@@ -346,11 +355,19 @@ func _verify_drag_accumulates_while_transition_zoom_changes() -> void:
 		not is_equal_approx(first_drag_zoom, later_zoom),
 		"overlap fixture must advance the automatic transition zoom"
 	)
+	var previous_manual_offset: Vector2 = first_drag_camera.get(
+		"manual_camera_offset",
+		live_manual_offset
+	)
 	var expected_reanchored_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
 		(first_drag_camera.get("view_rect", VIEWPORT_RECT) as Rect2).get_center(),
-		live_manual_offset,
+		first_drag_camera.get("offset", live_manual_offset),
 		first_drag_zoom,
 		later_zoom
+	)
+	expected_reanchored_offset += (
+		(live_manual_offset - previous_manual_offset)
+		* (later_zoom / first_drag_zoom)
 	)
 	_expect(
 		(flow.get_map_camera_manual_offset() as Vector2).is_equal_approx(

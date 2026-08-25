@@ -97,7 +97,7 @@ func _run() -> void:
 		overlap_start_elapsed / _transition_duration_sec()
 	)
 	var press_position := VIEWPORT_RECT.get_center()
-	var first_position := press_position + Vector2(0.0, 96.0)
+	var first_position := press_position + Vector2(48.0, 72.0)
 	flow.handle_input(_mouse_button(press_position, true))
 	flow.handle_input(_mouse_motion(first_position))
 	var before_image := await _capture(canvas, viewport)
@@ -107,13 +107,16 @@ func _run() -> void:
 	var before_anchor := (
 		(before_camera.get("visible_world_rect", Rect2()) as Rect2).get_center()
 	)
+	if not bool(before_camera.get("horizontal_world_fits", false)):
+		_fail("drag/zoom overlap fixture must begin with horizontal fit")
+		return
 	flow.set_transition_progress_for_qa(
 		(
 			overlap_start_elapsed
 			+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.5
 		) / _transition_duration_sec()
 	)
-	var second_delta := Vector2(0.0, 96.0)
+	var second_delta := Vector2(24.0, 36.0)
 	var second_position := first_position + second_delta
 	flow.handle_input(_mouse_motion(second_position))
 	var live_manual_offset: Vector2 = flow.get_map_camera_manual_offset()
@@ -128,11 +131,22 @@ func _run() -> void:
 	if is_equal_approx(before_zoom, after_zoom):
 		_fail("drag/zoom overlap fixture did not advance automatic zoom")
 		return
+	if bool(after_camera.get("horizontal_world_fits", true)):
+		_fail("drag/zoom overlap fixture must reopen horizontal range")
+		return
+	var previous_manual_offset: Vector2 = before_camera.get(
+		"manual_camera_offset",
+		live_manual_offset
+	)
 	var expected_manual_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
 		(before_camera.get("view_rect", VIEWPORT_RECT) as Rect2).get_center(),
-		live_manual_offset,
+		before_camera.get("offset", live_manual_offset),
 		before_zoom,
 		after_zoom
+	)
+	expected_manual_offset += (
+		(live_manual_offset - previous_manual_offset)
+		* (after_zoom / before_zoom)
 	)
 	var after_manual_offset: Vector2 = flow.get_map_camera_manual_offset()
 	if not after_manual_offset.is_equal_approx(expected_manual_offset):
@@ -150,7 +164,7 @@ func _run() -> void:
 		_fail("drag/zoom overlap strip could not be saved")
 		return
 	print(
-		"[TowerMapDragZoomOverlapVisualQA] before_zoom=%0.6f after_zoom=%0.6f actual_anchor_delta=%s manual=%s expected_manual=%s changed_samples=%d"
+		"[TowerMapDragZoomOverlapVisualQA] drag=(48,72)+(24,36) horizontal_fit_before=true horizontal_fit_after=false before_zoom=%0.6f after_zoom=%0.6f actual_anchor_delta=%s manual=%s expected_manual=%s changed_samples=%d"
 		% [
 			before_zoom,
 			after_zoom,
