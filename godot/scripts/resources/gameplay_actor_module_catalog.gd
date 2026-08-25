@@ -77,6 +77,10 @@ const MODULES := {
 		"path": "res://scripts/characters/dalji_vision_chosik_state.gd",
 		"label": "dalji vision Chosik state",
 	},
+	"gaksital_vision_chosik_state": {
+		"path": "res://scripts/characters/gaksital_vision_chosik_state.gd",
+		"label": "gaksital vision Chosik state",
+	},
 	"cheongringwi_vision_chosik_state": {
 		"path": "res://scripts/characters/cheongringwi_vision_chosik_state.gd",
 		"label": "cheongringwi vision Chosik state",

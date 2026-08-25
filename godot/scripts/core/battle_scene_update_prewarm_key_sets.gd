@@ -46,6 +46,7 @@ const EFFECTS_CORE_PREWARM_KEYS := [
 const EFFECTS_COMMON_CHARACTER_PREWARM_KEYS := [
 	"runtime_perk_state",
 	"dalji_vision_chosik_state",
+	"gaksital_vision_chosik_state",
 	"cheongringwi_vision_chosik_state",
 	"yeonmyo_vision_chosik_state",
 	"monkey_blessing_delivery_state",
@@ -95,6 +96,7 @@ const MATCH_ITEM_RUNTIME_PREWARM_KEYS := [
 ]
 const MATCH_PLAYER_SKILL_COMMON_PREWARM_KEYS := [
 	"dalji_vision_chosik_state",
+	"gaksital_vision_chosik_state",
 	"cheongringwi_vision_chosik_state",
 	"yeonmyo_vision_chosik_state",
 	"laurel_leaf_shield_state",

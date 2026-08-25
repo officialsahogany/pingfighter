@@ -562,9 +562,12 @@ func _clear_stage4_round_boundary_fx(deps: Dictionary) -> void:
 
 
 func _clear_common_vision_round_boundary_fx(deps: Dictionary) -> void:
-	var vision_state: Object = deps.get("yeonmyo_vision_chosik_state", null)
-	if vision_state != null and vision_state.has_method("reset_round"):
-		vision_state.reset_round(deps)
+	var gaksital_vision_state: Object = deps.get("gaksital_vision_chosik_state", null)
+	if gaksital_vision_state != null and gaksital_vision_state.has_method("reset_round"):
+		gaksital_vision_state.reset_round()
+	var yeonmyo_vision_state: Object = deps.get("yeonmyo_vision_chosik_state", null)
+	if yeonmyo_vision_state != null and yeonmyo_vision_state.has_method("reset_round"):
+		yeonmyo_vision_state.reset_round(deps)
 
 
 func _clear_stage2_round_boundary_fx(deps: Dictionary) -> void:

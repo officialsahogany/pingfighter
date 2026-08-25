@@ -2,6 +2,10 @@ extends SceneTree
 
 const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
 const BossSkillTriggerClass := preload("res://scripts/stages/common/boss_skill_trigger_class.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
+const GameplayActorModuleCatalog := preload(
+	"res://scripts/resources/gameplay_actor_module_catalog.gd"
+)
 const Stage1DaljiCooldownState := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_cooldown_state.gd")
 const Stage2BossState := preload("res://scripts/stages/stage2/stage2_boss_skill_state.gd")
 const Stage2BossVariantState := preload("res://scripts/stages/stage2/stage2_boss_variant_skill_state.gd")
@@ -17,6 +21,7 @@ const PRODUCER_ROOT := "res://scripts/stages"
 const ZERO_INITIAL_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE"
 const AUTO_TRIGGER_BLOCK_FIXTURE_ENV := "BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE"
 const ZERO_ROUND_RESET_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE"
+const VISION_ZERO_ACTIVATION_FIXTURE_ENV := "VISION_ZERO_ACTIVATION_COOLDOWN_FIXTURE"
 const EPSILON := 0.0001
 const VALID_CONTRACTS := [
 	"time",
@@ -57,6 +62,9 @@ var _round_preserve_skill_count := 0
 var _round_reset_exception_count := 0
 var _round_transition_check_count := 0
 var _round_cast_cancel_count := 0
+var _vision_count := 0
+var _vision_round_preserve_count := 0
+var _vision_cooldown_trio_count := 0
 var _contract_counts := {
 	"time": 0,
 	"deferred_time": 0,
@@ -120,7 +128,39 @@ class FakeStage2Background:
 		return true
 
 
+class FakeVisionOwner:
+	extends RefCounted
+
+	var special_gauge := 1000.0
+
+
+class FakeVisionSkillConfig:
+	extends RefCounted
+
+	var equipped_skill_id := ""
+	var cooldown_seconds := 0.0
+
+	func _init(skill_id: String, duration: float) -> void:
+		equipped_skill_id = skill_id
+		cooldown_seconds = duration
+
+	func is_skill_equipped(skill_id: String) -> bool:
+		return skill_id == equipped_skill_id
+
+	func get_cooldown_seconds(skill_id: String) -> float:
+		return cooldown_seconds if skill_id == equipped_skill_id else 0.0
+
+
 func _init() -> void:
+	if OS.get_environment(VISION_ZERO_ACTIVATION_FIXTURE_ENV) == "1":
+		print("[VisionCooldownCounterproof] ZERO_ACTIVATION_COOLDOWN=EXPECTED_RED")
+		_verify_common_vision_cooldowns()
+		if _failures.is_empty():
+			_failures.append("zero-activation Vision fixture must be rejected")
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+		return
 	if OS.get_environment(AUTO_TRIGGER_BLOCK_FIXTURE_ENV) == "1":
 		_verify_auto_trigger_negative_fixture()
 		for failure in _failures:
@@ -128,6 +168,7 @@ func _init() -> void:
 		quit(1 if not _failures.is_empty() else 0)
 		return
 	_discover_all_producers()
+	_verify_common_vision_cooldowns()
 	_verify_every_reset_and_update()
 	_verify_target_cast_round_cleanup_preserves()
 	_verify_every_cast_reloads_and_ticks()
@@ -155,8 +196,12 @@ func _init() -> void:
 		]
 	)
 	print(
-		"[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true ROUND_TRANSITION=contract_metadata NEGATIVE_FIXTURE_ENVS=%s,%s"
-		% [ZERO_INITIAL_FIXTURE_ENV, ZERO_ROUND_RESET_FIXTURE_ENV]
+		"[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers+common_vision_catalog STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true ROUND_TRANSITION=contract_metadata NEGATIVE_FIXTURE_ENVS=%s,%s,%s"
+		% [ZERO_INITIAL_FIXTURE_ENV, ZERO_ROUND_RESET_FIXTURE_ENV, VISION_ZERO_ACTIVATION_FIXTURE_ENV]
+	)
+	print(
+		"[BossSkillCardCooldownContract] VISIONS=%d VISION_ROUND_PRESERVE=%d VISION_COOLDOWN_TRIO=%d"
+		% [_vision_count, _vision_round_preserve_count, _vision_cooldown_trio_count]
 	)
 	print(
 		"[BossSkillCardCooldownContract] TRIGGER_DECLARATIONS=%d TRIGGER_INSTANT=%d TRIGGER_ON_BOSS_HIT=%d TRIGGER_MATCH=%d AUTO_BLOCK_NEGATIVE_FIXTURE_ENV=%s"
@@ -222,12 +267,92 @@ func _discover_all_producers() -> void:
 			"stage": stage,
 			"skill_ids": skill_ids,
 		})
-
 	_boss_count = _producers.size()
 	_expect(_boss_count > 0, "runtime HUD producer discovery must find at least one boss")
 	for stage in range(1, 9):
 		_expect(bool(covered_stages.get(stage, false)), "runtime HUD producer discovery must cover Stage %d" % stage)
 
+
+func _verify_common_vision_cooldowns() -> void:
+	var zero_activation_fixture := OS.get_environment(VISION_ZERO_ACTIVATION_FIXTURE_ENV) == "1"
+	for skill_id in CommonSkillCatalog.get_all_skill_ids():
+		var skill_data := CommonSkillCatalog.get_skill_data(skill_id)
+		if not bool(skill_data.get("vision_chosik", false)):
+			continue
+		_vision_count += 1
+		var boss_id := str(skill_data.get("boss_id", "")).strip_edges()
+		var state_key := "%s_vision_chosik_state" % boss_id
+		var module_data: Dictionary = GameplayActorModuleCatalog.MODULES.get(state_key, {})
+		_expect(not module_data.is_empty(), "%s must resolve through gameplay actor modules" % skill_id)
+		var path := str(module_data.get("path", ""))
+		var state := _new_state(path)
+		if state == null:
+			continue
+		var duration := float(skill_data.get("cooldown", 0.0))
+		_expect(duration > 0.0, "%s Vision cooldown must be positive" % skill_id)
+		var activation_duration := 0.0 if zero_activation_fixture and skill_id == CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID else duration
+		var activation := _activate_vision_state(state, skill_id, activation_duration)
+		_expect(bool(activation.get("activated", false)), "%s must activate through its real input command" % skill_id)
+		_expect(float(activation.get("special_gauge", 1000.0)) < 1000.0, "%s activation must spend its real gauge cost" % skill_id)
+		var armed_duration := float(state.get("cooldown_remaining"))
+		_expect(is_equal_approx(armed_duration, duration), "%s real activation must arm catalog cooldown" % skill_id)
+		_call_reset_round(state, state_key)
+		var after_round := float(state.get("cooldown_remaining"))
+		_expect(
+			is_equal_approx(after_round, armed_duration),
+			"%s reset_round must preserve Vision cooldown" % skill_id
+		)
+		if is_equal_approx(after_round, armed_duration):
+			_vision_round_preserve_count += 1
+		var advance_count := int(state.call("advance_cooldowns_by_msec", 1000))
+		var after_advance := float(state.get("cooldown_remaining"))
+		var reduce_count := int(state.call("reduce_all_cooldowns_by_fraction", 0.2))
+		var after_reduce := float(state.get("cooldown_remaining"))
+		state.call("reset_cooldowns")
+		var after_reset := float(state.get("cooldown_remaining"))
+		var trio_green := (
+			advance_count == 1
+			and is_equal_approx(after_advance, maxf(0.0, armed_duration - 1.0))
+			and reduce_count == 1
+			and is_equal_approx(after_reduce, maxf(0.0, armed_duration - 1.0 - armed_duration * 0.2))
+			and is_zero_approx(after_reset)
+		)
+		_expect(trio_green, "%s must satisfy the Vision cooldown trio" % skill_id)
+		if trio_green:
+			_vision_cooldown_trio_count += 1
+
+
+func _activate_vision_state(state: Object, skill_id: String, cooldown_seconds: float) -> Dictionary:
+	var owner := FakeVisionOwner.new()
+	var skill_config := FakeVisionSkillConfig.new(skill_id, cooldown_seconds)
+	var config := {
+		"ball_active": true,
+		"player_skill_input_locked": false,
+		"special_gauge": owner.special_gauge,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+		"width": 760.0,
+		"height": 750.0,
+		"current_stage": 1,
+	}
+	var deps := {"owner": owner, "skill_config": skill_config}
+	var player_pos := Vector2(300.0, 680.0)
+	if skill_id == CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID:
+		return state.call("update", 0.0, {"up_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID:
+		return state.call("update", 0.0, {"secondary_action_pressed": true, "secondary_action_just_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_ID:
+		return state.call("update", 0.0, {"down_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
+		state.call("update", 0.0, {"left_pressed": true}, true, player_pos, config, deps)
+		state.call("update", 0.0, {}, true, player_pos, config, deps)
+		state.call("update", 0.0, {"right_pressed": true}, true, player_pos, config, deps)
+		state.call("update", 0.0, {}, true, player_pos, config, deps)
+		return state.call("update", 0.0, {"left_pressed": true}, true, player_pos, config, deps)
+	return {}
 
 func _verify_every_reset_and_update() -> void:
 	var use_zero_fixture := OS.get_environment(ZERO_INITIAL_FIXTURE_ENV) == "1"

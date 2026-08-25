@@ -7,6 +7,7 @@ const RuntimePerkStarpointAbsorption := preload("res://scripts/characters/runtim
 
 const VISION_COOLDOWN_STATE_KEYS := [
 	"dalji_vision_chosik_state",
+	"gaksital_vision_chosik_state",
 	"cheongringwi_vision_chosik_state",
 	"yeonmyo_vision_chosik_state",
 ]

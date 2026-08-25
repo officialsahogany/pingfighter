@@ -289,7 +289,9 @@ $focusedSmoke = @(
     "res://tests/battle_scene_state_horn_strawberry_schema_smoke.gd",
     "res://tests/lingpet_mount_topdown_readiness_smoke.gd",
     "res://tests/lingpet_mount_body_presentation_reconcile_smoke.gd",
-    "res://tests/lingpet_topdown_mount_render_smoke.gd"
+    "res://tests/lingpet_topdown_mount_render_smoke.gd",
+    "res://tests/gaksital_vision_fan_throw_smoke.gd",
+    "res://tests/gaksital_vision_input_exclusivity_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

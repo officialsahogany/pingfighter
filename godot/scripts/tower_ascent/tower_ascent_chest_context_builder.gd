@@ -10,10 +10,12 @@ const TowerAscentFeatureFlags := preload(
 # These are compatibility IDs, not new player-facing names. Keep the chest
 # contract loadable before the separate boss-Vision content track lands.
 const DALJI_VISION_UNLOCK_ID := "unlock_dalji_vision_chain_top"
+const GAKSITAL_VISION_UNLOCK_ID := "unlock_gaksital_vision_fan_throw"
 const CHEONGRINGWI_VISION_UNLOCK_ID := "unlock_cheongringwi_vision_dragon_torrent"
 const YEONMYO_VISION_UNLOCK_ID := "unlock_yeonmyo_vision_bonghongwe"
 const _VISION_SKILL_ID_BY_UNLOCK_ID := {
 	DALJI_VISION_UNLOCK_ID: "dalji_vision_chain_top",
+	GAKSITAL_VISION_UNLOCK_ID: "gaksital_vision_fan_throw",
 	CHEONGRINGWI_VISION_UNLOCK_ID: "cheongringwi_vision_dragon_torrent",
 	YEONMYO_VISION_UNLOCK_ID: "yeonmyo_vision_bonghongwe",
 }
@@ -62,8 +64,11 @@ func build_secret_chosik_reward(vision_offer_id: String) -> Dictionary:
 
 func _get_boss_vision_offer_id(owner: Object, current_stage: int) -> String:
 	if current_stage == 1:
-		if str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower() == "dalji":
+		var variant := str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower()
+		if variant == "dalji":
 			return DALJI_VISION_UNLOCK_ID
+		if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
+			return GAKSITAL_VISION_UNLOCK_ID
 		return ""
 	if current_stage == 2:
 		return CHEONGRINGWI_VISION_UNLOCK_ID

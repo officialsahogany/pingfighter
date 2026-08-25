@@ -23,6 +23,7 @@ const SKILL_COOLDOWN_STATE_KEYS := [
 	"commando_skill_state",
 	"blacksmith_skill_state",
 	"dalji_vision_chosik_state",
+	"gaksital_vision_chosik_state",
 	"cheongringwi_vision_chosik_state",
 	"yeonmyo_vision_chosik_state",
 ]

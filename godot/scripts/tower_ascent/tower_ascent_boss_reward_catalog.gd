@@ -9,6 +9,7 @@ const CommonSkillCatalog := preload(
 # must not make a different boss's Vision appear.
 const VISION_UNLOCK_BY_BOSS_SLOT := {
 	"floor_01_dalji": CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID,
+	"floor_01_gaksital": CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID,
 	"floor_02_cheongringwi": CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID,
 	"floor_03_yeonmyo": CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID,
 }

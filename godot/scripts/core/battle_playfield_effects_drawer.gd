@@ -647,6 +647,16 @@ func draw_cheongringwi_vision_chosik_effects(
 		state.draw(canvas, shake_offset)
 
 
+func draw_gaksital_vision_chosik_effects(
+	canvas: CanvasItem,
+	registry: Object,
+	shake_offset: Vector2
+) -> void:
+	var state: Object = _get_cached_instance(registry, "gaksital_vision_chosik_state")
+	if _has_visible_effects(state) and state.has_method("draw"):
+		state.draw(canvas, shake_offset)
+
+
 func draw_yeonmyo_vision_chosik_effects(
 	canvas: CanvasItem,
 	registry: Object,

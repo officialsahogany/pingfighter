@@ -3,6 +3,8 @@ extends RefCounted
 const SMASHER_SKILL_ICON_PATHS := {
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"dalji_vision_chain_top": "res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png",
+	# TEMP placeholder: replace with commissioned Gaksital Vision skill art.
+	"gaksital_vision_fan_throw": "res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png",
 	"cheongringwi_vision_dragon_torrent": "res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png",
 	"yeonmyo_vision_bonghongwe": "res://assets/sprites/skills/yeonmyo_vision_bonghongwe_skill_orb_imagegen_v1.png",
 	"drive": "res://assets/sprites/skills/smasher_drive_skill_orb.png",
@@ -22,6 +24,8 @@ const SMASHER_SKILL_ICON_PATHS := {
 const VIPER_SKILL_ICON_PATHS := {
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"dalji_vision_chain_top": "res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png",
+	# TEMP placeholder: replace with commissioned Gaksital Vision skill art.
+	"gaksital_vision_fan_throw": "res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png",
 	"cheongringwi_vision_dragon_torrent": "res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png",
 	"yeonmyo_vision_bonghongwe": "res://assets/sprites/skills/yeonmyo_vision_bonghongwe_skill_orb_imagegen_v1.png",
 	"shadow_step": "res://assets/sprites/skills/viper_shadow_step_skill_orb.png",
@@ -41,6 +45,8 @@ const VIPER_SKILL_ICON_PATHS := {
 const COMMANDO_SKILL_ICON_PATHS := {
 	"soul_summon_art": "res://assets/sprites/skills/soul_summon_art_skill_orb_imagegen_v1.png",
 	"dalji_vision_chain_top": "res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png",
+	# TEMP placeholder: replace with commissioned Gaksital Vision skill art.
+	"gaksital_vision_fan_throw": "res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png",
 	"cheongringwi_vision_dragon_torrent": "res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png",
 	"yeonmyo_vision_bonghongwe": "res://assets/sprites/skills/yeonmyo_vision_bonghongwe_skill_orb_imagegen_v1.png",
 	"supply_drop": "res://assets/sprites/skills/commando_supply_drop_skill_orb.png",

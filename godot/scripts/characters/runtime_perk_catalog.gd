@@ -1455,6 +1455,9 @@ func get_all_perk_data() -> Dictionary:
 	data[CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
 		CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
 	)
+	data[CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
+	)
 	data[CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID] = CommonSkillCatalog.get_unlock_perk_data(
 		CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
 	)
@@ -1684,6 +1687,12 @@ func get_debug_perk_entries(_character_type: String = "") -> Array:
 	dalji_vision_entry["id"] = CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
 	dalji_vision_entry["debug_group"] = "vision"
 	entries.append(dalji_vision_entry)
+	var gaksital_vision_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data(
+		CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
+	)
+	gaksital_vision_entry["id"] = CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
+	gaksital_vision_entry["debug_group"] = "vision"
+	entries.append(gaksital_vision_entry)
 	var cheongringwi_vision_entry: Dictionary = CommonSkillCatalog.get_unlock_perk_data(
 		CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
 	)

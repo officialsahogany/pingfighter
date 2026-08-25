@@ -221,17 +221,21 @@ func _verify_audio_assets_and_contract() -> void:
 	_expect(whipcrack_stream != null, "Gaksital fan throw should load original whipcrack.wav")
 
 	var state_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_gaksital_fan_throw_skill_state.gd")
-	_expect(state_source.find("play_gaksital_fan") >= 0, "fan throw should call the original fan sound helper")
-	_expect(state_source.find("play_whipcrack") >= 0, "fan throw should call the original whipcrack hit helper")
-	_expect(state_source.find("play_whip(") < 0, "fan throw should not use Dalji whip audio as a stand-in")
-	_expect(state_source.find("play_paddle_hit(") < 0, "fan throw should not use generic paddle-hit audio as a stand-in")
-	_expect(state_source.find("TAU") >= 0 and state_source.find("fan_sound_volume") >= 0, "fan throw should play fan.wav on spin-boundary crossings")
+	var contract_source := FileAccess.get_file_as_string("res://scripts/stages/stage1/stage1_gaksital_fan_projectile_contract.gd")
+	_expect(state_source.find("Stage1GaksitalFanProjectileContract") >= 0, "boss fan throw should consume the shared projectile authority")
+	_expect(contract_source.find("play_gaksital_fan") >= 0, "shared fan authority should call the original fan sound helper")
+	_expect(contract_source.find("play_whipcrack") >= 0, "shared fan authority should call the original whipcrack hit helper")
+	_expect(contract_source.find("play_whip(") < 0, "fan throw should not use Dalji whip audio as a stand-in")
+	_expect(contract_source.find("play_paddle_hit(") < 0, "fan throw should not use generic paddle-hit audio as a stand-in")
+	_expect(contract_source.find("TAU") >= 0 and contract_source.find("fan_sound_volume") >= 0, "shared fan authority should play fan.wav on spin-boundary crossings")
 
 	var fan_spec: Dictionary = Stage1BossSkillAudio.CUE_SPECS["gaksital_fan"]
 	var whipcrack_spec: Dictionary = Stage1BossSkillAudio.CUE_SPECS["whipcrack"]
 	_expect(str(fan_spec.get("path", "")) == FAN_SOUND_PATH, "Stage 1 audio owner should register fan.wav")
 	_expect(str(whipcrack_spec.get("path", "")) == WHIPCRACK_SOUND_PATH, "Stage 1 audio owner should register whipcrack.wav")
 	_expect(Stage1BossSkillAudio.FAN_LAYER_CUE_IDS.size() + 1 == 3, "Stage 1 audio owner should keep a three-layer fan sound pool for enraged throws")
+	var game_audio_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
+	_expect(game_audio_source.find("Stage1BossSkillAudio") >= 0 and game_audio_source.find("_play_gaksital_fan_layer") >= 0, "game_audio should consume the Stage 1 cue catalog and retain pooled playback")
 
 
 func _verify_renderer_attaches_to_viewport_without_transform_error() -> void:

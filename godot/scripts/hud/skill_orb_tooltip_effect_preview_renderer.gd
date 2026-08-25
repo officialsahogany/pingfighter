@@ -46,6 +46,7 @@ const COMMANDO_EFFECT_PREVIEW_TYPES := {
 }
 const VISION_EFFECT_PREVIEW_TYPES := {
 	"dalji_vision_chain_top": true,
+	"gaksital_vision_fan_throw": true,
 	"cheongringwi_vision_dragon_torrent": true,
 	"yeonmyo_vision_bonghongwe": true,
 }
@@ -136,6 +137,8 @@ func _draw_vision_effect_preview(canvas: CanvasItem, rect: Rect2, effect_type: S
 	match effect_type:
 		"dalji_vision_chain_top":
 			_draw_dalji_vision_chain_top_preview(canvas, rect, color)
+		"gaksital_vision_fan_throw":
+			_draw_gaksital_vision_fan_throw_preview(canvas, rect, color)
 		"cheongringwi_vision_dragon_torrent":
 			_draw_cheongringwi_vision_dragon_torrent_preview(canvas, rect, color)
 		"yeonmyo_vision_bonghongwe":
@@ -1085,6 +1088,43 @@ func _draw_dalji_vision_chain_top_preview(canvas: CanvasItem, rect: Rect2, color
 			canvas.draw_circle(capture_center.lerp(boss_center, trail_t), maxf(1.4, 5.0 - float(trail_index) * 0.7), Color(color.r, color.g, color.b, maxf(0.08, 0.38 - float(trail_index) * 0.06)))
 	_draw_preview_ball(canvas, ball_pos, 5.5, [color, Color(0.72, 1.0, 0.94), Color.WHITE])
 	_draw_preview_keycap_row(canvas, Vector2(preview_right - 58.0, preview_bottom - 12.0), ["A", "D", "A"], "arrow", min(2, int(progress * 4.5)), color)
+
+
+func _draw_gaksital_vision_fan_throw_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:
+	var metrics: Dictionary = _preview_metrics(rect)
+	var cycle := float(Time.get_ticks_msec() % 1800) / 1800.0
+	var center_x := float(metrics["center_x"])
+	var top := float(metrics["top"])
+	var bottom := float(metrics["bottom"])
+	var left := float(metrics["left"])
+	var right := float(metrics["right"])
+	var player_center := Vector2(center_x, bottom - 6.0)
+	var boss_center := Vector2(center_x, top + 10.0)
+	canvas.draw_rect(Rect2(boss_center + Vector2(-22.0, -3.0), Vector2(44.0, 6.0)), Color(0.82, 0.18, 0.13, 0.88), true)
+	canvas.draw_rect(Rect2(player_center + Vector2(-24.0, -4.0), Vector2(48.0, 8.0)), Color(color.r, color.g, color.b, 0.74), true)
+	var flight := clampf(cycle / 0.78, 0.0, 1.0)
+	var fan_center := player_center.lerp(boss_center, flight)
+	for trail_index in range(4):
+		var trail_ratio := maxf(0.0, flight - float(trail_index + 1) * 0.08)
+		var trail_pos := player_center.lerp(boss_center, trail_ratio)
+		canvas.draw_circle(trail_pos, maxf(1.2, 4.0 - float(trail_index) * 0.7), Color(color.r, color.g, color.b, 0.30 - float(trail_index) * 0.05))
+	var spin := cycle * TAU * 7.0
+	var hub := fan_center + Vector2.from_angle(spin) * 2.0
+	var fan_points := PackedVector2Array([hub])
+	for point_index in range(8):
+		var angle := spin + lerpf(-0.82, 0.82, float(point_index) / 7.0)
+		fan_points.append(hub + Vector2.from_angle(angle) * 12.0)
+	canvas.draw_colored_polygon(fan_points, Color(1.0, 0.82, 0.34, 0.94))
+	canvas.draw_arc(hub, 12.0, spin - 0.82, spin + 0.82, 14, Color.WHITE, 1.4, true)
+	if cycle >= 0.72:
+		var impact := clampf((cycle - 0.72) / 0.28, 0.0, 1.0)
+		canvas.draw_arc(boss_center, 12.0 + impact * 16.0, 0.0, TAU, 24, Color(1.0, 0.78, 0.28, 0.75 * (1.0 - impact)), 2.0, true)
+		for star_index in range(3):
+			var star_angle := -PI * 0.85 + float(star_index) * PI * 0.35
+			var star_pos := boss_center + Vector2.from_angle(star_angle) * 22.0
+			canvas.draw_circle(star_pos, 2.5, Color(1.0, 0.92, 0.38, 0.90))
+	_draw_preview_keycap_row(canvas, Vector2(right - 52.0, bottom - 12.0), ["RMB"], "plus", 0, color)
+	canvas.draw_line(Vector2(left + 10.0, bottom - 2.0), Vector2(right - 10.0, bottom - 2.0), Color(color.r, color.g, color.b, 0.14), 1.0)
 
 
 func _draw_cheongringwi_vision_dragon_torrent_preview(canvas: CanvasItem, rect: Rect2, color: Color) -> void:

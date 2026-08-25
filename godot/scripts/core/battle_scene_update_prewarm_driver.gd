@@ -315,7 +315,7 @@ func _perf_end(perf_logger: Object, label: String, start_usec: int) -> void:
 
 
 func _prewarm_instance_assets_step(key: String, instance: Object) -> bool:
-	if key not in ["smasher_cleanse_state", "cheongringwi_vision_chosik_state"]:
+	if key not in ["smasher_cleanse_state", "gaksital_vision_chosik_state", "cheongringwi_vision_chosik_state"]:
 		return true
 	if instance == null or not instance.has_method("prewarm_assets_step"):
 		return true

@@ -1,5 +1,9 @@
 extends RefCounted
 
+const VisionInputExclusivePolicy := preload(
+	"res://scripts/characters/vision_input_exclusive_policy.gd"
+)
+
 const SMASHER_OVERDRIVE_KEY := "smasher_overdrive_state"
 const SMASHER_DASH_KEY := "smasher_dash_state"
 const VIPER_RUNTIME_KEY := "viper_skill_runtime"
@@ -9,6 +13,8 @@ func is_right_click_claimed_by_player_skill(
 	owner: Object,
 	registry: Object
 ) -> bool:
+	if VisionInputExclusivePolicy.is_active_for_owner(owner, registry):
+		return true
 	var overdrive_state := _get_cached_instance(registry, SMASHER_OVERDRIVE_KEY)
 	if overdrive_state != null:
 		if overdrive_state.has_method("is_active") and bool(overdrive_state.is_active()):

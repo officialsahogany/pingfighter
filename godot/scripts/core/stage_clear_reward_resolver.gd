@@ -516,7 +516,7 @@ func _grant_starpoint_reward(reward: Dictionary, owner: Object, registry: Object
 		return false
 	if not runtime_perk_state.has_method("collect_star_points"):
 		return false
-	var reserved_perk_offer_id := str(reward.get("reserved_perk_offer_id", ""))
+	var reserved_perk_offer_id := str(reward.get("reserved_perk_offer_id", "")).strip_edges()
 	if reserved_perk_offer_id != "":
 		if not runtime_perk_catalog.has_method("reserve_boss_vision_offer"):
 			return false

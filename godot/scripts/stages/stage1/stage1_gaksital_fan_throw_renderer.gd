@@ -18,18 +18,37 @@ func draw(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2 = Vecto
 	# Flat sequence on purpose: fan_wind / hit-effect visibility must NEVER
 	# depend on the fan projectile list being non-empty (fan_wind runs with
 	# zero fans in flight).
-	_draw_fans(canvas, context, shake_offset)
+	var fans_value: Variant = context.get("stage1_fan_throw_fans", [])
+	var fans: Array = fans_value if fans_value is Array else []
+	draw_projectiles(
+		canvas,
+		fans,
+		context.get("boss_fan_projectile_texture", null),
+		shake_offset
+	)
 	_draw_fan_wind(canvas, context, shake_offset)
 	_draw_hit_effect(canvas, context, shake_offset)
 
 
-func _draw_fans(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
-	var fans: Array = context.get("stage1_fan_throw_fans", []) if context.get("stage1_fan_throw_fans", []) is Array else []
-	var texture: Variant = context.get("boss_fan_projectile_texture", null)
+func draw_projectiles(
+	canvas: CanvasItem,
+	fans: Array,
+	texture: Variant,
+	shake_offset: Vector2 = Vector2.ZERO
+) -> void:
 	for fan_value in fans:
 		if not (fan_value is Dictionary):
 			continue
 		_draw_fan(canvas, fan_value as Dictionary, texture, shake_offset)
+
+
+func draw_shared_hit_effect(
+	canvas: CanvasItem,
+	timer: float,
+	pos: Vector2,
+	shake_offset: Vector2 = Vector2.ZERO
+) -> void:
+	_draw_hit_effect_values(canvas, timer, pos, shake_offset)
 
 
 func _draw_fan(canvas: CanvasItem, fan: Dictionary, texture: Variant, shake_offset: Vector2) -> void:
@@ -100,12 +119,23 @@ func _draw_fallback_fan(canvas: CanvasItem, center: Vector2, draw_size: Vector2,
 
 func _draw_hit_effect(canvas: CanvasItem, context: Dictionary, shake_offset: Vector2) -> void:
 	var timer: float = max(0.0, float(context.get("stage1_fan_throw_hit_effect_timer", 0.0)))
-	if timer <= 0.0:
-		return
 	var pos: Vector2 = Stage1ContextReader.as_vector2(
 		context.get("stage1_fan_throw_hit_effect_pos", Vector2.ZERO),
 		Vector2.ZERO
-	) + shake_offset
+	)
+	_draw_hit_effect_values(canvas, timer, pos, shake_offset)
+
+
+func _draw_hit_effect_values(
+	canvas: CanvasItem,
+	timer: float,
+	pos: Vector2,
+	shake_offset: Vector2
+) -> void:
+	timer = maxf(0.0, timer)
+	if timer <= 0.0:
+		return
+	pos += shake_offset
 	var ratio: float = clamp(timer / HIT_EFFECT_MAX_FRAMES, 0.0, 1.0)
 	var outward: float = 1.0 - ratio
 	var radius: float = 14.0 + outward * 28.0

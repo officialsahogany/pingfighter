@@ -95,6 +95,7 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"combo_state": _get_instance(registry, combo_key) if combo_key != "" else null,
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"dalji_vision_chosik_state": _get_instance(registry, "dalji_vision_chosik_state"),
+		"gaksital_vision_chosik_state": _get_instance(registry, "gaksital_vision_chosik_state"),
 		"cheongringwi_vision_chosik_state": _get_instance(registry, "cheongringwi_vision_chosik_state"),
 		"yeonmyo_vision_chosik_state": _get_instance(registry, "yeonmyo_vision_chosik_state"),
 		"boss_ai_state": _get_instance(registry, "boss_ai_state"),

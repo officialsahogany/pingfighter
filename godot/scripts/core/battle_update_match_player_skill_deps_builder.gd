@@ -81,6 +81,7 @@ func build_deps(registry: Object, character_type: String = "") -> Dictionary:
 		"commando_reload_delivery_state": _get_instance(registry, "commando_reload_delivery_state"),
 		"runtime_perk_state": _get_instance(registry, "runtime_perk_state"),
 		"dalji_vision_chosik_state": _get_instance(registry, "dalji_vision_chosik_state"),
+		"gaksital_vision_chosik_state": _get_instance(registry, "gaksital_vision_chosik_state"),
 		"cheongringwi_vision_chosik_state": _get_instance(registry, "cheongringwi_vision_chosik_state"),
 		"yeonmyo_vision_chosik_state": _get_instance(registry, "yeonmyo_vision_chosik_state"),
 		"optimus_energy_state": _get_instance(registry, "optimus_energy_state") if include_optimus else null,

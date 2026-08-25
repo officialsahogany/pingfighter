@@ -11,6 +11,12 @@ const DALJI_VISION_CHAIN_TOP_ID := "dalji_vision_chain_top"
 const DALJI_VISION_CHAIN_TOP_ICON: Texture2D = preload(
 	"res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png"
 )
+const GAKSITAL_VISION_FAN_THROW_ID := "gaksital_vision_fan_throw"
+# TEMP placeholder: this directly reuses the boss projectile until dedicated
+# Gaksital Vision skill/manual icon art is commissioned.
+const GAKSITAL_VISION_FAN_THROW_ICON: Texture2D = preload(
+	"res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png"
+)
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_ID := "cheongringwi_vision_dragon_torrent"
 const CHEONGRINGWI_VISION_DRAGON_TORRENT_ICON: Texture2D = preload(
 	"res://assets/sprites/skills/cheongringwi_vision_earth_vein_quake_skill_orb_imagegen_v1.png"
@@ -129,6 +135,8 @@ func _resolve_skill_icon_texture(skill_name: String, skill_icons: Dictionary) ->
 		return SOUL_SUMMON_ART_ICON
 	if skill_name == DALJI_VISION_CHAIN_TOP_ID:
 		return DALJI_VISION_CHAIN_TOP_ICON
+	if skill_name == GAKSITAL_VISION_FAN_THROW_ID:
+		return GAKSITAL_VISION_FAN_THROW_ICON
 	if skill_name == CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
 		return CHEONGRINGWI_VISION_DRAGON_TORRENT_ICON
 	if skill_name == YEONMYO_VISION_BONGHONGWE_ID:

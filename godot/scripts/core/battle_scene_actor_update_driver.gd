@@ -5,12 +5,17 @@ const BattleSceneActorUpdateResultApplier := preload("res://scripts/core/battle_
 const BattleScenePlayerControlConfigBuilder := preload("res://scripts/core/battle_scene_player_control_config_builder.gd")
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const VisionInputExclusivePolicy := preload("res://scripts/characters/vision_input_exclusive_policy.gd")
 const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var _fallback_result_applier: Object = BattleSceneActorUpdateResultApplier.new()
 var _fallback_config_builder: Object = BattleScenePlayerControlConfigBuilder.new()
 var _vision_modifier_input_proxy: Object = VisionModifierInputProxy.new()
+var _vision_input_frame_key := -1
+var _vision_input_owner_id := 0
+var _vision_input_frame: Dictionary = {}
+var _vision_proxy_enabled := true
 
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
@@ -42,6 +47,10 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			"skill_id": CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID,
 		},
 		{
+			"state": player_control_deps.get("gaksital_vision_chosik_state", null),
+			"skill_id": CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID,
+		},
+		{
 			"state": player_control_deps.get("cheongringwi_vision_chosik_state", null),
 			"skill_id": CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID,
 		},
@@ -53,25 +62,14 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	var vision_special_gauge_override := -1.0
 	var vision_movement_locked := false
 	var vision_activated := false
-	var input_snapshot: Dictionary = {}
 	var input_reader: Object = player_control_deps.get("input_reader", null)
-	if input_reader != null and input_reader.has_method("get_snapshot"):
-		var snapshot_value: Variant = input_reader.get_snapshot()
-		if snapshot_value is Dictionary:
-			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
-	var modifier_pressed := Input.is_action_pressed("vision_modifier")
 	var skill_config: Object = player_control_deps.get("skill_config", null)
-	var any_vision_equipped := false
+	var vision_input_frame := prepare_vision_input_frame(owner, registry, input_reader, skill_config)
+	var input_snapshot: Dictionary = _get_dictionary(vision_input_frame, "raw_snapshot")
+	var modifier_pressed := bool(vision_input_frame.get("modifier_pressed", false))
+	var vision_input_exclusive := bool(vision_input_frame.get("exclusive_active", false))
 	for entry: Dictionary in vision_entries:
 		var vision_state: Object = entry.get("state", null)
-		var vision_skill_id: String = str(entry.get("skill_id", ""))
-		if (
-			modifier_pressed
-			and skill_config != null
-			and skill_config.has_method("is_skill_equipped")
-			and bool(skill_config.is_skill_equipped(vision_skill_id))
-		):
-			any_vision_equipped = true
 		if vision_state == null or not vision_state.has_method("update"):
 			continue
 		var vision_result: Dictionary = vision_state.update(
@@ -89,8 +87,14 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			vision_activated = true
 		if vision_state.has_method("is_movement_locked") and bool(vision_state.is_movement_locked()):
 			vision_movement_locked = true
-	if modifier_pressed and any_vision_equipped:
-		player_control_deps["input_reader"] = _vision_modifier_input_proxy.configure(input_reader)
+	if bool(vision_input_frame.get("combat_input_filtered", false)):
+		var shared_vision_input_reader: Object = vision_input_frame.get("input_reader", input_reader)
+		player_control_deps["input_reader"] = shared_vision_input_reader
+		# The dash lane normally bypasses character-skill locks through a sibling
+		# reader. While Vision owns or drains combat input, both controller reads
+		# must use the canonical frame snapshot instead of polling raw again.
+		player_control_deps["dash_input_reader"] = shared_vision_input_reader
+	if vision_input_exclusive:
 		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
 	var result: Dictionary = controller.update(
@@ -114,6 +118,83 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	_get_result_applier(registry).apply_player_result(owner, registry, result)
 	_perf_end(perf_logger, "physics.player_control.apply", sample_start)
 	_perf_end(perf_logger, "physics.player_control.total", total_start)
+
+
+func prepare_vision_input_frame(
+	owner: Object,
+	registry: Object,
+	input_reader: Object = null,
+	skill_config: Object = null
+) -> Dictionary:
+	if owner == null or registry == null:
+		return {
+			"raw_snapshot": {},
+			"input_reader": input_reader,
+			"modifier_pressed": false,
+			"exclusive_active": false,
+		}
+	var frame_key := int(Engine.get_physics_frames())
+	var owner_id := owner.get_instance_id()
+	if (
+		frame_key == _vision_input_frame_key
+		and owner_id == _vision_input_owner_id
+		and not _vision_input_frame.is_empty()
+	):
+		return _vision_input_frame.duplicate()
+	var canonical_input_reader: Object = _get_character_input_reader(owner, registry)
+	if canonical_input_reader == null:
+		canonical_input_reader = input_reader
+	if skill_config == null:
+		skill_config = _get_character_skill_config(owner, registry)
+
+	# GRT-019: every gameplay input consumer for this physics frame shares this
+	# one canonical reader sample and this one stateful proxy. Mythic runtimes
+	# pass the raw reader before player control passes its status proxy, while
+	# ball/paddle consumers pass raw afterward. Caller identity cannot split the
+	# frame cache or poll the canonical reader a second time.
+	var input_snapshot: Dictionary = {}
+	if canonical_input_reader != null and canonical_input_reader.has_method("get_snapshot"):
+		var snapshot_value: Variant = canonical_input_reader.get_snapshot()
+		if snapshot_value is Dictionary:
+			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
+	var modifier_pressed := Input.is_action_pressed("vision_modifier")
+	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
+	_vision_modifier_input_proxy.configure_snapshot(
+		canonical_input_reader,
+		input_snapshot,
+		vision_input_exclusive
+	)
+	_vision_input_frame_key = frame_key
+	_vision_input_owner_id = owner_id
+	_vision_input_frame = {
+		"raw_snapshot": input_snapshot,
+		"input_reader": _vision_modifier_input_proxy if _vision_proxy_enabled else canonical_input_reader,
+		"modifier_pressed": modifier_pressed,
+		"exclusive_active": vision_input_exclusive,
+		"combat_input_filtered": _vision_modifier_input_proxy.should_filter_current_snapshot(),
+	}
+	return _vision_input_frame.duplicate()
+
+
+func set_vision_proxy_enabled_for_test(enabled: bool) -> void:
+	_vision_proxy_enabled = enabled
+	_vision_input_frame.clear()
+
+
+func reset_vision_input_frame_cache_for_test() -> void:
+	_vision_input_frame.clear()
+
+
+func get_vision_aware_input_reader(
+	owner: Object,
+	registry: Object,
+	input_reader: Object = null,
+	skill_config: Object = null
+) -> Object:
+	return prepare_vision_input_frame(owner, registry, input_reader, skill_config).get(
+		"input_reader",
+		input_reader
+	)
 
 
 func update_boss_ai(owner: Object, registry: Object, delta: float) -> void:
@@ -186,6 +267,25 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_character_input_reader(owner: Object, registry: Object) -> Object:
+	var character_type: String = character_runtime.normalize(
+		_get_owner_value(owner, "selected_character_type", "smasher")
+	)
+	return _get_instance(registry, character_runtime.get_input_reader_key(character_type))
+
+
+func _get_character_skill_config(owner: Object, registry: Object) -> Object:
+	var character_type: String = character_runtime.normalize(
+		_get_owner_value(owner, "selected_character_type", "smasher")
+	)
+	return _get_instance(registry, character_runtime.get_skill_config_key(character_type))
+
+
+func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
+	var value: Variant = source.get(key, {})
+	return value.duplicate(true) if value is Dictionary else {}
 
 
 func _get_result_applier(registry: Object) -> Object:
