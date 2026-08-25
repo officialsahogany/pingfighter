@@ -24,7 +24,6 @@ const TowerRewardPickLocalization := preload(
 
 const OFFER_VERSION := "tower_reward_pick_v1"
 const CARD_COUNT := 4
-const TEMP_TRAINING_COST := 1
 const TEMP_MUGONG_COST := 2
 const TEMP_DASH_AMPLIFICATION_COST := 3
 const TEMP_FUSION_COST := 3
@@ -91,11 +90,14 @@ func build_offer(
 		var cost := resolve_basic_reward_pick_cost(basic)
 		_append_choice(choices, seen, basic, cost, kind)
 
-	if choices.size() != CARD_COUNT:
+	# Late runs can exhaust ordinary Mugong while retaining only Fusion or another
+	# protected lane. A smaller non-empty board is safer than dropping the entire
+	# reward phase because the four-card target cannot be filled.
+	if choices.is_empty():
 		return {
 			"accepted": false,
 			"reason": "insufficient_reward_pick_stock",
-			"available_count": choices.size(),
+			"available_count": 0,
 		}
 	for index in range(choices.size()):
 		choices[index]["reward_pick_slot_index"] = index
@@ -109,14 +111,15 @@ func build_offer(
 		"supreme_roll_performed": supreme_rolled,
 		"supreme_roll": supreme_roll,
 		"supreme_chance": supreme_chance,
+		"requested_card_count": CARD_COUNT,
+		"actual_card_count": choices.size(),
+		"card_count_policy": "fixed" if choices.size() == CARD_COUNT else "available_stock",
 		"choices": choices,
 	}
 
 
 static func resolve_basic_reward_pick_cost(choice: Dictionary) -> int:
 	var kind := str(choice.get("reward_pick_kind", "mugong"))
-	if kind == "training":
-		return TEMP_TRAINING_COST
 	if kind == "fusion":
 		return TEMP_FUSION_COST
 	if str(choice.get("id", choice.get("perk_id", ""))) == "dash_amplification":
@@ -228,11 +231,6 @@ func _build_basic_pool(
 	)
 	var result: Array[Dictionary] = []
 	if bool(generated.get("accepted", false)):
-		for value in generated.get("stat_choices", []):
-			if value is Dictionary:
-				var training := (value as Dictionary).duplicate(true)
-				training["reward_pick_kind"] = "training"
-				result.append(training)
 		for value in generated.get("mugong_choices", []):
 			if value is Dictionary:
 				var mugong := (value as Dictionary).duplicate(true)

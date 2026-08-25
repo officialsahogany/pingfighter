@@ -191,6 +191,14 @@ func _capture_offer(
 	output_dir: String,
 	capture_empty_after_purchase: bool = false
 ) -> bool:
+	for choice in choices:
+		if (
+			str(choice.get("reward_pick_kind", "")) == "training"
+			or bool(choice.get("is_physique_training", false))
+		):
+			push_error("reward-pick visual fixture must not contain training cards")
+			quit(1)
+			return false
 	var flow := CaptureFlowOwner.new()
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var icon_renderer := RuntimePerkIconRenderer.new()
@@ -282,14 +290,7 @@ func _capture_offer(
 func _build_general_choices() -> Array[Dictionary]:
 	var catalog := RuntimePerkCatalog.new()
 	return [
-		_finalize_choice({
-			"id": "physique_power_training",
-			"name": "완력 수련",
-			"description": "공격력 +4%",
-			"detail": "반복 수련으로 기본 공격력을 강화합니다.",
-			"is_physique_training": true,
-			"icon_color": Color(0.72, 0.34, 0.20),
-		}, "training", 1),
+		_finalize_choice(catalog.get_perk_data("common_bulk_up"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("common_swiftness"), "mugong", 2),
 		_finalize_choice({
 			"id": "perk_fusion",
@@ -313,14 +314,7 @@ func _build_vision_choices() -> Array[Dictionary]:
 	]
 	return [
 		_finalize_choice(vision, "vision", 3),
-		_finalize_choice({
-			"id": "physique_guard_training",
-			"name": "호신 수련",
-			"description": "받는 피해 -3%",
-			"detail": "반복 수련으로 방어 능력을 강화합니다.",
-			"is_physique_training": true,
-			"icon_color": Color(0.32, 0.52, 0.66),
-		}, "training", 1),
+		_finalize_choice(catalog.get_perk_data("common_bulk_up"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("common_swiftness"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("megingjord"), "supreme", 5),
 	]
