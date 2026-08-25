@@ -32,6 +32,9 @@ const TowerAscentRouteWindPolicy := preload(
 const TowerAscentRoutePickupState := preload(
 	"res://scripts/tower_ascent/tower_ascent_route_pickup_state.gd"
 )
+const TowerAscentRouteServeRuntime := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_serve_runtime.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -710,24 +713,24 @@ func _run() -> void:
 			owner.free()
 			return
 
-	# Live compensated shot: restore the actual entry roll, observe it, wait for
-	# the desired physical angle, and let the production route runtime resolve
-	# the target. No debug_serve helper participates in this leg.
+	# Live compensated shot: restore the actual entry roll, derive a reachable
+	# angle with an isolated trajectory probe, then wait for that angle on the
+	# real oscillating gauge. The actual shot still launches only through the
+	# production input edge and route runtime; no debug helper mutates live flow.
 	_set_runtime_wind(route_runtime, actual_entry_wind, 0.0)
 	input_reader.snapshot["mouse_left_just_pressed"] = false
 	flow.update_selective(TowerAscentTuning.TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS)
 	var desired_target: Dictionary = targets[LIVE_TARGET_INDEX]
 	var desired_target_id := str(desired_target.get("id", ""))
-	var desired_position: Vector2 = desired_target.get("position", Vector2.ZERO)
-	var ball_origin := BattleSceneOwnerReader.get_vector2(
-		owner,
-		"ball_pos",
-		Vector2(380.0, 665.0)
+	var desired_angle := _first_hitting_angle(
+		actual_entry_wind,
+		targets,
+		desired_target_id
 	)
-	var desired_angle := rad_to_deg(atan2(
-		desired_position.x - ball_origin.x,
-		ball_origin.y - desired_position.y
-	))
+	if is_nan(desired_angle):
+		_fail("live compensated shot could not find a reachable production angle")
+		owner.free()
+		return
 	var angle_matched := false
 	for _frame in range(960):
 		var gauge_model: Dictionary = flow.get_route_aim_gauge_model()
@@ -849,6 +852,43 @@ func _set_runtime_wind(runtime: Object, model: Dictionary, elapsed: float) -> vo
 		visual_state.update_presentation_wind(1.0 / 60.0)
 	runtime.set("_aim_elapsed_seconds", elapsed)
 	runtime.call("_update_aim_oscillator", 0.0)
+
+
+func _first_hitting_angle(
+	wind_model: Dictionary,
+	targets: Array[Dictionary],
+	target_id: String
+) -> float:
+	var bounds_runtime := TowerAscentRouteServeRuntime.new()
+	bounds_runtime.begin(null, null, wind_model)
+	var gauge_model: Dictionary = bounds_runtime.get_aim_gauge_model()
+	var angle := float(gauge_model.get("min_degrees", -55.0))
+	var maximum_angle := float(gauge_model.get("max_degrees", 55.0))
+	bounds_runtime.cancel()
+	while angle <= maximum_angle:
+		var probe_runtime := TowerAscentRouteServeRuntime.new()
+		probe_runtime.begin(null, null, wind_model)
+		var direction := Vector2(
+			sin(deg_to_rad(angle)),
+			-cos(deg_to_rad(angle))
+		)
+		probe_runtime.debug_serve_toward(
+			TowerAscentTuning.TEMP_ROUTE_PICKUP_ROUTE_ORIGIN + direction * 120.0
+		)
+		for _frame in range(LIVE_FLIGHT_LIMIT):
+			var outcome: Dictionary = probe_runtime.update(1.0 / 60.0, targets)
+			var status := str(outcome.get("status", ""))
+			if status == TowerAscentRouteServeRuntime.STATUS_HIT:
+				var hit_target_id := str(outcome.get("target_id", ""))
+				probe_runtime.cancel()
+				if hit_target_id == target_id:
+					return angle
+				break
+			if status == TowerAscentRouteServeRuntime.STATUS_MISS:
+				break
+		probe_runtime.cancel()
+		angle += 0.5
+	return NAN
 
 
 func _first_pickup_of_kind(pickups: Array[Dictionary], kind: String) -> Dictionary:

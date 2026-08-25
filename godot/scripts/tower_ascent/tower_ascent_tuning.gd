@@ -71,14 +71,12 @@ const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 # 피드백2 6항 (2026-08-23): the 2026-08-21 "bias-only, no in-flight force"
 # ruling is reversed by the user's follow-up feedback. Wind now applies a
 # lateral acceleration to the route ball per physics frame (x delta x 60
-# convention), scaled by strength level 1..3. At the user-directed serve speed
-# 411 the full flight drifts roughly 28/57/86px for strengths 1/2/3, versus the
-# 49px target hit radius, so strength still must be aimed against. Feedback 3
-# candidates 0.014, 0.012, and 0.010 failed the full two-target reachability
-# sweep; 0.009 remains the highest adopted GREEN value and is remeasured at
-# 411. Battle weather owns its own constants (weather_event_state.gd); never
-# share them here.
-const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.009
+# convention), scaled by strength level 1..3. Feedback 5 Q6 (2026-08-25)
+# reswept 0.014, 0.012, 0.010, and 0.009 at the live 411px/s serve speed; all
+# four preserved full two-target reachability, so 0.014 is the highest
+# enumerated GREEN candidate. Battle weather owns its own constants
+# (weather_event_state.gd); never share them here.
+const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.014
 const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
 const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
 const TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE := Vector2(12.0, 7.0)

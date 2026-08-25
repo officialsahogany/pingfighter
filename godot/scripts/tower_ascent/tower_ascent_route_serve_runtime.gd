@@ -136,11 +136,15 @@ func update(
 ) -> Dictionary:
 	if not _active:
 		return {"status": STATUS_WAITING}
-	_wind_visual_state.update_presentation_wind(maxf(0.0, delta))
+	var safe_delta := maxf(0.0, delta)
+	# ROUTE_AIM exits the physics frame before battle_effects_update_controller,
+	# the normal GameAudio cooldown owner, can run. Tick it here only while this
+	# route owner is active; combat/open-gate frames never enter this method.
+	_update_route_audio_maintenance(safe_delta)
+	_wind_visual_state.update_presentation_wind(safe_delta)
 	if _fixture_mode:
 		return _update_fixture_flight(delta, targets, pickups)
 	var input_snapshot := _read_player_input_snapshot()
-	var safe_delta := maxf(0.0, delta)
 	var serve_input_armed := _serve_arm_remaining <= 0.0
 	_serve_arm_remaining = maxf(0.0, _serve_arm_remaining - safe_delta)
 	_update_player_route_movement(safe_delta, input_snapshot)
@@ -592,6 +596,11 @@ func _normalize_route_bounce_velocity(velocity: Vector2) -> Vector2:
 	return velocity.normalized() * (
 		TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND / 60.0
 	)
+
+
+func _update_route_audio_maintenance(delta: float) -> void:
+	if _game_audio != null and _game_audio.has_method("update"):
+		_game_audio.update(delta)
 
 
 func _play_route_wall_hit(impact_speed: float, source_x: float) -> void:
