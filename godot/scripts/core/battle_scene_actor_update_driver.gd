@@ -14,7 +14,6 @@ var _fallback_config_builder: Object = BattleScenePlayerControlConfigBuilder.new
 var _vision_modifier_input_proxy: Object = VisionModifierInputProxy.new()
 var _vision_input_frame_key := -1
 var _vision_input_owner_id := 0
-var _vision_input_reader_id := 0
 var _vision_input_frame: Dictionary = {}
 var _vision_proxy_enabled := true
 
@@ -88,7 +87,13 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			vision_activated = true
 		if vision_state.has_method("is_movement_locked") and bool(vision_state.is_movement_locked()):
 			vision_movement_locked = true
-	player_control_deps["input_reader"] = vision_input_frame.get("input_reader", input_reader)
+	if bool(vision_input_frame.get("combat_input_filtered", false)):
+		var shared_vision_input_reader: Object = vision_input_frame.get("input_reader", input_reader)
+		player_control_deps["input_reader"] = shared_vision_input_reader
+		# The dash lane normally bypasses character-skill locks through a sibling
+		# reader. While Vision owns or drains combat input, both controller reads
+		# must use the canonical frame snapshot instead of polling raw again.
+		player_control_deps["dash_input_reader"] = shared_vision_input_reader
 	if vision_input_exclusive:
 		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
@@ -128,47 +133,55 @@ func prepare_vision_input_frame(
 			"modifier_pressed": false,
 			"exclusive_active": false,
 		}
-	if input_reader == null:
-		input_reader = _get_character_input_reader(owner, registry)
-	if skill_config == null:
-		skill_config = _get_character_skill_config(owner, registry)
 	var frame_key := int(Engine.get_physics_frames())
 	var owner_id := owner.get_instance_id()
-	var reader_id := input_reader.get_instance_id() if input_reader != null else 0
 	if (
 		frame_key == _vision_input_frame_key
 		and owner_id == _vision_input_owner_id
-		and reader_id == _vision_input_reader_id
 		and not _vision_input_frame.is_empty()
 	):
 		return _vision_input_frame.duplicate()
+	var canonical_input_reader: Object = _get_character_input_reader(owner, registry)
+	if canonical_input_reader == null:
+		canonical_input_reader = input_reader
+	if skill_config == null:
+		skill_config = _get_character_skill_config(owner, registry)
 
 	# GRT-019: every gameplay input consumer for this physics frame shares this
-	# one sample and this one stateful proxy. Mythic runtimes run before player
-	# control, while ball/paddle consumers run after it; none may poll the raw
-	# reader a second time or allocate a sibling proxy.
+	# one canonical reader sample and this one stateful proxy. Mythic runtimes
+	# pass the raw reader before player control passes its status proxy, while
+	# ball/paddle consumers pass raw afterward. Caller identity cannot split the
+	# frame cache or poll the canonical reader a second time.
 	var input_snapshot: Dictionary = {}
-	if input_reader != null and input_reader.has_method("get_snapshot"):
-		var snapshot_value: Variant = input_reader.get_snapshot()
+	if canonical_input_reader != null and canonical_input_reader.has_method("get_snapshot"):
+		var snapshot_value: Variant = canonical_input_reader.get_snapshot()
 		if snapshot_value is Dictionary:
 			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
 	var modifier_pressed := Input.is_action_pressed("vision_modifier")
 	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
-	_vision_modifier_input_proxy.configure_snapshot(input_reader, input_snapshot, vision_input_exclusive)
+	_vision_modifier_input_proxy.configure_snapshot(
+		canonical_input_reader,
+		input_snapshot,
+		vision_input_exclusive
+	)
 	_vision_input_frame_key = frame_key
 	_vision_input_owner_id = owner_id
-	_vision_input_reader_id = reader_id
 	_vision_input_frame = {
 		"raw_snapshot": input_snapshot,
-		"input_reader": _vision_modifier_input_proxy if _vision_proxy_enabled else input_reader,
+		"input_reader": _vision_modifier_input_proxy if _vision_proxy_enabled else canonical_input_reader,
 		"modifier_pressed": modifier_pressed,
 		"exclusive_active": vision_input_exclusive,
+		"combat_input_filtered": _vision_modifier_input_proxy.should_filter_current_snapshot(),
 	}
 	return _vision_input_frame.duplicate()
 
 
 func set_vision_proxy_enabled_for_test(enabled: bool) -> void:
 	_vision_proxy_enabled = enabled
+	_vision_input_frame.clear()
+
+
+func reset_vision_input_frame_cache_for_test() -> void:
 	_vision_input_frame.clear()
 
 

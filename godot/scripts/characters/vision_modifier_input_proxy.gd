@@ -80,6 +80,9 @@ func _build_filtered_snapshot() -> Dictionary:
 		_current_snapshot_filtered = true
 		drained_channels[channel] = true
 		filtered[channel] = false
+		# configure_snapshot() is owned by the actor driver's one canonical
+		# frame sample. Only that raw sample may prove a physical release and
+		# clear the cross-frame discard latch.
 		if not raw_pressed:
 			_suppressed_until_release.erase(channel)
 	for edge_channel: String in EDGE_CHANNEL_OWNERS:
@@ -101,6 +104,10 @@ func should_filter_current_snapshot() -> bool:
 
 
 func suppress_primary_pointer_until_release() -> void:
+	# The configured frame snapshot is intentionally immutable. Forwarding the
+	# request updates the raw Viper reader for the next frame; it does not rebuild
+	# this proxy mid-frame. No live production consumer performs a second read
+	# that depends on same-frame recomputation.
 	if _input_reader != null and _input_reader.has_method("suppress_primary_pointer_until_release"):
 		_input_reader.suppress_primary_pointer_until_release()
 

@@ -20,15 +20,18 @@ const MythicItemOdinsEyeRuntime := preload("res://scripts/items/mythic_item_odin
 const SmasherOverdriveState := preload("res://scripts/characters/smasher_overdrive_state.gd")
 const SmasherPowerSmashActivationController := preload("res://scripts/characters/smasher_power_smash_activation_controller.gd")
 const SmasherVoidPhantomState := preload("res://scripts/characters/smasher_void_phantom_state.gd")
+const Stage3CurseControlInputProxy := preload("res://scripts/stages/stage3/stage3_curse_control_input_proxy.gd")
 const ViperWallLeapTestSupport := preload("res://tests/wall_leap_test_support.gd")
 const VisionInputExclusivePolicy := preload("res://scripts/characters/vision_input_exclusive_policy.gd")
 const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
 const YeonmyoVisionChosikState := preload("res://scripts/characters/yeonmyo_vision_chosik_state.gd")
 
 const DISCARD_LATCH_FIXTURE_ENV := "GAKSITAL_VISION_DISCARD_LATCH_FIXTURE"
+const READER_SPLIT_FIXTURE_ENV := "GAKSITAL_VISION_READER_SPLIT_FIXTURE"
 const SHARED_PROXY_FIXTURE_ENV := "GAKSITAL_VISION_SHARED_PROXY_FIXTURE"
 
 var _failures: Array[String] = []
+var _observed_split_raw_reader_calls := -1
 
 
 class FakeInputReader:
@@ -40,6 +43,50 @@ class FakeInputReader:
 	func get_snapshot() -> Dictionary:
 		calls += 1
 		return snapshot.duplicate(true)
+
+
+class FakeStunStatus:
+	extends RefCounted
+
+	func is_player_stun_active() -> bool:
+		return true
+
+
+class LegacyReaderScopedVisionFrame:
+	extends RefCounted
+
+	var proxy: Object = VisionModifierInputProxy.new()
+	var cached_frame_key := -1
+	var cached_owner_id := 0
+	var cached_reader_id := 0
+	var cached_frame: Dictionary = {}
+
+	func prepare(
+		frame_key: int,
+		owner: Object,
+		input_reader: Object,
+		exclusive_active: bool
+	) -> Dictionary:
+		var owner_id := owner.get_instance_id()
+		var reader_id := input_reader.get_instance_id() if input_reader != null else 0
+		if (
+			frame_key == cached_frame_key
+			and owner_id == cached_owner_id
+			and reader_id == cached_reader_id
+			and not cached_frame.is_empty()
+		):
+			return cached_frame.duplicate()
+		var snapshot: Dictionary = {}
+		if input_reader != null and input_reader.has_method("get_snapshot"):
+			var value: Variant = input_reader.get_snapshot()
+			if value is Dictionary:
+				snapshot = (value as Dictionary).duplicate(true)
+		proxy.configure_snapshot(input_reader, snapshot, exclusive_active)
+		cached_frame_key = frame_key
+		cached_owner_id = owner_id
+		cached_reader_id = reader_id
+		cached_frame = {"input_reader": proxy, "raw_snapshot": snapshot}
+		return cached_frame.duplicate()
 
 
 class FakeSkillConfig:
@@ -110,6 +157,7 @@ class FakeController:
 
 	var calls := 0
 	var snapshot: Dictionary = {}
+	var dash_snapshot: Dictionary = {}
 
 	func update(
 		_delta: float,
@@ -120,7 +168,13 @@ class FakeController:
 		deps: Dictionary
 	) -> Dictionary:
 		calls += 1
-		snapshot = deps.get("input_reader", null).get_snapshot()
+		var input_reader: Object = deps.get("input_reader", null)
+		snapshot = input_reader.get_snapshot()
+		var dash_input_reader: Object = deps.get("dash_input_reader", null)
+		if dash_input_reader != null and dash_input_reader != input_reader:
+			dash_snapshot = dash_input_reader.get_snapshot()
+		else:
+			dash_snapshot = snapshot.duplicate(true)
 		return {
 			"frame_counter": frame_counter + 1,
 			"player_pos": player_pos,
@@ -223,8 +277,16 @@ func _run() -> void:
 		_verify_paddle_and_mythic_production_consumers(true)
 		_finish()
 		return
+	if OS.get_environment(READER_SPLIT_FIXTURE_ENV) == "1":
+		print("[GaksitalVisionInputCounterproof] READER_SCOPED_CACHE=EXPECTED_RED")
+		_verify_reader_split_legacy_counterproof()
+		_finish()
+		return
 	_verify_project_action_and_single_snapshot()
 	_verify_actor_driver_production_path()
+	_verify_split_production_readers_share_frame_snapshot()
+	_verify_release_latch_survives_split_release_frame()
+	_verify_no_vision_production_status_passthrough()
 	_verify_consumer_negative_legs()
 	_verify_paddle_and_mythic_production_consumers()
 	_verify_gaksital_positive_leg()
@@ -241,7 +303,10 @@ func _run() -> void:
 		print("[GaksitalVisionInputExclusivitySeal] RELEASE=GREEN discard_until_release=true delayed_combat=0")
 		print("[GaksitalVisionInputExclusivitySeal] NO_VISION=GREEN policy=passthrough smasher_baseline=1")
 		print("[GaksitalVisionInputExclusivitySeal] UI=GREEN pause_rmb=preserved character_info_rmb=preserved map_priority=preserved")
-		print("[GaksitalVisionInputExclusivitySeal] SNAPSHOT=GREEN raw_reader_calls=1")
+		print(
+			"[GaksitalVisionInputExclusivitySeal] SNAPSHOT=GREEN raw_reader_calls=%d reader_split=status_proxy_vs_raw cache_key=frame_owner"
+			% _observed_split_raw_reader_calls
+		)
 	_finish()
 
 
@@ -264,8 +329,13 @@ func _verify_project_action_and_single_snapshot() -> void:
 	_verify_all_combat_channels_blocked(filtered)
 	_expect(bool(raw_snapshot.get("secondary_action_just_pressed", false)), "raw Vision snapshot must retain RMB edge")
 	var actor_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_actor_update_driver.gd")
-	_expect_eq(actor_source.count("input_reader.get_snapshot()"), 1, "production actor driver must sample the reader once")
-	_expect(actor_source.contains("configure_snapshot(input_reader, input_snapshot"), "production controller must consume the shared raw snapshot")
+	_expect_eq(actor_source.count("canonical_input_reader.get_snapshot()"), 1, "production actor driver must sample the canonical reader once")
+	_expect(
+		actor_source.contains("_vision_modifier_input_proxy.configure_snapshot(")
+		and actor_source.contains("canonical_input_reader"),
+		"production controller must configure its proxy from the canonical raw snapshot"
+	)
+	_expect(not actor_source.contains("_vision_input_reader_id"), "production frame cache must not key by caller reader identity")
 
 
 func _verify_actor_driver_production_path() -> void:
@@ -298,6 +368,149 @@ func _verify_actor_driver_production_path() -> void:
 	_verify_all_combat_channels_blocked(controller.snapshot)
 	_expect_eq(gaksital.fans.size(), 1, "production raw Vision layer must activate one Gaksital fan")
 	_expect_eq(owner.special_gauge, 20.0, "production actor path must apply the 80-vigor spend")
+
+
+func _verify_split_production_readers_share_frame_snapshot() -> void:
+	var raw_reader := FakeInputReader.new()
+	raw_reader.snapshot = _combat_snapshot()
+	var status_reader: Object = Stage3CurseControlInputProxy.new().configure(
+		raw_reader,
+		null,
+		FakeStunStatus.new()
+	)
+	var skill_config := FakeSkillConfig.new([CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID])
+	var actor_driver := BattleSceneActorUpdateDriver.new()
+	var controller := FakeController.new()
+	var context_builder := FakeContextBuilder.new()
+	context_builder.deps = {
+		"input_reader": status_reader,
+		"dash_input_reader": status_reader,
+		"skill_config": skill_config,
+		"gaksital_vision_chosik_state": GaksitalVisionChosikState.new(),
+	}
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"battle_scene_actor_update_driver": actor_driver,
+		"battle_scene_player_control_config_builder": FakeConfigBuilder.new(),
+		"battle_scene_actor_update_result_applier": FakeResultApplier.new(),
+		"battle_update_context": context_builder,
+		"smasher_input_reader": raw_reader,
+		"smasher_skill_config": skill_config,
+		"smasher_player_controller": controller,
+	})
+	(registry.get_instance("battle_scene_player_control_config_builder") as FakeConfigBuilder).config = _vision_config(500.0)
+	Input.action_press("vision_modifier")
+	# Production order: mythic/raw first, player-control/status proxy next,
+	# ball/raw afterward, then the second mythic raw lookup.
+	var odin_reader: Object = MythicItemOdinsEyeRuntime.new()._get_vision_aware_input_reader(
+		owner,
+		registry,
+		raw_reader
+	)
+	actor_driver.update_player_control(owner, registry, 0.0)
+	var ball_deps := {"input_reader": raw_reader, "skill_config": skill_config}
+	BattleSceneBallUpdateDriver.new()._apply_vision_input_reader(ball_deps, owner, registry)
+	var horn_reader: Object = MythicItemHornStrawberryMaskRuntime.new()._get_input_reader(
+		FakeHornRuntime.new(),
+		owner,
+		registry
+	)
+	Input.action_release("vision_modifier")
+	_observed_split_raw_reader_calls = raw_reader.calls
+	_expect(odin_reader == ball_deps.get("input_reader", null), "mythic/raw and ball/raw callers must share the frame proxy")
+	_expect(horn_reader == odin_reader, "both mythic raw callers must share the frame proxy")
+	_expect_eq(controller.calls, 1, "split-reader player controller call count")
+	_expect_eq(controller.snapshot, controller.dash_snapshot, "player control and dash lanes must share the canonical snapshot")
+	_expect_eq(raw_reader.calls, 1, "status-proxy player control and raw ball/mythic callers must sample raw input once")
+
+
+func _verify_release_latch_survives_split_release_frame() -> void:
+	var raw_reader := FakeInputReader.new()
+	raw_reader.snapshot = {"down_pressed": true}
+	var status_reader: Object = Stage3CurseControlInputProxy.new().configure(
+		raw_reader,
+		null,
+		FakeStunStatus.new()
+	)
+	var skill_config := FakeSkillConfig.new([CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID])
+	var actor_driver := BattleSceneActorUpdateDriver.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"battle_scene_actor_update_driver": actor_driver,
+		"smasher_input_reader": raw_reader,
+		"smasher_skill_config": skill_config,
+	})
+	Input.action_press("vision_modifier")
+	var shared_reader: Object = actor_driver.get_vision_aware_input_reader(owner, registry, raw_reader, skill_config)
+	_expect(shared_reader.has_pending_release_suppression(), "Vision hold frame must arm the release latch")
+	actor_driver.reset_vision_input_frame_cache_for_test()
+	Input.action_release("vision_modifier")
+	var calls_before_release_frame := raw_reader.calls
+	var mythic_reader: Object = actor_driver.get_vision_aware_input_reader(owner, registry, raw_reader, skill_config)
+	var player_reader: Object = actor_driver.get_vision_aware_input_reader(owner, registry, status_reader, skill_config)
+	var ball_reader: Object = actor_driver.get_vision_aware_input_reader(owner, registry, raw_reader, skill_config)
+	_expect(mythic_reader == player_reader and player_reader == ball_reader, "release-frame split callers must retain one proxy")
+	_expect_eq(raw_reader.calls - calls_before_release_frame, 1, "release frame must sample only the canonical raw reader")
+	_expect(not bool(ball_reader.get_snapshot().get("down_pressed", false)), "held combat input must not leak after Shift release")
+	_expect(ball_reader.has_pending_release_suppression(), "held raw input must keep the release latch armed")
+	raw_reader.snapshot = {}
+	actor_driver.reset_vision_input_frame_cache_for_test()
+	var released_reader: Object = actor_driver.get_vision_aware_input_reader(owner, registry, raw_reader, skill_config)
+	_expect(not released_reader.has_pending_release_suppression(), "canonical physical release must clear the latch on the next frame")
+
+
+func _verify_no_vision_production_status_passthrough() -> void:
+	var raw_reader := FakeInputReader.new()
+	raw_reader.snapshot = _combat_snapshot()
+	var status_reader: Object = Stage3CurseControlInputProxy.new().configure(
+		raw_reader,
+		null,
+		FakeStunStatus.new()
+	)
+	var no_vision := FakeSkillConfig.new(["smasher_overdrive"])
+	var actor_driver := BattleSceneActorUpdateDriver.new()
+	var controller := FakeController.new()
+	var context_builder := FakeContextBuilder.new()
+	context_builder.deps = {
+		"input_reader": status_reader,
+		"dash_input_reader": status_reader,
+		"skill_config": no_vision,
+	}
+	var config_builder := FakeConfigBuilder.new()
+	config_builder.config = _vision_config(500.0)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"battle_scene_actor_update_driver": actor_driver,
+		"battle_scene_player_control_config_builder": config_builder,
+		"battle_scene_actor_update_result_applier": FakeResultApplier.new(),
+		"battle_update_context": context_builder,
+		"smasher_input_reader": raw_reader,
+		"smasher_skill_config": no_vision,
+		"smasher_player_controller": controller,
+	})
+	Input.action_release("vision_modifier")
+	actor_driver.update_player_control(owner, registry, 0.0)
+	_expect(bool(controller.snapshot.get("player_stun_active", false)), "no-Vision production control must preserve the status proxy")
+	_expect(not bool(controller.snapshot.get("down_pressed", false)), "no-Vision production control must retain stun input suppression")
+
+
+func _verify_reader_split_legacy_counterproof() -> void:
+	var raw_reader := FakeInputReader.new()
+	raw_reader.snapshot = {"down_pressed": true}
+	var status_reader: Object = Stage3CurseControlInputProxy.new().configure(
+		raw_reader,
+		null,
+		FakeStunStatus.new()
+	)
+	var owner := FakeOwner.new()
+	var legacy := LegacyReaderScopedVisionFrame.new()
+	legacy.prepare(10, owner, raw_reader, true)
+	var calls_before_release_frame := raw_reader.calls
+	legacy.prepare(11, owner, raw_reader, false)
+	legacy.prepare(11, owner, status_reader, false)
+	var leaked_reader: Object = legacy.prepare(11, owner, raw_reader, false).get("input_reader", null)
+	_expect_eq(raw_reader.calls - calls_before_release_frame, 1, "reader-scoped cache counterproof must catch repeated raw sampling")
+	_expect(not bool(leaked_reader.get_snapshot().get("down_pressed", false)), "reader-scoped cache counterproof must catch the mid-frame release leak")
 
 
 func _verify_consumer_negative_legs() -> void:
