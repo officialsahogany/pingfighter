@@ -31,7 +31,7 @@ const TowerAscentTuning := preload(
 const SAMPLE_SEED_COUNT := 128
 const MAP_DRAW_CALL_LIMIT := 1536
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
-const EXPECTED_GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
 
 
 class EarlyGuaranteeDisabledGenerator:
@@ -507,15 +507,21 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 	var boss_choice_rows: Array[int] = []
 	var floor_one_combat_rows: Array[int] = []
 	var floor_one_keys: Dictionary = {}
+	var floor_one_lane_signature: Array[int] = []
+	var floor_one_node_count := 0
 	for row_index in range(rows.size()):
 		var row := rows[row_index]
 		var row_ids := _string_array(row.get("node_ids", []))
 		var row_is_expansion := false
+		var row_is_floor_one := false
 		var combat_count := 0
 		var npc_count := 0
 		var row_is_boss_choice := false
 		for node_id in row_ids:
 			var node: Dictionary = node_by_id.get(node_id, {})
+			row_is_floor_one = row_is_floor_one or int(
+				node.get("segment_floor", 0)
+			) == 1
 			row_is_expansion = row_is_expansion or bool(
 				node.get("floor_one_expansion_row", false)
 			)
@@ -548,6 +554,9 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 				npc_count += 1
 		if row_is_expansion:
 			expansion_row_count += 1
+		if row_is_floor_one:
+			floor_one_lane_signature.append(row_ids.size())
+			floor_one_node_count += row_ids.size()
 		if combat_count > 0:
 			floor_one_combat_rows.append(row_index)
 		if row_is_boss_choice:
@@ -560,6 +569,13 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 	_expect(
 		expansion_row_count == TowerAscentMapGenerator.FLOOR_ONE_EXPANSION_ROW_ROLES.size(),
 		"seed %d must retain exactly four scoped expansion rows" % map_seed
+	)
+	_expect(
+		floor_one_lane_signature == [1, 2, 2, 3, 2, 3]
+		and floor_one_lane_signature.size() == 6
+		and floor_one_node_count == 13,
+		"seed %d must keep floor 1 at 6 rows, 13 nodes, and its original lanes"
+		% map_seed
 	)
 	_expect(
 		boss_choice_rows.size() == 2,

@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
+const GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -52,12 +52,18 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	var audition_enabled := TowerAuditionBuildConfig.is_enabled()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = map_seed
-	var total_rows := 1 + (TOWER_FLOOR_COUNT - 1) * (
-		TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
-	)
-	if audition_enabled:
-		total_rows += TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR
-	else:
+	# Keep vertical placement derived from the same scoped row-budget owner used
+	# by generation. A global literal/formula would silently expand floor 1 and
+	# the out-of-scope upper realm when the dense 2..8-floor budget changes.
+	var total_rows := TOWER_FLOOR_COUNT
+	for floor_number in range(1, TOWER_FLOOR_COUNT + 1):
+		if floor_number > 1 or audition_enabled:
+			total_rows += _optional_row_count_for_floor(
+				floor_number,
+				active_clear_floor,
+				audition_enabled
+			)
+	if not audition_enabled:
 		# The existing floor-2 optional row is already the final full-NPC
 		# separator before the 2F gate. These four rows extend segment_floor 1
 		# without moving the floor gate out of the final-row boundary slot.
@@ -143,7 +149,12 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 						),
 					})
 					global_row_index += 1
-			for optional_index in range(TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR):
+			var optional_row_count := _optional_row_count_for_floor(
+				floor_number,
+				active_clear_floor,
+				audition_enabled
+			)
+			for optional_index in range(optional_row_count):
 				var segment_floor := _segment_floor_for_optional_row(
 					floor_number,
 					active_clear_floor
@@ -1482,6 +1493,26 @@ func _segment_floor_for_optional_row(
 	if floor_number == active_clear_floor + 1:
 		return floor_number
 	return maxi(1, floor_number - 1)
+
+
+func _optional_row_count_for_floor(
+	floor_number: int,
+	active_clear_floor: int,
+	audition_enabled: bool
+) -> int:
+	if audition_enabled:
+		return TowerAscentTuning.TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR
+	var segment_floor := _segment_floor_for_optional_row(
+		floor_number,
+		active_clear_floor
+	)
+	if (
+		segment_floor >= TowerAscentTuning.TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MIN
+		and segment_floor
+			<= TowerAscentTuning.TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MAX
+	):
+		return TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR
+	return TowerAscentTuning.TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR
 
 
 func _lane_node_ids(row_id: String, lane_count: int) -> Array[String]:

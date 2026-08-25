@@ -12,17 +12,32 @@ const TowerAscentMapGenerator := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAuditionBuildConfig := preload(
+	"res://scripts/tower_ascent/tower_audition_build_config.gd"
+)
+
+const DENSITY_SAMPLE_SEED_COUNT := 256
+const DENSITY_SAMPLE_SEED_START := 1009
+const DENSITY_SAMPLE_SEED_STEP := 7919
 
 var _failures: Array[String] = []
+var _generation_attempt_histogram: Dictionary = {}
 
 
 func _init() -> void:
+	TowerAuditionBuildConfig.debug_set_enabled(false)
 	_verify_12_floor_rows_and_node_slots()
+	_verify_upper_floor_density_for_many_seeds()
 	_verify_standard_distribution_for_many_seeds()
 	_verify_flow_exposes_only_the_next_two_candidates()
 	_verify_flag_off_remains_legacy()
+	TowerAuditionBuildConfig.debug_clear_enabled_override()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
+		print(
+			"tower_ascent_12_floor_map_smoke: density_seeds=%d failures=0 total_rows=34 total_nodes=71 floor_1=6x13 floors_2_8=3x7 lanes_2_8=[1, 2, 4] floor_9=1x1 attempts=%s"
+			% [DENSITY_SAMPLE_SEED_COUNT, str(_generation_attempt_histogram)]
+		)
 		print("tower_ascent_12_floor_map_smoke: ok")
 		quit(0)
 	else:
@@ -54,7 +69,9 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 			if int(floor_data.floor) == 1
 			else 2 + TowerAscentMapGenerator.FLOOR_ONE_EXPANSION_ROW_ROLES.size()
 			if int(floor_data.floor) == 2
-			else 2
+			else TowerAscentTuning.TEMP_OPTIONAL_ROWS_PER_FLOOR + 1
+			if int(floor_data.floor) <= 9
+			else TowerAscentTuning.TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR + 1
 		)
 		_expect(floor_data.rows.size() == expected_rows, "floor %d must keep its temporary row allocation" % int(floor_data.floor))
 		var gate_row: Dictionary = floor_data.rows[floor_data.rows.size() - 1]
@@ -93,6 +110,232 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 					_expect(bool(node.get("route_locked", false)), "10-12 floor metadata must remain unreachable before the true-ending gate")
 	for required_kind in ["boss", "shop", "training", "fallen_monk", "guardian_spring", "rest"]:
 		_expect(seen_kinds.has(required_kind), "generated slots must include node kind: %s" % required_kind)
+
+
+func _verify_upper_floor_density_for_many_seeds() -> void:
+	var generator := TowerAscentMapGenerator.new()
+	var generation_failure_count := 0
+	for seed_offset in range(DENSITY_SAMPLE_SEED_COUNT):
+		var map_seed := DENSITY_SAMPLE_SEED_START + seed_offset * DENSITY_SAMPLE_SEED_STEP
+		var graph: Dictionary = generator.generate_tower(map_seed)
+		if graph.is_empty():
+			generation_failure_count += 1
+			continue
+		var generation_attempt := int(graph.get("generation_attempt", -1))
+		_generation_attempt_histogram[generation_attempt] = int(
+			_generation_attempt_histogram.get(generation_attempt, 0)
+		) + 1
+		var profile := _density_profile(graph)
+		_expect(
+			profile.get(1, {}) == {
+				"rows": 6,
+				"nodes": 13,
+				"lanes": [1, 2, 2, 3, 2, 3],
+			},
+			"seed %d must preserve the 6-row 13-node first-floor profile" % map_seed
+		)
+		for floor_number in range(2, 9):
+			_expect(
+				profile.get(floor_number, {}) == {
+					"rows": 3,
+					"nodes": 7,
+					"lanes": [1, 2, 4],
+				},
+				"seed %d floor %d must expose the 1-to-2-to-4 density profile"
+				% [map_seed, floor_number]
+			)
+		_expect(
+			profile.get(9, {}) == {"rows": 1, "nodes": 1, "lanes": [1]},
+			"seed %d floor 9 must remain the unchanged terminal gate" % map_seed
+		)
+		_expect(
+			profile.get(10, {}) == {"rows": 3, "nodes": 4, "lanes": [1, 1, 2]}
+			and profile.get(11, {}) == {"rows": 2, "nodes": 3, "lanes": [1, 2]}
+			and profile.get(12, {}) == {"rows": 1, "nodes": 1, "lanes": [1]},
+			"seed %d floors 10 through 12 must remain outside the density scope"
+			% map_seed
+		)
+		_expect(
+			_count_profile_value(profile, "rows") == 34
+			and _count_profile_value(profile, "nodes") == 71,
+			"seed %d must produce exactly 34 rows and 71 nodes" % map_seed
+		)
+		_expect(
+			_count_first_floor_choice_bosses(graph) == 2,
+			"seed %d must preserve both first-floor selectable bosses" % map_seed
+		)
+		for floor_number in range(1, 10):
+			_expect(
+				_count_generated_gate_bosses(graph, floor_number) >= 1,
+				"seed %d floor %d must retain an unavoidable generated gate boss"
+				% [map_seed, floor_number]
+			)
+		_expect(
+			_count_gate_bypasses(graph) == 0,
+			"seed %d must expose zero paths around floors 1 through 8 gate bosses"
+			% map_seed
+		)
+		var integrity: Dictionary = generator.analyze_graph_integrity(graph, true, true)
+		_expect(
+			bool(integrity.get("valid", false))
+			and int(integrity.get("entry_unreachable_count", -1)) == 0
+			and int(integrity.get("boss_unreachable_count", -1)) == 0
+			and int(integrity.get("crossing_count", -1)) == 0
+			and int(integrity.get("boss_spacing_violation_count", -1)) == 0
+			and int(integrity.get("consecutive_single_transition_count", -1)) == 0
+			and float(integrity.get("degree_two_ratio", 0.0)) + 0.000001
+				>= TowerAscentTuning.TEMP_MAP_DEGREE_TWO_MIN_RATIO,
+			"seed %d must pass reachability, spacing, crossing, singleton, and degree seals: %s"
+			% [map_seed, str(integrity.get("issues", []))]
+		)
+	_expect(
+		generation_failure_count == 0,
+		"all %d density seeds must generate within %d attempts"
+		% [DENSITY_SAMPLE_SEED_COUNT, TowerAscentMapGenerator.GENERATION_MAX_ATTEMPTS]
+	)
+
+
+func _density_profile(graph: Dictionary) -> Dictionary:
+	var rows_by_floor: Dictionary = {}
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var floor_number := int(node.get("segment_floor", 0))
+			var global_row := int(node.get("global_row", -1))
+			var floor_rows: Dictionary = rows_by_floor.get(floor_number, {})
+			floor_rows[global_row] = int(floor_rows.get(global_row, 0)) + 1
+			rows_by_floor[floor_number] = floor_rows
+	var result: Dictionary = {}
+	for floor_variant in rows_by_floor.keys():
+		var floor_number := int(floor_variant)
+		var floor_rows: Dictionary = rows_by_floor.get(floor_number, {})
+		var row_numbers: Array = floor_rows.keys()
+		row_numbers.sort()
+		var lanes: Array[int] = []
+		var node_count := 0
+		for row_variant in row_numbers:
+			var lane_count := int(floor_rows.get(row_variant, 0))
+			lanes.append(lane_count)
+			node_count += lane_count
+		result[floor_number] = {
+			"rows": row_numbers.size(),
+			"nodes": node_count,
+			"lanes": lanes,
+		}
+	return result
+
+
+func _count_profile_value(profile: Dictionary, field: String) -> int:
+	var result := 0
+	for floor_variant in profile.values():
+		if floor_variant is Dictionary:
+			result += int((floor_variant as Dictionary).get(field, 0))
+	return result
+
+
+func _count_first_floor_choice_bosses(graph: Dictionary) -> int:
+	var result := 0
+	for node_variant in _all_nodes(graph):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if (
+			bool(node.get("floor_one_boss_choice", false))
+			and str(node.get("kind", "")) in TowerAscentMapGenerator.COMBAT_NODE_KINDS
+		):
+			result += 1
+	return result
+
+
+func _count_generated_gate_bosses(graph: Dictionary, floor_number: int) -> int:
+	var result := 0
+	for node_variant in _all_nodes(graph):
+		if not (node_variant is Dictionary):
+			continue
+		var node := node_variant as Dictionary
+		if (
+			int(node.get("segment_floor", 0)) == floor_number
+			and bool(node.get("gatekeeper", false))
+			and str(node.get("content_state", "")) == "generated"
+			and str(node.get("kind", "")) in TowerAscentMapGenerator.COMBAT_NODE_KINDS
+		):
+			result += 1
+	return result
+
+
+func _count_gate_bypasses(graph: Dictionary) -> int:
+	var phases: Array = graph.get("phases", [])
+	if phases.is_empty() or not (phases[0] is Dictionary):
+		return 1
+	var phase := phases[0] as Dictionary
+	var result := 0
+	for floor_number in range(1, 9):
+		var blocked: Dictionary = {}
+		for node_variant in phase.get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if (
+				int(node.get("segment_floor", 0)) == floor_number
+				and bool(node.get("gatekeeper", false))
+			):
+				blocked[str(node.get("id", ""))] = true
+		var outgoing: Dictionary = {}
+		for edge_variant in phase.get("edges", []):
+			if not (edge_variant is Dictionary):
+				continue
+			var edge := edge_variant as Dictionary
+			var from_id := str(edge.get("from", ""))
+			var to_id := str(edge.get("to", ""))
+			if blocked.has(from_id) or blocked.has(to_id):
+				continue
+			var targets: Array = outgoing.get(from_id, [])
+			targets.append(to_id)
+			outgoing[from_id] = targets
+		var reachable := _walk(str(phase.get("entry_node_id", "")), outgoing)
+		var bypass_found := false
+		for node_variant in phase.get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			if (
+				int(node.get("segment_floor", 0)) > floor_number
+				and reachable.has(str(node.get("id", "")))
+			):
+				bypass_found = true
+				break
+		if bypass_found:
+			result += 1
+	return result
+
+
+func _all_nodes(graph: Dictionary) -> Array:
+	var result: Array = []
+	for phase_variant in graph.get("phases", []):
+		if phase_variant is Dictionary:
+			result.append_array((phase_variant as Dictionary).get("nodes", []))
+	return result
+
+
+func _walk(start_id: String, adjacency: Dictionary) -> Dictionary:
+	var visited: Dictionary = {}
+	var pending: Array[String] = []
+	if not start_id.is_empty():
+		visited[start_id] = true
+		pending.append(start_id)
+	while not pending.is_empty():
+		var current_id: String = pending.pop_back()
+		for target_variant in adjacency.get(current_id, []):
+			var target_id := str(target_variant)
+			if visited.has(target_id):
+				continue
+			visited[target_id] = true
+			pending.append(target_id)
+	return visited
 
 
 func _verify_standard_distribution_for_many_seeds() -> void:

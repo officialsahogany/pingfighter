@@ -25,7 +25,12 @@ const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
 # change only these values while the 12-floor and floor-gate contracts remain
 # fixed. S3 derives combat allocation from the NPC distribution contract rather
 # than an independent extra-combat-row budget.
-const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
+# Feedback 6 A: only standard segment floors 2..8 consume the expanded budget.
+# Floor 1, floors 9..12, and the audition topology retain the previous budget.
+const TEMP_OPTIONAL_ROWS_PER_FLOOR := 2
+const TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR := 1
+const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MIN := 2
+const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MAX := 8
 # 피드백2 8항 후속: v14의 우회 가능 추가 보스는 기존 NPC를 전환하므로
 # 최악 시드의 생성 노드 35개 중 보스 13 / NPC 22가 된다. 128시드 실측
 # 최대 0.371429와 최소 NPC:boss 1.692308을 각각 직상단/직하단에서 봉인한다.
