@@ -59,8 +59,9 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_shift_cycles_tooltips_for_arrow_space_grip()
-	_verify_shift_is_ignored_for_other_grips()
+	_verify_t_cycles_tooltips_for_all_keyboard_grips()
+	_verify_f_is_no_longer_a_tooltip_cycle_key()
+	_verify_shift_is_reserved_for_vision_modifier()
 
 	if _failures.is_empty():
 		print("skill_orb_keyboard_tooltip_cycle_smoke: ok")
@@ -71,31 +72,8 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_shift_cycles_tooltips_for_arrow_space_grip() -> void:
-	var input := BattleSceneInputController.new()
-	var owner := FakeOwner.new()
-	owner.set_meta("tutorial_grip_style", "space_arrows")
-	var hover_state := SkillOrbTooltipHoverState.new()
-	var registry := _build_registry(hover_state)
-	_active_modules = {
-		"battle_scene_readiness_controller": FakeReadinessController.new(),
-		"battle_scene_skill_tooltip_driver": BattleSceneSkillTooltipDriver.new(),
-	}
-
-	input.handle_unhandled_input(_shift_key_event(), owner, registry, Callable(self, "_get_module"), {})
-	_expect(str(hover_state.get_gamepad_selected_skill_name()) == "drive", "Shift should open the first skill tooltip for arrow-space grip")
-	_expect(owner.redraw_count == 1, "Shift tooltip open should request a redraw")
-
-	input.handle_unhandled_input(_shift_key_event(), owner, registry, Callable(self, "_get_module"), {})
-	_expect(str(hover_state.get_gamepad_selected_skill_name()) == "power_smashing", "Second Shift press should cycle to the next skill tooltip")
-
-	input.handle_unhandled_input(_shift_key_event(), owner, registry, Callable(self, "_get_module"), {})
-	_expect(str(hover_state.get_gamepad_selected_skill_name()) == "", "Shift after the last skill should close the manual tooltip")
-	_active_modules.clear()
-
-
-func _verify_shift_is_ignored_for_other_grips() -> void:
-	for grip_style in ["", "wasd_mouse", "gamepad"]:
+func _verify_t_cycles_tooltips_for_all_keyboard_grips() -> void:
+	for grip_style in ["", "wasd_mouse", "space_arrows"]:
 		var input := BattleSceneInputController.new()
 		var owner := FakeOwner.new()
 		if grip_style != "":
@@ -107,9 +85,48 @@ func _verify_shift_is_ignored_for_other_grips() -> void:
 			"battle_scene_skill_tooltip_driver": BattleSceneSkillTooltipDriver.new(),
 		}
 
-		input.handle_unhandled_input(_shift_key_event(), owner, registry, Callable(self, "_get_module"), {})
-		_expect(str(hover_state.get_gamepad_selected_skill_name()) == "", "Shift should not open skill tooltips for grip '%s'" % grip_style)
-		_expect(owner.redraw_count == 0, "Ignored Shift should not request redraw for grip '%s'" % grip_style)
+		input.handle_unhandled_input(_key_event(KEY_T), owner, registry, Callable(self, "_get_module"), {})
+		_expect(str(hover_state.get_gamepad_selected_skill_name()) == "drive", "T should open the first skill tooltip for grip '%s'" % grip_style)
+		_expect(owner.redraw_count == 1, "T tooltip open should request a redraw for grip '%s'" % grip_style)
+
+		input.handle_unhandled_input(_key_event(KEY_T), owner, registry, Callable(self, "_get_module"), {})
+		_expect(str(hover_state.get_gamepad_selected_skill_name()) == "power_smashing", "Second T press should cycle to the next skill tooltip for grip '%s'" % grip_style)
+
+		input.handle_unhandled_input(_key_event(KEY_T), owner, registry, Callable(self, "_get_module"), {})
+		_expect(str(hover_state.get_gamepad_selected_skill_name()) == "", "T after the last skill should close the manual tooltip for grip '%s'" % grip_style)
+	_active_modules.clear()
+
+
+func _verify_f_is_no_longer_a_tooltip_cycle_key() -> void:
+	var input := BattleSceneInputController.new()
+	var owner := FakeOwner.new()
+	var hover_state := SkillOrbTooltipHoverState.new()
+	var registry := _build_registry(hover_state)
+	_active_modules = {
+		"battle_scene_readiness_controller": FakeReadinessController.new(),
+		"battle_scene_skill_tooltip_driver": BattleSceneSkillTooltipDriver.new(),
+	}
+
+	input.handle_unhandled_input(_key_event(KEY_F), owner, registry, Callable(self, "_get_module"), {})
+	_expect(str(hover_state.get_gamepad_selected_skill_name()) == "", "F should no longer open skill tooltips")
+	_expect(owner.redraw_count == 0, "retired F tooltip input should not request a redraw")
+	_active_modules.clear()
+
+
+func _verify_shift_is_reserved_for_vision_modifier() -> void:
+	var input := BattleSceneInputController.new()
+	var owner := FakeOwner.new()
+	owner.set_meta("tutorial_grip_style", "space_arrows")
+	var hover_state := SkillOrbTooltipHoverState.new()
+	var registry := _build_registry(hover_state)
+	_active_modules = {
+		"battle_scene_readiness_controller": FakeReadinessController.new(),
+		"battle_scene_skill_tooltip_driver": BattleSceneSkillTooltipDriver.new(),
+	}
+
+	input.handle_unhandled_input(_key_event(KEY_SHIFT), owner, registry, Callable(self, "_get_module"), {})
+	_expect(str(hover_state.get_gamepad_selected_skill_name()) == "", "Shift should stay reserved for the vision modifier")
+	_expect(owner.redraw_count == 0, "reserved Shift should not redraw the skill tooltip")
 	_active_modules.clear()
 
 
@@ -124,11 +141,11 @@ func _get_module(key: String) -> Object:
 	return _active_modules.get(key, null)
 
 
-func _shift_key_event() -> InputEventKey:
+func _key_event(keycode: Key) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.pressed = true
-	event.keycode = KEY_SHIFT
-	event.physical_keycode = KEY_SHIFT
+	event.keycode = keycode
+	event.physical_keycode = keycode
 	return event
 
 
