@@ -57,7 +57,8 @@ func plan_offer(
 	var card: Dictionary = catalog.build_card(
 		training_id,
 		int(state.get_count(training_id)),
-		training_multiplier
+		training_multiplier,
+		float(state.get_applied_count(training_id))
 	)
 	if card.is_empty():
 		return result

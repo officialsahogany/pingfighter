@@ -243,7 +243,7 @@ func _verify_runtime_consumers_use_batch1_getters() -> void:
 	_expect(feedback.gauge_flash_count == 1, "ON Charge Bag perk should trigger gauge feedback when it gains gauge")
 
 	var bluetooth_runtime: Object = _make_runtime({"bluetooth_ring": 5})
-	_expect_close(bluetooth_runtime.calculate_bluetooth_ring_gauge_charge(40.0), 49.0, "ON Bluetooth Ring perk should multiply gauge without old equipped gate")
+	_expect_close(bluetooth_runtime.calculate_bluetooth_ring_gauge_charge(40.0), 49.6, "ON Bluetooth Ring perk should preserve fractional gauge without the old equipped gate")
 
 	var gold_runtime: Object = _make_runtime({"gold_digger": 5})
 	_expect(not gold_runtime.has_method("apply_gold_digger_gauge_bonus"), "ON Gold Digger perk should stay gold-only")

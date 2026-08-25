@@ -506,7 +506,7 @@ func _verify_dispatch_and_stat_queries() -> void:
 	var hit_bridge := RuntimeBridge.new(hit_state)
 	var hit_resource_runtime := MythicItemResourceBonusRuntime.new()
 	_expect(is_equal_approx(hit_resource_runtime.get_bluetooth_ring_gauge_gain_pct(hit_bridge), 7.0), "hit-vigor training should reach the production hit-gauge consumer")
-	_expect(is_equal_approx(hit_resource_runtime.calculate_bluetooth_ring_gauge_charge(hit_bridge, 50.0), 53.0), "hit-vigor training should turn a 50-point paddle hit into 53 vigor")
+	_expect(is_equal_approx(hit_resource_runtime.calculate_bluetooth_ring_gauge_charge(hit_bridge, 50.0), 53.5), "hit-vigor training should preserve the exact 53.5 vigor result")
 	var posture_state := _state_with_training("physique_posture")
 	_expect(is_equal_approx(posture_state.get_converted_perk_option_value("bulletproof_hat", "posture_correction_pct"), 5.0), "posture training should add 5 percent")
 	var defense_runtime := MythicItemDefenseGearRuntime.new()

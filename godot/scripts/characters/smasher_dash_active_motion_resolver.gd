@@ -23,7 +23,9 @@ func update(
 	# 조정한다("느리게 오래" 체감 기각 — compute_total_dash_distance와 동일
 	# 커브·동일 배율 결합).
 	var current_speed: float = _get_current_speed(timer) * maxf(0.0, distance_multiplier)
-	player_pos.x += round(direction * current_speed * fps_scale)
+	# Preserve subpixel distance so short duration bonuses are not erased by a
+	# per-frame integer quantization step.
+	player_pos.x += direction * current_speed * fps_scale
 	player_pos.x = clamp(player_pos.x, play_left, play_right - paddle_width)
 
 	var ended: bool = timer <= 0.0
@@ -53,7 +55,7 @@ func _get_current_speed(timer: float) -> float:
 
 
 # 실전 대시 이동거리: update()가 프레임마다 수행하는 감속 커브 이동
-# (round(direction * speed), fps_scale=1 기준)을 그대로 적분한다. 능력치 패널
+# (direction * speed, fps_scale=1 기준)을 그대로 적분한다. 능력치 패널
 # 대시 거리 표시가 이 함수를 쓰므로 커브 상수가 바뀌면 표시도 따라온다.
 # _get_current_speed와 동일 커브를 인라인한다 — 그 인스턴스 메서드에 의존하지
 # 않아야 정적 컨텍스트에서 호출 가능하고 다른 세션의 시그니처 변경과도 무관하다.
@@ -67,6 +69,6 @@ static func compute_total_dash_distance(duration_frames: float, distance_multipl
 		var speed: float = DASH_BASE_SPEED * mult
 		if timer <= DASH_DECEL_FRAMES:
 			speed *= clampf(timer / DASH_DECEL_FRAMES, 0.0, 1.0)
-		distance += absf(round(speed))
+		distance += absf(speed)
 		frame_guard += 1
 	return distance

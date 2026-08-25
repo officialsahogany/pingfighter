@@ -253,6 +253,14 @@ func _verify_prediction_matches_actual_apply() -> void:
 		if not bool(preview.get("visible", false)):
 			continue
 		_expect(state.apply_choice(card, owner, registry), "%s actual one-step choice must apply" % training_id)
+		var stat_key := str(card.get("training_stat_key", ""))
+		_expect(
+			is_equal_approx(
+				float(card.get("training_value_after", -1.0)),
+				float(state.get_physique_training_bonus(stat_key))
+			),
+			"%s card accumulated value must equal the applied training bonus" % training_id
+		)
 		var actual_rows: Array = _build_rows(state, owner, registry)
 		var row_index := int(preview.get("row_index", -1))
 		_expect(row_index >= 0 and row_index < actual_rows.size(), "%s preview row must exist after apply" % training_id)
