@@ -315,6 +315,8 @@ func _reset_runtime_state() -> void:
 	_noncombat_node_background_catalog.clear_cache()
 	_map_scroll_asset_catalog.clear_cache()
 	_guardian_spring_presentation_asset_catalog.clear_cache()
+	if _renderer != null and _renderer.has_method("invalidate_map_icon_node_cache"):
+		_renderer.invalidate_map_icon_node_cache()
 	_finish_callback = Callable()
 	_reset_selector()
 

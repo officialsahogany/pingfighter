@@ -322,7 +322,7 @@ func _handle_training_timing_owned_input(event: InputEvent) -> void:
 			if _node_modal_state.has_running_training_timing():
 				_cancel_training_timing()
 			else:
-				_enter_route_aim()
+				_enter_route_aim(true)
 			return
 		if (
 			_node_modal_state.has_running_training_timing()
@@ -421,8 +421,7 @@ func _try_enter_route_aim_from_node_modal() -> bool:
 			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
 		))
 		return false
-	_enter_route_aim()
-	return true
+	return _enter_route_aim(true)
 
 
 func _configure_training_stage_presentation() -> void:

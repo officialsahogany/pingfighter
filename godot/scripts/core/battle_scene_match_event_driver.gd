@@ -269,6 +269,7 @@ func begin_tower_boss_transition(owner: Object, registry: Object, encounter: Dic
 	normalized["stage"] = stage_id
 	_tower_transition_encounter = normalized
 	_apply_tower_encounter_identity(owner, normalized)
+	_invalidate_stage_runtime_resources(registry)
 	_begin_stage_transition_loading(owner, registry, stage_id)
 	return true
 
@@ -494,8 +495,8 @@ func _sync_selection_stage(owner: Object, stage_id: int) -> void:
 func _apply_tower_encounter_identity(owner: Object, encounter: Dictionary) -> void:
 	var stage_id := int(encounter.get("stage", 1))
 	var requested_variant := str(encounter.get("variant", ""))
-	var stage1_variant := requested_variant if stage_id == 1 and not requested_variant.is_empty() else "dalji"
 	var stage_variant := StageBossVariantCatalog.normalize_variant(stage_id, requested_variant)
+	var stage1_variant := stage_variant if stage_id == 1 else "dalji"
 	var entry := StageBossVariantCatalog.get_entry(stage_id, stage_variant)
 	var paddle_scale := maxf(0.1, float(entry.get("boss_paddle_scale", 1.0)))
 	owner.set("current_stage", stage_id)
@@ -631,6 +632,12 @@ func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object
 		return true
 	prewarm_controller.prewarm_stage_runtime_resources(owner, Callable(registry, "get_instance"))
 	return true
+
+
+func _invalidate_stage_runtime_resources(registry: Object) -> void:
+	var prewarm_controller: Object = _get_instance(registry, "battle_boot_resource_prewarm_controller")
+	if prewarm_controller != null and prewarm_controller.has_method("invalidate_stage_runtime_resources"):
+		prewarm_controller.invalidate_stage_runtime_resources()
 
 
 func _prewarm_stage_clear_result_transition_resources(owner: Object, registry: Object) -> bool:

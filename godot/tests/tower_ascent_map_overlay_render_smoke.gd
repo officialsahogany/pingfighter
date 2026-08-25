@@ -20,6 +20,46 @@ const TowerAscentMapPathGeometry := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_path_geometry.gd"
 )
 
+
+class RecordingFullscreenMapCanvas:
+	extends Node2D
+
+	var drawn_strings: Array[String] = []
+
+	@warning_ignore("native_method_override")
+	func draw_rect(
+		_rect: Rect2,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_string(
+		_font: Font,
+		_pos: Vector2,
+		_text: String,
+		_alignment: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT,
+		_width: float = -1.0,
+		_font_size: int = 16,
+		_modulate: Color = Color.WHITE,
+		_justification_flags: int = 3,
+		_direction: TextServer.Direction = TextServer.DIRECTION_AUTO,
+		_orientation: TextServer.Orientation = TextServer.ORIENTATION_HORIZONTAL,
+		_oversampling: float = 0.0
+	) -> void:
+		drawn_strings.append(_text)
+
+
+class FakeFullscreenMapFlow:
+	extends RefCounted
+
+	func get_header_subtitle() -> String:
+		return "fixture header"
+
+
 var _failures: Array[String] = []
 
 
@@ -30,6 +70,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_graph_state_model_survives_camera_crop()
 	_verify_fullscreen_projection_and_existing_art_slots()
+	_verify_fullscreen_legend_absent_and_node_catalog_preserved()
 	_verify_live_resolution_map_uses_tracked_zoom()
 	_verify_tracked_camera_boundaries()
 	_verify_seeded_curve_geometry_preserves_connections()
@@ -97,6 +138,93 @@ func _verify_graph_state_model_survives_camera_crop() -> void:
 	_expect(locked_hints.size() == 1, "the human-realm overlay must preserve the locked phase-2 hint")
 	if not locked_hints.is_empty():
 		_expect(int((locked_hints[0] as Dictionary).get("floor_start", 0)) == 10 and int((locked_hints[0] as Dictionary).get("floor_end", 0)) == 12, "the locked hint must identify floors 10 through 12 without disclosing their nodes")
+
+
+func _verify_fullscreen_legend_absent_and_node_catalog_preserved() -> void:
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var production_signature := (
+		"func _draw_fullscreen_map_model(\n"
+		+ "\tcanvas: CanvasItem,"
+	)
+	var production_signature_count := renderer_source.count(production_signature)
+	_expect(
+		production_signature_count == 1,
+		"the production fullscreen-map draw must retain its CanvasItem signature"
+	)
+	if production_signature_count != 1:
+		return
+	# CanvasItem's native draw calls cannot be intercepted by a scripted subclass
+	# through a statically typed parameter. Compile the exact production body with
+	# only that test boundary widened so every parent-level draw_string is recorded.
+	var recording_fixture_script := GDScript.new()
+	recording_fixture_script.source_code = renderer_source.replace(
+		production_signature,
+		"func _draw_fullscreen_map_model(\n\tcanvas: Object,"
+	)
+	var fixture_reload_error := recording_fixture_script.reload()
+	_expect(
+		fixture_reload_error == OK,
+		"the recording fixture must compile from the production renderer body"
+	)
+	var canvas := RecordingFullscreenMapCanvas.new()
+	if fixture_reload_error != OK:
+		canvas.free()
+		return
+	var renderer: Object = recording_fixture_script.new()
+	var panel_rect := Rect2(Vector2.ZERO, Vector2(760.0, 750.0))
+	var guardian_spring_label := TowerAscentMapOverlayLocalization.node_kind_label(
+		"guardian_spring"
+	)
+	renderer.call(
+		"_draw_fullscreen_map_model",
+		canvas,
+		FakeFullscreenMapFlow.new(),
+		{
+			"viewport_rect": panel_rect,
+			"panel_rect": panel_rect,
+			"content_rect": panel_rect,
+			"camera_view_rect": panel_rect,
+			"world_rect": panel_rect,
+			"realm_kind": "human_realm",
+			"scroll_background": {"ready": true},
+			"floor_bands": [],
+			"edges": [],
+			"nodes": [],
+			"transition_marker": {},
+			"cloud_layer": {},
+			"floor_reveal_visual": {},
+			"run_intro_title_visual": {},
+			"locked_phase_hints": [],
+		},
+		{}
+	)
+	var legend_draw_count := 0
+	for drawn_text in canvas.drawn_strings:
+		if drawn_text.begins_with("전투 · 광폭화"):
+			legend_draw_count += 1
+	_expect(
+		legend_draw_count == 0,
+		"the fullscreen map must draw no node-type legend string"
+	)
+	_expect(
+		canvas.drawn_strings.has(
+			TowerAscentMapOverlayLocalization.text(
+				TowerAscentMapOverlayLocalization.KEY_CLOSE_HINT
+			)
+		),
+		"the absence seal must traverse the full model draw through its footer"
+	)
+	_expect(
+		guardian_spring_label == "수호의 샘터",
+		"removing the footer legend must preserve the guardian-spring node catalog label"
+	)
+	_expect(
+		not renderer_source.contains("KEY_LEGEND_TYPES"),
+		"the fullscreen renderer must not retain a hidden node-type legend draw"
+	)
+	canvas.free()
 
 
 func _verify_localization_catalog() -> void:

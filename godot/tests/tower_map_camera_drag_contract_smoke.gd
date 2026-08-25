@@ -30,6 +30,7 @@ func _run() -> void:
 	else:
 		_verify_click_slop_selects_without_dragging()
 		_verify_threshold_crossing_drags_without_selecting()
+		_verify_surround_start_and_cover_counterproof()
 		_verify_shared_cover_bounds_clamp_all_directions()
 		_verify_manual_camera_priority_and_release_retention()
 		_verify_event_route_and_hot_path_contracts()
@@ -48,6 +49,7 @@ func _has_drag_contract(flow: Object) -> bool:
 		"get_map_drag_threshold_screen_px",
 		"has_map_camera_manual_override",
 		"get_map_camera_manual_offset",
+		"reanchor_map_camera_manual_offset",
 		"get_map_pointer_selected_node_id",
 	]:
 		if not flow.has_method(method_name):
@@ -125,7 +127,10 @@ func _verify_threshold_crossing_drags_without_selecting() -> void:
 
 
 func _verify_shared_cover_bounds_clamp_all_directions() -> void:
-	var fixture := _new_transition_fixture("map-drag-bounds", 0.0)
+	var fixture := _new_transition_fixture(
+		"map-drag-bounds",
+		TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+	)
 	if fixture.is_empty():
 		return
 	var flow: Object = fixture["flow"]
@@ -166,6 +171,78 @@ func _verify_shared_cover_bounds_clamp_all_directions() -> void:
 	)
 
 
+func _verify_surround_start_and_cover_counterproof() -> void:
+	var fixture := _new_transition_fixture("map-drag-surround-start", 0.0)
+	if fixture.is_empty():
+		return
+	var flow: Object = fixture["flow"]
+	var renderer: Object = fixture["renderer"]
+	var model: Dictionary = fixture["model"]
+	var camera: Dictionary = model.get("camera", {})
+	var view_rect: Rect2 = camera.get("view_rect", Rect2())
+	var world_rect: Rect2 = camera.get("world_rect", Rect2())
+	var zoom := float(camera.get("render_zoom_multiplier", 1.0))
+	_expect(
+		bool(model.get("subcover_active", false)),
+		"travel start must retain the four-notch-out surround"
+	)
+	_expect(
+		bool(camera.get("horizontal_world_fits", false)),
+		"travel-start surround must fit the world horizontally"
+	)
+	_expect(
+		is_equal_approx(
+			float((camera.get("offset", Vector2.ZERO) as Vector2).x),
+			view_rect.get_center().x - world_rect.get_center().x * zoom
+		),
+		"travel-start surround must pin the horizontally fitted world to center"
+	)
+	_expect(
+		float(camera.get("minimum_offset_y", 0.0))
+			< float(camera.get("maximum_offset_y", 0.0)),
+		"travel-start surround must retain a vertical clamp range"
+	)
+	var press_position := VIEWPORT_RECT.get_center()
+	flow.handle_input(_mouse_button(press_position, true))
+	flow.handle_input(_mouse_motion(press_position + Vector2(0.0, LARGE_DRAG.y)))
+	var clamped_model: Dictionary = renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var clamped_camera: Dictionary = clamped_model.get("camera", {})
+	_expect(
+		bool(clamped_camera.get("at_upper_boundary", false)),
+		"travel-start vertical drag must stop at its upper boundary"
+	)
+	_expect(
+		is_equal_approx(
+			float((clamped_camera.get("offset", Vector2.ZERO) as Vector2).x),
+			view_rect.get_center().x - world_rect.get_center().x * zoom
+		),
+		"vertical dragging must leave the fitted horizontal axis center-pinned"
+	)
+	flow.handle_input(_mouse_button(
+		press_position + Vector2(0.0, LARGE_DRAG.y),
+		false
+	))
+
+	var cover_fixture := _new_transition_fixture(
+		"map-drag-cover-counterproof",
+		TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+	)
+	if cover_fixture.is_empty():
+		return
+	var cover_camera: Dictionary = (cover_fixture["model"] as Dictionary).get(
+		"camera",
+		{}
+	)
+	_expect(
+		float(cover_camera.get("minimum_offset_x", 0.0))
+			< float(cover_camera.get("maximum_offset_x", 0.0)),
+		"forcing the production model to cover zoom must reopen horizontal drag range"
+	)
+
+
 func _verify_manual_camera_priority_and_release_retention() -> void:
 	var fixture := _new_transition_fixture(
 		"map-drag-priority",
@@ -184,6 +261,9 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 	var released_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
 	var released_camera: Dictionary = released_model.get("camera", {})
 	var released_offset: Vector2 = released_camera.get("offset", Vector2.ZERO)
+	var released_world_anchor := (
+		(released_camera.get("visible_world_rect", Rect2()) as Rect2).get_center()
+	)
 	var released_focus: Vector2 = released_camera.get("focus_world_position", Vector2.ZERO)
 
 	var later_elapsed := (
@@ -197,9 +277,17 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 		(later_camera.get("focus_world_position", Vector2.ZERO) as Vector2) != released_focus,
 		"walking animation must continue advancing while the camera is manually parked"
 	)
+	var later_offset: Vector2 = later_camera.get("offset", Vector2.INF)
+	var later_world_anchor := (
+		(later_camera.get("visible_world_rect", Rect2()) as Rect2).get_center()
+	)
 	_expect(
-		(later_camera.get("offset", Vector2.INF) as Vector2).is_equal_approx(released_offset),
-		"manual drag must outrank automatic walker tracking and remain where released"
+		later_world_anchor.is_equal_approx(released_world_anchor),
+		"manual drag must preserve its released world anchor across automatic zoom"
+	)
+	_expect(
+		not later_offset.is_equal_approx(released_offset),
+		"automatic zoom must rewrite the raw offset while preserving its world anchor"
 	)
 	_expect(bool(flow.has_map_camera_manual_override()), "release must retain manual camera ownership until the surface ends")
 	flow.call("_complete_map_transition")

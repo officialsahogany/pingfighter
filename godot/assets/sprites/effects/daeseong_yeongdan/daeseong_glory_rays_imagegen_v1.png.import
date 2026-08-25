@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx7m1qp5rvk3f"
-path="res://.godot/imported/tower_training_gauge_tick_imagegen_v1.png-cfb846a65982b33a635698224a7a1a46.ctex"
+uid="uid://7tvnfe06oav3"
+path="res://.godot/imported/daeseong_glory_rays_imagegen_v1.png-ae2d0eac12e4822c16d4565a15d1ef6f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png"
-dest_files=["res://.godot/imported/tower_training_gauge_tick_imagegen_v1.png-cfb846a65982b33a635698224a7a1a46.ctex"]
+source_file="res://assets/sprites/effects/daeseong_yeongdan/daeseong_glory_rays_imagegen_v1.png"
+dest_files=["res://.godot/imported/daeseong_glory_rays_imagegen_v1.png-ae2d0eac12e4822c16d4565a15d1ef6f.ctex"]
 
 [params]
 

@@ -8,10 +8,14 @@ const DIRECTION_RIGHT := 1
 const STRENGTH_MIN := 1
 const STRENGTH_MAX := 3
 const INDICATOR_VISIBLE_STRENGTH_THRESHOLD := 0.01
+# Feedback 5 Q6 (2026-08-25): recalibrated for the 411px/s serve and adopted
+# 0.014 flight force. Relative to the former 274px/s + 0.009 baseline, lateral
+# travel scales by about 0.69 (force times flight-time squared), yielding the
+# rounded 4/8/12-degree presentation-bias table sealed by the route sweep.
 const WIND_STRENGTH_TABLE := [
-	{"level": 1, "key": "weak", "bias_degrees": 6.0, "bar_ratio": 0.34},
-	{"level": 2, "key": "steady", "bias_degrees": 12.0, "bar_ratio": 0.67},
-	{"level": 3, "key": "strong", "bias_degrees": 18.0, "bar_ratio": 1.0},
+	{"level": 1, "key": "weak", "bias_degrees": 4.0, "bar_ratio": 0.34},
+	{"level": 2, "key": "steady", "bias_degrees": 8.0, "bar_ratio": 0.67},
+	{"level": 3, "key": "strong", "bias_degrees": 12.0, "bar_ratio": 1.0},
 ]
 
 
@@ -71,7 +75,7 @@ static func build_model(direction: int, strength_level: int) -> Dictionary:
 		"strength_level": int(strength.get("level", STRENGTH_MIN)),
 		"strength_key": str(strength.get("key", "weak")),
 		"strength_ratio": float(strength.get("bar_ratio", 0.34)),
-		"bias_degrees": float(strength.get("bias_degrees", 6.0)) * normalized_direction,
+		"bias_degrees": float(strength.get("bias_degrees", 4.0)) * normalized_direction,
 	}
 
 

@@ -21,8 +21,6 @@ const KEY_STATE_COMPLETED := "tower_ascent.map_overlay.state.completed"
 const KEY_STATE_UNVISITED := "tower_ascent.map_overlay.state.unvisited"
 const KEY_STATE_VANISHED := "tower_ascent.map_overlay.state.vanished"
 const KEY_STATE_LOCKED := "tower_ascent.map_overlay.state.locked"
-const KEY_LEGEND_TYPES := "tower_ascent.map_overlay.legend.types"
-const KEY_LEGEND_STATES := "tower_ascent.map_overlay.legend.states"
 
 const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_KOREAN: {
@@ -45,8 +43,6 @@ const TEXT_BY_LOCALE := {
 		KEY_STATE_UNVISITED: "미방문",
 		KEY_STATE_VANISHED: "소멸",
 		KEY_STATE_LOCKED: "잠금",
-		KEY_LEGEND_TYPES: "전투 · 광폭화 · 상점 · 수련장 · 파계승 · 수호의 샘터 · 휴식",
-		KEY_LEGEND_STATES: "현재 · 완료 · 미방문 · 소멸 · 잠금",
 	},
 }
 

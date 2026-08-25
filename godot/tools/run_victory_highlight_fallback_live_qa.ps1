@@ -15,7 +15,7 @@ $validationPriorityContext = $null
 try {
     $validationPriorityContext = Assert-NoInteractiveGodotGame `
         -ProjectPath $ProjectPath `
-        -OperationName "Victory highlight fallback live Vulkan QA" `
+        -OperationName "Victory highlight continue revival live Vulkan QA" `
         -AllowDuringPlay
 
     . (Join-Path $PSScriptRoot "resolve_godot_exe.ps1")
@@ -77,7 +77,7 @@ try {
         }
         throw "$qaPath did not emit its terminal marker"
     }
-    Write-Host "Victory highlight fallback live Vulkan QA passed: log=$logPath"
+    Write-Host "Victory highlight continue revival live Vulkan QA passed: log=$logPath"
 }
 finally {
     $env:APPDATA = $previousAppData

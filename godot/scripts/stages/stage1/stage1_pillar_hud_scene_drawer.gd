@@ -49,6 +49,7 @@ var _prewarm_step_index := 0
 var _prewarm_character_type := ""
 var _prewarm_stage1_boss_variant := ""
 var _prewarm_finished_for := ""
+var _missing_boss_skill_hud_warning_keys: Dictionary = {}
 var _plaza_gold_store: Object = PlazaSaveStore.new()
 var _plaza_gold_cache_loaded := false
 var _plaza_gold_cache_stage := -1
@@ -392,9 +393,11 @@ func _draw_stage1_dalji_boss_skill_hud(
 ) -> void:
 	var renderer: Object = _get_cached_module(registry, "stage1_dalji_boss_skill_hud_renderer")
 	if renderer == null or not renderer.has_method("draw"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_dalji_boss_skill_hud_renderer")
 		return
 	var cooldown_state: Object = _get_cached_module(registry, "stage1_dalji_boss_skill_cooldown_state")
 	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_dalji_boss_skill_cooldown_state")
 		return
 	var hud_context: Dictionary = context.duplicate()
 	hud_context.merge(cooldown_state.get_hud_context(), true)
@@ -430,9 +433,11 @@ func _draw_stage1_gaksital_boss_skill_hud(
 ) -> void:
 	var renderer: Object = _get_cached_module(registry, "stage1_gaksital_boss_skill_hud_renderer")
 	if renderer == null or not renderer.has_method("draw"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_gaksital_boss_skill_hud_renderer")
 		return
 	var cooldown_state: Object = _get_cached_module(registry, "stage1_gaksital_boss_skill_cooldown_state")
 	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_gaksital_boss_skill_cooldown_state")
 		return
 	var hud_context: Dictionary = context.duplicate()
 	hud_context.merge(cooldown_state.get_hud_context(), true)
@@ -464,9 +469,11 @@ func _draw_stage1_pododaejang_boss_skill_hud(
 ) -> void:
 	var renderer: Object = _get_cached_module(registry, "stage1_pododaejang_boss_skill_hud_renderer")
 	if renderer == null or not renderer.has_method("draw"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_pododaejang_boss_skill_hud_renderer")
 		return
 	var cooldown_state: Object = _get_cached_module(registry, "stage1_pododaejang_boss_skill_cooldown_state")
 	if cooldown_state == null or not cooldown_state.has_method("get_hud_context"):
+		_warn_missing_stage1_boss_skill_hud_module_once("stage1_pododaejang_boss_skill_cooldown_state")
 		return
 	var hud_context: Dictionary = context.duplicate()
 	hud_context.merge(cooldown_state.get_hud_context(), true)
@@ -490,6 +497,13 @@ func _draw_stage1_pododaejang_boss_skill_hud(
 		"stage1_pododaejang_boss_skill_hud_active"
 	)
 	renderer.draw(canvas, hud_context)
+
+
+func _warn_missing_stage1_boss_skill_hud_module_once(module_key: String) -> void:
+	if _missing_boss_skill_hud_warning_keys.has(module_key):
+		return
+	_missing_boss_skill_hud_warning_keys[module_key] = true
+	push_warning("[Stage1BossSkillHud] prewarmed module unavailable during draw: %s" % module_key)
 
 
 func _draw_gold_hud(

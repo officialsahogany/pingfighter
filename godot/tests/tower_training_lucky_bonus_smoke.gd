@@ -295,10 +295,10 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	runtime.saturated_ids.append(TARGET_ID)
 	flow.call("_refresh_training_modal", "")
 	_expect(str(_find_action(flow, "training_stat:%s" % TARGET_ID).get("unavailable_reason", "")) == "효과 한계", "consumer saturation retains effect-limit copy")
-	runtime.training_counts[STORAGE_ID] = 3
-	runtime.applied_counts[STORAGE_ID] = 3.0
+	runtime.training_counts[STORAGE_ID] = 5
+	runtime.applied_counts[STORAGE_ID] = 5.0
 	flow.call("_refresh_training_modal", "")
-	_expect(str(_find_action(flow, "training_stat:%s" % STORAGE_ID).get("unavailable_reason", "")) == "3/3", "full storage displays 3/3")
+	_expect(str(_find_action(flow, "training_stat:%s" % STORAGE_ID).get("unavailable_reason", "")) == "5/5", "full storage displays 5/5")
 
 
 func _verify_accumulated_copy_locales() -> void:

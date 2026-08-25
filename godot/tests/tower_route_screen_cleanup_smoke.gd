@@ -84,12 +84,13 @@ class FakeRouteFlow:
 	extends RefCounted
 
 	var active := true
+	var phase := "ROUTE_AIM"
 
 	func is_active() -> bool:
 		return active
 
 	func get_phase_name() -> String:
-		return "ROUTE_AIM"
+		return phase
 
 	func has_renderable_retained_noncombat_node_background() -> bool:
 		return false
@@ -174,7 +175,17 @@ func _verify_route_composition_and_reverse_gate() -> void:
 	)
 	_expect(
 		bool(drawer.call("_should_suppress_tower_boss_skill_hud", registry)),
-		"active Tower flow must suppress boss-skill rails",
+		"active Tower route aim must suppress boss-skill rails",
+	)
+	flow.phase = "COMBAT"
+	_expect(
+		not bool(drawer.call("_should_suppress_tower_boss_skill_hud", registry)),
+		"active Tower combat must preserve boss-skill rails",
+	)
+	flow.phase = "MAP_OVERLAY"
+	_expect(
+		bool(drawer.call("_should_suppress_tower_boss_skill_hud", registry)),
+		"active Tower map overlay must suppress boss-skill rails",
 	)
 	flow.active = false
 	_expect(

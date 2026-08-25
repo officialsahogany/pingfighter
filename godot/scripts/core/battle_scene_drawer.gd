@@ -545,6 +545,8 @@ func _should_suppress_tower_boss_skill_hud(registry: Object) -> bool:
 		flow_owner != null
 		and flow_owner.has_method("is_active")
 		and bool(flow_owner.is_active())
+		and flow_owner.has_method("get_phase_name")
+		and str(flow_owner.get_phase_name()) in ["ROUTE_AIM", "MAP_OVERLAY"]
 	)
 
 

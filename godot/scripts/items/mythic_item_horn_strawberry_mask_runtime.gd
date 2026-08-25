@@ -409,7 +409,11 @@ func _get_input_reader(runtime: Object, owner: Object, registry: Object) -> Obje
 		key = "commando_input_reader"
 	elif character_type == "viper":
 		key = "viper_input_reader"
-	return registry.get_instance(key)
+	var input_reader: Object = registry.get_instance(key)
+	var actor_driver: Object = registry.get_instance("battle_scene_actor_update_driver")
+	if actor_driver == null or not actor_driver.has_method("get_vision_aware_input_reader"):
+		return input_reader
+	return actor_driver.get_vision_aware_input_reader(owner, registry, input_reader)
 
 
 func _get_owner_gauge(runtime: Object, owner: Object) -> float:

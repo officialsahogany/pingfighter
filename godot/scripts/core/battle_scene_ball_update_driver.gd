@@ -101,6 +101,7 @@ func update_ball(
 	sample_start = _perf_begin(perf_logger)
 	var update_deps: Dictionary = context_builder.build_update_deps(registry, update_context)
 	_perf_end(perf_logger, "physics.ball.build_deps", sample_start)
+	_apply_vision_input_reader(update_deps, owner, registry)
 	# Inject perf_logger into deps so the ball update controller can subdivide
 	# its hot physics step (motion / collision / stage collision / effects) for
 	# spike attribution. The driver layer already owns the perf_logger handle
@@ -206,6 +207,18 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _apply_vision_input_reader(deps: Dictionary, owner: Object, registry: Object) -> void:
+	var actor_driver: Object = _get_instance(registry, "battle_scene_actor_update_driver")
+	if actor_driver == null or not actor_driver.has_method("get_vision_aware_input_reader"):
+		return
+	deps["input_reader"] = actor_driver.get_vision_aware_input_reader(
+		owner,
+		registry,
+		deps.get("input_reader", null),
+		deps.get("skill_config", null)
+	)
 
 
 func _perf_begin(perf_logger: Object) -> int:

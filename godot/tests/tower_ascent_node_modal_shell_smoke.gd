@@ -9,6 +9,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentFlowOwner := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -100,10 +103,19 @@ func _init() -> void:
 
 func _verify_node_modal_opens_only_after_map_arrival() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var map_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed(
+		"guardian_spring"
+	)
+	_expect(
+		map_seed > 0,
+		"no map seed exposes a guardian_spring node in the first route row"
+	)
+	if map_seed <= 0:
+		return
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
 		"run_id": "arrival-modal-contract",
-		"map_seed": 83521,
+		"map_seed": map_seed,
 	}), "arrival-modal fixture must begin")
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "victory completion must not open a node modal at the defeated boss")
 	var targets: Array[Dictionary] = flow.get_route_aim_targets()

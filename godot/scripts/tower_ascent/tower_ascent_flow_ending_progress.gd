@@ -354,12 +354,30 @@ func _complete_map_transition() -> void:
 	if arrived_node.is_empty():
 		_finish_vertical_slice()
 		return
+	var arrived_kind := str(arrived_node.get("kind", ""))
+	var encounter: Dictionary = {}
+	if arrived_kind not in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+		_warn_boss_identity_mismatch(arrived_node)
+		encounter = TowerAscentBossRegistry.new().resolve_battle_encounter_for_node(
+			arrived_node
+		)
+		if encounter.is_empty():
+			push_error(
+				"[TowerAscent] blocked combat arrival with no visible boss identity: %s"
+				% str(arrived_node.get("id", ""))
+			)
+			_selected_target_id = ""
+			_map_transition_progress = 0.0
+			_phase = PHASE_ROUTE_AIM
+			_refresh_route_target_cache()
+			_reset_selector()
+			_request_redraw(_active_owner)
+			return
 	_current_node_id = _selected_target_id
 	_route_source_node_id = _current_node_id
 	_route_target_ids.assign(_outgoing_target_ids(_current_node_id))
 	_selected_target_id = ""
 	_refresh_route_target_cache()
-	var arrived_kind := str(arrived_node.get("kind", ""))
 	if arrived_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
 		_node_modal_kind = _normalize_node_modal_kind(arrived_kind)
 		_retain_noncombat_node_background(arrived_kind)
@@ -367,14 +385,15 @@ func _complete_map_transition() -> void:
 		_open_node_modal()
 		_transition_fade_state.begin_node_modal_fade()
 		return
-	_warn_boss_identity_mismatch(arrived_node)
-	var encounter := TowerAscentBossRegistry.new().resolve_battle_encounter(
-		str(arrived_node.get("boss_slot_id", ""))
-	)
-	if encounter.is_empty():
-		push_error("[TowerAscent] combat node has no routable boss encounter: %s" % str(arrived_node.get("id", "")))
-		_finish_vertical_slice()
-		return
+	if bool(encounter.get("identity_corrected", false)):
+		push_warning(
+			"[TowerAscent] corrected arrived boss to visible identity node=%s visible=%s slot=%s"
+			% [
+				str(encounter.get("node_id", "")),
+				str(encounter.get("canonical_key", "")),
+				str(encounter.get("slot_key", "")),
+			]
+		)
 	if bool(encounter.get("fallback_used", false)):
 		push_warning(
 			"[TowerAscent] boss slot %s uses stand-in stage %d boss %s"

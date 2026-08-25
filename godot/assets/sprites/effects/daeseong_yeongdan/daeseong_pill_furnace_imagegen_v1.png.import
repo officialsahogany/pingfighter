@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://0pq36jly2xxm"
-path="res://.godot/imported/tower_training_gauge_tick_blue_v1.png-f27bc91622fd2faa28ff0d0bd612272c.ctex"
+uid="uid://dm2jsmkmt4i0e"
+path="res://.godot/imported/daeseong_pill_furnace_imagegen_v1.png-78d3be95f7daceb5a5b4e4457ecf6f7a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/tower_training_gauge/tower_training_gauge_tick_blue_v1.png"
-dest_files=["res://.godot/imported/tower_training_gauge_tick_blue_v1.png-f27bc91622fd2faa28ff0d0bd612272c.ctex"]
+source_file="res://assets/sprites/effects/daeseong_yeongdan/daeseong_pill_furnace_imagegen_v1.png"
+dest_files=["res://.godot/imported/daeseong_pill_furnace_imagegen_v1.png-78d3be95f7daceb5a5b4e4457ecf6f7a.ctex"]
 
 [params]
 

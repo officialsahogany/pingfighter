@@ -12,6 +12,11 @@ var character_runtime: Object = PlayerCharacterRuntime.new()
 var _fallback_result_applier: Object = BattleSceneActorUpdateResultApplier.new()
 var _fallback_config_builder: Object = BattleScenePlayerControlConfigBuilder.new()
 var _vision_modifier_input_proxy: Object = VisionModifierInputProxy.new()
+var _vision_input_frame_key := -1
+var _vision_input_owner_id := 0
+var _vision_input_reader_id := 0
+var _vision_input_frame: Dictionary = {}
+var _vision_proxy_enabled := true
 
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
@@ -58,18 +63,12 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	var vision_special_gauge_override := -1.0
 	var vision_movement_locked := false
 	var vision_activated := false
-	var input_snapshot: Dictionary = {}
 	var input_reader: Object = player_control_deps.get("input_reader", null)
-	# GRT-019: sample the stateful character reader exactly once. Vision states
-	# see this raw snapshot first; the character controller receives the same
-	# snapshot through the filtering proxy, never a second edge-consuming read.
-	if input_reader != null and input_reader.has_method("get_snapshot"):
-		var snapshot_value: Variant = input_reader.get_snapshot()
-		if snapshot_value is Dictionary:
-			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
-	var modifier_pressed := Input.is_action_pressed("vision_modifier")
 	var skill_config: Object = player_control_deps.get("skill_config", null)
-	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
+	var vision_input_frame := prepare_vision_input_frame(owner, registry, input_reader, skill_config)
+	var input_snapshot: Dictionary = _get_dictionary(vision_input_frame, "raw_snapshot")
+	var modifier_pressed := bool(vision_input_frame.get("modifier_pressed", false))
+	var vision_input_exclusive := bool(vision_input_frame.get("exclusive_active", false))
 	for entry: Dictionary in vision_entries:
 		var vision_state: Object = entry.get("state", null)
 		if vision_state == null or not vision_state.has_method("update"):
@@ -89,9 +88,7 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			vision_activated = true
 		if vision_state.has_method("is_movement_locked") and bool(vision_state.is_movement_locked()):
 			vision_movement_locked = true
-	_vision_modifier_input_proxy.configure_snapshot(input_reader, input_snapshot, vision_input_exclusive)
-	if _vision_modifier_input_proxy.should_filter_current_snapshot():
-		player_control_deps["input_reader"] = _vision_modifier_input_proxy
+	player_control_deps["input_reader"] = vision_input_frame.get("input_reader", input_reader)
 	if vision_input_exclusive:
 		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
@@ -116,6 +113,75 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	_get_result_applier(registry).apply_player_result(owner, registry, result)
 	_perf_end(perf_logger, "physics.player_control.apply", sample_start)
 	_perf_end(perf_logger, "physics.player_control.total", total_start)
+
+
+func prepare_vision_input_frame(
+	owner: Object,
+	registry: Object,
+	input_reader: Object = null,
+	skill_config: Object = null
+) -> Dictionary:
+	if owner == null or registry == null:
+		return {
+			"raw_snapshot": {},
+			"input_reader": input_reader,
+			"modifier_pressed": false,
+			"exclusive_active": false,
+		}
+	if input_reader == null:
+		input_reader = _get_character_input_reader(owner, registry)
+	if skill_config == null:
+		skill_config = _get_character_skill_config(owner, registry)
+	var frame_key := int(Engine.get_physics_frames())
+	var owner_id := owner.get_instance_id()
+	var reader_id := input_reader.get_instance_id() if input_reader != null else 0
+	if (
+		frame_key == _vision_input_frame_key
+		and owner_id == _vision_input_owner_id
+		and reader_id == _vision_input_reader_id
+		and not _vision_input_frame.is_empty()
+	):
+		return _vision_input_frame.duplicate()
+
+	# GRT-019: every gameplay input consumer for this physics frame shares this
+	# one sample and this one stateful proxy. Mythic runtimes run before player
+	# control, while ball/paddle consumers run after it; none may poll the raw
+	# reader a second time or allocate a sibling proxy.
+	var input_snapshot: Dictionary = {}
+	if input_reader != null and input_reader.has_method("get_snapshot"):
+		var snapshot_value: Variant = input_reader.get_snapshot()
+		if snapshot_value is Dictionary:
+			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
+	var modifier_pressed := Input.is_action_pressed("vision_modifier")
+	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
+	_vision_modifier_input_proxy.configure_snapshot(input_reader, input_snapshot, vision_input_exclusive)
+	_vision_input_frame_key = frame_key
+	_vision_input_owner_id = owner_id
+	_vision_input_reader_id = reader_id
+	_vision_input_frame = {
+		"raw_snapshot": input_snapshot,
+		"input_reader": _vision_modifier_input_proxy if _vision_proxy_enabled else input_reader,
+		"modifier_pressed": modifier_pressed,
+		"exclusive_active": vision_input_exclusive,
+	}
+	return _vision_input_frame.duplicate()
+
+
+func set_vision_proxy_enabled_for_test(enabled: bool) -> void:
+	_vision_proxy_enabled = enabled
+	_vision_input_frame.clear()
+
+
+func get_vision_aware_input_reader(
+	owner: Object,
+	registry: Object,
+	input_reader: Object = null,
+	skill_config: Object = null
+) -> Object:
+	return prepare_vision_input_frame(owner, registry, input_reader, skill_config).get(
+		"input_reader",
+		input_reader
+	)
 
 
 func update_boss_ai(owner: Object, registry: Object, delta: float) -> void:
@@ -188,6 +254,25 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_character_input_reader(owner: Object, registry: Object) -> Object:
+	var character_type: String = character_runtime.normalize(
+		_get_owner_value(owner, "selected_character_type", "smasher")
+	)
+	return _get_instance(registry, character_runtime.get_input_reader_key(character_type))
+
+
+func _get_character_skill_config(owner: Object, registry: Object) -> Object:
+	var character_type: String = character_runtime.normalize(
+		_get_owner_value(owner, "selected_character_type", "smasher")
+	)
+	return _get_instance(registry, character_runtime.get_skill_config_key(character_type))
+
+
+func _get_dictionary(source: Dictionary, key: String) -> Dictionary:
+	var value: Variant = source.get(key, {})
+	return value.duplicate(true) if value is Dictionary else {}
 
 
 func _get_result_applier(registry: Object) -> Object:

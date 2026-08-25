@@ -656,7 +656,7 @@ func _get_status_text(entry: Dictionary, owned_level: int, apply_level: int) -> 
 	var group: String = str(entry.get("debug_group", entry.get("tree", "")))
 	if bool(entry.get("is_physique_training", false)):
 		# 상한은 카탈로그가 카드에 실어 보낸 값만 읽는다 — 리터럴 복사본을 두면
-		# 수납술 상한(1회 → 3회)을 바꿀 때 배지만 옛 값으로 남는다.
+		# 수납술 상한을 바꿀 때 배지만 옛 값으로 남지 않도록 카탈로그를 따른다.
 		var training_max_count: int = int(entry.get("training_max_count", -1))
 		if training_max_count > 0:
 			return "수련 / %d회 한정" % training_max_count

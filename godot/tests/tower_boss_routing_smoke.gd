@@ -50,6 +50,7 @@ func _init() -> void:
 	_verify_run_progress_survives_two_combat_preparations()
 	_verify_map_seed_survives_second_combat_preparation()
 	_verify_skipped_boss_cannot_return_as_route_target()
+	_verify_dense_floor_gate_slots_remain_routable()
 	_verify_flag_off_preserves_legacy()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -241,6 +242,59 @@ func _verify_skipped_boss_cannot_return_as_route_target() -> void:
 	flow.set("_route_target_ids", flow.call("_outgoing_target_ids", parent_id))
 	flow.call("_refresh_route_target_cache")
 	_expect(not flow.get_route_target_ids().has(str(regenerated_skipped_node.get("id", ""))), "skipped boss must not return as an actual selectable route target later in the run")
+
+
+func _verify_dense_floor_gate_slots_remain_routable() -> void:
+	var graph: Dictionary = TowerAscentMapGenerator.new().generate_tower(45190)
+	_expect(not graph.is_empty(), "dense gate-routing fixture must generate")
+	if graph.is_empty():
+		return
+	var registry := TowerAscentBossRegistry.new()
+	var gate_count_by_floor: Dictionary = {}
+	var four_lane_count_by_floor: Dictionary = {}
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		var row_width_by_index: Dictionary = {}
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var global_row := int(node.get("global_row", -1))
+			row_width_by_index[global_row] = int(
+				row_width_by_index.get(global_row, 0)
+			) + 1
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var floor_number := int(node.get("segment_floor", 0))
+			if floor_number < 2 or floor_number > 8:
+				continue
+			if int(row_width_by_index.get(int(node.get("global_row", -1)), 0)) == 4:
+				four_lane_count_by_floor[floor_number] = 1
+			if not bool(node.get("gatekeeper", false)):
+				continue
+			gate_count_by_floor[floor_number] = int(
+				gate_count_by_floor.get(floor_number, 0)
+			) + 1
+			var slot_id := str(node.get("boss_slot_id", ""))
+			_expect(
+				not slot_id.is_empty()
+				and not registry.resolve_battle_encounter(slot_id).is_empty(),
+				"floor %d dense-map gate must retain a resolvable boss slot"
+				% floor_number
+			)
+	for floor_number in range(2, 9):
+		_expect(
+			int(gate_count_by_floor.get(floor_number, 0)) == 1,
+			"floor %d must retain exactly one routed gate node" % floor_number
+		)
+		_expect(
+			int(four_lane_count_by_floor.get(floor_number, 0)) == 1,
+			"floor %d must expose one four-lane route before its routed gate"
+			% floor_number
+		)
 
 
 func _find_mixed_boss_choice_seed() -> int:

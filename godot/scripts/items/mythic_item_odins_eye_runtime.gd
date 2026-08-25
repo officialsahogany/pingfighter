@@ -371,7 +371,11 @@ func _update_afterimage_runtime(runtime: Object, fps_scale: float, owner: Object
 	# 여기서 위치 델타를 이중으로 걸면 첫 스폰이 한 틱 밀린다.
 	var movement_intent: bool = false
 	var input_reader_key: String = _character_runtime.get_input_reader_key(owner.get("selected_character_type"))
-	var input_reader: Object = _peek_registry_instance(registry, input_reader_key)
+	var input_reader: Object = _get_vision_aware_input_reader(
+		owner,
+		registry,
+		_peek_registry_instance(registry, input_reader_key)
+	)
 	if input_reader != null and input_reader.has_method("get_snapshot"):
 		var input_snapshot: Dictionary = input_reader.get_snapshot()
 		movement_intent = bool(input_snapshot.get("left_pressed", false)) or bool(input_snapshot.get("right_pressed", false))
@@ -518,7 +522,11 @@ func _update_dark_swamp_runtime(runtime: Object, fps_scale: float, owner: Object
 	var synthesized_edge: bool = previous_poll_frame >= 0 and poll_frame - previous_poll_frame > 1
 	if bool(state.penalty_active) and not paused and not synthesized_edge:
 		var input_reader_key: String = _character_runtime.get_input_reader_key(owner.get("selected_character_type"))
-		var input_reader: Object = _peek_registry_instance(registry, input_reader_key)
+		var input_reader: Object = _get_vision_aware_input_reader(
+			owner,
+			registry,
+			_peek_registry_instance(registry, input_reader_key)
+		)
 		if input_reader != null and input_reader.has_method("get_snapshot"):
 			var input_snapshot: Dictionary = input_reader.get_snapshot()
 			var viper_runtime: Object = _peek_registry_instance(registry, "viper_skill_runtime")
@@ -597,6 +605,13 @@ func _peek_registry_instance(registry: Object, key: String) -> Object:
 	if typeof(value) == TYPE_OBJECT and is_instance_valid(value):
 		return value as Object
 	return null
+
+
+func _get_vision_aware_input_reader(owner: Object, registry: Object, input_reader: Object) -> Object:
+	var actor_driver: Object = _peek_registry_instance(registry, "battle_scene_actor_update_driver")
+	if actor_driver == null or not actor_driver.has_method("get_vision_aware_input_reader"):
+		return input_reader
+	return actor_driver.get_vision_aware_input_reader(owner, registry, input_reader)
 
 
 func _as_vector2(value: Variant) -> Vector2:

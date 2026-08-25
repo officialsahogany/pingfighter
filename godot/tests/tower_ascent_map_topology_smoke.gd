@@ -19,7 +19,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
@@ -131,18 +131,17 @@ func _verify_many_seed_topology() -> void:
 			int(_service_kind_counts.get(required_kind, 0)) > 0,
 			"multi-seed distribution must retain service kind %s" % required_kind
 		)
-	# v13 재보정(2026-08-24): v10의 "3~4레인 지배" 계약은 v12 게이트
-	# 초크포인트(전 게이트 싱글톤 행)와 보스 밀도·분기율 재설계로 대체됨.
-	# 128시드 실측 wide=256(시드당 2행)·singleton=1664. 현행 계약 =
-	# 시드당 광폭 행 최소 1개 유지 + 싱글톤 행 폭주 상한 밴드.
+	# Feedback 6 A adds one four-lane route row to each standard floor 2..8.
+	# The first-floor expansion keeps its two existing wide rows, so every seed
+	# now has exactly nine wide rows. Single-lane gate rows remain unchanged.
 	_expect(
-		_sample_wide_rows >= SAMPLE_SEED_COUNT,
-		"each seed must keep at least one three-to-four-lane row (wide=%d seeds=%d)"
+		_sample_wide_rows == SAMPLE_SEED_COUNT * 9,
+		"each seed must expose exactly nine three-to-four-lane rows (wide=%d seeds=%d)"
 		% [_sample_wide_rows, SAMPLE_SEED_COUNT]
 	)
 	_expect(
-		_sample_singleton_rows <= 2080,
-		"singleton rows must stay inside the v13 chokepoint band (singleton=%d cap=2080)"
+		_sample_singleton_rows == SAMPLE_SEED_COUNT * 13,
+		"single-lane chokepoint rows must remain exactly thirteen per seed (singleton=%d)"
 		% _sample_singleton_rows
 	)
 	_expect(

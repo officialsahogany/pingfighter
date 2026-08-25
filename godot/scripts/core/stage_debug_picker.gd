@@ -2,6 +2,9 @@ extends RefCounted
 
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const StageBossVariantCatalog := preload(
+	"res://scripts/stages/common/stage_boss_variant_catalog.gd"
+)
 
 const STAGE_OPTIONS := [
 	{"id": 1, "variant": "dalji", "name": "스테이지 1", "desc": "달지"},
@@ -513,12 +516,7 @@ func _get_option_stage1_boss_variant(option: Dictionary) -> String:
 
 
 func _normalize_stage1_boss_variant(value: String) -> String:
-	var normalized := value.strip_edges().to_lower()
-	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
-		return "gaksi"
-	if normalized == "podo" or normalized == "pododaejang" or normalized == "podo_daejang":
-		return "podo"
-	return "dalji"
+	return StageBossVariantCatalog.normalize_variant(1, value)
 
 
 func _get_stage1_boss_skill_hud_key(stage1_boss_variant: String) -> String:

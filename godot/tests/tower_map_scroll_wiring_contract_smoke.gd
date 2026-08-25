@@ -288,6 +288,8 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	var content_rect: Rect2 = model.get("content_rect", Rect2())
 	var map_scale := float(model.get("map_scale", 0.0))
 	var previous_key := ""
+	var previous_floor := 0
+	var asset_key_by_floor := {}
 	_expect(is_equal_approx(world_rect.size.x, content_rect.size.x), "the M-key scroll world must fit the live content width")
 	var expected_default_zoom := clampf(
 		float(model.get("minimum_cover_zoom", 0.0))
@@ -310,10 +312,16 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		var asset_key := str(tile.get("asset_key", ""))
 		_expect(tile.get("texture", null) is Texture2D, "every visible floor tile must own a cached band texture")
 		_expect(tile.get("paper_texture", null) is Texture2D, "the approved common paper must sit below every opaque band")
-		_expect(asset_key != previous_key, "adjacent rendered floors must not repeat one variant")
+		_expect(
+			asset_key != previous_key,
+			"adjacent rendered floors %d/%d must not repeat variant %s"
+				% [previous_floor, int(tile.get("floor", 0)), asset_key]
+		)
 		_expect(is_equal_approx(tile_rect.position.x, tile_world_rect.position.x) and is_equal_approx(tile_rect.size.x, tile_world_rect.size.x), "every band must span the scroll width")
 		_expect(tile_rect.size.is_equal_approx(Vector2(692.0, 320.0) * map_scale), "each opaque band must preserve its approved aspect ratio at M-key content scale: floor=%d size=%s" % [int(tile.get("floor", 0)), str(tile_rect.size)])
+		asset_key_by_floor[int(tile.get("floor", 0))] = asset_key
 		previous_key = asset_key
+		previous_floor = int(tile.get("floor", 0))
 	var previous_end_y := tile_world_rect.position.y
 	for chunk_variant in draw_chunks:
 		var chunk := chunk_variant as Dictionary
@@ -324,6 +332,11 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		)
 		_expect(chunk.get("texture", null) is Texture2D, "every opaque draw chunk must own its cached band texture")
 		_expect(chunk.get("paper_texture", null) is Texture2D, "every opaque draw chunk must retain the common paper underlay")
+		_expect(
+			str(chunk.get("asset_key", ""))
+				== str(asset_key_by_floor.get(int(chunk.get("floor", 0)), "")),
+			"every repeated/cropped chunk must retain its floor's selected variant"
+		)
 		_expect(
 			is_equal_approx(chunk_rect.position.x, tile_world_rect.position.x)
 			and is_equal_approx(chunk_rect.size.x, tile_world_rect.size.x),

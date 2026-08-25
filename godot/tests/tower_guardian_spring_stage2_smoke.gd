@@ -3,6 +3,12 @@ extends SceneTree
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
+const PhysiqueTrainingCatalog := preload(
+	"res://scripts/characters/physique_training_catalog.gd"
+)
+const PerkConversionFlags := preload(
+	"res://scripts/characters/perk_conversion_flags.gd"
+)
 const CharacterInfoOverlayStatsPresenter := preload(
 	"res://scripts/hud/character_info_overlay_stats_presenter.gd"
 )
@@ -190,6 +196,21 @@ func _verify_effective_stat_projection_and_caps() -> void:
 		),
 		"production stats presenter must display prayer +6% as 50pt to 53pt vigor gain"
 	)
+	var original_training_flag := PerkConversionFlags.is_enabled()
+	PerkConversionFlags.debug_set_enabled(true)
+	runtime_state.runtime_skill_levels["training_mastery"] = 3
+	_expect(
+		runtime_state._apply_physique_training_choice(
+			PhysiqueTrainingCatalog.new().build_card("physique_move_speed", 0),
+			null,
+			null
+		),
+		"prayer composition fixture must apply one numeric training"
+	)
+	_expect(is_equal_approx(runtime_state.get_physique_training_multiplier(), 2.0), "3-star Training Mastery must keep the canonical 2.0 multiplier")
+	_expect(is_equal_approx(runtime_state.get_player_speed_multiplier(), 1.14), "prayer +6 percentage points and amplified 4% training must compose to +14%")
+	print("tower_guardian_spring_stage2_smoke: prayer=+3%/count mastery=2.0 combined_move=1.14")
+	PerkConversionFlags.debug_set_enabled(original_training_flag)
 	runtime_state.set_tower_spring_prayer_count(100)
 	_expect(runtime_state.get_active_item_cooldown_msec(100000) == 5000, "cooldown prayer reduction must respect the 95 percent cap")
 

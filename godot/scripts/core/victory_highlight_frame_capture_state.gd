@@ -23,9 +23,11 @@ const LOGICAL_MAX_BYTE_COUNT := LOGICAL_MAX_FRAME_COUNT * CAPTURE_BYTE_COUNT
 const MAX_IN_FLIGHT := 2
 const FRAME_DEADLINE_USEC := int(floor(1_000_000.0 / MAX_CAPTURE_HZ))
 const CONSECUTIVE_CAPTURE_FAILURE_THRESHOLD := 3
+const QUEUED_GOAL_VIEWPORT_RETRY_LIMIT := 30
 const FAILURE_REASON_ASYNC_CAPTURE_ERROR := "async_capture_error"
 const FAILURE_REASON_BYTE_SIZE_MISMATCH := "byte_size_mismatch"
 const FAILURE_REASON_CROP_SYNC_FAILURE := "crop_sync_failure"
+const FAILURE_REASON_FRAME_LANE_NOT_PREWARMED := "frame_lane_not_prewarmed"
 const ARM_RESULT_NOT_ARMED := 0
 const ARM_RESULT_ARMED := 1
 const ARM_RESULT_RETRY := 2
@@ -61,6 +63,7 @@ var _retained_clip_ids: Array[int] = []
 
 var _pending_capture: Dictionary = {}
 var _queued_goal: Dictionary = {}
+var _queued_goal_retry_count := 0
 var _in_flight := 0
 var _in_flight_high_water := 0
 var _capture_epoch := 1
@@ -79,7 +82,8 @@ var _failed := false
 var _forced_startup_failure := false
 var _forced_runtime_failure := false
 var _forced_crop_sync_failure_once := false
-var _forced_viewport_degeneracy_once := false
+var _forced_crop_sync_success_once := false
+var _forced_viewport_degeneracy_count := 0
 var _capture_failure_count := 0
 var _consecutive_capture_failure_count := 0
 var _viewport_retry_count := 0
@@ -192,6 +196,7 @@ func request_goal_capture(state_clip: Dictionary, retained_clip_ids: Array[int])
 		"duration_sec": float(state_clip.get("duration_sec", 0.0)),
 		"is_final": bool(state_clip.get("is_final", false)),
 	}
+	_queued_goal_retry_count = 0
 	_arm_queued_goal_if_possible()
 	return true
 
@@ -214,6 +219,8 @@ func attach_frame_payloads(selected_clips: Array[Dictionary]) -> bool:
 		clip["frame_fps"] = CAPTURE_FPS
 		clip["frame_data_format"] = _capture_data_format
 		attached_any = true
+	if not attached_any and not _ready and _fallback_reason.is_empty():
+		_fallback_reason = FAILURE_REASON_FRAME_LANE_NOT_PREWARMED
 	return attached_any
 
 
@@ -227,7 +234,8 @@ func reset() -> void:
 	_forced_startup_failure = false
 	_forced_runtime_failure = false
 	_forced_crop_sync_failure_once = false
-	_forced_viewport_degeneracy_once = false
+	_forced_crop_sync_success_once = false
+	_forced_viewport_degeneracy_count = 0
 
 
 func release_all(
@@ -238,6 +246,7 @@ func release_all(
 	_recording_enabled = false
 	_pending_capture.clear()
 	_queued_goal.clear()
+	_queued_goal_retry_count = 0
 	_in_flight = 0
 	_disconnect_frame_signal()
 	if _blit_viewport != null and is_instance_valid(_blit_viewport):
@@ -307,8 +316,24 @@ func force_crop_sync_failure_for_tests() -> void:
 
 
 func force_viewport_degeneracy_for_tests() -> void:
-	_forced_viewport_degeneracy_once = true
+	_forced_viewport_degeneracy_count = 1
 	_arm_capture(0.0, {})
+
+
+func force_queued_goal_viewport_degeneracy_for_tests(retry_count: int) -> void:
+	_forced_viewport_degeneracy_count = maxi(0, retry_count)
+
+
+func force_pending_capture_success_for_tests(bytes: PackedByteArray) -> bool:
+	if _pending_capture.is_empty():
+		return false
+	var request := _pending_capture.duplicate(true)
+	_pending_capture.clear()
+	if _blit_viewport != null:
+		_blit_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_in_flight += 1
+	_accept_async_result(bytes, request)
+	return true
 
 
 func force_capture_success_for_tests(bytes: PackedByteArray, logical_time_sec: float) -> void:
@@ -328,6 +353,20 @@ func install_owned_viewport_for_tests(parent: Node) -> void:
 	_blit_viewport.size = CAPTURE_SIZE
 	parent.add_child(_blit_viewport)
 	_ready = true
+
+
+func install_ready_capture_pipeline_for_tests(owner: Object) -> void:
+	if owner == null or not owner.has_method("get_viewport"):
+		return
+	var viewport_value: Variant = owner.get_viewport()
+	if not (viewport_value is Viewport):
+		return
+	_root_viewport = viewport_value as Viewport
+	_build_blit_viewport()
+	_ready = true
+	_failed = false
+	_recording_enabled = true
+	_forced_crop_sync_success_once = true
 
 
 func store_frame_for_tests(bytes: PackedByteArray, logical_time_sec: float) -> void:
@@ -353,6 +392,8 @@ func get_debug_snapshot() -> Dictionary:
 		"in_flight_high_water": _in_flight_high_water,
 		"pending_capture": not _pending_capture.is_empty(),
 		"queued_goal": not _queued_goal.is_empty(),
+		"queued_goal_retry_count": _queued_goal_retry_count,
+		"queued_goal_retry_limit": QUEUED_GOAL_VIEWPORT_RETRY_LIMIT,
 		"capture_due_count": _capture_due_count,
 		"capture_armed_count": _capture_armed_count,
 		"capture_produced_count": _capture_produced_count,
@@ -434,12 +475,19 @@ func _arm_capture(logical_time_sec: float, goal_descriptor: Dictionary) -> int:
 			"retry": false,
 			"detail": "normalized game crop synchronization failed",
 		}
-	if _forced_viewport_degeneracy_once:
-		_forced_viewport_degeneracy_once = false
+	if _forced_viewport_degeneracy_count > 0:
+		_forced_viewport_degeneracy_count -= 1
 		crop_sync = {
 			"synced": false,
 			"retry": true,
 			"detail": "forced viewport degeneracy",
+		}
+	elif _forced_crop_sync_success_once:
+		_forced_crop_sync_success_once = false
+		crop_sync = {
+			"synced": true,
+			"retry": false,
+			"detail": "",
 		}
 	if bool(crop_sync.get("retry", false)):
 		_record_viewport_retry("runtime", str(crop_sync.get("detail", "viewport temporarily unavailable")))
@@ -471,6 +519,9 @@ func _on_frame_post_draw() -> void:
 		_prewarm_capture_armed = false
 		if _blit_viewport != null:
 			_blit_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		return
+	if _pending_capture.is_empty() and _in_flight == 0 and not _queued_goal.is_empty():
+		_arm_queued_goal_if_possible()
 		return
 	if _pending_capture.is_empty() or _blit_viewport == null:
 		return
@@ -613,7 +664,13 @@ func _arm_queued_goal_if_possible() -> void:
 	_queued_goal.clear()
 	var arm_result := _arm_capture(float(descriptor.get("goal_sec", 0.0)), descriptor)
 	if arm_result == ARM_RESULT_RETRY:
-		_queued_goal = descriptor
+		_queued_goal_retry_count += 1
+		if _queued_goal_retry_count >= QUEUED_GOAL_VIEWPORT_RETRY_LIMIT:
+			_recover_goal_descriptor(descriptor)
+		else:
+			_queued_goal = descriptor
+	else:
+		_queued_goal_retry_count = 0
 
 
 func _prune_frame_clips() -> void:

@@ -111,11 +111,13 @@ env:
     res://tests/default_dash_token_baseline_smoke.gd
     res://tests/tower_ascent_route_serve_smoke.gd
     res://tests/tower_ascent_map_overlay_render_smoke.gd
+    res://tests/tower_ascent_12_floor_map_smoke.gd
     res://tests/tower_ascent_map_topology_smoke.gd
     res://tests/tower_ascent_map_distribution_contract_smoke.gd
     res://tests/tower_optional_extra_boss_distribution_smoke.gd
     res://tests/tower_ascent_floor_one_expansion_contract_smoke.gd
     res://tests/floor_one_boss_identity_smoke.gd
+    res://tests/tower_arrived_boss_identity_smoke.gd
     res://tests/tower_ascent_boss_floor_contract_smoke.gd
     res://tests/tower_reward_pick_smoke.gd
     res://tests/tower_victory_margin_muhon_reward_smoke.gd
@@ -156,12 +158,14 @@ env:
     res://tests/lingpet_duration_field_gauge_smoke.gd
     res://tests/weather_event_render_budget_smoke.gd
     res://tests/limit_league_tier_smoke.gd
+    res://tests/stage1_boss_card_reencounter_prewarm_smoke.gd
     res://tests/stage1_han_miryang_prologue_smoke.gd
     res://tests/stage1_variant_boss_routing_smoke.gd
     res://tests/stage7_akamu_prebattle_video_smoke.gd
     res://tests/victory_highlight_replay_smoke.gd
     res://tests/victory_highlight_frame_product_smoke.gd
     res://tests/victory_highlight_frame_failure_recovery_smoke.gd
+    res://tests/victory_highlight_frame_lane_revival_smoke.gd
     res://tests/stage7_akamu_prebattle_live_frame_smoke.gd
     res://tests/stage7_akamu_slice6_result_loading_smoke.gd
     res://tests/stage7_akamu_result_scene_smoke.gd

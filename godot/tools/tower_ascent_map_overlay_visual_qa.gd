@@ -276,9 +276,28 @@ func _inject_missing_icon_probe(flow_owner: Object) -> bool:
 	for node in flow_owner.get_graph_nodes():
 		if str(node.get("kind", "")) not in ["boss", "combat", "enraged"]:
 			continue
-		node["map_icon_boss_id"] = "missing_contract_probe"
+		node["boss_slot_id"] = "floor_99_missing_contract_probe"
+		node["boss_encounter_key"] = "99:missing_contract_probe"
+		node["standin"] = {
+			"stage": 99,
+			"boss_id": "missing_contract_probe",
+			"variant": "missing_contract_probe",
+		}
+		node.erase("map_icon_boss_id")
 		node["label"] = "계약 폴백 보스"
-		return true
+		var renderer: Object = flow_owner.get("_renderer")
+		if renderer == null or not renderer.has_method("invalidate_map_icon_node_cache"):
+			return false
+		renderer.invalidate_map_icon_node_cache(str(node.get("id", "")))
+		var presentation: Dictionary = renderer.build_map_icon_presentation(node)
+		var valid := (
+			str(presentation.get("boss_id", "")) == "missing_contract_probe"
+			and presentation.get("icon_texture", null) == null
+			and str(presentation.get("fallback_label", "")) == "계약 폴백 보스"
+		)
+		if valid:
+			print("tower_ascent_map_overlay_visual_qa: missing_icon_probe=standin_label_fallback")
+		return valid
 	return false
 
 

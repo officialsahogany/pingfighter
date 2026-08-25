@@ -44,15 +44,15 @@ func _verify_catalog_and_offer_gate() -> void:
 	var data: Dictionary = catalog.get_perk_data(PERK_ID)
 	var descriptions: Dictionary = data.get("descriptions", {}) as Dictionary
 	_expect(str(data.get("name", "")) == "연공심법", "the new Mugong should use the Korean name 연공심법")
-	_expect(int(data.get("max_level", 0)) == 5, "연공심법 should have five authored levels")
-	_expect(str(descriptions.get(1, "")) == "모든 수련의 능력치 효과 20% 증폭", "Lv.1 should amplify numeric training stats by 20 percent")
-	_expect(str(descriptions.get(5, "")) == "모든 수련의 능력치 효과 100% 증폭", "Lv.5 should amplify numeric training stats by 100 percent")
+	_expect(int(data.get("max_level", 0)) == 3, "연공심법 should have three authored stars")
+	_expect(str(descriptions.get(1, "")) == "모든 수련의 능력치 효과 25% 증폭", "1-star should amplify numeric training stats by 25 percent")
+	_expect(str(descriptions.get(3, "")) == "모든 수련의 능력치 효과 100% 증폭", "3-star should amplify numeric training stats by 100 percent")
 	_expect(RuntimePerkCatalog.is_slot_consuming_perk(data), "연공심법 should consume one normal Mugong slot")
-	_expect(PERK_ID in _ids(catalog.get_choices("smasher", {}, true, 500)), "flag-ON offers should include 연공심법")
+	_expect(PERK_ID in _ids(catalog.get_choices("smasher", {}, true, 500, null, UnlockAllRegistry.new())), "flag-ON offers should include 연공심법")
 	_expect(bool(PerkFusionCatalog.LIMIT_BREAK_ELIGIBLE_IDS.get(PERK_ID, false)), "연공심법 should keep scaling through effective Lv.6+")
-	_expect(RuntimePerkOverflowDescriptions.generate_stats_text(PERK_ID, 6) == "모든 수련의 능력치 효과 120% 증폭", "Lv.6 overflow text should continue at 20 percent per level")
+	_expect(RuntimePerkOverflowDescriptions.generate_stats_text(PERK_ID, 4) == "모든 수련의 능력치 효과 120% 증폭", "effective star 4 overflow text should continue at 20 percent per level")
 	PerkConversionFlags.debug_set_enabled(false)
-	_expect(not PERK_ID in _ids(catalog.get_choices("smasher", {}, true, 500)), "flag-OFF offers must hide a training-dependent Mugong")
+	_expect(not PERK_ID in _ids(catalog.get_choices("smasher", {}, true, 500, null, UnlockAllRegistry.new())), "flag-OFF offers must hide a training-dependent Mugong")
 	PerkConversionFlags.debug_set_enabled(true)
 
 
@@ -67,41 +67,41 @@ func _verify_runtime_scaling_and_reverse_leg() -> void:
 	var level_one := RuntimePerkState.new()
 	level_one.runtime_skill_levels[PERK_ID] = 1
 	_expect(level_one._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null), "Lv.1 fixture training should apply")
-	_expect(is_equal_approx(level_one.get_physique_training_multiplier(), 1.2), "Lv.1 should expose a 1.2 multiplier")
-	_expect(is_equal_approx(level_one.get_physique_training_bonus("move_speed_bonus_pct"), 4.8), "Lv.1 should turn a 4 percent training into 4.8 percent")
-	_expect(is_equal_approx(level_one.get_player_speed_multiplier(), 1.048), "Lv.1 should reach the production movement-speed query")
+	_expect(is_equal_approx(level_one.get_physique_training_multiplier(), 1.25), "1-star should expose a 1.25 multiplier")
+	_expect(is_equal_approx(level_one.get_physique_training_bonus("move_speed_bonus_pct"), 5.0), "1-star should turn a 4 percent training into 5 percent")
+	_expect(is_equal_approx(level_one.get_player_speed_multiplier(), 1.05), "1-star should reach the production movement-speed query")
 
-	var level_five := RuntimePerkState.new()
-	level_five.runtime_skill_levels[PERK_ID] = 5
-	_expect(level_five._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null), "Lv.5 move-speed training should apply")
-	_expect(level_five._apply_physique_training_choice(training_catalog.build_card("physique_max_gauge", 0), null, null), "Lv.5 max-vigor training should apply")
-	_expect(level_five._apply_physique_training_choice(training_catalog.build_card("physique_chosik_cooldown", 0), null, null), "Lv.5 Chosik training should apply")
-	_expect(level_five._apply_physique_training_choice(training_catalog.build_card("physique_storage", 0), null, null), "Lv.5 storage training should apply")
-	_expect(is_equal_approx(level_five.get_physique_training_multiplier(), 2.0), "Lv.5 should double numeric training stats")
-	_expect(is_equal_approx(level_five.get_physique_training_bonus("move_speed_bonus_pct"), 8.0), "Lv.5 should double move-speed training from 4 to 8 percent")
-	_expect(is_equal_approx(level_five.get_physique_training_bonus("max_gauge_flat"), 60.0), "Lv.5 should double flat max-vigor training from 30 to 60")
-	_expect(is_equal_approx(level_five.get_player_skill_cooldown_multiplier(), 0.90), "Lv.5 should double one Chosik training from 5 to 10 percent")
-	_expect(is_equal_approx(level_five.get_physique_training_bonus("active_item_slot_bonus"), 1.0), "structural storage slots must not be multiplied")
-	_expect(level_five.get_active_item_slot_capacity(3) == 4, "Lv.5 should still add exactly one storage slot")
+	var level_three := RuntimePerkState.new()
+	level_three.runtime_skill_levels[PERK_ID] = 3
+	_expect(level_three._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null), "3-star move-speed training should apply")
+	_expect(level_three._apply_physique_training_choice(training_catalog.build_card("physique_max_gauge", 0), null, null), "3-star max-vigor training should apply")
+	_expect(level_three._apply_physique_training_choice(training_catalog.build_card("physique_chosik_cooldown", 0), null, null), "3-star Chosik training should apply")
+	_expect(level_three._apply_physique_training_choice(training_catalog.build_card("physique_storage", 0), null, null), "3-star storage training should apply")
+	_expect(is_equal_approx(level_three.get_physique_training_multiplier(), 2.0), "3-star should double numeric training stats")
+	_expect(is_equal_approx(level_three.get_physique_training_bonus("move_speed_bonus_pct"), 8.0), "3-star should double move-speed training from 4 to 8 percent")
+	_expect(is_equal_approx(level_three.get_physique_training_bonus("max_gauge_flat"), 60.0), "3-star should double flat max-vigor training from 30 to 60")
+	_expect(is_equal_approx(level_three.get_player_skill_cooldown_multiplier(), 0.94), "3-star should double one Chosik training from 3 to 6 percent")
+	_expect(is_equal_approx(level_three.get_physique_training_bonus("active_item_slot_bonus"), 1.0), "structural storage slots must not be multiplied")
+	_expect(level_three.get_active_item_slot_capacity(3) == 4, "3-star should still add exactly one storage slot")
 
 
 func _verify_effective_level_and_polish_composition() -> void:
 	var training_catalog := PhysiqueTrainingCatalog.new()
 	var overflow_state := RuntimePerkState.new()
-	overflow_state.runtime_skill_levels[PERK_ID] = 5
+	overflow_state.runtime_skill_levels[PERK_ID] = 3
 	overflow_state.item_perk_level_bonus = 2
 	_expect(overflow_state._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null), "overflow fixture training should apply")
-	_expect(overflow_state.get_runtime_skill_level(PERK_ID) == 7, "effective-level bonuses should raise 연공심법 above Lv.5")
-	_expect(is_equal_approx(overflow_state.get_physique_training_multiplier(), 2.4), "effective Lv.7 should amplify training by 140 percent")
-	_expect(is_equal_approx(overflow_state.get_physique_training_bonus("move_speed_bonus_pct"), 9.6), "effective Lv.7 should turn 4 percent into 9.6 percent")
+	_expect(overflow_state.get_runtime_skill_level(PERK_ID) == 5, "effective-level bonuses should raise 연공심법 above authored 3-star")
+	_expect(is_equal_approx(overflow_state.get_physique_training_multiplier(), 2.4), "effective star 5 should amplify training by 140 percent")
+	_expect(is_equal_approx(overflow_state.get_physique_training_bonus("move_speed_bonus_pct"), 9.6), "effective star 5 should turn 4 percent into 9.6 percent")
 
 	var polish_state := RuntimePerkState.new()
-	polish_state.runtime_skill_levels = {PERK_ID: 1, "item_polish": 5}
+	polish_state.runtime_skill_levels = {PERK_ID: 1, "item_polish": 3}
 	_expect(polish_state._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null), "Polish-composition fixture training should apply")
-	_expect(is_equal_approx(polish_state.get_perk_amplify_multiplier(PERK_ID), 1.25), "Lv.5 개광결 should amplify 연공심법 by 25 percent")
-	_expect(is_equal_approx(polish_state.get_runtime_skill_bonus(PERK_ID), 0.25), "Lv.1 연공심법 should expose a polished 25-percent runtime lane")
-	_expect(is_equal_approx(polish_state.get_physique_training_multiplier(), 1.25), "the polished 연공심법 lane should become the canonical training multiplier")
-	_expect(is_equal_approx(polish_state.get_physique_training_bonus("move_speed_bonus_pct"), 5.0), "Lv.1 연공심법 plus Lv.5 개광결 should turn 4 percent into 5 percent")
+	_expect(is_equal_approx(polish_state.get_perk_amplify_multiplier(PERK_ID), 1.25), "3-star 개광결 should amplify 연공심법 by 25 percent")
+	_expect(is_equal_approx(polish_state.get_runtime_skill_bonus(PERK_ID), 0.3125), "1-star 연공심법 should expose a polished 31.25-percent runtime lane")
+	_expect(is_equal_approx(polish_state.get_physique_training_multiplier(), 1.3125), "the polished 연공심법 lane should become the canonical training multiplier")
+	_expect(is_equal_approx(polish_state.get_physique_training_bonus("move_speed_bonus_pct"), 5.25), "1-star 연공심법 plus 3-star 개광결 should turn 4 percent into 5.25 percent")
 	var descriptions: Dictionary = RuntimePerkCatalog.new().get_perk_data(PERK_ID).get("descriptions", {})
 	var polished_text := RuntimePerkOverflowDescriptions.resolve_stats_text_with_polish(
 		PERK_ID,
@@ -109,12 +109,12 @@ func _verify_effective_level_and_polish_composition() -> void:
 		1,
 		polish_state
 	)
-	_expect(polished_text == "모든 수련의 능력치 효과 20% (+5%) 증폭", "연공심법 tooltip should expose its realizable 개광결 delta: %s" % polished_text)
+	_expect(polished_text == "모든 수련의 능력치 효과 25% (+6.25%) 증폭", "연공심법 tooltip should expose its realizable 개광결 delta: %s" % polished_text)
 
 
 func _verify_live_training_offer_value() -> void:
 	var runtime_state := RuntimePerkState.new()
-	runtime_state.runtime_skill_levels[PERK_ID] = 5
+	runtime_state.runtime_skill_levels[PERK_ID] = 3
 	var planner := PhysiqueTrainingOfferPlanner.new()
 	var planned: Dictionary = planner.plan_offer(
 		[{"id": "replaceable", "offer_lane": "replaceable", "offer_protected": false}],
@@ -133,20 +133,21 @@ func _verify_live_training_offer_value() -> void:
 	if not choices.is_empty() and choices[0] is Dictionary:
 		card = choices[0] as Dictionary
 	_expect(str(card.get("id", "")) == "physique_move_speed", "the deterministic weighted roll should select move-speed training")
-	_expect(is_equal_approx(float(card.get("training_multiplier", 0.0)), 2.0), "the live offer card should carry the Lv.5 multiplier")
+	_expect(is_equal_approx(float(card.get("training_multiplier", 0.0)), 2.0), "the live offer card should carry the 3-star multiplier")
 	_expect(str(card.get("description", "")) == "이동 속도 4% 증가", "the first live card should keep the raw 4-percent per-level value without an empty accumulation suffix")
 
 
 func _verify_save_restore() -> void:
 	var training_catalog := PhysiqueTrainingCatalog.new()
 	var state := RuntimePerkState.new()
-	state.runtime_skill_levels[PERK_ID] = 5
+	state.runtime_skill_levels[PERK_ID] = 3
 	state._apply_physique_training_choice(training_catalog.build_card("physique_move_speed", 0), null, null)
 	var restored := RuntimePerkState.new()
 	var restore_result: Dictionary = restored.apply_unlock_save_snapshot(state.build_unlock_save_snapshot())
 	_expect(bool(restore_result.get("restored", false)), "run save should restore 연공심법 and training state")
-	_expect(restored.get_runtime_skill_level(PERK_ID) == 5, "restored 연공심법 should remain Lv.5")
-	_expect(is_equal_approx(restored.get_physique_training_bonus("move_speed_bonus_pct"), 8.0), "restored training should retain the Lv.5 doubled value")
+	_expect(restored.get_runtime_skill_level(PERK_ID) == 3, "restored 연공심법 should remain 3-star")
+	_expect(is_equal_approx(restored.get_physique_training_bonus("move_speed_bonus_pct"), 8.0), "restored training should retain the 3-star doubled value")
+	print("training_mastery_mugong_smoke: mastery=1.25/2.0/2.4 polish=1.3125 storage=1")
 
 
 func _verify_localization_and_icon() -> void:
@@ -191,3 +192,19 @@ func _expect(condition: bool, message: String) -> void:
 		return
 	_failed = true
 	push_error("training_mastery_mugong_smoke FAIL: " + message)
+
+
+class UnlockAllRegistry:
+	extends RefCounted
+
+	var _store := UnlockAllStore.new()
+
+	func get_instance(key: String) -> Object:
+		return _store if key == "tower_ascent_unlock_store" else null
+
+
+class UnlockAllStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true

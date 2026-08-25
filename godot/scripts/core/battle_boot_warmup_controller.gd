@@ -20,8 +20,11 @@ const BOOT_WARMUP_TOTAL_STEPS := 21
 #   frame, not per call.
 # BOOT_WARMUP_MAX_STEPS_PER_FRAME bounds any unknown wait-poll step that
 # returns "call me again" without making observable progress.
-const BOOT_WARMUP_FRAME_BUDGET_USEC := 24000
+# Keep synchronous batching below half of the 48 FPS frame interval so the
+# visible loading VFX still receives a render cadence while warmup advances.
+const BOOT_WARMUP_FRAME_BUDGET_USEC := 8000
 const BOOT_WARMUP_MAX_STEPS_PER_FRAME := 128
+const MODULE_SCRIPT_REQUEST_AHEAD := 12
 const PSO_PREWARMER_NODE_NAME := "BattlePsoPrewarmer"
 const BOOT_WARMUP_SAMPLE_PREFIX := "process.intro.boot_warmup_step."
 const BOOT_WARMUP_STATUS_BY_STEP := {
@@ -30,8 +33,8 @@ const BOOT_WARMUP_STATUS_BY_STEP := {
 	2: "핵심 전투 리소스 불러오는 중",
 	3: "플레이어 리소스 불러오는 중",
 	4: "보스 리소스 불러오는 중",
-	5: "스매셔 스킬 아이콘 준비 중",
-	6: "바이퍼 스킬 아이콘 준비 중",
+	5: "스매셔 초식 아이콘 준비 중",
+	6: "바이퍼 초식 아이콘 준비 중",
 	7: "전투 캐시 정리 중",
 	8: "오디오 장치 준비 중",
 	9: "스테이지 BGM 준비 중",
@@ -52,6 +55,7 @@ var prewarmed_module_groups: Dictionary = {}
 var prewarm_module_group_indices: Dictionary = {}
 var boot_warmup_step: int = 0
 var boot_warmup_finished: bool = false
+var module_initialization_thread_in_flight: bool = false
 
 
 class ModuleGetterRegistryAdapter:
@@ -69,6 +73,18 @@ class ModuleGetterRegistryAdapter:
 		if value is Object:
 			return value
 		return null
+
+	func request_threaded_script(key: String) -> bool:
+		var callable_owner: Object = module_getter.get_object() if module_getter.is_valid() else null
+		if callable_owner == null or not callable_owner.has_method("request_threaded_script"):
+			return true
+		return bool(callable_owner.request_threaded_script(key))
+
+	func is_threaded_script_ready(key: String) -> bool:
+		var callable_owner: Object = module_getter.get_object() if module_getter.is_valid() else null
+		if callable_owner == null or not callable_owner.has_method("is_threaded_script_ready"):
+			return true
+		return bool(callable_owner.is_threaded_script_ready(key))
 
 
 func is_finished() -> bool:
@@ -124,17 +140,24 @@ func run_boot_warmup_step(
 ) -> void:
 	if boot_warmup_finished:
 		return
-	var logo_intro: Object = _get_module(module_getter, "penguin_logo_intro")
+	module_initialization_thread_in_flight = false
 	var perf_logger: Object = _get_module(module_getter, "battle_perf_logger")
 	var perf_label: String = _get_boot_warmup_sample_label(owner, module_getter)
 	var perf_start: int = _perf_begin(perf_logger)
 	var should_advance := true
 	match boot_warmup_step:
 		0:
-			pass
+			var loading_renderer: Object = _get_module(module_getter, "battle_loading_screen_renderer")
+			if loading_renderer != null and loading_renderer.has_method("prewarm_assets_step"):
+				should_advance = bool(loading_renderer.prewarm_assets_step())
+			elif loading_renderer != null and loading_renderer.has_method("prewarm_assets"):
+				loading_renderer.prewarm_assets()
 		1:
-			if logo_intro != null and logo_intro.has_method("prewarm_assets"):
-				logo_intro.prewarm_assets()
+			# The normal menu route explicitly skips the battle logo. Loading its
+			# fullscreen sheet here froze an otherwise visible haze frame for
+			# hundreds of milliseconds. On routes that do play the logo, begin()
+			# has already loaded the exact sheet, font, and sound before activation.
+			pass
 		2:
 			should_advance = _call_resource_prewarm_bool(owner, module_getter, "prewarm_battle_texture_resources_step")
 		3:
@@ -208,9 +231,47 @@ func run_boot_warmup_steps_budgeted(
 
 
 func _is_waiting_on_frame_gated_work(owner: Object, module_getter: Callable) -> bool:
+	if module_initialization_thread_in_flight:
+		return true
 	if _is_threaded_prewarm_in_flight(module_getter):
 		return true
+	if _is_threaded_module_script_in_flight(module_getter):
+		return true
 	return _is_pso_prewarmer_node_alive(owner)
+
+
+func _is_threaded_module_script_in_flight(module_getter: Callable) -> bool:
+	if not module_getter.is_valid():
+		return false
+	var callable_owner := module_getter.get_object()
+	return (
+		callable_owner != null
+		and callable_owner.has_method("has_threaded_script_request_in_flight")
+		and bool(callable_owner.has_threaded_script_request_in_flight())
+	)
+
+
+func _request_threaded_module_script(module_getter: Callable, key: String) -> void:
+	if not module_getter.is_valid():
+		return
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner == null or not is_instance_valid(callable_owner):
+		return
+	if callable_owner.has_method("request_threaded_script"):
+		callable_owner.call("request_threaded_script", key)
+
+
+func _is_threaded_module_script_ready(module_getter: Callable, key: String) -> bool:
+	# fail-open: a getter owner without the threaded-script API (unit fixtures,
+	# direct registry callables) must not stall the boot warmup step forever.
+	if not module_getter.is_valid():
+		return true
+	var callable_owner: Object = module_getter.get_object()
+	if callable_owner == null or not is_instance_valid(callable_owner):
+		return true
+	if callable_owner.has_method("is_threaded_script_ready"):
+		return bool(callable_owner.call("is_threaded_script_ready", key))
+	return true
 
 
 func _is_threaded_prewarm_in_flight(module_getter: Callable) -> bool:
@@ -243,18 +304,18 @@ func _is_pso_prewarmer_node_alive(owner: Object) -> bool:
 	return prewarmer != null and is_instance_valid(prewarmer) and not prewarmer.is_queued_for_deletion()
 
 
-func run_logo_intro_warmup_step(module_getter: Callable) -> void:
+func run_logo_intro_warmup_step(_module_getter: Callable) -> void:
 	if boot_warmup_finished:
 		return
 	if boot_warmup_step > 1:
 		return
-	var logo_intro: Object = _get_module(module_getter, "penguin_logo_intro")
 	match boot_warmup_step:
 		0:
 			pass
 		1:
-			if logo_intro != null and logo_intro.has_method("prewarm_assets"):
-				logo_intro.prewarm_assets()
+			# begin() already owns logo preparation on the only path that reaches
+			# this active-logo branch; do not repeat it during the animation.
+			pass
 	boot_warmup_step += 1
 
 
@@ -281,7 +342,18 @@ func _prewarm_module_group_step(owner: Object, module_getter: Callable, group_na
 		prewarmed_module_groups[group_name] = true
 		prewarm_module_group_indices.erase(group_name)
 		return true
-	var module: Object = _get_module(module_getter, str(module_keys[module_index]))
+	# Script compilation used to be strictly serial: request one dependency tree,
+	# wait for it, instantiate it, then request the next. Keep instance creation in
+	# the stable plan order, but let a bounded worker window compile upcoming
+	# scripts in parallel while the loading animation continues to render.
+	var request_end := mini(module_keys.size(), module_index + MODULE_SCRIPT_REQUEST_AHEAD)
+	for request_index in range(module_index, request_end):
+		_request_threaded_module_script(module_getter, str(module_keys[request_index]))
+	var module_key := str(module_keys[module_index])
+	if not _is_threaded_module_script_ready(module_getter, module_key):
+		prewarm_module_group_indices[group_name] = module_index
+		return false
+	var module: Object = _get_module(module_getter, module_key)
 	if not _prewarm_module_initialization_step(group_name, module):
 		prewarm_module_group_indices[group_name] = module_index
 		return false
@@ -299,7 +371,13 @@ func _prewarm_module_initialization_step(group_name: String, module: Object) -> 
 		return true
 	if module == null or not module.has_method("prewarm_initialization_step"):
 		return true
-	return bool(module.prewarm_initialization_step())
+	var is_complete: bool = bool(module.prewarm_initialization_step(true, true))
+	module_initialization_thread_in_flight = (
+		not is_complete
+		and module.has_method("has_threaded_initialization_in_flight")
+		and bool(module.has_threaded_initialization_in_flight())
+	)
+	return is_complete
 
 
 func _get_warmup_module_group(module_getter: Callable, group_name: String) -> Array:
@@ -392,9 +470,8 @@ func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> St
 	match boot_warmup_step:
 		2:
 			var resources: Object = _get_module(module_getter, "battle_resources")
-			var texture_step := _get_int_property(resources, "_transition_texture_prewarm_step_index", -1)
-			if texture_step >= 0:
-				label += ".sub_%02d" % texture_step
+			if resources != null and resources.has_method("get_transition_texture_prewarm_debug_label"):
+				label += ".%s" % _sanitize_sample_token(str(resources.get_transition_texture_prewarm_debug_label()))
 		8:
 			var audio: Object = _get_module(module_getter, "game_audio")
 			var audio_step := _get_int_property(audio, "_audio_setup_step", -1)
@@ -444,6 +521,10 @@ func _get_boot_warmup_sample_label(owner: Object, module_getter: Callable) -> St
 			var stage_detail_label := _get_stage_runtime_prewarm_detail_label(owner, resource_prewarm)
 			if stage_detail_label != "":
 				label += ".%s" % stage_detail_label
+		18:
+			var result_screen: Object = _get_module(module_getter, "stage_clear_result_screen")
+			if result_screen != null and result_screen.has_method("get_prewarm_assets_debug_label"):
+				label += ".%s" % _sanitize_sample_token(str(result_screen.get_prewarm_assets_debug_label()))
 	return "process.intro.boot_warmup_step.%s" % label
 
 

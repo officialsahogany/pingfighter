@@ -97,7 +97,7 @@ func start(
 		else {}
 	)
 	choices.assign(_dictionary_array(offer.get("choices", [])))
-	if choices.size() != TowerRewardPickOfferBuilder.CARD_COUNT:
+	if choices.is_empty() or choices.size() > TowerRewardPickOfferBuilder.CARD_COUNT:
 		reset()
 		return false
 	spent_flags.clear()

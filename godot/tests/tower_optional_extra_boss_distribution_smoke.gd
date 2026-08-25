@@ -20,7 +20,7 @@ const SAMPLE_SEED_COUNT := 128
 const SAMPLE_SEED_START := 9109
 const SAMPLE_SEED_STEP := 7919
 const SPAWN_RATE_TOLERANCE := 0.10
-const EXPECTED_GENERATOR_VERSION := "tower_map_v14_optional_extra_boss"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
 
 var _failures: Array[String] = []
 var _roll_hits_by_floor: Dictionary = {}
@@ -35,6 +35,7 @@ var _maximum_boss_ratio := 0.0
 var _minimum_npc_per_boss_ratio := INF
 var _forced_fixture: Dictionary = {}
 var _negative_leg_count := 0
+var _four_lane_optional_boss_count := 0
 
 
 func _init() -> void:
@@ -53,13 +54,14 @@ func _init() -> void:
 			]
 		)
 		print(
-			"tower_optional_extra_boss_distribution_smoke: roll_hits=%d spawned=%d unique_pool_exhausted_skips=%d no_bypass_candidate_skips=%d max_per_floor=%d max_boss_ratio=%0.6f min_npc_per_boss=%0.6f negative_legs=%d"
+			"tower_optional_extra_boss_distribution_smoke: roll_hits=%d spawned=%d unique_pool_exhausted_skips=%d no_bypass_candidate_skips=%d max_per_floor=%d four_lane_optional_bosses=%d max_boss_ratio=%0.6f min_npc_per_boss=%0.6f negative_legs=%d"
 			% [
 				_total_roll_hits,
 				_total_spawns,
 				_unique_pool_exhausted_skips,
 				_no_bypass_candidate_skips,
 				_maximum_optional_bosses_in_one_floor,
+				_four_lane_optional_boss_count,
 				_maximum_boss_ratio,
 				_minimum_npc_per_boss_ratio,
 				_negative_leg_count,
@@ -176,7 +178,13 @@ func _verify_distribution() -> void:
 			) + 1
 			_encounter_histograms_by_floor[floor_number] = floor_histogram
 			for optional_node in optional_nodes:
-				_verify_optional_node(map_seed, floor_number, optional_node, registry)
+				_verify_optional_node(
+					map_seed,
+					floor_number,
+					optional_node,
+					graph,
+					registry
+				)
 		_total_spawns += graph_optional_count
 		_expect(
 			_count_optional_nodes_for_floor(graph, 1) == 0,
@@ -244,6 +252,10 @@ func _verify_distribution() -> void:
 		_no_bypass_candidate_skips == 0,
 		"all current wide-row candidates must retain a bypass"
 	)
+	_expect(
+		_four_lane_optional_boss_count > 0,
+		"128 seeds must exercise an optional boss inside a four-lane row"
+	)
 	for floor_number in range(
 		TowerAscentBossRegistry.TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN,
 		active_clear_floor
@@ -278,6 +290,7 @@ func _verify_optional_node(
 	map_seed: int,
 	floor_number: int,
 	node: Dictionary,
+	graph: Dictionary,
 	registry: RefCounted
 ) -> void:
 	_expect(
@@ -292,6 +305,22 @@ func _verify_optional_node(
 		"seed %d floor %d optional boss must not rewrite a gate or floor-one choice"
 		% [map_seed, floor_number]
 	)
+	var row_nodes := _nodes_in_global_row(graph, int(node.get("global_row", -1)))
+	if row_nodes.size() == 4:
+		_four_lane_optional_boss_count += 1
+		var combat_count := 0
+		var npc_count := 0
+		for row_node in row_nodes:
+			var node_kind := str(row_node.get("kind", ""))
+			if node_kind in TowerAscentMapGenerator.COMBAT_NODE_KINDS:
+				combat_count += 1
+			elif node_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
+				npc_count += 1
+		_expect(
+			combat_count == 1 and npc_count == 3,
+			"seed %d floor %d four-lane optional row must retain three NPCs"
+			% [map_seed, floor_number]
+		)
 	var slot_id := str(node.get("boss_slot_id", ""))
 	var slot: Dictionary = registry.call("get_slot", slot_id)
 	_expect(
@@ -313,6 +342,20 @@ func _verify_optional_node(
 		"seed %d floor %d optional boss must resolve an existing map icon"
 		% [map_seed, floor_number]
 	)
+
+
+func _nodes_in_global_row(graph: Dictionary, global_row: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if (
+				node_variant is Dictionary
+				and int((node_variant as Dictionary).get("global_row", -1)) == global_row
+			):
+				result.append(node_variant as Dictionary)
+	return result
 
 
 func _verify_explicit_canonical_uniqueness(

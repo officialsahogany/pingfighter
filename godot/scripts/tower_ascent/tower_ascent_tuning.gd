@@ -25,10 +25,16 @@ const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
 # change only these values while the 12-floor and floor-gate contracts remain
 # fixed. S3 derives combat allocation from the NPC distribution contract rather
 # than an independent extra-combat-row budget.
-const TEMP_OPTIONAL_ROWS_PER_FLOOR := 1
-# 피드백2 8항 후속: v14의 우회 가능 추가 보스는 기존 NPC를 전환하므로
-# 최악 시드의 생성 노드 35개 중 보스 13 / NPC 22가 된다. 128시드 실측
-# 최대 0.371429와 최소 NPC:boss 1.692308을 각각 직상단/직하단에서 봉인한다.
+# Feedback 6 A: only standard segment floors 2..8 consume the expanded budget.
+# Floor 1, floors 9..12, and the audition topology retain the previous budget.
+const TEMP_OPTIONAL_ROWS_PER_FLOOR := 2
+const TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR := 1
+const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MIN := 2
+const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MAX := 8
+# 피드백6 A 후속: v15의 우회 가능 추가 보스는 기존 NPC를 전환한다.
+# 128시드 실측에서 시드당 생성 노드는 63개이고, 최대 boss 비율은
+# 0.206349, 최소 NPC:boss는 3.846154다. 아래 값은 실측 경계가 아니라
+# 향후 조정에도 유지할 보수적인 제품 안전 한계다.
 const TEMP_GENERATED_BOSS_NODE_MAX_RATIO := 0.38
 const TEMP_GENERATED_NPC_PER_BOSS_MIN := 1.65
 const TEMP_MAP_DEGREE_TWO_MIN_RATIO := 0.70
@@ -58,9 +64,11 @@ const TEMP_ROUTE_AIM_ENTRY_ARM_SECONDS := 0.35
 # Live feedback 2026-08-22: the route serve read as too fast to aim, so this
 # is a deliberate 30 percent cut from the original 522.0. 피드백2 7항
 # (2026-08-23): still too fast in live play, so a further 25 percent cut
-# (522.0 -> 365.4 -> 274.0). Misses only lengthen flight; there is no
-# flight timeout to retune.
-const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 274.0
+# (522.0 -> 365.4 -> 274.0). 피드백5 8항 (2026-08-25): the user's explicit
+# +50 percent direction sets 411.0 even though it is faster than the rejected
+# 365.4; wall/paddle acceleration is removed in the same change, so contact is
+# now a pure reflection. Misses only lengthen flight; there is no timeout.
+const TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND := 411.0
 const TEMP_ROUTE_AIM_GAUGE_RADIUS := 58.0
 const TEMP_ROUTE_AIM_GAUGE_PLAYER_GAP := 100.0
 const TEMP_ROUTE_AIM_GAUGE_PIVOT_RATIO := Vector2(0.5, 0.875)
@@ -69,13 +77,12 @@ const TEMP_ROUTE_AIM_ARROW_ORBIT_RATIO := 0.72
 # 피드백2 6항 (2026-08-23): the 2026-08-21 "bias-only, no in-flight force"
 # ruling is reversed by the user's follow-up feedback. Wind now applies a
 # lateral acceleration to the route ball per physics frame (x delta x 60
-# convention), scaled by strength level 1..3. At serve speed 274 the full
-# flight (~2s) drifts roughly 64/129/193px, versus the 49px target hit
-# radius, so strength must actually be aimed against. Feedback 3 candidates
-# 0.014, 0.012, and 0.010 failed the full two-target reachability sweep; 0.009
-# is the highest adopted GREEN value. Battle weather owns its own constants
+# convention), scaled by strength level 1..3. Feedback 5 Q6 (2026-08-25)
+# reswept 0.014, 0.012, 0.010, and 0.009 at the live 411px/s serve speed; all
+# four preserved full two-target reachability, so 0.014 is the highest
+# enumerated GREEN candidate. Battle weather owns its own constants
 # (weather_event_state.gd); never share them here.
-const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.009
+const TEMP_ROUTE_WIND_FLIGHT_FORCE_PER_FRAME := 0.014
 const TEMP_ROUTE_WIND_PANEL_SIZE := Vector2(112.0, 36.0)
 const TEMP_ROUTE_WIND_PANEL_GAP := 14.0
 const TEMP_ROUTE_WIND_STRENGTH_CELL_SIZE := Vector2(12.0, 7.0)
@@ -100,7 +107,6 @@ const TEMP_MAP_OVERLAY_NODE_LABEL_FONT_SIZE := 10
 const TEMP_MAP_OVERLAY_NODE_LABEL_OFFSET_X := 11.0
 const TEMP_MAP_OVERLAY_NODE_LABEL_WIDTH := 110.0
 const TEMP_MAP_OVERLAY_STATE_LABEL_WIDTH := 48.0
-const TEMP_MAP_OVERLAY_LEGEND_Y := 662.0
 # TEMP: v1.12 fixes the transition beats and proportional fullscreen-map
 # skeleton. Product tuning may adjust these values in place, but must not move
 # the clock out of the tower flow or restore absolute layout caps.

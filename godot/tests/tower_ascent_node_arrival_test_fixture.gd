@@ -39,6 +39,42 @@ static func find_initial_route_seed(expected_kind: String) -> int:
 	return 0
 
 
+static func find_initial_route_seed_with_combat_exit(expected_kind: String) -> int:
+	var generator := TowerAscentMapGenerator.new()
+	for map_seed in range(1, 513):
+		var graph: Dictionary = generator.generate_tower(map_seed)
+		if graph.is_empty():
+			continue
+		var phases: Array = graph.get("phases", [])
+		if phases.is_empty():
+			continue
+		var phase: Dictionary = phases[0]
+		var node_by_id: Dictionary = {}
+		for node_variant in phase.get("nodes", []):
+			if node_variant is Dictionary:
+				var node := node_variant as Dictionary
+				node_by_id[str(node.get("id", ""))] = node
+		for node_id_variant in phase.get("initial_route_candidate_ids", []):
+			var node_id := str(node_id_variant)
+			var node: Dictionary = node_by_id.get(node_id, {})
+			if str(node.get("kind", "")) != expected_kind:
+				continue
+			for edge_variant in phase.get("edges", []):
+				if not (edge_variant is Dictionary):
+					continue
+				var edge := edge_variant as Dictionary
+				if str(edge.get("from", "")) != node_id:
+					continue
+				var target: Dictionary = node_by_id.get(str(edge.get("to", "")), {})
+				if (
+					not target.is_empty()
+					and str(target.get("kind", ""))
+						not in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS
+				):
+					return map_seed
+	return 0
+
+
 static func advance_to_node_modal(
 	flow: Object,
 	expected_kind: String,

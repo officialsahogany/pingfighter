@@ -29,10 +29,13 @@ func restore_snapshot(
 	if phases.size() != 2:
 		return false
 	_graph_phases.assign(phases.duplicate(true))
+	if not _repair_restored_boss_node_identities(int(snapshot.get("map_seed", 0))):
+		_reset_runtime_state()
+		return false
 	_active_graph_phase_index = _run_state.get_active_phase_index()
 	if _active_graph_phase_index < 0 or _active_graph_phase_index >= phases.size():
 		return false
-	var graph: Dictionary = phases[_active_graph_phase_index]
+	var graph: Dictionary = _graph_phases[_active_graph_phase_index]
 	var nodes_variant: Variant = graph.get("nodes", [])
 	var edges_variant: Variant = graph.get("edges", [])
 	if not (nodes_variant is Array) or (nodes_variant as Array).size() < 4:
@@ -218,6 +221,113 @@ func restore_snapshot(
 		_reset_runtime_state()
 		return false
 	return true
+
+
+func _repair_restored_boss_node_identities(map_seed: int) -> bool:
+	var boss_registry := TowerAscentBossRegistry.new()
+	for phase_index in range(_graph_phases.size()):
+		var phase := _graph_phases[phase_index].duplicate(true)
+		var nodes_variant: Variant = phase.get("nodes", [])
+		if not (nodes_variant is Array):
+			return false
+		var nodes := nodes_variant as Array
+		for node_index in range(nodes.size()):
+			if not (nodes[node_index] is Dictionary):
+				continue
+			var node := nodes[node_index] as Dictionary
+			if (
+				str(node.get("kind", "")) not in TowerAscentBossRegistry.COMBAT_NODE_KINDS
+				or (
+					str(node.get("content_state", "")) == TowerAscentBossRegistry.CONTENT_REGISTRY_ONLY
+					and not bool(node.get("gatekeeper", false))
+				)
+				or (not node.has("boss_slot_id") and not bool(node.get("gatekeeper", false)))
+				or node.has("boss_sequence_slot_ids")
+			):
+				continue
+			var repair := boss_registry.repair_boss_node_identity(node)
+			if not bool(repair.get("valid", false)):
+				if bool(node.get("gatekeeper", false)):
+					var reseed := boss_registry.reseed_gatekeeper_boss_node_identity(
+						node,
+						map_seed
+					)
+					if bool(reseed.get("valid", false)):
+						nodes[node_index] = reseed.get("node", node)
+						push_warning(
+							"[TowerAscent] snapshot gatekeeper identity reseeded node=%s slot=%s"
+							% [
+								str(node.get("id", "")),
+								str((nodes[node_index] as Dictionary).get("boss_slot_id", "")),
+							]
+						)
+						continue
+					var npc_gate := _convert_unresolved_snapshot_gatekeeper_to_npc(node)
+					nodes[node_index] = npc_gate
+					push_warning(
+						"[TowerAscent] snapshot gatekeeper converted to NPC node=%s floor=%d"
+						% [
+							str(node.get("id", "")),
+							int(node.get("segment_floor", node.get("floor", 0))),
+						]
+					)
+					continue
+				var downgraded := _downgrade_unresolved_snapshot_boss_node(node)
+				nodes[node_index] = downgraded
+				push_warning(
+					"[TowerAscent] snapshot boss identity downgraded node=%s slot=%s"
+					% [
+						str(node.get("id", "")),
+						str(node.get("boss_slot_id", "")),
+					]
+				)
+				continue
+			if bool(repair.get("changed", false)):
+				push_warning(
+					"[TowerAscent] snapshot boss identity repaired node=%s slot=%s"
+					% [
+						str(node.get("id", "")),
+						str(node.get("boss_slot_id", "")),
+					]
+				)
+				nodes[node_index] = repair.get("node", node)
+		phase["nodes"] = nodes
+		_graph_phases[phase_index] = phase
+	return _run_state.set_phases(_graph_phases)
+
+
+func _downgrade_unresolved_snapshot_boss_node(node: Dictionary) -> Dictionary:
+	var downgraded := node.duplicate(true)
+	downgraded["content_state"] = TowerAscentBossRegistry.CONTENT_REGISTRY_ONLY
+	downgraded["boss_assignment_state"] = "snapshot_identity_unresolved"
+	downgraded["route_disabled"] = true
+	downgraded.erase("skipped")
+	downgraded.erase("standin")
+	downgraded.erase("boss_encounter_key")
+	downgraded.erase("map_icon_boss_id")
+	return downgraded
+
+
+func _convert_unresolved_snapshot_gatekeeper_to_npc(node: Dictionary) -> Dictionary:
+	var converted := node.duplicate(true)
+	for metadata_key in [
+		"boss_slot_id",
+		"boss_pool_slot_ids",
+		"boss_port_status",
+		"boss_encounter_key",
+		"standin",
+		"standin_duplicate_gate",
+		"encounter_locked",
+		"map_icon_boss_id",
+		"route_disabled",
+		"skipped",
+	]:
+		converted.erase(metadata_key)
+	converted["kind"] = "rest"
+	converted["label"] = "휴식"
+	converted["content_state"] = TowerAscentBossRegistry.CONTENT_GENERATED
+	converted["boss_assignment_state"] = "snapshot_gatekeeper_npc_fallback"
+	return converted
 
 func export_snapshot() -> Dictionary:
 	_sync_run_state_phases()

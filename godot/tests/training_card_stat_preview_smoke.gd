@@ -22,7 +22,7 @@ const PREVIEWABLE_TRAINING_IDS: Array[String] = [
 	"physique_hit_gauge",
 	"physique_active_item_cooldown",
 ]
-const EXPECTED_LEG_COUNT := 7
+const EXPECTED_LEG_COUNT := 8
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -33,6 +33,7 @@ var _character_runtime: Object = PlayerCharacterRuntime.new()
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_source_mapping_and_exclusions()
+	_verify_tuned_card_and_stat_ledger_values()
 	_verify_taeheo_production_hover_projection()
 	_verify_shared_fuel_pouch_sync_contract()
 	_verify_prediction_matches_actual_apply()
@@ -74,6 +75,45 @@ func _verify_source_mapping_and_exclusions() -> void:
 	)
 
 
+func _verify_tuned_card_and_stat_ledger_values() -> void:
+	_leg_count += 1
+	var expected_cards := {
+		"physique_paddle_size": ["철산공 수련", "paddle_size_bonus_pct", 2.0, "몸집 크기 2% 증가"],
+		"physique_dash_recovery": ["수세결 수련", "dash_recovery_reduction_pct", 6.0, "활주 후딜 6% 감소"],
+		"physique_chosik_cooldown": ["조식심법 수련", "chosik_cooldown_reduction_pct", 3.0, "초식 쿨타임 3% 감소"],
+		"physique_dash_recharge": ["회기보 수련", "dash_recharge_reduction_pct", 4.0, "활주 재충전 시간 4% 감소"],
+	}
+	for training_id: String in expected_cards:
+		var expected: Array = expected_cards[training_id] as Array
+		var card: Dictionary = _catalog.build_card(training_id, 0)
+		_expect(str(card.get("name", "")) == str(expected[0]), "%s name-to-stat mapping must stay canonical" % training_id)
+		_expect(str(card.get("training_stat_key", "")) == str(expected[1]), "%s stat mapping must stay canonical" % training_id)
+		_expect(is_equal_approx(float(card.get("training_amount", 0.0)), float(expected[2])), "%s card must carry the tuned amount" % training_id)
+		_expect(str(card.get("description", "")) == str(expected[3]), "%s card must display the tuned amount" % training_id)
+
+	var expected_rows := {
+		"physique_paddle_size": ["몸집 크기", "158px"],
+		"physique_dash_recovery": ["활주 후딜 시간", "0.66초"],
+		"physique_dash_recharge": ["활주 재충전", "4.80초"],
+	}
+	for training_id: String in expected_rows:
+		var fixture: Dictionary = _build_fixture()
+		var state: Object = fixture["state"]
+		var owner: Object = fixture["owner"]
+		var registry: Object = fixture["registry"]
+		_expect(state.apply_choice(_catalog.build_card(training_id, 0), owner, registry), "%s tuned ledger fixture must apply" % training_id)
+		var expected: Array = expected_rows[training_id] as Array
+		var row := _row_by_label(_build_rows(state, owner, registry), str(expected[0]))
+		_expect(not row.is_empty(), "%s must retain its production stats-panel row" % training_id)
+		_expect(str(row.get("value", "")) == str(expected[1]), "%s stats-panel value should be %s, got %s" % [training_id, expected[1], row.get("value", "")])
+
+	var chosik_fixture: Dictionary = _build_fixture()
+	var chosik_state: Object = chosik_fixture["state"]
+	_expect(chosik_state.apply_choice(_catalog.build_card("physique_chosik_cooldown", 0), chosik_fixture["owner"], chosik_fixture["registry"]), "Chosik tuned consumer fixture must apply")
+	_expect(is_equal_approx(chosik_state.get_player_skill_cooldown_seconds(20.0), 19.4), "Chosik tuned card must reach the shared cooldown consumer")
+	print("training_card_stat_preview_smoke: tuned=철산공2/수세결6/조식심법3/회기보4 ledger=158px/0.66초/4.80초 chosik20s=19.4s")
+
+
 func _verify_taeheo_production_hover_projection() -> void:
 	_leg_count += 1
 	var fixture: Dictionary = _build_fixture()
@@ -85,7 +125,7 @@ func _verify_taeheo_production_hover_projection() -> void:
 	# the shared mythic runtime's compatibility cache can still be unset on the
 	# card-opening frame. Taeheo must project from the supplied context.
 	mythic.runtime_perk_state_ref = null
-	state.runtime_skill_levels["training_mastery"] = 5
+	state.runtime_skill_levels["training_mastery"] = 3
 	state.item_perk_level_bonus = 2
 	var card: Dictionary = _catalog.build_card(
 		"physique_max_gauge",
@@ -180,9 +220,9 @@ func _verify_prediction_matches_actual_apply() -> void:
 		var state: Object = fixture["state"]
 		var owner: Object = fixture["owner"]
 		var registry: Object = fixture["registry"]
-		# Effective Lv.7 is deliberately above the authored Lv.5 ceiling. The
+		# Effective star 5 is deliberately above the authored 3-star ceiling. The
 		# preview must inherit the same 2.4x Training Mastery multiplier as apply.
-		state.runtime_skill_levels["training_mastery"] = 5
+		state.runtime_skill_levels["training_mastery"] = 3
 		state.item_perk_level_bonus = 2
 		var card: Dictionary = _catalog.build_card(
 			training_id,
@@ -455,6 +495,13 @@ func _build_rows(state: Object, owner: Object, registry: Object) -> Array:
 		CharacterInfoOverlayState.STAT_DEBUFF_COLOR,
 		false
 	)
+
+
+func _row_by_label(rows: Array, label: String) -> Dictionary:
+	for row_value: Variant in rows:
+		if row_value is Dictionary and str((row_value as Dictionary).get("label", "")) == label:
+			return row_value as Dictionary
+	return {}
 
 
 func _expect(condition: bool, message: String) -> void:

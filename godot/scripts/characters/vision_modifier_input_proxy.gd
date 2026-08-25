@@ -31,6 +31,7 @@ var _filtered_snapshot: Dictionary = {}
 var _exclusive_active := false
 var _suppressed_until_release := {}
 var _current_snapshot_filtered := false
+var _discard_latch_enabled := true
 
 
 func configure(input_reader: Object) -> Object:
@@ -65,9 +66,15 @@ func _build_filtered_snapshot() -> Dictionary:
 	# edges such as Commando's hold/action channels.
 	for channel: String in HOLD_CHANNELS:
 		var raw_pressed := bool(_snapshot.get(channel, false))
-		if _exclusive_active and raw_pressed:
+		if _discard_latch_enabled and _exclusive_active and raw_pressed:
 			_suppressed_until_release[channel] = true
-		var must_suppress := _exclusive_active or bool(_suppressed_until_release.get(channel, false))
+		var must_suppress := (
+			_exclusive_active
+			or (
+				_discard_latch_enabled
+				and bool(_suppressed_until_release.get(channel, false))
+			)
+		)
 		if not must_suppress:
 			continue
 		_current_snapshot_filtered = true
@@ -96,6 +103,12 @@ func should_filter_current_snapshot() -> bool:
 func suppress_primary_pointer_until_release() -> void:
 	if _input_reader != null and _input_reader.has_method("suppress_primary_pointer_until_release"):
 		_input_reader.suppress_primary_pointer_until_release()
+
+
+func set_discard_latch_enabled_for_test(enabled: bool) -> void:
+	_discard_latch_enabled = enabled
+	if not enabled:
+		_suppressed_until_release.clear()
 
 
 func _is_horizontal_suppressed(drained_channels: Dictionary) -> bool:

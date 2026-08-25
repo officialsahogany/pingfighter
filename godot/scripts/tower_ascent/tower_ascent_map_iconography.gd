@@ -1,5 +1,8 @@
 extends RefCounted
 
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
 const ICON_ROOT := "res://assets/sprites/tower/map_icons"
 const COMBAT_NODE_KINDS := ["boss", "combat", "enraged"]
 const NODE_ICON_PATH_BY_KIND := {
@@ -11,23 +14,9 @@ const NODE_ICON_PATH_BY_KIND := {
 	"map_hint": ICON_ROOT + "/map_hint_imagegen_v1.png",
 }
 const BOSS_ICON_PATH_FORMAT := ICON_ROOT + "/boss_%s_imagegen_v1.png"
-const APPROVED_BOSS_ICON_IDS := [
-	"dalji",
-	"gaksital",
-	"podo",
-	"cheongringwi",
-	"molewang",
-	"arachne",
-	"yeonmyo",
-	"teddy_bear",
-	"alice",
-	"ponk",
-	"hongryun",
-	"tetriser",
-	"akamu_rigo",
-	"minotaur",
-]
-
+var _boss_registry: Object = TowerAscentBossRegistry.new()
+var _boss_id_by_node_id: Dictionary = {}
+var _boss_registry_resolve_count := 0
 var _texture_by_path: Dictionary = {}
 var _load_attempt_by_path: Dictionary = {}
 
@@ -57,23 +46,26 @@ func resolve_presentation(
 
 
 func resolve_boss_id_for_node(node: Dictionary) -> String:
-	var explicit_id := _safe_identifier(str(node.get("map_icon_boss_id", "")))
-	if not explicit_id.is_empty():
-		return explicit_id
-	var standin_variant: Variant = node.get("standin", {})
-	if standin_variant is Dictionary:
-		var standin := standin_variant as Dictionary
-		var variant_id := _safe_identifier(str(standin.get("variant", "")))
-		if variant_id in APPROVED_BOSS_ICON_IDS:
-			return variant_id
-		var standin_boss_id := _safe_identifier(str(standin.get("boss_id", "")))
-		if standin_boss_id in APPROVED_BOSS_ICON_IDS:
-			return standin_boss_id
-	var slot_id := str(node.get("boss_slot_id", "")).strip_edges()
-	var parts := slot_id.split("_", false)
-	if parts.size() >= 3 and parts[0] == "floor" and str(parts[1]).is_valid_int():
-		return _safe_identifier("_".join(parts.slice(2)))
-	return ""
+	if str(node.get("kind", "")) not in COMBAT_NODE_KINDS:
+		return ""
+	if str(node.get("boss_slot_id", "")).is_empty():
+		return ""
+	var node_id := str(node.get("id", ""))
+	if not node_id.is_empty() and _boss_id_by_node_id.has(node_id):
+		return str(_boss_id_by_node_id[node_id])
+	_boss_registry_resolve_count += 1
+	var boss_id := str(_boss_registry.resolve_boss_icon_id_for_node(node))
+	if not node_id.is_empty():
+		_boss_id_by_node_id[node_id] = boss_id
+	return boss_id
+
+
+func invalidate_boss_node_cache(node_id: String = "") -> void:
+	var normalized_node_id := node_id.strip_edges()
+	if normalized_node_id.is_empty():
+		_boss_id_by_node_id.clear()
+		return
+	_boss_id_by_node_id.erase(normalized_node_id)
 
 
 func get_debug_state() -> Dictionary:
@@ -88,11 +80,15 @@ func get_debug_state() -> Dictionary:
 		"entry_count": _texture_by_path.size(),
 		"hit_count": hit_count,
 		"miss_count": miss_count,
+		"boss_node_cache_count": _boss_id_by_node_id.size(),
+		"boss_registry_resolve_count": _boss_registry_resolve_count,
 		"load_attempt_by_path": _load_attempt_by_path.duplicate(true),
 	}
 
 
 func clear_cache() -> void:
+	_boss_id_by_node_id.clear()
+	_boss_registry_resolve_count = 0
 	_texture_by_path.clear()
 	_load_attempt_by_path.clear()
 

@@ -38,6 +38,8 @@ func filter_available_indexed(
 
 
 func is_node_blocked_by_skipped_boss(node: Dictionary, skipped_boss_ids: Array) -> bool:
+	if bool(node.get("route_disabled", false)):
+		return true
 	if str(node.get("kind", "")) not in COMBAT_NODE_KINDS:
 		return false
 	var boss_slot_id := str(node.get("boss_slot_id", ""))

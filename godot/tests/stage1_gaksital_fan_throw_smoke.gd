@@ -9,6 +9,7 @@ const FAN_PROJECTILE_PATH := "res://assets/sprites/stage1/gaksital/gaksital_fan_
 const FAN_SKILLCARD_PATH := "res://assets/sprites/stage1/gaksital/gaksital_fan_throw_skillcard_imagegen_v2.png"
 const FAN_SOUND_PATH := "res://assets/sounds/fan.wav"
 const WHIPCRACK_SOUND_PATH := "res://assets/sounds/whipcrack.wav"
+const Stage1BossSkillAudio := preload("res://scripts/audio/stage1_boss_skill_audio.gd")
 
 var _failures: Array[String] = []
 var _language_settings_snapshot: Dictionary = {}
@@ -114,6 +115,37 @@ class FakeFanThrowActivator:
 		return true
 
 
+class ArmorOwner:
+	extends RefCounted
+
+	var equipment_slots: Dictionary = {}
+	var passive_item_inventory: Array = []
+	var passive_item_slots: Dictionary = {}
+	var equipped_passive_items: Dictionary = {}
+	var mythic_item_state: Dictionary = {}
+	var special_gauge := 100.0
+	var special_gauge_max := 500.0
+	var player_pos := Vector2(302.5, 650.0)
+	var player_paddle_width := 155.0
+	var player_paddle_height := 50.0
+	var celestial_armor_equipped := false
+	var celestial_armor_active := false
+	var celestial_armor_trigger_chance_pct := 0.0
+	var celestial_armor_gauge_cost := 0.0
+	var celestial_armor_context: Dictionary = {}
+	var celestial_armor_wave_active := false
+
+	func queue_redraw() -> void:
+		pass
+
+
+class ArmorRegistry:
+	extends RefCounted
+
+	func get_instance(_key: String) -> Object:
+		return null
+
+
 class FanThrowRenderFixture:
 	extends Node2D
 
@@ -137,6 +169,7 @@ func _run() -> void:
 	_verify_fan_throw_launches_single_and_enraged_fans()
 	_verify_fan_throw_uses_fps_scale_for_windup_and_motion()
 	_verify_fan_throw_stuns_and_knocks_player_on_hit()
+	_verify_fan_throw_celestial_armor_gauge_survives_snapshot()
 	_verify_fan_throw_smoke_blocks_status_and_knockback()
 	_verify_fan_throw_runtime_smoke_zone_blocks_status_and_knockback()
 	_verify_fan_throw_cleanup_and_variant_gates()
@@ -196,10 +229,11 @@ func _verify_audio_assets_and_contract() -> void:
 	_expect(contract_source.find("play_paddle_hit(") < 0, "fan throw should not use generic paddle-hit audio as a stand-in")
 	_expect(contract_source.find("TAU") >= 0 and contract_source.find("fan_sound_volume") >= 0, "shared fan authority should play fan.wav on spin-boundary crossings")
 
-	var stage1_audio_source := FileAccess.get_file_as_string("res://scripts/audio/stage1_boss_skill_audio.gd")
-	_expect(stage1_audio_source.find("res://assets/sounds/fan.wav") >= 0, "Stage 1 audio owner should register fan.wav")
-	_expect(stage1_audio_source.find("res://assets/sounds/whipcrack.wav") >= 0, "Stage 1 audio owner should register whipcrack.wav")
-	_expect(stage1_audio_source.find("gaksital_fan_layer2") >= 0 and stage1_audio_source.find("gaksital_fan_layer3") >= 0, "Stage 1 audio owner should keep a three-layer fan sound pool for enraged throws")
+	var fan_spec: Dictionary = Stage1BossSkillAudio.CUE_SPECS["gaksital_fan"]
+	var whipcrack_spec: Dictionary = Stage1BossSkillAudio.CUE_SPECS["whipcrack"]
+	_expect(str(fan_spec.get("path", "")) == FAN_SOUND_PATH, "Stage 1 audio owner should register fan.wav")
+	_expect(str(whipcrack_spec.get("path", "")) == WHIPCRACK_SOUND_PATH, "Stage 1 audio owner should register whipcrack.wav")
+	_expect(Stage1BossSkillAudio.FAN_LAYER_CUE_IDS.size() + 1 == 3, "Stage 1 audio owner should keep a three-layer fan sound pool for enraged throws")
 	var game_audio_source := FileAccess.get_file_as_string("res://scripts/audio/game_audio.gd")
 	_expect(game_audio_source.find("Stage1BossSkillAudio") >= 0 and game_audio_source.find("_play_gaksital_fan_layer") >= 0, "game_audio should consume the Stage 1 cue catalog and retain pooled playback")
 
@@ -342,6 +376,52 @@ func _verify_fan_throw_stuns_and_knocks_player_on_hit() -> void:
 	if not audio.whipcrack_volumes.is_empty():
 		_expect(is_equal_approx(float(audio.whipcrack_volumes[0]), 0.6), "main fan hit should use original 0.6 whipcrack volume")
 	_expect(bool(scene.get("stage1_gaksital_fan_throw_hit", false)), "fan throw hit should be mirrored into the scene dictionary")
+
+
+func _verify_fan_throw_celestial_armor_gauge_survives_snapshot() -> void:
+	# P1-B: 부채는 볼-패스 히트 → 프레임엔드 스냅샷(scene)이 owner.special_gauge를 덮는다.
+	# 갑주가 스턴+넉백을 통째로 막을 때 그 기력 차감이 스냅샷에서 환불되면 안 된다.
+	var MythicItemRuntime := load("res://scripts/items/mythic_item_runtime.gd")
+	var BallSnapshotApplier := load("res://scripts/core/battle_scene_ball_snapshot_applier.gd")
+	var owner := ArmorOwner.new()
+	var registry := ArmorRegistry.new()
+	var runtime: Object = MythicItemRuntime.new()
+	_expect(
+		runtime.equip_item("celestial_armor", owner, registry, {"trigger_chance_pct": 100.0, "gauge_cost": 20.0}, false),
+		"celestial armor should equip for the gaksital gauge smoke"
+	)
+	owner.special_gauge = 100.0
+
+	var state: Object = Stage1GaksitalFanThrowSkillState.new()
+	var context: Dictionary = _base_context()
+	var status_state := FakeStatusEffectState.new()
+	var movement_state := FakeMovementState.new()
+	var deps := {
+		"status_effect_state": status_state,
+		"movement_state": movement_state,
+		"mythic_item_runtime": runtime,
+		"registry": registry,
+		"owner": owner,
+	}
+	_expect(state.activate(context, deps), "fan throw should activate before armor gauge smoke")
+	_advance_until_launched(state, context, deps)
+	var player_size := Vector2(155.0, 50.0)
+	context["player_paddle_size"] = player_size
+	context["player_pos"] = _first_fan_pos(state) + Vector2(12.0, 0.0) - player_size * 0.5
+	context["owner"] = owner
+	context["special_gauge"] = 100.0
+	# scene = the frame-start ball snapshot dict (SEPARATE from the frame_context).
+	var scene := {"special_gauge": 100.0}
+	var result: Dictionary = state.update_and_collide(1.0, scene, context, deps)
+	_expect(bool(result.get("stage1_gaksital_fan_throw_player_hit_blocked_by_armor", false)), "armor should block the fan throw whole hit")
+	_expect(status_state.calls.is_empty(), "armor-blocked fan throw should not apply stun")
+	_expect(movement_state.calls.is_empty(), "armor-blocked fan throw should not apply knockback")
+	# Frame end: the ball driver writes the scene snapshot back onto owner.
+	BallSnapshotApplier.new().apply_snapshot(owner, scene)
+	_expect(
+		is_equal_approx(owner.special_gauge, 80.0),
+		"armor gauge cost must survive the ball snapshot (expected 80, refund bug leaves 100). got %s" % owner.special_gauge
+	)
 
 
 func _verify_fan_throw_smoke_blocks_status_and_knockback() -> void:

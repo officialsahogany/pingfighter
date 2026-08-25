@@ -70,6 +70,53 @@ func _is_audition_terminal_node(node: Dictionary) -> bool:
 	)
 
 
+func rearm_route_aim_after_failed_combat_arrival(
+	owner: Object,
+	registry: Object,
+	finish_callback: Callable
+) -> bool:
+	if (
+		_active
+		or owner == null
+		or registry == null
+		or not finish_callback.is_valid()
+		or _graph_nodes.is_empty()
+		or _get_node(_current_node_id).is_empty()
+		or _route_source_node_id != _current_node_id
+	):
+		return false
+	_selected_target_id = ""
+	_map_transition_progress = 0.0
+	_refresh_route_target_cache()
+	if _available_route_target_ids.is_empty():
+		return false
+	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+	if not bool(lifecycle_result.get("accepted", false)):
+		return false
+	_finish_callback = finish_callback
+	_active_owner = owner
+	_active_registry = registry
+	_active = true
+	_map_overlay_active = false
+	_map_overlay_closing = false
+	_map_overlay_lifecycle_owned = false
+	_map_overlay_owner = null
+	_map_overlay_registry = null
+	_transition_fade_state.reset()
+	if not _enter_route_aim():
+		_route_serve_runtime.cancel()
+		_route_pickup_state.reset()
+		_modal_lifecycle.leave()
+		_finish_callback = Callable()
+		_active_owner = null
+		_active_registry = null
+		_active = false
+		_phase = PHASE_COMBAT
+		return false
+	_request_redraw(owner)
+	return true
+
+
 func open_map_overlay(
 	owner: Object,
 	registry: Object,
@@ -364,6 +411,27 @@ func has_map_camera_manual_override() -> bool:
 
 func get_map_camera_manual_offset() -> Vector2:
 	return _map_drag_state.get_manual_camera_offset()
+
+
+func reanchor_map_camera_manual_offset(
+	anchor_screen_position: Vector2,
+	previous_camera_offset: Vector2,
+	previous_zoom_multiplier: float,
+	next_zoom_multiplier: float
+) -> Vector2:
+	if (
+		not _map_drag_state.has_manual_camera_override()
+		or _map_drag_state.has_manual_zoom_override()
+	):
+		return _map_drag_state.get_manual_camera_offset()
+	var reanchored_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
+		anchor_screen_position,
+		previous_camera_offset,
+		previous_zoom_multiplier,
+		next_zoom_multiplier
+	)
+	_map_drag_state.reanchor_manual_camera_offset(reanchored_offset)
+	return reanchored_offset
 
 
 func has_map_camera_manual_zoom_override() -> bool:

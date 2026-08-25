@@ -486,7 +486,7 @@ func get_physique_training_multiplier() -> float:
 # 실효 포화 자격 판정(2026-08-08 재리뷰 P1). 카탈로그 고정 천장은 **수련 누적치만**
 # 보므로, 기보유 이관 무공과 곱/합 합성되는 호환 런에서는 천장 도달 **전에** 이미
 # 죽은 카드가 된다(순환결 + item_cooldown_mastery Lv.5 = 13회차에서 이미 5% 하한,
-# 수세결 + dash_module_control Lv.5 = 10회차에서 1프레임 하한, 철심공 +
+# 수세결 + dash_module_control Lv.5 = 13회차에서 1프레임 하한, 철심공 +
 # bulletproof_hat Lv.5 = 16회차에서 100%). 그래서 고정 상한이 아니라
 # **"한 번 더 습득하면 최종 소비자 값이 실제로 바뀌는가"** 를 실 공식으로 묻는다.
 func is_physique_training_saturated(training_id: String, registry: Object = null) -> bool:

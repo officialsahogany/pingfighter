@@ -80,14 +80,14 @@ static func get_default_variant(stage_id: int) -> String:
 
 
 static func normalize_variant(stage_id: int, value: Variant) -> String:
-	var requested := _canonical_id(value)
+	var requested := canonicalize_variant_id(value)
 	var entry: Dictionary = VARIANTS.get(requested, {})
 	if not entry.is_empty() and int(entry.get("stage", -1)) == stage_id and bool(entry.get("ported", false)):
 		return requested
 	return get_default_variant(stage_id)
 
 
-static func _canonical_id(value: Variant) -> String:
+static func canonicalize_variant_id(value: Variant) -> String:
 	var requested := str(value).strip_edges().to_lower()
 	return str(VARIANT_ALIASES.get(requested, requested))
 
@@ -101,6 +101,6 @@ static func get_entry(stage_id: int, value: Variant) -> Dictionary:
 
 
 static func is_ported_variant(stage_id: int, value: Variant) -> bool:
-	var requested := _canonical_id(value)
+	var requested := canonicalize_variant_id(value)
 	var entry: Dictionary = VARIANTS.get(requested, {})
 	return not entry.is_empty() and int(entry.get("stage", -1)) == stage_id and bool(entry.get("ported", false))

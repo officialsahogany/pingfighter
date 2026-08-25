@@ -52,6 +52,8 @@ func process_idle(
 		_perf_end(perf_logger, "process.frame.total", total_start)
 		return
 
+	_update_victory_highlight_frame_lane_revival(owner, module_getter, perf_logger)
+
 	# The lingpet acquisition cut-in pauses battle physics via the modal gate, so
 	# its reveal clock must advance from this ungated idle pump (not the gated
 	# update driver) and keep the scene repainting while it holds for a click.
@@ -990,6 +992,29 @@ func _update_stage_clear_result_prewarm(owner: Object, module_getter: Callable, 
 	var sample_start: int = _perf_begin(perf_logger)
 	prewarm_controller.prewarm_stage_clear_result_resources_step(module_getter, owner)
 	_perf_end(perf_logger, "process.frame.stage_clear_result_prewarm", sample_start)
+
+
+func _update_victory_highlight_frame_lane_revival(
+	owner: Object,
+	module_getter: Callable,
+	perf_logger: Object
+) -> void:
+	var frame_capture: Object = _get_module(module_getter, "victory_highlight_frame_capture_state")
+	if (
+		frame_capture == null
+		or not frame_capture.has_method("is_available")
+		or bool(frame_capture.is_available())
+	):
+		return
+	var prewarm_controller: Object = _get_module(module_getter, "battle_boot_resource_prewarm_controller")
+	if (
+		prewarm_controller == null
+		or not prewarm_controller.has_method("prewarm_victory_highlight_frame_lane_step")
+	):
+		return
+	var sample_start: int = _perf_begin(perf_logger)
+	prewarm_controller.prewarm_victory_highlight_frame_lane_step(owner, module_getter)
+	_perf_end(perf_logger, "process.frame.victory_highlight_frame_lane_revival", sample_start)
 
 
 func _call_readiness_bool(module_getter: Callable, method_name: String, fallback: bool = false) -> bool:

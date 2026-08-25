@@ -30,6 +30,9 @@ const PerkConversionFlags := preload(
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
@@ -95,6 +98,7 @@ class FakeRuntimeState:
 	var stats_context_registry_ref: WeakRef = null
 	var snapshot_calls := 0
 	var physique_training := {"power": 1}
+	var fusion_candidate_ids: Array[String] = ["mugong_a", "mugong_b"]
 
 	func capture_stats_context(owner: Object, registry: Object) -> bool:
 		stats_capture_calls += 1
@@ -131,7 +135,7 @@ class FakeRuntimeState:
 		return 1.0
 
 	func get_perk_fusion_candidate_ids(_catalog: Object) -> Array:
-		return ["mugong_a", "mugong_b"]
+		return fusion_candidate_ids.duplicate()
 
 	func get_downtown_treasure_map_mythic_multiplier() -> float:
 		return 1.0
@@ -197,6 +201,8 @@ class FakeCatalog:
 	extends RefCounted
 
 	var slot_status_calls := 0
+	var choices_override_enabled := false
+	var choices_override: Array = []
 
 	func get_choices(
 		_character_type: String,
@@ -206,12 +212,18 @@ class FakeCatalog:
 		_owner: Object = null,
 		_registry: Object = null
 	) -> Array:
-		return [
+		if choices_override_enabled:
+			return choices_override.duplicate(true)
+		var candidates := [
 			{"id": "common_expansion", "name": "Retired Expansion", "max_level": 5},
 			{"id": "mugong_a", "name": "Mugong A", "max_level": 5},
 			{"id": "mugong_b", "name": "Mugong B", "max_level": 5},
 			{"id": "mugong_c", "name": "Mugong C", "max_level": 5},
+			{"id": "mugong_d", "name": "Mugong D", "max_level": 5},
+			{"id": "mugong_e", "name": "Mugong E", "max_level": 5},
+			{"id": "mugong_f", "name": "Mugong F", "max_level": 5},
 		]
+		return candidates.slice(0, mini(candidates.size(), maxi(0, _base_choice_count)))
 
 	func has_open_perk_slot(_levels: Dictionary, _registry: Object = null) -> bool:
 		return true
@@ -419,6 +431,7 @@ func _init() -> void:
 	_verify_reward_balance_row_budget()
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_offer_order_eligibility_and_prices()
+	_verify_no_training_seed_sweep_and_saturated_fallback()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
 	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
 	_verify_unaffordable_board_auto_finish_and_failure_latch()
@@ -499,7 +512,10 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 	)
 	_expect(bool(offer.get("accepted", false)), "flag-ON mixed reward source offer must remain available")
 	var mugong_choices: Array = offer.get("mugong_choices", [])
-	_expect(mugong_choices.size() == 3, "mixed reward source must retain three eligible Mugong choices")
+	_expect(
+		mugong_choices.size() == 5,
+		"mixed reward source must request six rows and retain five eligible Mugong choices"
+	)
 	for choice_value in mugong_choices:
 		if choice_value is Dictionary:
 			_expect(
@@ -509,7 +525,6 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:
-	_expect(TowerRewardPickOfferBuilder.TEMP_TRAINING_COST == 1, "training reward card must cost one Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_MUGONG_COST == 2, "Mugong reward card must cost two Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_DASH_AMPLIFICATION_COST == 3, "Glide Orb reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_FUSION_COST == 3, "fusion reward card must cost three Muhon")
@@ -576,6 +591,128 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 	var full_choice: Dictionary = (full_offer.get("choices", []) as Array)[0]
 	_expect(bool(full_choice.get("vision_swap_required", false)), "full Chosik slots must keep Vision eligible through a swap route")
 	_expect(not (full_choice.get("vision_swap_candidates", []) as Array).is_empty(), "full-slot Vision card must carry explicit swap candidates")
+
+
+func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
+	var runtime := FakeRuntimeState.new()
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), null)
+	registry.instances["runtime_perk_catalog"] = RuntimePerkCatalog.new()
+	var builder := TowerRewardPickOfferBuilder.new()
+	var four_card_count := 0
+	var failure_count := 0
+	var total_cost := 0
+	var total_cards := 0
+	var training_card_count := 0
+	for seed in range(128):
+		var context := {
+			"node_resolution_id": "no-training-seed-%03d" % seed,
+			"boss_slot_id": "floor_01_dalji",
+			"floor": 1 + seed % 12,
+			"map_seed": seed,
+			"skipped_boss_ids": ["floor_01_dalji"],
+			"burned_vision_boss_ids": [],
+		}
+		var offer: Dictionary = builder.build_offer(
+			context,
+			FakeOwner.new(),
+			registry
+		)
+		if not bool(offer.get("accepted", false)):
+			failure_count += 1
+			continue
+		var choices: Array = offer.get("choices", [])
+		if choices.size() == TowerRewardPickOfferBuilder.CARD_COUNT:
+			four_card_count += 1
+		training_card_count += _count_kind(choices, "training")
+		_expect(
+			_count_kind(choices, "mugong") > 0,
+			"result reward seed %d must retain a Chosik/Mugong-family card" % seed
+		)
+		for choice_value in choices:
+			if choice_value is Dictionary:
+				total_cost += int((choice_value as Dictionary).get("reward_pick_cost", 0))
+				total_cards += 1
+	_expect(failure_count == 0, "128-seed reward sweep must have zero offer failures")
+	_expect(four_card_count == 128, "128-seed reward sweep must fill all four cards")
+	_expect(
+		training_card_count == 0,
+		"128-seed result rewards must collect zero training cards, got %d"
+		% training_card_count
+	)
+	var average_cost := float(total_cost) / float(maxi(1, total_cards))
+	print(
+		"tower_reward_pick_no_training_seed_sweep: seeds=128 four_card=%d failures=%d training=%d average_cost=%.4f"
+		% [four_card_count, failure_count, training_card_count, average_cost]
+	)
+
+	var saturated_runtime := FakeRuntimeState.new()
+	saturated_runtime.runtime_skill_levels = {
+		"mugong_a": 5,
+		"mugong_b": 5,
+	}
+	saturated_runtime.fusion_candidate_ids = ["mugong_a", "mugong_b"]
+	var saturated_catalog := FakeCatalog.new()
+	saturated_catalog.choices_override_enabled = true
+	var saturated_flow := FakeFlowOwner.new()
+	saturated_flow.context = {
+		"node_resolution_id": "all-mugong-maxed",
+		"boss_slot_id": "floor_01_dalji",
+		"floor": 99,
+		"map_seed": 9919,
+		"skipped_boss_ids": ["floor_01_dalji"],
+		"burned_vision_boss_ids": [],
+	}
+	var saturated_registry := _build_registry(
+		saturated_runtime,
+		FakeSkillConfig.new(),
+		saturated_flow
+	)
+	saturated_registry.instances["runtime_perk_catalog"] = saturated_catalog
+	saturated_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var saturated_offer: Dictionary = builder.build_offer(
+		saturated_flow.context,
+		FakeOwner.new(),
+		saturated_registry,
+		{"supreme": 1.0}
+	)
+	var saturated_choices: Array = saturated_offer.get("choices", [])
+	_expect(bool(saturated_offer.get("accepted", false)), "all-maxed Mugong fallback must remain accepted")
+	_expect(saturated_choices.size() == 1, "all-maxed Mugong fallback must shrink to its one fusion card")
+	_expect(_count_kind(saturated_choices, "fusion") == 1, "all-maxed Mugong fallback must preserve the existing fusion route")
+	_expect(_count_kind(saturated_choices, "training") == 0, "all-maxed Mugong fallback must not revive training")
+	_expect(
+		str(saturated_offer.get("card_count_policy", "")) == "available_stock",
+		"all-maxed Mugong fallback must declare the available-stock shrink policy"
+	)
+	_expect(
+		int(saturated_offer.get("requested_card_count", 0)) == 4
+		and int(saturated_offer.get("actual_card_count", 0)) == 1,
+		"all-maxed Mugong fallback must report the four-to-one stock contraction"
+	)
+	var saturated_state := TowerRewardPickState.new()
+	_expect(
+		saturated_state.start(
+			FakeOwner.new(),
+			saturated_registry,
+			Callable(),
+			{"supreme": 1.0}
+		),
+		"all-maxed Mugong fallback must open a non-empty reward screen"
+	)
+	_expect(
+		saturated_state.choices.size() == 1,
+		"all-maxed Mugong reward screen must expose the one available fusion card"
+	)
+	print(
+		"tower_reward_pick_saturated_fallback: accepted=%s cards=%d training=%d policy=%s"
+		% [
+			str(bool(saturated_offer.get("accepted", false))),
+			saturated_choices.size(),
+			_count_kind(saturated_choices, "training"),
+			str(saturated_offer.get("card_count_policy", "")),
+		]
+	)
+	saturated_state.reset()
 
 
 func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:

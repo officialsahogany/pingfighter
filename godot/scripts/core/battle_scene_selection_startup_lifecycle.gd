@@ -19,6 +19,7 @@ const STAGE1_RANDOM_BOSS_VARIANTS: Array[String] = ["dalji", "gaksi", "podo"]
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var stage1_boss_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var stage1_boss_rng_ready := false
+var _seed_zero_warning_emitted := false
 
 
 func apply_selection_state(owner: Object) -> void:
@@ -113,12 +114,7 @@ func normalize_runtime_character_id(value: Variant) -> String:
 
 
 func normalize_stage1_boss_variant(value: String) -> String:
-	var normalized := value.strip_edges().to_lower()
-	if normalized == "gaksi" or normalized == "gaksital" or normalized == "talkwangdae":
-		return "gaksi"
-	if normalized == "podo" or normalized == "pododaejang" or normalized == "podo_daejang":
-		return "podo"
-	return "dalji"
+	return StageBossVariantCatalog.normalize_variant(1, value)
 
 
 func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> String:
@@ -144,6 +140,11 @@ func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> Str
 					]
 				)
 				return opening_variant
+		if map_seed == 0 and not _seed_zero_warning_emitted:
+			_seed_zero_warning_emitted = true
+			push_warning(
+				"[TowerAscent] floor1_identity map_seed=0; using legacy random opening boss"
+			)
 	return select_random_stage1_boss_variant()
 
 

@@ -17,6 +17,9 @@ const OFFER_VERSION := "tower_training_offer_v2"
 const OFFER_KIND_TRAINING := "training"
 const OFFER_KIND_MIXED_REWARD := "mixed_reward"
 const TRAINING_CARD_COUNT := 6
+# Mixed result rewards filter Chosik/system rows after the catalog draw, so ask
+# for reserve rows without changing the six-card training-node contract.
+const MIXED_REWARD_MUGONG_CHOICE_COUNT := 6
 
 var _physique_catalog: Object = PhysiqueTrainingCatalog.new()
 var _perk_candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
@@ -62,7 +65,8 @@ func build_offer(
 			owner,
 			registry,
 			runtime_state,
-			perk_catalog
+			perk_catalog,
+			MIXED_REWARD_MUGONG_CHOICE_COUNT
 		)
 	if stat_choices.is_empty() and mugong_choices.is_empty():
 		return {"accepted": false, "reason": "empty_training_offer"}
@@ -297,7 +301,8 @@ func _build_mugong_choices(
 	owner: Object,
 	registry: Object,
 	runtime_state: Object,
-	perk_catalog: Object
+	perk_catalog: Object,
+	requested_count: int
 ) -> Array[Dictionary]:
 	if not perk_catalog.has_method("get_choices"):
 		return []
@@ -311,7 +316,7 @@ func _build_mugong_choices(
 		character_type,
 		runtime_levels,
 		true,
-		RuntimePerkCatalog.BASE_CHOICE_COUNT,
+		maxi(RuntimePerkCatalog.BASE_CHOICE_COUNT, requested_count),
 		owner,
 		registry
 	)

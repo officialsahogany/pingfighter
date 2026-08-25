@@ -29,6 +29,7 @@ func _init() -> void:
 	_verify_deterministic_path_contract()
 	_verify_promoted_noncombat_icons_hide_names()
 	_verify_every_ported_boss_has_one_unique_icon_and_hides_its_name()
+	_verify_boss_lookup_cache_bypasses_noncombat_draws()
 	_verify_missing_asset_negative_cache_and_label_fallback()
 	_verify_renderer_uses_one_owner_without_preloaded_icons()
 	_verify_map_input_consumer_audit_and_top_corner_counterproof()
@@ -59,12 +60,18 @@ func _verify_deterministic_path_contract() -> void:
 		"enraged state must preserve the boss identity icon"
 	)
 	_expect(
-		iconography.resolve_boss_id_for_node({"boss_slot_id": "floor_03_teddy_bear"})
+		iconography.resolve_boss_id_for_node({
+			"id": "teddy-bear-contract",
+			"kind": "combat",
+			"boss_slot_id": "floor_03_teddy_bear",
+		})
 		== "teddy_bear",
 		"the registry slot adapter must preserve the unique visual boss identity"
 	)
 	_expect(
 		iconography.resolve_boss_id_for_node({
+			"id": "shell-contract",
+			"kind": "combat",
 			"boss_slot_id": "floor_04_shell_02",
 			"standin": {"stage": 4, "boss_id": "ponk"},
 		}) == "ponk",
@@ -112,6 +119,7 @@ func _verify_every_ported_boss_has_one_unique_icon_and_hides_its_name() -> void:
 			var slot_id := str(slot.get("slot_id", ""))
 			var display_name := str(slot.get("display_name", ""))
 			var presentation := renderer.build_map_icon_presentation({
+				"id": "ported-icon-%s" % slot_id,
 				"kind": "combat",
 				"label": display_name,
 				"boss_slot_id": slot_id,
@@ -129,12 +137,77 @@ func _verify_every_ported_boss_has_one_unique_icon_and_hides_its_name() -> void:
 	_expect(seen_icon_paths.size() == ported_count, "every real boss must own one unique icon path")
 
 
+func _verify_boss_lookup_cache_bypasses_noncombat_draws() -> void:
+	var renderer := TowerAscentFlowRenderer.new()
+	for case_variant in NONCOMBAT_ICON_CASES:
+		var case: Dictionary = case_variant
+		renderer.build_map_icon_presentation({
+			"id": "noncombat-cache-%s" % str(case.get("kind", "")),
+			"kind": str(case.get("kind", "")),
+			"label": "cache bypass",
+		})
+	var bypass_state := renderer.get_map_icon_cache_debug_state()
+	_expect(
+		int(bypass_state.get("boss_registry_resolve_count", -1)) == 0
+		and int(bypass_state.get("boss_node_cache_count", -1)) == 0,
+		"noncombat draw presentation must bypass boss registry resolution and node caching"
+	)
+
+	var iconography := TowerAscentMapIconography.new()
+	var boss_registry := TowerAscentBossRegistry.new()
+	var combat_node := {
+		"id": "boss-cache-gaksital",
+		"kind": "combat",
+		"boss_slot_id": "floor_01_gaksital",
+		"standin": boss_registry.get_standin("floor_01_gaksital"),
+	}
+	_expect(
+		iconography.resolve_boss_id_for_node(combat_node) == "gaksital"
+		and iconography.resolve_boss_id_for_node(combat_node) == "gaksital",
+		"repeated combat-node lookup must preserve the resolved icon"
+	)
+	var cached_state := iconography.get_debug_state()
+	_expect(
+		int(cached_state.get("boss_registry_resolve_count", -1)) == 1
+		and int(cached_state.get("boss_node_cache_count", -1)) == 1,
+		"one combat node id must perform one registry resolution before cache hits"
+	)
+	combat_node["standin"] = boss_registry.get_standin("floor_01_podo")
+	iconography.invalidate_boss_node_cache("boss-cache-gaksital")
+	_expect(
+		iconography.resolve_boss_id_for_node(combat_node) == "podo"
+		and int(iconography.get_debug_state().get("boss_registry_resolve_count", -1)) == 2,
+		"explicit node invalidation must permit one fresh identity resolution"
+	)
+	var owner_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_map_iconography.gd"
+	)
+	_expect(
+		_function_body(owner_source, "func resolve_boss_id_for_node").find(
+			"TowerAscentBossRegistry.new()"
+		) < 0,
+		"the draw-time boss resolver must reuse its member registry without allocation"
+	)
+	_expect(
+		_function_body(owner_source, "func resolve_boss_id_for_node").find(
+			"strip_edges()"
+		) < 0,
+		"the draw-time boss resolver must not allocate normalized node or slot strings"
+	)
+
+
 func _verify_missing_asset_negative_cache_and_label_fallback() -> void:
 	var renderer := TowerAscentFlowRenderer.new()
 	var missing_node := {
+		"id": "missing-icon-contract-probe",
 		"kind": "combat",
 		"label": "계약 폴백 보스",
 		"boss_slot_id": "floor_99_missing_contract_probe",
+		"standin": {
+			"stage": 99,
+			"boss_id": "missing_contract_probe",
+			"variant": "missing_contract_probe",
+		},
 	}
 	var first: Dictionary = renderer.build_map_icon_presentation(missing_node)
 	var second: Dictionary = renderer.build_map_icon_presentation(missing_node)
@@ -148,6 +221,16 @@ func _verify_missing_asset_negative_cache_and_label_fallback() -> void:
 	var attempts: Dictionary = debug_state.get("load_attempt_by_path", {})
 	_expect(int(attempts.get(missing_path, 0)) == 1, "GRT-004: a missing icon path must hit the filesystem exactly once")
 	_expect(int(debug_state.get("miss_count", 0)) == 1, "the missing path must occupy one negative-cache entry")
+	renderer.invalidate_map_icon_node_cache()
+	var after_node_invalidation: Dictionary = renderer.build_map_icon_presentation(missing_node)
+	var retained_state: Dictionary = renderer.get_map_icon_cache_debug_state()
+	var retained_attempts: Dictionary = retained_state.get("load_attempt_by_path", {})
+	_expect(
+		after_node_invalidation == first
+		and int(retained_attempts.get(missing_path, 0)) == 1
+		and int(retained_state.get("miss_count", 0)) == 1,
+		"runtime reset node invalidation must retain the texture negative cache without filesystem IO"
+	)
 
 	var shop_model: Dictionary = renderer.build_map_icon_presentation({
 		"kind": "shop",
@@ -164,13 +247,38 @@ func _verify_renderer_uses_one_owner_without_preloaded_icons() -> void:
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
-	_expect(owner_source.find("preload(") < 0, "the icon owner must never const-preload reserved art")
+	var flow_state_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_state.gd"
+	)
+	var visual_qa_source := FileAccess.get_file_as_string(
+		"res://tools/tower_ascent_map_overlay_visual_qa.gd"
+	)
+	_expect(
+		owner_source.find('preload("res://assets') < 0,
+		"the icon owner must never const-preload reserved art"
+	)
 	_expect(owner_source.find("ResourceLoader.exists") >= 0 and owner_source.find("ResourceLoader.load") >= 0, "the icon owner must use guarded runtime loading")
 	_expect(renderer_source.count("TowerAscentMapIconography.new()") == 1, "the renderer must own exactly one iconography resolver/cache")
 	_expect(renderer_source.find("build_map_icon_presentation(node)") >= 0, "the map draw paths must consume the shared presentation contract")
 	_expect(
 		renderer_source.count('icon_presentation.get("fallback_label", "")') == 2,
 		"fullscreen and playfield map paths must both retain the S1 label fallback"
+	)
+	var reset_body := _function_body(flow_state_source, "func _reset_runtime_state")
+	_expect(
+		reset_body.find("invalidate_map_icon_node_cache") >= 0
+		and reset_body.find("clear_map_icon_cache") < 0,
+		"flow reset must invalidate only boss-node identity memoization and preserve textures"
+	)
+	var missing_probe_body := _function_body(
+		visual_qa_source,
+		"func _inject_missing_icon_probe"
+	)
+	_expect(
+		missing_probe_body.find('node["boss_slot_id"]') >= 0
+		and missing_probe_body.find('node["standin"]') >= 0
+		and missing_probe_body.find('node["map_icon_boss_id"]') < 0,
+		"missing-icon visual QA must inject through the live stand-in identity resolver"
 	)
 
 
@@ -222,6 +330,14 @@ func _collect_sources_containing(
 			needle,
 			result
 		)
+
+
+func _function_body(source: String, signature: String) -> String:
+	var start := source.find(signature)
+	if start < 0:
+		return ""
+	var next := source.find("\nfunc ", start + signature.length())
+	return source.substr(start) if next < 0 else source.substr(start, next - start)
 
 
 func _expect_promoted_texture(presentation: Dictionary, identity: String) -> void:

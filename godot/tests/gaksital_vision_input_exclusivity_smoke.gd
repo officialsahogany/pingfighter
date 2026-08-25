@@ -2,6 +2,7 @@ extends SceneTree
 
 const CharacterInfoOverlayInputHandler := preload("res://scripts/hud/character_info_overlay_input_handler.gd")
 const BattleSceneActorUpdateDriver := preload("res://scripts/core/battle_scene_actor_update_driver.gd")
+const BattleSceneBallUpdateDriver := preload("res://scripts/core/battle_scene_ball_update_driver.gd")
 const CheongringwiVisionChosikState := preload("res://scripts/characters/cheongringwi_vision_chosik_state.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -13,13 +14,19 @@ const LingpetMountState := preload("res://scripts/lingpet/lingpet_mount_state.gd
 const LingpetCompanionPlayerRuntimeResolver := preload("res://scripts/lingpet/lingpet_companion_player_runtime_resolver.gd")
 const PauseMenuInputCommandRouter := preload("res://scripts/hud/pause_menu_input_command_router.gd")
 const PauseMenuPointerCommandRouter := preload("res://scripts/hud/pause_menu_pointer_command_router.gd")
+const PaddleBounceSkillRouter := preload("res://scripts/ball/paddle_bounce_skill_router.gd")
+const MythicItemHornStrawberryMaskRuntime := preload("res://scripts/items/mythic_item_horn_strawberry_mask_runtime.gd")
+const MythicItemOdinsEyeRuntime := preload("res://scripts/items/mythic_item_odins_eye_runtime.gd")
 const SmasherOverdriveState := preload("res://scripts/characters/smasher_overdrive_state.gd")
+const SmasherPowerSmashActivationController := preload("res://scripts/characters/smasher_power_smash_activation_controller.gd")
+const SmasherVoidPhantomState := preload("res://scripts/characters/smasher_void_phantom_state.gd")
 const ViperWallLeapTestSupport := preload("res://tests/wall_leap_test_support.gd")
 const VisionInputExclusivePolicy := preload("res://scripts/characters/vision_input_exclusive_policy.gd")
 const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
 const YeonmyoVisionChosikState := preload("res://scripts/characters/yeonmyo_vision_chosik_state.gd")
 
 const DISCARD_LATCH_FIXTURE_ENV := "GAKSITAL_VISION_DISCARD_LATCH_FIXTURE"
+const SHARED_PROXY_FIXTURE_ENV := "GAKSITAL_VISION_SHARED_PROXY_FIXTURE"
 
 var _failures: Array[String] = []
 
@@ -122,6 +129,43 @@ class FakeController:
 		}
 
 
+class FakePowerState:
+	extends RefCounted
+
+	var begin_calls := 0
+
+	func can_activate(
+		_waiting_for_serve: bool,
+		_ball_active: bool,
+		_special_gauge: float,
+		_gauge_cost: float,
+		_frame_cooldown_blocked: bool,
+		_cooldown_remaining: float
+	) -> bool:
+		return true
+
+	func begin_activation(
+		_direction: int,
+		_arc_strength: float,
+		_combo_consumed: int,
+		_text_duration_frames: float,
+		_is_ghost_shot: bool,
+		_current_msec: int,
+		_freeze_duration: float
+	) -> void:
+		begin_calls += 1
+
+
+class FakeHornRuntime:
+	extends RefCounted
+
+	func _safe_owner_get(owner: Object, key: String, fallback: Variant) -> Variant:
+		if owner == null:
+			return fallback
+		var value: Variant = owner.get(key)
+		return fallback if value == null else value
+
+
 class FakeResultApplier:
 	extends RefCounted
 
@@ -174,9 +218,15 @@ func _run() -> void:
 		_verify_release_leak_negative_fixture()
 		_finish()
 		return
+	if OS.get_environment(SHARED_PROXY_FIXTURE_ENV) == "1":
+		print("[GaksitalVisionInputCounterproof] SHARED_PROXY_BYPASSED=EXPECTED_RED")
+		_verify_paddle_and_mythic_production_consumers(true)
+		_finish()
+		return
 	_verify_project_action_and_single_snapshot()
 	_verify_actor_driver_production_path()
 	_verify_consumer_negative_legs()
+	_verify_paddle_and_mythic_production_consumers()
 	_verify_gaksital_positive_leg()
 	_verify_existing_visions_and_shared_gauge()
 	_verify_release_discard_until_release()
@@ -184,6 +234,8 @@ func _run() -> void:
 	_verify_ui_priority_legs()
 	if _failures.is_empty():
 		print("[GaksitalVisionInputExclusivitySeal] CONSUMERS=GREEN smasher=0 viper=0 commando=0 baekrin_mount=0")
+		print("[GaksitalVisionInputExclusivitySeal] PADDLE_CONTACT=GREEN power_smash=0 void_phantom=0 shared_proxy=true")
+		print("[GaksitalVisionInputExclusivitySeal] MYTHIC=GREEN odins_eye=0 horn_strawberry=0 shared_proxy=true")
 		print("[GaksitalVisionInputExclusivitySeal] POSITIVE=GREEN gaksital=1 cost=80 cooldown=5")
 		print("[GaksitalVisionInputExclusivitySeal] VISIONS=GREEN dalji=1 yeonmyo=1 cheongringwi_lrl=1 shared_gauge=unlocked")
 		print("[GaksitalVisionInputExclusivitySeal] RELEASE=GREEN discard_until_release=true delayed_combat=0")
@@ -292,6 +344,93 @@ func _verify_consumer_negative_legs() -> void:
 	_expect(not bool(mount_result.get("toggled", false)) and not mount.is_mounted(), "Shift Vision must block direct-polled Baekrin mount")
 
 
+func _verify_paddle_and_mythic_production_consumers(bypass_shared_proxy: bool = false) -> void:
+	var reader := FakeInputReader.new()
+	reader.snapshot = _combat_snapshot()
+	var skill_config := FakeSkillConfig.new([
+		"power_smashing",
+		"void_phantom",
+		CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID,
+	])
+	var actor_driver := BattleSceneActorUpdateDriver.new()
+	if bypass_shared_proxy:
+		actor_driver.set_vision_proxy_enabled_for_test(false)
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"battle_scene_actor_update_driver": actor_driver,
+		"smasher_input_reader": reader,
+		"smasher_skill_config": skill_config,
+	})
+	Input.action_press("vision_modifier")
+	var shared_reader: Object = actor_driver.get_vision_aware_input_reader(
+		owner,
+		registry,
+		reader,
+		skill_config
+	)
+
+	# Actual ball-driver injection must retain the actor driver's one proxy. The
+	# contact router then reaches both the power controller and void-phantom
+	# claim predicate with that filtered reader.
+	var ball_deps := {
+		"input_reader": reader,
+		"skill_config": skill_config,
+	}
+	BattleSceneBallUpdateDriver.new()._apply_vision_input_reader(ball_deps, owner, registry)
+	_expect(ball_deps.get("input_reader", null) == shared_reader, "ball contact deps must reuse the actor driver's single Vision proxy")
+	var power_state := FakePowerState.new()
+	var void_state := SmasherVoidPhantomState.new()
+	ball_deps.merge({
+		"power_activation_controller": SmasherPowerSmashActivationController.new(),
+		"power_state": power_state,
+		"smasher_void_phantom_state": void_state,
+	}, true)
+	var contact_context := {
+		"ball_active": true,
+		"special_gauge": 500.0,
+		"power_smash_gauge_cost": 1.0,
+		"current_msec": 1000,
+	}
+	var power_result: Dictionary = PaddleBounceSkillRouter.new().try_activate_power_smashing(
+		Vector2(380.0, 680.0),
+		true,
+		500.0,
+		contact_context,
+		ball_deps,
+		{}
+	)
+	_expect(not bool(power_result.get("activated", false)), "Shift Vision must block power-smash at paddle contact")
+	_expect_eq(power_state.begin_calls, 0, "paddle-contact power activation count")
+	_expect(not void_state.is_contact_claimed(contact_context, ball_deps), "Shift Vision must block void phantom at paddle contact")
+	_expect_eq(void_state.roll_count, 0, "paddle-contact void phantom activation count")
+
+	# Both direct-registry mythic readers run before player control, so they must
+	# obtain the already-sampled shared proxy rather than polling raw Input.
+	var odin_reader: Object = MythicItemOdinsEyeRuntime.new()._get_vision_aware_input_reader(
+		owner,
+		registry,
+		reader
+	)
+	var horn_reader: Object = MythicItemHornStrawberryMaskRuntime.new()._get_input_reader(
+		FakeHornRuntime.new(),
+		owner,
+		registry
+	)
+	_expect(odin_reader == shared_reader, "Odin runtime must reuse the single Vision proxy")
+	_expect(horn_reader == shared_reader, "horn-strawberry runtime must reuse the single Vision proxy")
+	var odin_snapshot: Dictionary = odin_reader.get_snapshot()
+	var horn_snapshot: Dictionary = horn_reader.get_snapshot()
+	_expect(not bool(odin_snapshot.get("mouse_left_just_pressed", false)), "Shift Vision must block Odin dark-swamp LMB")
+	_expect(
+		not bool(horn_snapshot.get("left_pressed", false))
+		and not bool(horn_snapshot.get("right_pressed", false))
+		and not bool(horn_snapshot.get("down_pressed", false)),
+		"Shift Vision must block horn-strawberry transform command channels"
+	)
+	_expect_eq(reader.calls, 1, "paddle and mythic consumers must share one raw reader sample")
+	Input.action_release("vision_modifier")
+
+
 func _verify_gaksital_positive_leg() -> void:
 	var state := GaksitalVisionChosikState.new()
 	var owner := FakeOwner.new()
@@ -388,12 +527,16 @@ func _verify_release_discard_until_release() -> void:
 
 
 func _verify_release_leak_negative_fixture() -> void:
+	var proxy := VisionModifierInputProxy.new()
+	proxy.set_discard_latch_enabled_for_test(false)
 	var overdrive := SmasherOverdriveState.new()
 	var skill_config := FakeSkillConfig.new(["smasher_overdrive", CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID])
-	# Counterproof emulates removing the discard latch: a held button arrives as
-	# a deferred fresh edge on Shift release. This assertion must RED.
+	proxy.configure_snapshot(null, _combat_snapshot(), true)
+	# Toggle the production latch off. A held chord then escapes on Shift release;
+	# this assertion is GREEN with the latch and intentionally RED without it.
+	var leaked_snapshot: Dictionary = proxy.configure_snapshot(null, _combat_snapshot(), false).get_snapshot()
 	var result := overdrive.update_input(
-		_combat_snapshot(), 1, 500.0, Vector2.ZERO,
+		leaked_snapshot, 1, 500.0, Vector2.ZERO,
 		{"ball_active": true, "player_skill_input_locked": false, "ball_vel": Vector2.UP * 8.0},
 		{"skill_config": skill_config}
 	)

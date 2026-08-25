@@ -16,26 +16,14 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const TRACK_WIDTH_PX := 300.0
-const TARGET_X_PX := 150.0
+const TRACK_WIDTH_PX := 600.0
+const TARGET_X_PX := 300.0
 const TIMING_GAUGE_ASSET_SPECS := [
 	{
 		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png",
 		"sha256": "127019a4e3dd3b41351508c821088e529bf4670dc04f36e339e3db8fb9fe8401",
 		"size": Vector2i(1593, 156),
 		"imported_name": "tower_training_gauge_frame_imagegen_v1.png-73107fd70445e4ac76b5506d8fa38b40.ctex",
-	},
-	{
-		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png",
-		"sha256": "ce4f992983ac8cc9b8a01e64736ca64dd206dbac6c9e2576044fb976c6d17eb4",
-		"size": Vector2i(123, 517),
-		"imported_name": "tower_training_gauge_tick_imagegen_v1.png-cfb846a65982b33a635698224a7a1a46.ctex",
-	},
-	{
-		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_tick_blue_v1.png",
-		"sha256": "da41e24d3d222753dc61c517a88aa87dc02c90fea526f49b9a13890ac6f86c60",
-		"size": Vector2i(123, 517),
-		"imported_name": "tower_training_gauge_tick_blue_v1.png-f27bc91622fd2faa28ff0d0bd612272c.ctex",
 	},
 	{
 		"path": "res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png",
@@ -58,9 +46,8 @@ func _run() -> void:
 	_verify_three_tier_presentation_sequence()
 	_verify_shared_timer_and_idle_ownership_sources()
 	_verify_training_timing_gauge_promoted_assets()
-	_verify_training_timing_gauge_blue_tick_derivation()
 	_verify_training_timing_gauge_asset_contract_and_fallback()
-	_verify_training_timing_gauge_tick_layout()
+	_verify_training_timing_gauge_zone_layout()
 	_verify_localization_and_retired_probability_copy()
 	if _failures.is_empty():
 		print("tower_training_timing_judgment_smoke: ok")
@@ -72,17 +59,17 @@ func _run() -> void:
 
 
 func _verify_pixel_boundaries_and_luck_width() -> void:
-	# 피드백2 2항: Luck 2 means the critical cell is exactly 6px on this 300px
-	# contract track and each great band is twice that (12px). Critical is
-	# [147, 153], great bands are [135, 147) and (153, 165].
-	_expect(_judge_px(147) == "critical", "left critical boundary pixel belongs to critical")
-	_expect(_judge_px(146) == "great", "one pixel outside left critical boundary drops to great")
-	_expect(_judge_px(153) == "critical", "right critical boundary pixel belongs to critical")
-	_expect(_judge_px(154) == "great", "one pixel outside right critical boundary drops to great")
-	_expect(_judge_px(135) == "great", "left great outer boundary pixel belongs to great")
-	_expect(_judge_px(134) == "base", "one pixel outside left great boundary drops to base")
-	_expect(_judge_px(165) == "great", "right great outer boundary pixel belongs to great")
-	_expect(_judge_px(166) == "base", "one pixel outside right great boundary drops to base")
+	# 피드백5 1항: base critical is 3% (18px on this 600px contract
+	# track) and each great band is 2% (12px). Critical is [291, 309], and
+	# great bands are [279, 291) and (309, 321].
+	_expect(_judge_px(291) == "critical", "left critical boundary pixel belongs to critical")
+	_expect(_judge_px(290) == "great", "one pixel outside left critical boundary drops to great")
+	_expect(_judge_px(309) == "critical", "right critical boundary pixel belongs to critical")
+	_expect(_judge_px(310) == "great", "one pixel outside right critical boundary drops to great")
+	_expect(_judge_px(279) == "great", "left great outer boundary pixel belongs to great")
+	_expect(_judge_px(278) == "base", "one pixel outside left great boundary drops to base")
+	_expect(_judge_px(321) == "great", "right great outer boundary pixel belongs to great")
+	_expect(_judge_px(322) == "base", "one pixel outside right great boundary drops to base")
 
 	var width_base := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(
 		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
@@ -90,26 +77,26 @@ func _verify_pixel_boundaries_and_luck_width() -> void:
 	var width_max := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(8.0)
 	var width_over_cap := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(80.0)
 	var width_under_floor := TowerTrainingTimingJudgmentPolicy.cell_width_ratio(0.25)
-	_expect(is_equal_approx(width_base, 0.02), "base Luck 2 derives a 2 percent critical cell")
+	_expect(is_equal_approx(width_base, 0.03), "base Luck 3 derives a 3 percent critical cell")
 	_expect(is_equal_approx(width_max, 0.08), "Luck 8 derives the 8 percent ceiling cell")
 	_expect(is_equal_approx(width_over_cap, 0.08), "Luck width cap preserves a base-result region")
 	_expect(is_equal_approx(width_under_floor, 0.01), "Luck width floor keeps a visible 1 percent cell")
-	var judged := TowerTrainingTimingJudgmentPolicy.judge_position(0.5, 0.5, 2.0)
+	var judged := TowerTrainingTimingJudgmentPolicy.judge_position(0.5, 0.5, 3.0)
 	_expect(
-		is_equal_approx(float(judged.get("great_outer_half_width_ratio", 0.0)), 0.05),
-		"great bands must span exactly twice the critical cell on each side"
+		is_equal_approx(float(judged.get("great_outer_half_width_ratio", 0.0)), 0.035),
+		"base judgment block must span 2/3/2 percent around the target"
 	)
 	var timing := TowerTrainingTimingState.new()
 	timing.set_clock_msec_for_tests(400)
-	var visual_target := TowerTrainingTimingJudgmentPolicy.roll_target(11, "zone-node", "zone", 0, 2.0)
+	var visual_target := TowerTrainingTimingJudgmentPolicy.roll_target(11, "zone-node", "zone", 0, 3.0)
 	_expect(timing.start(visual_target), "zone visual fixture starts")
 	var zone_model: Dictionary = timing.get_visual_model()
 	var zone_target := float(zone_model.get("target_position", -1.0))
 	_expect(
-		is_equal_approx(float(zone_model.get("great_left_start", 9.9)), zone_target - 0.05)
-		and is_equal_approx(float(zone_model.get("critical_start", 9.9)), zone_target - 0.01)
-		and is_equal_approx(float(zone_model.get("critical_end", -9.9)), zone_target + 0.01)
-		and is_equal_approx(float(zone_model.get("great_right_end", -9.9)), zone_target + 0.05),
+		is_equal_approx(float(zone_model.get("great_left_start", 9.9)), zone_target - 0.035)
+		and is_equal_approx(float(zone_model.get("critical_start", 9.9)), zone_target - 0.015)
+		and is_equal_approx(float(zone_model.get("critical_end", -9.9)), zone_target + 0.015)
+		and is_equal_approx(float(zone_model.get("great_right_end", -9.9)), zone_target + 0.035),
 		"visual model zone boundaries must mirror the judgment factors"
 	)
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("critical"), 1.5), "critical multiplier is x1.5")
@@ -240,48 +227,38 @@ func _verify_training_timing_gauge_asset_contract_and_fallback() -> void:
 	var renderer := TowerAscentFlowRenderer.new()
 	var expected_paths := PackedStringArray([
 		"res://assets/ui/tower_training_gauge/tower_training_gauge_frame_imagegen_v1.png",
-		"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png",
-		"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_blue_v1.png",
 		"res://assets/ui/tower_training_gauge/tower_training_gauge_pointer_imagegen_v2.png",
 	])
 	_expect(
 		renderer.get_training_timing_gauge_asset_paths() == expected_paths,
-		"timing-gauge prewarm exposes the four approved asset paths"
+		"timing-gauge prewarm exposes only the approved frame and pointer paths"
 	)
 	var contract: Dictionary = renderer.get_training_timing_gauge_asset_contract()
 	_expect(
 		Vector2i(contract.get("frame_source_size", Vector2i.ZERO)) == Vector2i(1593, 156)
-		and Vector2i(contract.get("tick_source_size", Vector2i.ZERO)) == Vector2i(123, 517)
-		and Vector2i(contract.get("blue_tick_source_size", Vector2i.ZERO)) == Vector2i(123, 517)
 		and Vector2i(contract.get("pointer_source_size", Vector2i.ZERO)) == Vector2i(218, 918)
 		and Vector2i(contract.get("runtime_gauge_size", Vector2i.ZERO)) == Vector2i(357, 29),
-		"timing-gauge source and runtime dimensions match the approved art contract"
+		"two-piece timing-gauge source and runtime dimensions match the approved contract"
 	)
 	var bitmap_state: Dictionary = renderer.get_training_timing_gauge_asset_debug_state()
 	_expect(
 		bool(bitmap_state.get("loaded", false))
 		and str(bitmap_state.get("render_mode", "")) == "bitmap"
 		and Vector2i(bitmap_state.get("frame_size", Vector2i.ZERO)) == Vector2i(1593, 156)
-		and Vector2i(bitmap_state.get("tick_size", Vector2i.ZERO)) == Vector2i(123, 517)
-		and Vector2i(bitmap_state.get("blue_tick_size", Vector2i.ZERO)) == Vector2i(123, 517)
 		and Vector2i(bitmap_state.get("pointer_size", Vector2i.ZERO)) == Vector2i(218, 918),
-		"all four approved textures are prewarmed before the timing gauge draws"
+		"frame and moving pointer are prewarmed before the timing gauge draws"
 	)
 	renderer.debug_set_training_timing_gauge_textures(
 		load(expected_paths[0]),
-		load(expected_paths[1]),
-		null,
-		load(expected_paths[3])
+		null
 	)
 	var fallback_state: Dictionary = renderer.get_training_timing_gauge_asset_debug_state()
 	_expect(
 		not bool(fallback_state.get("loaded", true))
 		and str(fallback_state.get("render_mode", "")) == "procedural_fallback"
 		and bool(fallback_state.get("frame_loaded", false))
-		and bool(fallback_state.get("tick_loaded", false))
-		and not bool(fallback_state.get("blue_tick_loaded", true))
-		and bool(fallback_state.get("pointer_loaded", false)),
-		"one missing blue tick selects the complete procedural fallback"
+		and not bool(fallback_state.get("pointer_loaded", true)),
+		"one missing pointer selects the complete procedural frame-and-pointer fallback"
 	)
 	renderer.prewarm_training_timing_gauge_assets()
 	_expect(
@@ -293,177 +270,158 @@ func _verify_training_timing_gauge_asset_contract_and_fallback() -> void:
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
 	var gauge_start := renderer_source.find("func _draw_training_timing_gauge(")
-	var gauge_end := renderer_source.find("func _training_timing_segment_rect", gauge_start)
+	var gauge_end := renderer_source.find("static func _training_timing_segment_rect", gauge_start)
 	var gauge_source := renderer_source.substr(gauge_start, gauge_end - gauge_start)
 	_expect(
 		gauge_start >= 0
 		and gauge_end > gauge_start
 		and gauge_source.contains("var use_bitmap_chrome := _has_training_timing_gauge_assets()")
 		and gauge_source.contains("_draw_training_timing_gauge_procedural_frame")
-		and gauge_source.contains("_draw_training_timing_gauge_procedural_tick")
 		and gauge_source.contains("_draw_training_timing_gauge_procedural_pointer"),
-		"bitmap rendering keeps the complete procedural frame, tick, and pointer fallback"
+		"bitmap rendering keeps the complete procedural frame-and-pointer fallback"
 	)
 	_expect(
 		gauge_source.contains('model.get("critical_start"')
 		and gauge_source.contains('model.get("critical_end"')
 		and gauge_source.contains('model.get("great_left_start"')
 		and gauge_source.contains('model.get("great_right_end"')
-		and gauge_source.contains('model.get("target_position"')
-		and gauge_source.contains("build_training_timing_gauge_tick_layout("),
-		"GRT-018 ticks consume only the state model's precomputed target and boundaries"
+		and gauge_source.contains('model.get("pendulum_position"')
+		and gauge_source.contains("build_training_timing_gauge_track_rect(")
+		and gauge_source.contains("build_training_timing_gauge_zone_layout("),
+		"GRT-018 track, zones, and moving pointer consume shared production geometry"
 	)
 	var frame_draw := gauge_source.find("_draw_training_timing_gauge_bitmap_frame(")
-	var tick_draw := gauge_source.find(
-		"_draw_training_timing_gauge_bitmap_tick(",
+	var pointer_draw := gauge_source.find(
+		"_draw_training_timing_gauge_bitmap_pointer(",
 		frame_draw + 1
 	)
 	_expect(
-		frame_draw >= 0 and tick_draw > frame_draw,
-		"bitmap frame draws before the five colored ticks over the dark track underlay"
+		frame_draw >= 0 and pointer_draw > frame_draw,
+		"bitmap frame draws before the approved moving pointer"
 	)
 	_expect(
 		gauge_source.contains("draw_texture_rect_region")
 		and gauge_source.contains("draw_texture_rect")
-		and gauge_source.contains("tick_modulate")
 		and gauge_source.contains("canvas.draw_rect(")
 		and gauge_source.contains("canvas.draw_line(")
 		and gauge_source.contains("canvas.draw_circle(")
+		and not gauge_source.contains("tick")
 		and not gauge_source.contains("ProjectResourceLoader"),
-		"timing-gauge draw uses cached bitmaps while source-sealing the old procedural calls"
+		"zone-only draw uses cached frame/pointer bitmaps and contains no fixed ticks"
 	)
 
 
-func _verify_training_timing_gauge_tick_layout() -> void:
-	var renderer := TowerAscentFlowRenderer.new()
-	var contract: Dictionary = renderer.get_training_timing_gauge_asset_contract()
-	var runtime_gauge_size := Vector2(
-		Vector2i(contract.get("runtime_gauge_size", Vector2i.ZERO))
-	)
-	var track_width := runtime_gauge_size.x - 10.0
-	var tick_source_size := Vector2(
-		Vector2i(contract.get("tick_source_size", Vector2i.ZERO))
-	)
-	var natural_tick_width := (
-		runtime_gauge_size.y
-		* float(contract.get("tick_height_ratio", 0.0))
-		* tick_source_size.x
-		/ tick_source_size.y
-	)
+func _verify_training_timing_gauge_zone_layout() -> void:
 	var timing := TowerTrainingTimingState.new()
 	timing.set_clock_msec_for_tests(800)
 	_expect(timing.start({
 		"roll_count": 1,
 		"target_position": 0.5,
-		"luck_percent": 2.0,
-	}), "feedback4 centered Luck 2 tick fixture starts")
+		"luck_percent": TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT,
+	}), "feedback5 centered base-Luck zone fixture starts")
 	var model: Dictionary = timing.get_visual_model()
-	var layout: Dictionary = TowerAscentFlowRenderer.build_training_timing_gauge_tick_layout(
-		TRACK_WIDTH_PX,
-		float(model.get("target_position", -1.0)),
+	var gauge_rect := Rect2(5.0, 10.0, 357.0, 29.0)
+	var authored_track_rect := TowerAscentFlowRenderer.build_training_timing_gauge_track_rect(
+		gauge_rect
+	)
+	_expect(
+		gauge_rect.encloses(authored_track_rect)
+		and is_equal_approx(
+			authored_track_rect.position.y - gauge_rect.position.y,
+			29.0 * 60.0 / 156.0
+		)
+		and is_equal_approx(
+			gauge_rect.end.y - authored_track_rect.end.y,
+			29.0 * 51.0 / 156.0
+		),
+		"feedback5 live track matches the authored frame opening without rail bleed"
+	)
+	var track_rect := Rect2(10.0, 20.0, TRACK_WIDTH_PX, 30.0)
+	var layout := TowerAscentFlowRenderer.build_training_timing_gauge_zone_layout(
+		track_rect,
 		float(model.get("great_left_start", -1.0)),
 		float(model.get("critical_start", -1.0)),
 		float(model.get("critical_end", -1.0)),
 		float(model.get("great_right_end", -1.0)),
-		natural_tick_width
+		1.0
 	)
+	var zone_rects: Array = layout.get("zone_rects", [])
+	var inset_zone_rects: Array = layout.get("inset_zone_rects", [])
+	_expect(zone_rects.size() == 3, "feedback5 layout contains exactly blue-red-blue zones")
 	_expect(
-		is_equal_approx(float(layout.get("red_tick_x", -1.0)), 150.0),
-		"feedback4 layout has exactly one red target tick at 150px"
+		inset_zone_rects.size() == 3,
+		"feedback5 layout exposes one bounded erosion rect for every zone"
 	)
-	var blue_tick_xs: PackedFloat32Array = layout.get(
-		"blue_tick_xs",
-		PackedFloat32Array()
-	)
-	var expected_blue_tick_xs := PackedFloat32Array([135.0, 147.0, 153.0, 165.0])
-	_expect(blue_tick_xs.size() == 4, "feedback4 layout has exactly four blue ticks")
-	for index in range(expected_blue_tick_xs.size()):
+	var expected_width_ratios := PackedFloat32Array([0.02, 0.03, 0.02])
+	for index in range(expected_width_ratios.size()):
+		var zone_rect := Rect2()
+		var inset_rect := Rect2()
+		if index < zone_rects.size() and zone_rects[index] is Rect2:
+			zone_rect = zone_rects[index]
+		if index < inset_zone_rects.size() and inset_zone_rects[index] is Rect2:
+			inset_rect = inset_zone_rects[index]
 		_expect(
-			index < blue_tick_xs.size()
-			and is_equal_approx(blue_tick_xs[index], expected_blue_tick_xs[index]),
-			"feedback4 blue tick %d stays on the state-model boundary at %dpx" % [
+			is_equal_approx(zone_rect.size.x / track_rect.size.x, expected_width_ratios[index]),
+			"feedback5 zone %d keeps its approved %.0f percent width" % [
 				index,
-				int(expected_blue_tick_xs[index]),
+				expected_width_ratios[index] * 100.0,
 			]
 		)
+		_expect(
+			track_rect.encloses(zone_rect) and track_rect.encloses(inset_rect),
+			"feedback5 zone %d and its erosion stay inside the track rect" % index
+		)
+		_expect(
+			is_equal_approx(zone_rect.position.y, track_rect.position.y)
+			and is_equal_approx(zone_rect.size.y, track_rect.size.y),
+			"feedback5 zone %d matches the track height without protrusion" % index
+		)
+	var boundary_ratios := PackedFloat32Array([
+		float(model.get("great_left_start", -1.0)),
+		float(model.get("critical_start", -1.0)),
+		float(model.get("critical_end", -1.0)),
+		float(model.get("great_right_end", -1.0)),
+	])
 	var expected_boundary_judgments := PackedStringArray([
 		"great",
 		"critical",
 		"critical",
 		"great",
 	])
-	for index in range(blue_tick_xs.size()):
+	for index in range(boundary_ratios.size()):
 		var judgment := TowerTrainingTimingJudgmentPolicy.judge_position(
-			blue_tick_xs[index] / TRACK_WIDTH_PX,
+			boundary_ratios[index],
 			0.5,
-			2.0
+			TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
 		)
 		_expect(
 			str(judgment.get("judgment_kind", "")) == expected_boundary_judgments[index],
-			"feedback4 blue tick %d remains judge_position-lockstep" % index
+			"feedback5 zone boundary %d remains judge_position-lockstep" % index
 		)
-
-	for luck_percent in [
-		TowerTrainingTimingJudgmentPolicy.MIN_LUCK_PERCENT,
-		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT,
-		TowerTrainingTimingJudgmentPolicy.MAX_LUCK_PERCENT,
-	]:
-		var width_state := TowerTrainingTimingState.new()
-		width_state.set_clock_msec_for_tests(900)
-		_expect(width_state.start({
-			"roll_count": 1,
-			"target_position": 0.5,
-			"luck_percent": luck_percent,
-		}), "feedback4 Luck %.0f width fixture starts" % luck_percent)
-		var width_model: Dictionary = width_state.get_visual_model()
-		var width_layout := TowerAscentFlowRenderer.build_training_timing_gauge_tick_layout(
-			track_width,
-			float(width_model.get("target_position", -1.0)),
-			float(width_model.get("great_left_start", -1.0)),
-			float(width_model.get("critical_start", -1.0)),
-			float(width_model.get("critical_end", -1.0)),
-			float(width_model.get("great_right_end", -1.0)),
-			natural_tick_width
-		)
-		var draw_width := float(width_layout.get("draw_width", INF))
-		var critical_cell_px := float(width_layout.get("critical_cell_px", 0.0))
-		_expect(
-			draw_width > 0.0 and draw_width <= critical_cell_px,
-			"feedback4 Luck %.0f tick width cannot hide the live critical cell" % luck_percent
-		)
-		if luck_percent == TowerTrainingTimingJudgmentPolicy.MIN_LUCK_PERCENT:
-			_expect(
-				is_equal_approx(draw_width, critical_cell_px * 0.8),
-				"feedback4 minimum-Luck tick uses the 80 percent critical-cell cap"
-			)
-		if luck_percent == TowerTrainingTimingJudgmentPolicy.MAX_LUCK_PERCENT:
-			_expect(
-				is_equal_approx(draw_width, natural_tick_width),
-				"feedback4 maximum-Luck tick retains its natural art width"
-			)
-
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
 	_expect(
-		renderer_source.contains("build_training_timing_gauge_tick_layout"),
-		"feedback4 tick layout must expose the shared state-model projection helper"
+		renderer_source.contains("build_training_timing_gauge_zone_layout")
+		and not renderer_source.contains("TRAINING_TIMING_GAUGE_TICK_TEXTURE_PATH")
+		and not renderer_source.contains("TRAINING_TIMING_GAUGE_BLUE_TICK_TEXTURE_PATH"),
+		"feedback5 gauge exposes zone layout while retiring both fixed-tick assets"
 	)
 	_expect(
-		renderer_source.contains('"red_tick_x"')
-		and renderer_source.contains('"blue_tick_xs"'),
-		"feedback4 tick layout must contain one red target tick and four blue boundary ticks"
+		not renderer_source.contains("_draw_training_timing_gauge_bitmap_tick")
+		and not renderer_source.contains("_draw_training_timing_gauge_procedural_tick")
+		and not renderer_source.contains("build_training_timing_gauge_tick_layout"),
+		"feedback5 gauge source contains no fixed-tick draw or width-cap helper"
 	)
+	var protruding_fixture := zone_rects.duplicate()
+	if not protruding_fixture.is_empty():
+		protruding_fixture[0] = Rect2(
+			track_rect.position - Vector2(1.0, 0.0),
+			Vector2(20.0, track_rect.size.y)
+		)
 	_expect(
-		renderer_source.contains("critical_cell_px * 0.8"),
-		"feedback4 bitmap tick width must cap below the live critical-cell width"
-	)
-	_expect(
-		renderer_source.contains("TRAINING_TIMING_GAUGE_BLUE_TICK_TEXTURE_PATH")
-		and renderer_source.contains("_training_timing_gauge_blue_tick_texture")
-		and renderer_source.contains("tick_modulate: Color")
-		and renderer_source.contains("tick_modulate\n\t)"),
-		"feedback4 blue asset and bitmap-tick modulate path remain wired"
+		not _zone_rects_are_inside_track(track_rect, protruding_fixture),
+		"RED counterproof rejects a zone rect that protrudes outside the track"
 	)
 
 
@@ -508,72 +466,6 @@ func _verify_training_timing_gauge_promoted_assets() -> void:
 			and import_source.contains("mipmaps/generate=false"),
 			"%s must retain lossless, no-mipmap UI import settings" % asset_path
 		)
-
-
-func _verify_training_timing_gauge_blue_tick_derivation() -> void:
-	var red_tick := Image.load_from_file(ProjectSettings.globalize_path(
-		"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_imagegen_v1.png"
-	))
-	var blue_tick := Image.load_from_file(ProjectSettings.globalize_path(
-		"res://assets/ui/tower_training_gauge/tower_training_gauge_tick_blue_v1.png"
-	))
-	_expect(
-		red_tick != null and blue_tick != null
-		and not red_tick.is_empty() and not blue_tick.is_empty()
-		and red_tick.get_size() == blue_tick.get_size(),
-		"feedback4 red and blue tick sources decode on the same canvas"
-	)
-	if (
-		red_tick == null or blue_tick == null
-		or red_tick.is_empty() or blue_tick.is_empty()
-		or red_tick.get_size() != blue_tick.get_size()
-	):
-		return
-	var approved_band := Rect2i(18, 208, 86, 110)
-	var changed_count := 0
-	var changed_min := Vector2i(1 << 20, 1 << 20)
-	var changed_max := Vector2i(-1, -1)
-	var alpha_unchanged := true
-	var changes_stay_in_band := true
-	var changed_pixels_are_blue := true
-	for y in range(red_tick.get_height()):
-		for x in range(red_tick.get_width()):
-			var red_pixel := red_tick.get_pixel(x, y)
-			var blue_pixel := blue_tick.get_pixel(x, y)
-			if not is_equal_approx(red_pixel.a, blue_pixel.a):
-				alpha_unchanged = false
-			if red_pixel == blue_pixel:
-				continue
-			changed_count += 1
-			changed_min = changed_min.min(Vector2i(x, y))
-			changed_max = changed_max.max(Vector2i(x, y))
-			changes_stay_in_band = changes_stay_in_band and approved_band.has_point(
-				Vector2i(x, y)
-			)
-			changed_pixels_are_blue = (
-				changed_pixels_are_blue
-				and blue_pixel.b > blue_pixel.r
-				and blue_pixel.b >= blue_pixel.g
-			)
-	_expect(
-		changed_count == 7218
-		and changed_min == Vector2i(18, 208)
-		and changed_max == Vector2i(103, 317),
-		"feedback4 deterministic hue rotation changes only the pinned red-band mask"
-	)
-	_expect(
-		alpha_unchanged and changes_stay_in_band and changed_pixels_are_blue,
-		"feedback4 blue derivation preserves alpha and all gold-column pixels"
-	)
-	var recolor_source := FileAccess.get_file_as_string(
-		"res://tools/recolor_tower_training_gauge_tick_blue.py"
-	)
-	_expect(
-		recolor_source.contains("RED_TO_BLUE_ROTATION_DEGREES = 220.0")
-		and recolor_source.contains("EXPECTED_CHANGED_PIXEL_COUNT = 7218")
-		and recolor_source.contains("non-red gold/wood pixel changed"),
-		"feedback4 checked-in recolor script pins the deterministic gold-preserving transform"
-	)
 
 
 func _verify_localization_and_retired_probability_copy() -> void:
@@ -624,8 +516,19 @@ func _judge_px(position_px: int) -> String:
 	return str(TowerTrainingTimingJudgmentPolicy.judge_position(
 		float(position_px) / TRACK_WIDTH_PX,
 		TARGET_X_PX / TRACK_WIDTH_PX,
-		2.0
+		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
 	).get("judgment_kind", ""))
+
+
+func _zone_rects_are_inside_track(track_rect: Rect2, zone_rects: Array) -> bool:
+	if zone_rects.size() != 3:
+		return false
+	for zone_rect_variant in zone_rects:
+		if not zone_rect_variant is Rect2:
+			return false
+		if not track_rect.encloses(zone_rect_variant as Rect2):
+			return false
+	return true
 
 
 func _edge_alpha_count(image: Image) -> int:
