@@ -12,6 +12,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentMapGenerator := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
 )
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
 const TowerAscentScreenSpaceSurfacePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
 )
@@ -146,16 +149,26 @@ func _init() -> void:
 
 
 func _verify_rest_work_return_phase_and_retention() -> void:
+	var map_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed("rest")
+	_expect(
+		map_seed > 0,
+		"no map seed exposes a rest node in the first route row"
+	)
+	if map_seed <= 0:
+		return
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
 		"run_id": "rest-return-phase-probe",
 		"current_stage": 4,
-		"map_seed": 4,
+		"map_seed": map_seed,
 		"node_modal_kind": "rest",
 		"run_state": {"chance_gems": 2, "gold": 0, "muhon": 0},
 	}), "rest return phase probe must begin")
 	var rest_target := _find_target(flow.get_route_aim_targets(), "rest")
-	_expect(not rest_target.is_empty(), "rest return phase probe must expose rest")
+	_expect(
+		not rest_target.is_empty(),
+		"derived first-route fixture must expose its requested rest node"
+	)
 	if rest_target.is_empty():
 		return
 	flow.call("_resolve_route_target", str(rest_target.get("id", "")))
@@ -191,16 +204,32 @@ func _verify_rest_work_return_phase_and_retention() -> void:
 
 
 func _verify_modal_close_retains_background_until_combat_selection() -> void:
+	var map_seed := (
+		TowerAscentNodeArrivalTestFixture
+		.find_initial_route_seed_with_combat_exit("guardian_spring")
+	)
+	_expect(
+		map_seed > 0,
+		(
+			"no map seed exposes a guardian_spring whose reached node owns a "
+			+ "combat exit"
+		)
+	)
+	if map_seed <= 0:
+		return
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(null, Callable(), {
 		"run_id": "noncombat-background-retention",
-		"map_seed": 2,
+		"map_seed": map_seed,
 	}), "retention fixture must begin")
 	_expect(flow.get_phase_name() == "ROUTE_AIM", "fixture must begin at post-combat route aim")
 	_expect(flow.get_retained_noncombat_node_background_kind().is_empty(), "combat-owned entry must not start with a retained noncombat background")
 
 	var spring_target := _find_target(flow.get_route_aim_targets(), "guardian_spring")
-	_expect(not spring_target.is_empty(), "deterministic fixture must expose guardian_spring")
+	_expect(
+		not spring_target.is_empty(),
+		"derived combat-exit fixture must expose guardian_spring"
+	)
 	if spring_target.is_empty():
 		return
 	flow.call("_resolve_route_target", str(spring_target.get("id", "")))
@@ -236,7 +265,10 @@ func _verify_modal_close_retains_background_until_combat_selection() -> void:
 	)
 
 	var combat_target := _find_combat_target(flow.get_route_aim_targets())
-	_expect(not combat_target.is_empty(), "the reached optional node must expose a combat exit")
+	_expect(
+		not combat_target.is_empty(),
+		"derived guardian_spring fixture must retain its required combat exit"
+	)
 	if combat_target.is_empty():
 		return
 	flow.call("_resolve_route_target", str(combat_target.get("id", "")))

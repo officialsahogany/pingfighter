@@ -833,9 +833,31 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 		and bool(flow.has_map_camera_manual_override())
 		and flow.has_method("get_map_camera_manual_offset")
 	):
+		var manual_camera_offset: Vector2 = flow.get_map_camera_manual_offset()
+		var previous_camera: Dictionary = _last_fullscreen_model.get("camera", {})
+		if (
+			not has_manual_zoom
+			and not previous_camera.is_empty()
+			and flow.has_method("reanchor_map_camera_manual_offset")
+		):
+			var previous_zoom := float(previous_camera.get(
+				"render_zoom_multiplier",
+				previous_camera.get("zoom_multiplier", camera_render_multiplier)
+			))
+			if not is_equal_approx(previous_zoom, camera_render_multiplier):
+				var previous_view_rect: Rect2 = previous_camera.get(
+					"view_rect",
+					model.get("camera_view_rect", Rect2())
+				)
+				manual_camera_offset = flow.reanchor_map_camera_manual_offset(
+					previous_view_rect.get_center(),
+					previous_camera.get("offset", manual_camera_offset),
+					previous_zoom,
+					camera_render_multiplier
+				)
 		TowerAscentMapCameraModel.apply_offset_override(
 			camera_model,
-			flow.get_map_camera_manual_offset()
+			manual_camera_offset
 		)
 	camera_model["base_zoom_multiplier"] = camera_base_multiplier
 	camera_model["render_zoom_multiplier"] = camera_render_multiplier

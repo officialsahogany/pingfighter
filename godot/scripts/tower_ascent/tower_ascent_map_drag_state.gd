@@ -99,6 +99,18 @@ func get_manual_camera_offset() -> Vector2:
 	return _manual_camera_offset
 
 
+func reanchor_manual_camera_offset(camera_offset: Vector2) -> void:
+	if not _manual_override_active:
+		return
+	var offset_adjustment := camera_offset - _manual_camera_offset
+	_manual_camera_offset = camera_offset
+	if _press_active:
+		# Pointer displacement remains relative to the press-time camera. Carry the
+		# automatic-zoom correction into that basis so the next motion event cannot
+		# restore a stale pre-zoom offset while the button is still held.
+		_press_camera_offset += offset_adjustment
+
+
 func apply_zoom_override(zoom_multiplier: float, camera_offset: Vector2) -> void:
 	# The camera model already owns the exact cover floor. Keep only a numerical
 	# safety bound here so unusual aspect ratios whose cover zoom is below 1.0 are

@@ -413,6 +413,27 @@ func get_map_camera_manual_offset() -> Vector2:
 	return _map_drag_state.get_manual_camera_offset()
 
 
+func reanchor_map_camera_manual_offset(
+	anchor_screen_position: Vector2,
+	previous_camera_offset: Vector2,
+	previous_zoom_multiplier: float,
+	next_zoom_multiplier: float
+) -> Vector2:
+	if (
+		not _map_drag_state.has_manual_camera_override()
+		or _map_drag_state.has_manual_zoom_override()
+	):
+		return _map_drag_state.get_manual_camera_offset()
+	var reanchored_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
+		anchor_screen_position,
+		previous_camera_offset,
+		previous_zoom_multiplier,
+		next_zoom_multiplier
+	)
+	_map_drag_state.reanchor_manual_camera_offset(reanchored_offset)
+	return reanchored_offset
+
+
 func has_map_camera_manual_zoom_override() -> bool:
 	return bool(_map_drag_state.has_manual_zoom_override())
 
