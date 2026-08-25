@@ -2357,28 +2357,27 @@ func build_scroll_background_model(
 		)))
 		if not band_rect.has_area():
 			continue
-		var first_band_asset_key := ""
-		var first_band_texture: Texture2D = null
+		# Variant ownership is per rendered floor, not per native-size draw
+		# chunk. Expanded three-row floors need one full chunk plus a cropped
+		# half chunk, but both chunks must repeat the floor's selected artwork;
+		# otherwise the trailing chunk perturbs the next floor's selection.
+		var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
+			band_realm_kind,
+			floor_number,
+			previous_asset_key
+		)
+		var resolution: Dictionary = resolution_by_key.get(asset_key, {})
+		var texture := resolution.get("texture", null) as Texture2D
+		if not bool(resolution.get("ready", false)) or texture == null:
+			return {
+				"ready": false,
+				"reason": "band_unavailable",
+				"missing_asset_key": asset_key,
+				"tiles": [],
+			}
 		var chunk_y := band_rect.position.y
 		while chunk_y < band_rect.end.y - 0.001:
 			var chunk_height := minf(tile_size.y, band_rect.end.y - chunk_y)
-			var asset_key := TowerMapScrollAssetCatalog.resolve_band_asset_key(
-				band_realm_kind,
-				floor_number,
-				previous_asset_key
-			)
-			var resolution: Dictionary = resolution_by_key.get(asset_key, {})
-			var texture := resolution.get("texture", null) as Texture2D
-			if not bool(resolution.get("ready", false)) or texture == null:
-				return {
-					"ready": false,
-					"reason": "band_unavailable",
-					"missing_asset_key": asset_key,
-					"tiles": [],
-				}
-			if first_band_texture == null:
-				first_band_asset_key = asset_key
-				first_band_texture = texture
 			draw_chunks.append({
 				"floor": floor_number,
 				"realm_kind": band_realm_kind,
@@ -2394,28 +2393,27 @@ func build_scroll_background_model(
 				"paper_texture": paper_texture,
 				"texture": texture,
 			})
-			previous_asset_key = asset_key
 			chunk_y += chunk_height
-		if first_band_texture != null:
-			tiles.append({
-				"floor": floor_number,
-				"realm_kind": band_realm_kind,
-				"asset_key": first_band_asset_key,
-				# `tiles` remains the one-approved-art-per-floor contract used
-				# by content-scale seals. Rendering consumes draw_chunks so an
-				# expanded segment repeats/crops art instead of stretching it.
-				"rect": Rect2(
-					Vector2(
-						world_rect.position.x,
-						float(band.get("y", band_rect.get_center().y))
-							- tile_size.y * 0.5
-					),
-					tile_size
+		previous_asset_key = asset_key
+		tiles.append({
+			"floor": floor_number,
+			"realm_kind": band_realm_kind,
+			"asset_key": asset_key,
+			# `tiles` remains the one-approved-art-per-floor contract used
+			# by content-scale seals. Rendering consumes draw_chunks so an
+			# expanded segment repeats/crops art instead of stretching it.
+			"rect": Rect2(
+				Vector2(
+					world_rect.position.x,
+					float(band.get("y", band_rect.get_center().y))
+						- tile_size.y * 0.5
 				),
-				"band_rect": band_rect,
-				"paper_texture": paper_texture,
-				"texture": first_band_texture,
-			})
+				tile_size
+			),
+			"band_rect": band_rect,
+			"paper_texture": paper_texture,
+			"texture": texture,
+		})
 	if tiles.is_empty() or draw_chunks.is_empty():
 		return {"ready": false, "reason": "missing_band_tiles", "tiles": []}
 	var first_tile_rect: Rect2 = (draw_chunks[0] as Dictionary).get("rect", Rect2())

@@ -31,9 +31,10 @@ const TEMP_OPTIONAL_ROWS_PER_FLOOR := 2
 const TEMP_UNCHANGED_OPTIONAL_ROWS_PER_FLOOR := 1
 const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MIN := 2
 const TEMP_DENSE_OPTIONAL_ROW_SEGMENT_FLOOR_MAX := 8
-# 피드백2 8항 후속: v14의 우회 가능 추가 보스는 기존 NPC를 전환하므로
-# 최악 시드의 생성 노드 35개 중 보스 13 / NPC 22가 된다. 128시드 실측
-# 최대 0.371429와 최소 NPC:boss 1.692308을 각각 직상단/직하단에서 봉인한다.
+# 피드백6 A 후속: v15의 우회 가능 추가 보스는 기존 NPC를 전환한다.
+# 128시드 실측에서 시드당 생성 노드는 63개이고, 최대 boss 비율은
+# 0.206349, 최소 NPC:boss는 3.846154다. 아래 값은 실측 경계가 아니라
+# 향후 조정에도 유지할 보수적인 제품 안전 한계다.
 const TEMP_GENERATED_BOSS_NODE_MAX_RATIO := 0.38
 const TEMP_GENERATED_NPC_PER_BOSS_MIN := 1.65
 const TEMP_MAP_DEGREE_TWO_MIN_RATIO := 0.70
