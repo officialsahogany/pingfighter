@@ -7,6 +7,7 @@ var _last_action_pressed := false
 var _last_middle_pressed := false
 var _last_up_pressed := false
 var _last_mouse_left_pressed := false
+var _last_secondary_action_pressed := false
 var _same_frame_snapshot: Dictionary = {}
 var _same_frame_snapshot_key := -1
 
@@ -47,6 +48,9 @@ func get_snapshot() -> Dictionary:
 	var middle_pressed: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE) or GamepadInput.is_firearm_reset_pressed()
 	var middle_just_pressed: bool = middle_pressed and not _last_middle_pressed
 	_last_middle_pressed = middle_pressed
+	var secondary_action_pressed := Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	var secondary_action_just_pressed := secondary_action_pressed and not _last_secondary_action_pressed
+	_last_secondary_action_pressed = secondary_action_pressed
 	var direction := 0.0
 	if left_pressed:
 		direction -= 1.0
@@ -67,6 +71,9 @@ func get_snapshot() -> Dictionary:
 		"mouse_middle_pressed": middle_pressed,
 		"mouse_middle_just_pressed": middle_just_pressed,
 		"firearm_reset_just_pressed": middle_just_pressed,
+		"secondary_action_pressed": secondary_action_pressed,
+		"secondary_action_just_pressed": secondary_action_just_pressed,
+		"mouse_right_pressed": secondary_action_pressed,
 		"direction": direction,
 		"power_smash_direction": _get_exclusive_horizontal_direction(left_pressed, right_pressed),
 		"blacksmith_swing_direction": _get_exclusive_horizontal_direction(left_pressed, right_pressed),

@@ -1123,7 +1123,7 @@ func _draw_gaksital_vision_fan_throw_preview(canvas: CanvasItem, rect: Rect2, co
 			var star_angle := -PI * 0.85 + float(star_index) * PI * 0.35
 			var star_pos := boss_center + Vector2.from_angle(star_angle) * 22.0
 			canvas.draw_circle(star_pos, 2.5, Color(1.0, 0.92, 0.38, 0.90))
-	_draw_preview_keycap_row(canvas, Vector2(right - 46.0, bottom - 12.0), ["D"], "plus", 0, color)
+	_draw_preview_keycap_row(canvas, Vector2(right - 52.0, bottom - 12.0), ["RMB"], "plus", 0, color)
 	canvas.draw_line(Vector2(left + 10.0, bottom - 2.0), Vector2(right - 10.0, bottom - 2.0), Color(color.r, color.g, color.b, 0.14), 1.0)
 
 

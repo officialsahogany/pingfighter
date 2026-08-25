@@ -5,6 +5,7 @@ const BattleSceneActorUpdateResultApplier := preload("res://scripts/core/battle_
 const BattleScenePlayerControlConfigBuilder := preload("res://scripts/core/battle_scene_player_control_config_builder.gd")
 const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const VisionInputExclusivePolicy := preload("res://scripts/characters/vision_input_exclusive_policy.gd")
 const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
@@ -59,23 +60,18 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	var vision_activated := false
 	var input_snapshot: Dictionary = {}
 	var input_reader: Object = player_control_deps.get("input_reader", null)
+	# GRT-019: sample the stateful character reader exactly once. Vision states
+	# see this raw snapshot first; the character controller receives the same
+	# snapshot through the filtering proxy, never a second edge-consuming read.
 	if input_reader != null and input_reader.has_method("get_snapshot"):
 		var snapshot_value: Variant = input_reader.get_snapshot()
 		if snapshot_value is Dictionary:
 			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
 	var modifier_pressed := Input.is_action_pressed("vision_modifier")
 	var skill_config: Object = player_control_deps.get("skill_config", null)
-	var any_vision_equipped := false
+	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
 	for entry: Dictionary in vision_entries:
 		var vision_state: Object = entry.get("state", null)
-		var vision_skill_id: String = str(entry.get("skill_id", ""))
-		if (
-			modifier_pressed
-			and skill_config != null
-			and skill_config.has_method("is_skill_equipped")
-			and bool(skill_config.is_skill_equipped(vision_skill_id))
-		):
-			any_vision_equipped = true
 		if vision_state == null or not vision_state.has_method("update"):
 			continue
 		var vision_result: Dictionary = vision_state.update(
@@ -93,8 +89,10 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 			vision_activated = true
 		if vision_state.has_method("is_movement_locked") and bool(vision_state.is_movement_locked()):
 			vision_movement_locked = true
-	if modifier_pressed and any_vision_equipped:
-		player_control_deps["input_reader"] = _vision_modifier_input_proxy.configure(input_reader)
+	_vision_modifier_input_proxy.configure_snapshot(input_reader, input_snapshot, vision_input_exclusive)
+	if _vision_modifier_input_proxy.should_filter_current_snapshot():
+		player_control_deps["input_reader"] = _vision_modifier_input_proxy
+	if vision_input_exclusive:
 		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
 	var result: Dictionary = controller.update(

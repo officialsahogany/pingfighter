@@ -24,7 +24,7 @@ const COMMON_CONTROL_ROWS := {
 		[["key", "Shift"], ["plus", "+"], ["key", "W"], ["slash", "/"], ["key", "↑"], ["accent", "발동"]],
 	],
 	"gaksital_vision_fan_throw": [
-		[["key", "Shift"], ["plus", "+"], ["key", "D"], ["slash", "/"], ["key", "→"], ["accent", "발동"]],
+		[["key", "Shift"], ["plus", "+"], ["mouse_right", ""], ["accent", "발동"]],
 	],
 	"cheongringwi_vision_dragon_torrent": [
 		[["key", "Shift"], ["plus", "+"], ["key", "A"], ["arrow", "→"], ["key", "D"], ["arrow", "→"], ["key", "A"]],

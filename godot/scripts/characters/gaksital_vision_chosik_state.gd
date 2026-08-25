@@ -10,6 +10,9 @@ const Stage1GaksitalFanProjectileContract := preload(
 const Stage1GaksitalFanThrowRenderer := preload(
 	"res://scripts/stages/stage1/stage1_gaksital_fan_throw_renderer.gd"
 )
+const StarpointDropOverlapQuery := preload(
+	"res://scripts/stages/common/starpoint_drop_overlap_query.gd"
+)
 
 const SKILL_ID := CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID
 const COST := CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_COST
@@ -23,7 +26,7 @@ var fans: Array = []
 var hit_effect_timer := 0.0
 var hit_effect_pos := Vector2.ZERO
 var visual_time := 0.0
-var _last_right_pressed := false
+var _last_secondary_action_pressed := false
 var _projectile_texture: Texture2D = null
 var _projectile_texture_prewarm_done := false
 var _rng := RandomNumberGenerator.new()
@@ -49,10 +52,13 @@ func update(
 	hit_effect_timer = maxf(0.0, hit_effect_timer - fps_scale)
 	_advance_projectiles(fps_scale, config, deps)
 
-	var right_pressed := bool(input_snapshot.get("right_pressed", false))
-	var right_edge := right_pressed and not _last_right_pressed
-	_last_right_pressed = right_pressed
-	if not modifier_pressed or not right_edge:
+	var secondary_action_pressed := bool(input_snapshot.get("secondary_action_pressed", false))
+	var secondary_action_edge := (
+		bool(input_snapshot.get("secondary_action_just_pressed", false))
+		or (secondary_action_pressed and not _last_secondary_action_pressed)
+	)
+	_last_secondary_action_pressed = secondary_action_pressed
+	if not modifier_pressed or not secondary_action_edge:
 		return {"activated": false, "movement_locked": false}
 	if not _can_activate(config, deps):
 		return {"activated": false, "movement_locked": false}
@@ -106,7 +112,7 @@ func reset_round() -> void:
 	hit_effect_timer = 0.0
 	hit_effect_pos = Vector2.ZERO
 	visual_time = 0.0
-	_last_right_pressed = false
+	_last_secondary_action_pressed = false
 
 
 func reset_cooldowns() -> void:
@@ -240,7 +246,7 @@ func _advance_projectiles(fps_scale: float, config: Dictionary, deps: Dictionary
 		if Stage1GaksitalFanProjectileContract.is_expired_or_out_of_bounds(fan, width, height):
 			continue
 		var fan_pos := Stage1GaksitalFanProjectileContract.get_position(fan)
-		if Stage1GaksitalFanProjectileContract.circle_overlaps_rect(
+		if StarpointDropOverlapQuery.circle_rect_overlap(
 			fan_pos,
 			Stage1GaksitalFanProjectileContract.HIT_RADIUS,
 			boss_rect

@@ -12,6 +12,8 @@ const DALJI_VISION_CHAIN_TOP_ICON: Texture2D = preload(
 	"res://assets/sprites/skills/dalji_vision_chain_top_skill_orb_imagegen_v1.png"
 )
 const GAKSITAL_VISION_FAN_THROW_ID := "gaksital_vision_fan_throw"
+# TEMP placeholder: this directly reuses the boss projectile until dedicated
+# Gaksital Vision skill/manual icon art is commissioned.
 const GAKSITAL_VISION_FAN_THROW_ICON: Texture2D = preload(
 	"res://assets/sprites/stage1/gaksital/gaksital_fan_projectile_imagegen_v1.png"
 )

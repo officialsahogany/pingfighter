@@ -3,6 +3,9 @@ extends RefCounted
 const BattleBossSpritePaths := preload(
 	"res://scripts/resources/battle_boss_sprite_paths.gd"
 )
+const StarpointDropOverlapQuery := preload(
+	"res://scripts/stages/common/starpoint_drop_overlap_query.gd"
+)
 
 const PROJECTILE_TEXTURE_PATH := BattleBossSpritePaths.GAKSITAL_FAN_PROJECTILE_PATH
 const DURATION_FRAMES := 180.0
@@ -53,7 +56,7 @@ static func build_projectile(
 
 
 static func advance_projectile(projectile: Dictionary, fps_scale: float) -> Dictionary:
-	var fan := projectile.duplicate(true)
+	var fan := projectile
 	var safe_scale := maxf(0.0, fps_scale)
 	var previous_spin := float(fan.get("spin", 0.0))
 	var next_spin := previous_spin + SPIN_PER_FRAME * safe_scale
@@ -84,14 +87,6 @@ static func is_expired_or_out_of_bounds(projectile: Dictionary, width: float, he
 		return true
 	var pos := get_position(projectile)
 	return pos.x < -40.0 or pos.x > width + 40.0 or pos.y < -40.0 or pos.y > height + 40.0
-
-
-static func circle_overlaps_rect(center: Vector2, radius: float, rect: Rect2) -> bool:
-	var closest := Vector2(
-		clampf(center.x, rect.position.x, rect.end.x),
-		clampf(center.y, rect.position.y, rect.end.y)
-	)
-	return center.distance_squared_to(closest) <= radius * radius
 
 
 static func roll_knockback_velocity(rng: RandomNumberGenerator) -> float:

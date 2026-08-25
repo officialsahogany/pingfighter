@@ -21,6 +21,7 @@ const PRODUCER_ROOT := "res://scripts/stages"
 const ZERO_INITIAL_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_INITIAL_FIXTURE"
 const AUTO_TRIGGER_BLOCK_FIXTURE_ENV := "BOSS_SKILL_BLOCK_AUTO_TRIGGER_FIXTURE"
 const ZERO_ROUND_RESET_FIXTURE_ENV := "BOSS_SKILL_CARD_ZERO_ROUND_RESET_FIXTURE"
+const VISION_ZERO_ACTIVATION_FIXTURE_ENV := "VISION_ZERO_ACTIVATION_COOLDOWN_FIXTURE"
 const EPSILON := 0.0001
 const VALID_CONTRACTS := [
 	"time",
@@ -127,7 +128,39 @@ class FakeStage2Background:
 		return true
 
 
+class FakeVisionOwner:
+	extends RefCounted
+
+	var special_gauge := 1000.0
+
+
+class FakeVisionSkillConfig:
+	extends RefCounted
+
+	var equipped_skill_id := ""
+	var cooldown_seconds := 0.0
+
+	func _init(skill_id: String, duration: float) -> void:
+		equipped_skill_id = skill_id
+		cooldown_seconds = duration
+
+	func is_skill_equipped(skill_id: String) -> bool:
+		return skill_id == equipped_skill_id
+
+	func get_cooldown_seconds(skill_id: String) -> float:
+		return cooldown_seconds if skill_id == equipped_skill_id else 0.0
+
+
 func _init() -> void:
+	if OS.get_environment(VISION_ZERO_ACTIVATION_FIXTURE_ENV) == "1":
+		print("[VisionCooldownCounterproof] ZERO_ACTIVATION_COOLDOWN=EXPECTED_RED")
+		_verify_common_vision_cooldowns()
+		if _failures.is_empty():
+			_failures.append("zero-activation Vision fixture must be rejected")
+		for failure in _failures:
+			push_error(failure)
+		quit(1)
+		return
 	if OS.get_environment(AUTO_TRIGGER_BLOCK_FIXTURE_ENV) == "1":
 		_verify_auto_trigger_negative_fixture()
 		for failure in _failures:
@@ -163,8 +196,8 @@ func _init() -> void:
 		]
 	)
 	print(
-		"[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers+common_vision_catalog STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true ROUND_TRANSITION=contract_metadata NEGATIVE_FIXTURE_ENVS=%s,%s"
-		% [ZERO_INITIAL_FIXTURE_ENV, ZERO_ROUND_RESET_FIXTURE_ENV]
+		"[BossSkillCardCooldownContract] DISCOVERY=runtime_hud_producers+common_vision_catalog STAGES=1-8 SINGLE_UPDATE_OWNER=true CAST_RELOAD=true ROUND_TRANSITION=contract_metadata NEGATIVE_FIXTURE_ENVS=%s,%s,%s"
+		% [ZERO_INITIAL_FIXTURE_ENV, ZERO_ROUND_RESET_FIXTURE_ENV, VISION_ZERO_ACTIVATION_FIXTURE_ENV]
 	)
 	print(
 		"[BossSkillCardCooldownContract] VISIONS=%d VISION_ROUND_PRESERVE=%d VISION_COOLDOWN_TRIO=%d"
@@ -241,6 +274,7 @@ func _discover_all_producers() -> void:
 
 
 func _verify_common_vision_cooldowns() -> void:
+	var zero_activation_fixture := OS.get_environment(VISION_ZERO_ACTIVATION_FIXTURE_ENV) == "1"
 	for skill_id in CommonSkillCatalog.get_all_skill_ids():
 		var skill_data := CommonSkillCatalog.get_skill_data(skill_id)
 		if not bool(skill_data.get("vision_chosik", false)):
@@ -256,15 +290,19 @@ func _verify_common_vision_cooldowns() -> void:
 			continue
 		var duration := float(skill_data.get("cooldown", 0.0))
 		_expect(duration > 0.0, "%s Vision cooldown must be positive" % skill_id)
-		state.set("cooldown_duration", duration)
-		state.set("cooldown_remaining", duration)
+		var activation_duration := 0.0 if zero_activation_fixture and skill_id == CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID else duration
+		var activation := _activate_vision_state(state, skill_id, activation_duration)
+		_expect(bool(activation.get("activated", false)), "%s must activate through its real input command" % skill_id)
+		_expect(float(activation.get("special_gauge", 1000.0)) < 1000.0, "%s activation must spend its real gauge cost" % skill_id)
+		var armed_duration := float(state.get("cooldown_remaining"))
+		_expect(is_equal_approx(armed_duration, duration), "%s real activation must arm catalog cooldown" % skill_id)
 		_call_reset_round(state, state_key)
 		var after_round := float(state.get("cooldown_remaining"))
 		_expect(
-			is_equal_approx(after_round, duration),
+			is_equal_approx(after_round, armed_duration),
 			"%s reset_round must preserve Vision cooldown" % skill_id
 		)
-		if is_equal_approx(after_round, duration):
+		if is_equal_approx(after_round, armed_duration):
 			_vision_round_preserve_count += 1
 		var advance_count := int(state.call("advance_cooldowns_by_msec", 1000))
 		var after_advance := float(state.get("cooldown_remaining"))
@@ -274,14 +312,47 @@ func _verify_common_vision_cooldowns() -> void:
 		var after_reset := float(state.get("cooldown_remaining"))
 		var trio_green := (
 			advance_count == 1
-			and is_equal_approx(after_advance, maxf(0.0, duration - 1.0))
+			and is_equal_approx(after_advance, maxf(0.0, armed_duration - 1.0))
 			and reduce_count == 1
-			and is_equal_approx(after_reduce, maxf(0.0, duration - 1.0 - duration * 0.2))
+			and is_equal_approx(after_reduce, maxf(0.0, armed_duration - 1.0 - armed_duration * 0.2))
 			and is_zero_approx(after_reset)
 		)
 		_expect(trio_green, "%s must satisfy the Vision cooldown trio" % skill_id)
 		if trio_green:
 			_vision_cooldown_trio_count += 1
+
+
+func _activate_vision_state(state: Object, skill_id: String, cooldown_seconds: float) -> Dictionary:
+	var owner := FakeVisionOwner.new()
+	var skill_config := FakeVisionSkillConfig.new(skill_id, cooldown_seconds)
+	var config := {
+		"ball_active": true,
+		"player_skill_input_locked": false,
+		"special_gauge": owner.special_gauge,
+		"paddle_width": 155.0,
+		"paddle_height": 50.0,
+		"boss_pos": Vector2(330.0, 25.0),
+		"boss_paddle_width": 100.0,
+		"boss_hitbox_height": 40.0,
+		"width": 760.0,
+		"height": 750.0,
+		"current_stage": 1,
+	}
+	var deps := {"owner": owner, "skill_config": skill_config}
+	var player_pos := Vector2(300.0, 680.0)
+	if skill_id == CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID:
+		return state.call("update", 0.0, {"up_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_ID:
+		return state.call("update", 0.0, {"secondary_action_pressed": true, "secondary_action_just_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_ID:
+		return state.call("update", 0.0, {"down_pressed": true}, true, player_pos, config, deps)
+	if skill_id == CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID:
+		state.call("update", 0.0, {"left_pressed": true}, true, player_pos, config, deps)
+		state.call("update", 0.0, {}, true, player_pos, config, deps)
+		state.call("update", 0.0, {"right_pressed": true}, true, player_pos, config, deps)
+		state.call("update", 0.0, {}, true, player_pos, config, deps)
+		return state.call("update", 0.0, {"left_pressed": true}, true, player_pos, config, deps)
+	return {}
 
 func _verify_every_reset_and_update() -> void:
 	var use_zero_fixture := OS.get_environment(ZERO_INITIAL_FIXTURE_ENV) == "1"

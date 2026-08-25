@@ -24,6 +24,9 @@ const BattleTowerMapOverlayInputRouter := preload(
 const TowerAscentScreenSpaceSurfacePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_screen_space_surface_policy.gd"
 )
+const VisionInputExclusivePolicy := preload(
+	"res://scripts/characters/vision_input_exclusive_policy.gd"
+)
 
 const FULLSCREEN_TOGGLE_KEY := BattleSystemShortcutInputRouter.FULLSCREEN_TOGGLE_KEY
 const BGM_TOGGLE_KEY := BattleSystemShortcutInputRouter.BGM_TOGGLE_KEY
@@ -98,6 +101,12 @@ func handle_unhandled_input(
 		if bool(overlay_input.handle_input(event, owner, registry, module_getter, context)):
 			return
 	if _tower_map_overlay_input_router.handle_open_shortcut(event, owner, registry):
+		return
+	# System, pause, modal, character-info, and Tower-map UI keep priority above
+	# Vision. Once those decline the event, an equipped Vision owns the combat
+	# layer for the entire Shift hold.
+	if VisionInputExclusivePolicy.is_active_for_owner(owner, registry):
+		_mark_handled(owner)
 		return
 	if _handle_active_item_hud_input(event, owner, registry, module_getter, context):
 		return
