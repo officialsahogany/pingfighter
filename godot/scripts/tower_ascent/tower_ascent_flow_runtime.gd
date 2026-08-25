@@ -70,6 +70,53 @@ func _is_audition_terminal_node(node: Dictionary) -> bool:
 	)
 
 
+func rearm_route_aim_after_failed_combat_arrival(
+	owner: Object,
+	registry: Object,
+	finish_callback: Callable
+) -> bool:
+	if (
+		_active
+		or owner == null
+		or registry == null
+		or not finish_callback.is_valid()
+		or _graph_nodes.is_empty()
+		or _get_node(_current_node_id).is_empty()
+		or _route_source_node_id != _current_node_id
+	):
+		return false
+	_selected_target_id = ""
+	_map_transition_progress = 0.0
+	_refresh_route_target_cache()
+	if _available_route_target_ids.is_empty():
+		return false
+	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
+	if not bool(lifecycle_result.get("accepted", false)):
+		return false
+	_finish_callback = finish_callback
+	_active_owner = owner
+	_active_registry = registry
+	_active = true
+	_map_overlay_active = false
+	_map_overlay_closing = false
+	_map_overlay_lifecycle_owned = false
+	_map_overlay_owner = null
+	_map_overlay_registry = null
+	_transition_fade_state.reset()
+	if not _enter_route_aim():
+		_route_serve_runtime.cancel()
+		_route_pickup_state.reset()
+		_modal_lifecycle.leave()
+		_finish_callback = Callable()
+		_active_owner = null
+		_active_registry = null
+		_active = false
+		_phase = PHASE_COMBAT
+		return false
+	_request_redraw(owner)
+	return true
+
+
 func open_map_overlay(
 	owner: Object,
 	registry: Object,

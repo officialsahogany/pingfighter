@@ -1,6 +1,13 @@
 extends SceneTree
 
 const BattleResources := preload("res://scripts/resources/battle_resources.gd")
+const BattleSceneMatchEventDriver := preload(
+	"res://scripts/core/battle_scene_match_event_driver.gd"
+)
+const BattleSceneMatchFlowDriver := preload(
+	"res://scripts/core/battle_scene_match_flow_driver.gd"
+)
+const GameSelectionState := preload("res://scripts/core/game_selection_state.gd")
 const ScoreboardOverlayHeaderRenderer := preload("res://scripts/hud/scoreboard_overlay_header_renderer.gd")
 const Stage1ActorRenderer := preload("res://scripts/stages/stage1/stage1_actor_renderer.gd")
 const Stage1DaljiBossSkillCooldownState := preload("res://scripts/stages/stage1/stage1_dalji_boss_skill_cooldown_state.gd")
@@ -14,6 +21,15 @@ const Stage1PododaejangBossSkillCooldownState := preload("res://scripts/stages/s
 const Stage1PododaejangBossSkillHudRenderer := preload("res://scripts/stages/stage1/stage1_pododaejang_boss_skill_hud_renderer.gd")
 const Stage1PododaejangPatrolGuardsSkillState := preload("res://scripts/stages/stage1/stage1_pododaejang_patrol_guards_skill_state.gd")
 const TowerAscentBossRegistry := preload("res://scripts/tower_ascent/tower_ascent_boss_registry.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentFlowOwner := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
+)
+const TowerAscentFlowRenderer := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
 
 const VIEW_SIZE := Vector2i(1280, 750)
 const GAME_OFFSET := Vector2(260.0, 0.0)
@@ -53,12 +69,101 @@ class CaptureCanvas:
 		)
 
 
+class RecoveryCanvas:
+	extends Node2D
+
+	var flow: Object
+	var draw_count := 0
+
+	func _init(flow_owner: Object) -> void:
+		flow = flow_owner
+
+	func _draw() -> void:
+		draw_count += 1
+		draw_rect(Rect2(Vector2.ZERO, Vector2(VIEW_SIZE)), SCREEN_BACKGROUND, true)
+		flow.draw_fullscreen_map(
+			self,
+			Rect2(Vector2.ZERO, Vector2(VIEW_SIZE)),
+			{}
+		)
+		draw_rect(Rect2(24.0, 18.0, 620.0, 42.0), Color(0.04, 0.03, 0.02, 0.88), true)
+		draw_string(
+			ThemeDB.fallback_font,
+			Vector2(42.0, 47.0),
+			"전환 실패 복귀 · ROUTE_AIM · 경로 선택 가능",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			580.0,
+			22,
+			Color("f4d47a")
+		)
+
+
+class ArrivalOwner:
+	extends RefCounted
+
+	var selection_state: Object
+	var current_stage := 1
+	var stage1_boss_variant := "dalji"
+	var stage_boss_variant := "dalji"
+	var boss_paddle_width := 100.0
+	var boss_hitbox_height := 40.0
+
+	func _init(value: Object) -> void:
+		selection_state = value
+
+	func get_node_or_null(path: NodePath) -> Object:
+		return selection_state if str(path) == "/root/GameSelectionState" else null
+
+	func request_battle_redraw() -> void:
+		pass
+
+
+class ArrivalModalRuntime:
+	extends RefCounted
+
+	func _capture_resume_pre_choice_velocity(_owner: Object) -> void:
+		pass
+
+	func _pause_skill_cooldowns_for_choice(_owner: Object, _registry: Object) -> void:
+		pass
+
+	func _resume_skill_cooldowns_for_choice() -> void:
+		pass
+
+	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
+		pass
+
+
+class ArrivalModuleRegistry:
+	extends RefCounted
+
+	var instances: Dictionary = {}
+
+	func get_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+	func request_threaded_script(_key: String) -> bool:
+		return true
+
+	func is_threaded_script_ready(_key: String) -> bool:
+		return true
+
+
 var _canvas: CaptureCanvas
 var _variant := ""
 var _expected_name := ""
 var _floor_one_second_encounter := false
 var _floor_one_map_seed := 0
 var _floor_one_opening_variant := ""
+var _floor_one_arrived_node_id := ""
+var _floor_one_arrived_icon_id := ""
+var _recovery_flow: Object
+var _recovery_registry: Object
+var _recovery_owner: Object
+var _recovery_selection: Object
 
 
 func _init() -> void:
@@ -143,11 +248,15 @@ func _run() -> void:
 		output_path,
 	])
 	if _floor_one_second_encounter:
-		print("[Stage1VariantRoutingVulkanQA] floor_one_map_seed=%d opening_variant=%s second_variant=%s" % [
+		print("[Stage1VariantRoutingVulkanQA] floor_one_map_seed=%d opening_variant=%s second_variant=%s arrived_node=%s arrived_icon=%s" % [
 			_floor_one_map_seed,
 			_floor_one_opening_variant,
 			_variant,
+			_floor_one_arrived_node_id,
+			_floor_one_arrived_icon_id,
 		])
+		if not await _capture_failed_transition_recovery():
+			return
 	print("stage1_variant_routing_vulkan_qa: ok")
 	quit(0)
 
@@ -273,8 +382,194 @@ func _resolve_floor_one_second_encounter() -> bool:
 			continue
 		_floor_one_map_seed = map_seed
 		_floor_one_opening_variant = opening_variant
-		return true
+		if not _verify_floor_one_arrival(slots[1]):
+			return false
+		return _prepare_failed_transition_recovery(slots[1])
 	return false
+
+
+func _verify_floor_one_arrival(slot: Dictionary) -> bool:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var selection := GameSelectionState.new()
+	var owner := ArrivalOwner.new(selection)
+	owner.stage1_boss_variant = _floor_one_opening_variant
+	var flow := TowerAscentFlowOwner.new()
+	var event_driver := BattleSceneMatchEventDriver.new()
+	var match_driver := BattleSceneMatchFlowDriver.new()
+	var module_registry := ArrivalModuleRegistry.new()
+	module_registry.instances = {
+		"battle_scene_match_event_driver": event_driver,
+		"runtime_perk_state": ArrivalModalRuntime.new(),
+		"tower_ascent_flow_owner": flow,
+	}
+	var prepared := flow.prepare_vertical_slice_combat(owner, {
+		"run_id": "stage1-vulkan-arrival-%s" % _variant,
+		"map_seed": _floor_one_map_seed,
+		"current_stage": 1,
+		"registry": module_registry,
+	})
+	var target := _find_node_for_slot(flow, str(slot.get("slot_id", "")))
+	var route_icon := ""
+	if not target.is_empty():
+		route_icon = str(
+			TowerAscentFlowRenderer.new().build_map_icon_presentation(target).get(
+				"boss_id",
+				""
+			)
+		)
+	if prepared and not target.is_empty():
+		flow.set("_active", true)
+		flow.set("_active_owner", owner)
+		flow.set("_active_registry", module_registry)
+		flow.set(
+			"_finish_callback",
+			Callable(match_driver, "_finish_tower_boss_route").bind(
+				module_registry,
+				owner,
+				Callable()
+			)
+		)
+		flow.set("_selected_target_id", str(target.get("id", "")))
+		flow.call("_complete_map_transition")
+	var arrived := _find_node_for_slot(flow, str(slot.get("slot_id", "")))
+	var boss_registry := TowerAscentBossRegistry.new()
+	var arrived_icon := boss_registry.resolve_boss_icon_id_for_node(arrived)
+	var battle_icon := boss_registry.resolve_boss_icon_id_for_route({
+		"stage": 1,
+		"variant": owner.stage1_boss_variant,
+	})
+	_floor_one_arrived_node_id = str(arrived.get("id", ""))
+	_floor_one_arrived_icon_id = arrived_icon
+	var expected_icon := "gaksital" if _variant == "gaksi" else _variant
+	var verified: bool = (
+		prepared
+		and not target.is_empty()
+		and owner.stage1_boss_variant == _variant
+		and bool(event_driver.get("_stage_transition_loading_active"))
+		and route_icon == expected_icon
+		and arrived_icon == expected_icon
+		and battle_icon == expected_icon
+	)
+	selection.free()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	return verified
+
+
+func _prepare_failed_transition_recovery(slot: Dictionary) -> bool:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var selection := GameSelectionState.new()
+	var owner := ArrivalOwner.new(selection)
+	owner.stage1_boss_variant = _floor_one_opening_variant
+	var flow := TowerAscentFlowOwner.new()
+	var event_driver := BattleSceneMatchEventDriver.new()
+	event_driver.set("_stage_transition_loading_active", true)
+	var match_driver := BattleSceneMatchFlowDriver.new()
+	var module_registry := ArrivalModuleRegistry.new()
+	module_registry.instances = {
+		"battle_scene_match_event_driver": event_driver,
+		"runtime_perk_state": ArrivalModalRuntime.new(),
+		"tower_ascent_flow_owner": flow,
+	}
+	var prepared := flow.prepare_vertical_slice_combat(owner, {
+		"run_id": "stage1-vulkan-recovery-%s" % _variant,
+		"map_seed": _floor_one_map_seed,
+		"current_stage": 1,
+		"registry": module_registry,
+	})
+	var target := _find_node_for_slot(flow, str(slot.get("slot_id", "")))
+	if prepared and not target.is_empty():
+		flow.set("_active", true)
+		flow.set("_active_owner", owner)
+		flow.set("_active_registry", module_registry)
+		flow.set(
+			"_finish_callback",
+			Callable(match_driver, "_finish_tower_boss_route").bind(
+				module_registry,
+				owner,
+				Callable()
+			)
+		)
+		flow.set("_selected_target_id", str(target.get("id", "")))
+		flow.call("_complete_map_transition")
+	var verified: bool = (
+		prepared
+		and not target.is_empty()
+		and flow.get_phase_name() == "ROUTE_AIM"
+		and bool(flow.get("_active"))
+		and flow.get("_active_owner") == owner
+		and flow.get("_active_registry") == module_registry
+		and not flow.get_route_aim_targets().is_empty()
+	)
+	if not verified:
+		flow.call("_reset_runtime_state")
+		selection.free()
+		TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+		return false
+	_recovery_flow = flow
+	_recovery_registry = module_registry
+	_recovery_owner = owner
+	_recovery_selection = selection
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
+	return true
+
+
+func _capture_failed_transition_recovery() -> bool:
+	if _recovery_flow == null:
+		_fail("failed-transition recovery fixture is unavailable")
+		return false
+	_canvas.visible = false
+	var recovery_canvas := RecoveryCanvas.new(_recovery_flow)
+	get_root().add_child(recovery_canvas)
+	recovery_canvas.queue_redraw()
+	for _frame_index in range(10):
+		await process_frame
+	if recovery_canvas.draw_count <= 0:
+		_fail("failed-transition recovery canvas never drew")
+		return false
+	var image := get_root().get_texture().get_image()
+	if image == null or image.is_empty() or image.get_size() != VIEW_SIZE:
+		_fail("failed-transition recovery did not capture an exact 1280x750 image")
+		return false
+	var output_path := OUTPUT_DIR.path_join(
+		"floor_one_failed_transition_recovery_%s.png" % _variant
+	)
+	if image.save_png(output_path) != OK:
+		_fail("failed-transition recovery image could not be saved")
+		return false
+	var changed_pixels := _count_pixels_different_from(
+		image,
+		Rect2i(0, 0, VIEW_SIZE.x, VIEW_SIZE.y),
+		SCREEN_BACKGROUND
+	)
+	if changed_pixels < 90000:
+		_fail("failed-transition recovery capture lacks the interactive map surface")
+		return false
+	print(
+		"[Stage1VariantRoutingVulkanQA] recovery_phase=%s active=%s route_targets=%d changed_pixels=%d sha256=%s evidence=%s"
+		% [
+			_recovery_flow.get_phase_name(),
+			str(bool(_recovery_flow.get("_active"))),
+			_recovery_flow.get_route_aim_targets().size(),
+			changed_pixels,
+			FileAccess.get_sha256(ProjectSettings.globalize_path(output_path)),
+			output_path,
+		]
+	)
+	_recovery_flow.call("_reset_runtime_state")
+	if _recovery_selection != null and is_instance_valid(_recovery_selection):
+		_recovery_selection.free()
+	_recovery_flow = null
+	_recovery_registry = null
+	_recovery_owner = null
+	_recovery_selection = null
+	return true
+
+
+func _find_node_for_slot(flow: Object, slot_id: String) -> Dictionary:
+	for node in flow.get_graph_nodes():
+		if str(node.get("boss_slot_id", "")) == slot_id:
+			return node
+	return {}
 
 
 func _fail(message: String) -> void:

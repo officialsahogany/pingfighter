@@ -5,6 +5,9 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
@@ -525,15 +528,92 @@ func _finish_tower_boss_route(
 	if encounter.is_empty():
 		_call_callback(reset_game_callback)
 		return
+	var routed_encounter := _rebuild_arrived_tower_encounter(registry, encounter)
+	if routed_encounter.is_empty():
+		push_warning("[TowerAscent] blocked boss transition: arrived identity could not be rebuilt")
+		_recover_tower_route_or_reset(registry, owner, reset_game_callback)
+		return
 	var event_driver: Object = _get_instance(registry, "battle_scene_match_event_driver")
 	if (
 		event_driver != null
 		and event_driver.has_method("begin_tower_boss_transition")
-		and bool(event_driver.begin_tower_boss_transition(owner, registry, encounter))
+		and bool(event_driver.begin_tower_boss_transition(owner, registry, routed_encounter))
 	):
 		return
-	push_warning("[TowerAscent] failed to enter routed boss encounter; using legacy reset fallback")
+	push_warning("[TowerAscent] failed to enter arrived boss encounter; rearming tower route")
+	_recover_tower_route_or_reset(registry, owner, reset_game_callback)
+
+
+func _rebuild_arrived_tower_encounter(
+	registry: Object,
+	fallback_encounter: Dictionary
+) -> Dictionary:
+	var arrived_node := _get_current_tower_node(registry)
+	if not arrived_node.is_empty():
+		var node_encounter := (
+			TowerAscentBossRegistry.new().resolve_battle_encounter_for_node(arrived_node)
+		)
+		return node_encounter
+	var slot_id := str(fallback_encounter.get("boss_slot_id", "")).strip_edges()
+	return TowerAscentBossRegistry.new().resolve_battle_encounter(slot_id)
+
+
+func _get_current_tower_node(registry: Object) -> Dictionary:
+	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("get_current_node_id")
+		or not flow_owner.has_method("get_graph_nodes")
+	):
+		return {}
+	var current_node_id := str(flow_owner.get_current_node_id())
+	for node_variant in flow_owner.get_graph_nodes():
+		if (
+			node_variant is Dictionary
+			and str((node_variant as Dictionary).get("id", "")) == current_node_id
+		):
+			return (node_variant as Dictionary).duplicate(true)
+	return {}
+
+
+func _recover_tower_route_or_reset(
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable
+) -> void:
+	if _reopen_tower_map_after_failed_transition(
+		registry,
+		owner,
+		reset_game_callback
+	):
+		return
+	push_warning(
+		"[TowerAscent] failed tower route recovery; using legacy reset fallback"
+	)
 	_call_callback(reset_game_callback)
+
+
+func _reopen_tower_map_after_failed_transition(
+	registry: Object,
+	owner: Object,
+	reset_game_callback: Callable
+) -> bool:
+	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("rearm_route_aim_after_failed_combat_arrival")
+	):
+		return false
+	var finish_callback := Callable(self, "_finish_tower_boss_route").bind(
+		registry,
+		owner,
+		reset_game_callback
+	)
+	return bool(flow_owner.rearm_route_aim_after_failed_combat_arrival(
+		owner,
+		registry,
+		finish_callback
+	))
 
 
 func _finish_legacy_victory_flow(

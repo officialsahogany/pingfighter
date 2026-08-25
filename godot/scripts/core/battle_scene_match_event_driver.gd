@@ -494,8 +494,8 @@ func _sync_selection_stage(owner: Object, stage_id: int) -> void:
 func _apply_tower_encounter_identity(owner: Object, encounter: Dictionary) -> void:
 	var stage_id := int(encounter.get("stage", 1))
 	var requested_variant := str(encounter.get("variant", ""))
-	var stage1_variant := requested_variant if stage_id == 1 and not requested_variant.is_empty() else "dalji"
 	var stage_variant := StageBossVariantCatalog.normalize_variant(stage_id, requested_variant)
+	var stage1_variant := stage_variant if stage_id == 1 else "dalji"
 	var entry := StageBossVariantCatalog.get_entry(stage_id, stage_variant)
 	var paddle_scale := maxf(0.1, float(entry.get("boss_paddle_scale", 1.0)))
 	owner.set("current_stage", stage_id)

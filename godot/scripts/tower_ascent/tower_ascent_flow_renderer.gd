@@ -1374,20 +1374,31 @@ func get_node_art_asset_paths() -> Array[String]:
 func build_map_icon_presentation(node: Dictionary) -> Dictionary:
 	var node_kind := str(node.get("kind", ""))
 	var fallback_label := str(node.get("label", ""))
+	var boss_id := ""
 	if not (node_kind in TowerAscentMapIconography.COMBAT_NODE_KINDS):
 		fallback_label = TowerAscentMapOverlayLocalization.node_kind_label(
 			node_kind,
 			bool(node.get("enraged", false))
 		)
+	else:
+		boss_id = _map_iconography.resolve_boss_id_for_node(node)
 	return _map_iconography.resolve_presentation(
 		node_kind,
-		_map_iconography.resolve_boss_id_for_node(node),
+		boss_id,
 		fallback_label
 	)
 
 
 func get_map_icon_cache_debug_state() -> Dictionary:
 	return _map_iconography.get_debug_state()
+
+
+func clear_map_icon_cache() -> void:
+	_map_iconography.clear_cache()
+
+
+func invalidate_map_icon_node_cache(node_id: String = "") -> void:
+	_map_iconography.invalidate_boss_node_cache(node_id)
 
 
 func get_last_fullscreen_camera_offset() -> Vector2:
@@ -2245,6 +2256,7 @@ func build_render_model(flow: Object) -> Dictionary:
 	var phase_index := int(flow.get_active_graph_phase_index()) if flow.has_method("get_active_graph_phase_index") else 0
 	var graph_key := "%d:%d:%d" % [flow.get_instance_id(), phase_index, revision]
 	if graph_key != _cached_graph_key:
+		_map_iconography.invalidate_boss_node_cache()
 		var nodes: Array = flow.get_graph_nodes() if flow.has_method("get_graph_nodes") else []
 		if nodes.is_empty():
 			return {}

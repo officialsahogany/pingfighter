@@ -226,9 +226,4 @@ func get_selection() -> Dictionary:
 
 
 func _normalize_stage1_boss_variant(variant: String) -> String:
-	var normalized := variant.strip_edges().to_lower()
-	if normalized == STAGE1_BOSS_VARIANT_GAKSI or normalized == "gaksital" or normalized == "talkwangdae":
-		return STAGE1_BOSS_VARIANT_GAKSI
-	if normalized == STAGE1_BOSS_VARIANT_PODO or normalized == "pododaejang" or normalized == "podo_daejang":
-		return STAGE1_BOSS_VARIANT_PODO
-	return STAGE1_BOSS_VARIANT_DALJI
+	return StageBossVariantCatalog.normalize_variant(1, variant)

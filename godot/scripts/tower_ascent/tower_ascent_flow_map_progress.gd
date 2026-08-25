@@ -261,7 +261,13 @@ func _copy_progress_value(value: Variant) -> Variant:
 
 func debug_advance_to_route_aim() -> void:
 	if _active and _phase == PHASE_NODE_MODAL:
-		_enter_route_aim()
+		_enter_route_aim(true)
+
+
+func debug_reenter_route_aim() -> bool:
+	if not _active:
+		return false
+	return _enter_route_aim(true)
 
 func debug_launch_at_target(target_index: int) -> void:
 	if not _active or _phase != PHASE_ROUTE_AIM:
@@ -472,7 +478,13 @@ func _build_generated_graph(_current_stage: int) -> bool:
 		_refresh_route_target_cache()
 	return valid
 
-func _enter_route_aim() -> bool:
+func _enter_route_aim(finish_on_empty: bool = false) -> bool:
+	_refresh_route_target_cache()
+	if _available_route_target_ids.is_empty() or _route_aim_targets_cache.is_empty():
+		push_warning("[TowerAscent] route aim rejected: no_available_targets")
+		if finish_on_empty:
+			call("_finish_vertical_slice")
+		return false
 	_node_modal_state.close()
 	_map_drag_state.reset_surface()
 	_phase = PHASE_ROUTE_AIM

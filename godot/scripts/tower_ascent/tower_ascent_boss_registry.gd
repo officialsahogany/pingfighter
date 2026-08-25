@@ -162,7 +162,9 @@ func resolve_battle_encounter(slot_id: String) -> Dictionary:
 		"display_name": str(slot.get("display_name", boss_id)),
 		"stage": stage_id,
 		"boss_id": boss_id,
-		"variant": str(route.get("variant", "")).strip_edges().to_lower(),
+		"variant": StageBossVariantCatalog.canonicalize_variant_id(
+			route.get("variant", "")
+		),
 		"fallback_used": status != STATUS_PORTED,
 		"source_status": status,
 	}
@@ -170,12 +172,167 @@ func resolve_battle_encounter(slot_id: String) -> Dictionary:
 
 func canonical_encounter_key(route: Dictionary) -> String:
 	var stage_id := int(route.get("stage", 0))
-	var variant_id := str(route.get("variant", "")).strip_edges().to_lower()
+	var variant_id := StageBossVariantCatalog.canonicalize_variant_id(
+		route.get("variant", "")
+	)
 	var boss_id := str(route.get("boss_id", "")).strip_edges().to_lower()
 	var encounter_id := variant_id if not variant_id.is_empty() else boss_id
 	if stage_id <= 0 or encounter_id.is_empty():
 		return ""
 	return "%d:%s" % [stage_id, encounter_id]
+
+
+func resolve_boss_icon_id_for_route(route: Dictionary) -> String:
+	var variant_id := StageBossVariantCatalog.canonicalize_variant_id(
+		route.get("variant", "")
+	)
+	if variant_id == "gaksi":
+		return "gaksital"
+	if not variant_id.is_empty():
+		return variant_id
+	var boss_id := str(route.get("boss_id", "")).strip_edges().to_lower()
+	return "gaksital" if boss_id == "gaksi" else boss_id
+
+
+func resolve_boss_icon_id_for_node(node: Dictionary) -> String:
+	var route := _resolve_node_standin(node)
+	var boss_id := resolve_boss_icon_id_for_route(route)
+	if not boss_id.is_empty():
+		return boss_id
+	var slot_id := str(node.get("boss_slot_id", "")).strip_edges().to_lower()
+	var parts := slot_id.split("_", false)
+	if parts.size() >= 3 and parts[0] == "floor" and str(parts[1]).is_valid_int():
+		return "_".join(parts.slice(2))
+	return ""
+
+
+func resolve_battle_encounter_for_node(node: Dictionary) -> Dictionary:
+	var slot_id := str(node.get("boss_slot_id", "")).strip_edges()
+	var slot := get_slot(slot_id)
+	var standin := _resolve_node_standin(node)
+	var standin_key := canonical_encounter_key(standin)
+	var icon_boss_id := resolve_boss_icon_id_for_route(standin)
+	if slot.is_empty() or standin_key.is_empty() or icon_boss_id.is_empty():
+		return {}
+	var stage_id := int(standin.get("stage", 0))
+	var boss_id := str(standin.get("boss_id", "")).strip_edges().to_lower()
+	var variant_id := StageBossVariantCatalog.canonicalize_variant_id(
+		standin.get("variant", "")
+	)
+	if stage_id <= 0 or boss_id.is_empty():
+		return {}
+	var slot_encounter := resolve_battle_encounter(slot_id)
+	var slot_key := canonical_encounter_key(slot_encounter)
+	var assigned_key := str(node.get("boss_encounter_key", "")).strip_edges()
+	var display_name := str(slot.get("display_name", boss_id))
+	if stage_id in StageBossVariantCatalog.DEFAULT_VARIANT_BY_STAGE:
+		var display_entry := StageBossVariantCatalog.get_entry(
+			stage_id,
+			variant_id if not variant_id.is_empty() else boss_id
+		)
+		display_name = str(display_entry.get("display_name", display_name))
+	return {
+		"boss_slot_id": slot_id,
+		"display_name": display_name,
+		"stage": stage_id,
+		"boss_id": boss_id,
+		"variant": variant_id,
+		"fallback_used": str(slot.get("status", "")) != STATUS_PORTED,
+		"source_status": str(slot.get("status", "")),
+		"node_id": str(node.get("id", "")),
+		"canonical_key": standin_key,
+		"icon_boss_id": icon_boss_id,
+		"identity_corrected": (
+			standin_key != slot_key
+			or assigned_key.is_empty()
+			or standin_key != assigned_key
+		),
+		"assigned_key": assigned_key,
+		"slot_key": slot_key,
+	}
+
+
+func _resolve_node_standin(node: Dictionary) -> Dictionary:
+	if node.has("standin"):
+		var standin_variant: Variant = node.get("standin", {})
+		return (
+			(standin_variant as Dictionary).duplicate(true)
+			if standin_variant is Dictionary
+			else {}
+		)
+	return get_standin(str(node.get("boss_slot_id", "")).strip_edges())
+
+
+func repair_boss_node_identity(node: Dictionary) -> Dictionary:
+	var initial_report := analyze_boss_node_identity(node)
+	if bool(initial_report.get("valid", false)):
+		return {
+			"valid": true,
+			"changed": false,
+			"node": node.duplicate(true),
+			"initial_report": initial_report,
+		}
+	var slot_id := str(node.get("boss_slot_id", "")).strip_edges()
+	var live_standin := get_standin(slot_id)
+	var live_key := canonical_encounter_key(live_standin)
+	if live_standin.is_empty() or live_key.is_empty():
+		return {
+			"valid": false,
+			"changed": false,
+			"node": node.duplicate(true),
+			"initial_report": initial_report,
+		}
+	var repaired := node.duplicate(true)
+	repaired["standin"] = live_standin
+	repaired["boss_encounter_key"] = live_key
+	repaired.erase("map_icon_boss_id")
+	var repaired_report := analyze_boss_node_identity(repaired)
+	return {
+		"valid": bool(repaired_report.get("valid", false)),
+		"changed": true,
+		"node": repaired,
+		"initial_report": initial_report,
+		"repaired_report": repaired_report,
+	}
+
+
+func reseed_gatekeeper_boss_node_identity(node: Dictionary, map_seed: int) -> Dictionary:
+	if not bool(node.get("gatekeeper", false)):
+		return {
+			"valid": false,
+			"changed": false,
+			"reason": "not_gatekeeper",
+			"node": node.duplicate(true),
+		}
+	var floor_number := int(node.get("segment_floor", node.get("floor", 0)))
+	var slots := get_seeded_floor_slots(floor_number, map_seed)
+	for slot in slots:
+		var slot_id := str(slot.get("slot_id", ""))
+		var encounter_key := canonical_encounter_key(get_standin(slot_id))
+		if slot_id.is_empty() or encounter_key.is_empty():
+			continue
+		var reseeded := node.duplicate(true)
+		reseeded.erase("encounter_locked")
+		reseeded.erase("map_icon_boss_id")
+		reseeded.erase("route_disabled")
+		reseeded.erase("skipped")
+		_assign_boss_slot(reseeded, slot, slots, encounter_key)
+		reseeded["content_state"] = CONTENT_GENERATED
+		reseeded["boss_assignment_state"] = "snapshot_gatekeeper_reseeded"
+		var report := analyze_boss_node_identity(reseeded)
+		return {
+			"valid": bool(report.get("valid", false)),
+			"changed": true,
+			"reason": "same_floor_live_slot",
+			"node": reseeded,
+			"report": report,
+		}
+	return {
+		"valid": false,
+		"changed": false,
+		"reason": "same_floor_live_slot_unavailable",
+		"node": node.duplicate(true),
+	}
 
 
 func analyze_boss_node_identity(
@@ -985,14 +1142,9 @@ func _get_shuffled_generation_slots(
 
 
 func _normalize_stage1_variant(value: String) -> String:
-	var normalized := value.strip_edges().to_lower()
-	if normalized in ["gaksi", "gaksital", "talkwangdae"]:
-		return "gaksi"
-	if normalized in ["podo", "pododaejang", "podo_daejang"]:
-		return "podo"
-	if normalized == "dalji":
-		return "dalji"
-	return ""
+	if not StageBossVariantCatalog.is_ported_variant(1, value):
+		return ""
+	return StageBossVariantCatalog.normalize_variant(1, value)
 
 
 func _assign_boss_slot(
