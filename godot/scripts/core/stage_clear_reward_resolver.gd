@@ -24,9 +24,7 @@ const REWARD_MYTHIC := "mythic"
 const REWARD_MYTHIC_PERK := "mythic_perk"
 const REWARD_MYTHIC_PERK_CHOICE := "mythic_perk_choice"
 const REWARD_STARPOINT := "starpoint"
-const BOX_ADVANCED := "advanced"
 const BOX_GUARANTEED_MYTHIC := "guaranteed_mythic"
-const LEGACY_BOX_MYTHIC := "mythic"
 const TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE := 0.03
 
 const NORMAL_ACTIVE_WEIGHT := 15.0
@@ -68,9 +66,6 @@ func roll_reward(
 		if PerkConversionFlags.is_enabled():
 			return _roll_mythic_perk_reward(owner, registry)
 		return _roll_item_reward(REWARD_MYTHIC, owner, registry)
-	if _is_advanced_box_kind(box_kind):
-		return _roll_advanced_box_reward(owner, registry)
-
 	return _roll_normal_box_reward(owner, registry)
 
 
@@ -88,29 +83,21 @@ func _roll_tower_normal_box_reward(
 		(roll_value - TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE)
 		/ (1.0 - TOWER_NORMAL_MYTHIC_JACKPOT_CHANCE)
 	)
-	var total_weight := (
-		NORMAL_ACTIVE_WEIGHT
-		+ NORMAL_PASSIVE_WEIGHT
-		+ NORMAL_STARPOINT_SINGLE_WEIGHT
-		+ NORMAL_STARPOINT_DOUBLE_WEIGHT
-	)
-	var weighted_roll := non_jackpot_roll * maxf(0.001, total_weight)
-	if weighted_roll < NORMAL_ACTIVE_WEIGHT:
-		return _roll_item_reward(REWARD_ACTIVE, owner, registry)
-	weighted_roll -= NORMAL_ACTIVE_WEIGHT
-	if weighted_roll < NORMAL_PASSIVE_WEIGHT:
-		if PerkConversionFlags.is_enabled():
+	match _resolve_normal_box_reward_type(non_jackpot_roll, 0.0):
+		REWARD_ACTIVE:
+			return _roll_item_reward(REWARD_ACTIVE, owner, registry)
+		REWARD_PASSIVE:
+			return _roll_item_reward(REWARD_PASSIVE, owner, registry)
+		NORMAL_REWARD_STARPOINT_SINGLE:
 			return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
-		return _roll_item_reward(REWARD_PASSIVE, owner, registry)
-	weighted_roll -= NORMAL_PASSIVE_WEIGHT
-	if weighted_roll < NORMAL_STARPOINT_SINGLE_WEIGHT:
-		return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
-	return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
+		NORMAL_REWARD_STARPOINT_DOUBLE:
+			return _roll_starpoint_reward(STARPOINT_REWARD_DOUBLE_AMOUNT)
+	return _roll_starpoint_reward(STARPOINT_REWARD_SINGLE_AMOUNT)
 
 
 func _roll_normal_box_reward(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
 	var roll_value: float = randf() if roll_override < 0.0 else roll_override
-	match _resolve_normal_box_reward_type(roll_value):
+	match _resolve_normal_box_reward_type(roll_value, _get_treasure_map_mythic_weight_multiplier(registry)):
 		REWARD_ACTIVE:
 			return _roll_item_reward(REWARD_ACTIVE, owner, registry)
 		REWARD_PASSIVE:
@@ -124,13 +111,14 @@ func _roll_normal_box_reward(owner: Object, registry: Object, roll_override: flo
 	return _roll_item_reward(REWARD_MYTHIC, owner, registry)
 
 
-func _resolve_normal_box_reward_type(roll: float) -> String:
+func _resolve_normal_box_reward_type(roll: float, mythic_weight_multiplier: float = 1.0) -> String:
+	var mythic_weight: float = NORMAL_MYTHIC_WEIGHT * max(0.0, mythic_weight_multiplier)
 	var total_weight: float = (
 		NORMAL_ACTIVE_WEIGHT
 		+ NORMAL_PASSIVE_WEIGHT
 		+ NORMAL_STARPOINT_SINGLE_WEIGHT
 		+ NORMAL_STARPOINT_DOUBLE_WEIGHT
-		+ NORMAL_MYTHIC_WEIGHT
+		+ mythic_weight
 	)
 	var weighted_roll: float = clamp(roll, 0.0, 0.999999) * max(0.001, total_weight)
 	if weighted_roll < NORMAL_ACTIVE_WEIGHT:
@@ -172,39 +160,44 @@ func grant_rewards(rewards: Array, owner: Object, registry: Object) -> Dictionar
 			continue
 		summary["attempted"] = int(summary["attempted"]) + 1
 		var granted := false
-		match reward_type:
-			REWARD_ACTIVE:
-				granted = _grant_active_reward(reward, owner, registry)
-				if granted:
-					summary["active_granted"] = int(summary["active_granted"]) + 1
-			REWARD_PASSIVE:
-				granted = _grant_equipment_reward(reward, owner, registry)
-				if granted:
-					summary["passive_granted"] = int(summary["passive_granted"]) + 1
-			REWARD_MYTHIC:
-				granted = _grant_equipment_reward(reward, owner, registry)
-				if granted:
-					summary["mythic_granted"] = int(summary["mythic_granted"]) + 1
-			REWARD_MYTHIC_PERK:
-				var mythic_perk_result: Dictionary = _grant_mythic_perk_reward(reward, owner, registry)
-				granted = bool(mythic_perk_result.get("granted", false))
-				if granted:
-					if bool(mythic_perk_result.get("fallback_starpoint", false)):
-						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_perk_result.get("starpoint_amount", 0))
-					else:
-						summary["mythic_perk_granted"] = int(summary.get("mythic_perk_granted", 0)) + 1
-			REWARD_MYTHIC_PERK_CHOICE:
-				var mythic_choice_result: Dictionary = _grant_mythic_perk_choice_reward(reward, owner, registry)
-				granted = bool(mythic_choice_result.get("granted", false))
-				if granted:
-					if bool(mythic_choice_result.get("fallback_starpoint", false)):
-						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_choice_result.get("starpoint_amount", 0))
-					else:
-						summary["mythic_perk_choice_opened"] = int(summary.get("mythic_perk_choice_opened", 0)) + 1
-			REWARD_STARPOINT:
-				granted = _grant_starpoint_reward(reward, owner, registry)
-				if granted:
-					summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(reward.get("amount", 0))
+		# Reward rarity decides the roll/reveal lane, but explicit active item data
+		# decides storage. Daeseong Yeongdan is rolled in the mythic lane while it
+		# must still be granted to an active slot.
+		if _is_active_item_reward(reward):
+			granted = _grant_active_reward(reward, owner, registry)
+			if granted:
+				summary["active_granted"] = int(summary["active_granted"]) + 1
+				_try_start_active_reward_acquisition_cinematic(reward, owner, registry)
+		else:
+			match reward_type:
+				REWARD_PASSIVE:
+					granted = _grant_equipment_reward(reward, owner, registry)
+					if granted:
+						summary["passive_granted"] = int(summary["passive_granted"]) + 1
+				REWARD_MYTHIC:
+					granted = _grant_equipment_reward(reward, owner, registry)
+					if granted:
+						summary["mythic_granted"] = int(summary["mythic_granted"]) + 1
+				REWARD_MYTHIC_PERK:
+					var mythic_perk_result: Dictionary = _grant_mythic_perk_reward(reward, owner, registry)
+					granted = bool(mythic_perk_result.get("granted", false))
+					if granted:
+						if bool(mythic_perk_result.get("fallback_starpoint", false)):
+							summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_perk_result.get("starpoint_amount", 0))
+						else:
+							summary["mythic_perk_granted"] = int(summary.get("mythic_perk_granted", 0)) + 1
+				REWARD_MYTHIC_PERK_CHOICE:
+					var mythic_choice_result: Dictionary = _grant_mythic_perk_choice_reward(reward, owner, registry)
+					granted = bool(mythic_choice_result.get("granted", false))
+					if granted:
+						if bool(mythic_choice_result.get("fallback_starpoint", false)):
+							summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(mythic_choice_result.get("starpoint_amount", 0))
+						else:
+							summary["mythic_perk_choice_opened"] = int(summary.get("mythic_perk_choice_opened", 0)) + 1
+				REWARD_STARPOINT:
+					granted = _grant_starpoint_reward(reward, owner, registry)
+					if granted:
+						summary["starpoint_granted"] = int(summary["starpoint_granted"]) + int(reward.get("amount", 0))
 		if granted:
 			summary["granted"] = int(summary["granted"]) + 1
 		else:
@@ -225,8 +218,10 @@ func _roll_item_reward(reward_group: String, owner: Object, registry: Object) ->
 	return _build_item_reward(reward_group, item_data)
 
 
-func _is_advanced_box_kind(box_kind: String) -> bool:
-	return box_kind == BOX_ADVANCED or box_kind == LEGACY_BOX_MYTHIC
+func _is_advanced_box_kind(_box_kind: String) -> bool:
+	# Compatibility probe only. The advanced chest tier has been retired;
+	# legacy ids fall through roll_reward() to the normal lane.
+	return false
 
 
 func _is_guaranteed_mythic_box_kind(box_kind: String) -> bool:
@@ -235,7 +230,7 @@ func _is_guaranteed_mythic_box_kind(box_kind: String) -> bool:
 
 func _roll_advanced_box_reward(owner: Object, registry: Object, roll_override: float = -1.0) -> Dictionary:
 	var roll_value: float = randf() if roll_override < 0.0 else roll_override
-	match _resolve_advanced_box_reward_type(roll_value):
+	match _resolve_advanced_box_reward_type(roll_value, _get_treasure_map_mythic_weight_multiplier(registry)):
 		REWARD_MYTHIC:
 			return _roll_item_reward(REWARD_MYTHIC, owner, registry)
 		REWARD_MYTHIC_PERK:
@@ -247,19 +242,20 @@ func _roll_advanced_box_reward(owner: Object, registry: Object, roll_override: f
 	return _roll_item_reward(REWARD_PASSIVE, owner, registry)
 
 
-func _resolve_advanced_box_reward_type(roll: float) -> String:
+func _resolve_advanced_box_reward_type(roll: float, mythic_weight_multiplier: float = 1.0) -> String:
+	var mythic_weight: float = ADVANCED_BOX_MYTHIC_WEIGHT * max(0.0, mythic_weight_multiplier)
 	var total_weight: float = (
-		ADVANCED_BOX_MYTHIC_WEIGHT
+		mythic_weight
 		+ ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT
 		+ ADVANCED_BOX_STARPOINT_TRIPLE_WEIGHT
 		+ ADVANCED_BOX_PASSIVE_WEIGHT
 	)
 	var weighted_roll: float = clamp(roll, 0.0, 0.999999) * max(0.001, total_weight)
-	if weighted_roll < ADVANCED_BOX_MYTHIC_WEIGHT:
+	if weighted_roll < mythic_weight:
 		if PerkConversionFlags.is_enabled():
 			return REWARD_MYTHIC_PERK
 		return REWARD_MYTHIC
-	weighted_roll -= ADVANCED_BOX_MYTHIC_WEIGHT
+	weighted_roll -= mythic_weight
 	if weighted_roll < ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT:
 		return ADVANCED_REWARD_STARPOINT_DOUBLE
 	weighted_roll -= ADVANCED_BOX_STARPOINT_DOUBLE_WEIGHT
@@ -281,6 +277,20 @@ func _roll_starpoint_reward(amount: int = STARPOINT_REWARD_SINGLE_AMOUNT) -> Dic
 
 func _roll_mythic_perk_reward(owner: Object, registry: Object) -> Dictionary:
 	return MythicPerkGrantHelper.build_choice_reward(owner, registry)
+
+
+# 천기보도(downtown_treasure_map)의 "절세무공 확률 +150%/레벨" 레인. 패시브→퍽
+# 전환 이후 신화/패시브 필드 드랍이 사라져서 이 배율의 프로덕션 소비처는 보상
+# 상자 굴림 하나뿐이다(필드 스폰 쪽 소비는 전환 OFF 레거시 파리티 전용).
+# 가중치를 곱하는 방식이라 다른 구간의 절대 가중치는 그대로 두고 신화 구간만
+# 커지고, 총합 재정규화로 나머지 구간이 비례 축소된다.
+func _get_treasure_map_mythic_weight_multiplier(registry: Object) -> float:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null:
+		return 1.0
+	if not runtime_perk_state.has_method("get_downtown_treasure_map_mythic_multiplier"):
+		return 1.0
+	return max(0.0, float(runtime_perk_state.get_downtown_treasure_map_mythic_multiplier()))
 
 
 func _build_candidates_for_group(reward_group: String, owner: Object, registry: Object) -> Array:
@@ -427,6 +437,50 @@ func _grant_active_reward(reward: Dictionary, owner: Object, registry: Object) -
 	return bool(active_item_runtime.grant_item_to_slot(item_name, owner, registry, true))
 
 
+func _is_active_item_reward(reward: Dictionary) -> bool:
+	if str(reward.get("type", "")) == REWARD_ACTIVE:
+		return true
+	var item_data: Dictionary = _get_dict(reward.get("item_data", {}))
+	if str(item_data.get("type", "")).to_lower() == REWARD_ACTIVE:
+		return true
+	if bool(item_data.get("mythic_active", false)):
+		return true
+	var item_name: String = _get_reward_item_name(reward)
+	if item_name == "":
+		return false
+	var active_item_data: Dictionary = _active_catalog.build_item_by_name(item_name)
+	return (
+		str(active_item_data.get("type", "")).to_lower() == REWARD_ACTIVE
+		and bool(active_item_data.get("mythic_active", false))
+	)
+
+
+func _try_start_active_reward_acquisition_cinematic(
+	reward: Dictionary,
+	owner: Object,
+	registry: Object
+) -> void:
+	if not bool(reward.get("show_acquisition_cinematic", false)):
+		return
+	var item_data: Dictionary = _get_dict(reward.get("item_data", {})).duplicate(true)
+	if item_data.is_empty():
+		item_data = _active_catalog.build_item_by_name(_get_reward_item_name(reward))
+	var item_type: String = str(item_data.get("type", "")).to_lower()
+	var rarity: String = str(item_data.get("rarity", "")).to_lower()
+	if not bool(item_data.get("mythic_active", false)) and item_type != REWARD_MYTHIC and rarity != REWARD_MYTHIC:
+		return
+	var mythic_item_runtime: Object = _get_instance(registry, "mythic_item_runtime")
+	if mythic_item_runtime == null or not mythic_item_runtime.has_method("start_acquisition_cinematic"):
+		return
+	mythic_item_runtime.start_acquisition_cinematic(
+		item_data,
+		_get_vector2(reward.get("pickup_position", Vector2(380.0, 375.0)), Vector2(380.0, 375.0)),
+		owner,
+		registry,
+		_get_vector2(reward.get("target_player_center", Vector2.INF), Vector2.INF)
+	)
+
+
 func _grant_equipment_reward(reward: Dictionary, owner: Object, registry: Object) -> bool:
 	var item_name: String = _get_reward_item_name(reward)
 	if item_name == "":
@@ -462,6 +516,12 @@ func _grant_starpoint_reward(reward: Dictionary, owner: Object, registry: Object
 		return false
 	if not runtime_perk_state.has_method("collect_star_points"):
 		return false
+	var reserved_perk_offer_id := str(reward.get("reserved_perk_offer_id", ""))
+	if reserved_perk_offer_id != "":
+		if not runtime_perk_catalog.has_method("reserve_boss_vision_offer"):
+			return false
+		if not bool(runtime_perk_catalog.reserve_boss_vision_offer(reserved_perk_offer_id)):
+			return false
 	var defer_choice_open: bool = bool(reward.get("defer_choice_open", false))
 	runtime_perk_state.collect_star_points(
 		amount,

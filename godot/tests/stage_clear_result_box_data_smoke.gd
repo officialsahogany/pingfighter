@@ -40,14 +40,14 @@ func _verify_standalone_preview_defaults() -> void:
 	_expect(boxes.size() == 5, "box data preview defaults should create one normal box per reward")
 	_expect(str((boxes[0] as Dictionary).get("kind", "")) == StageClearResultBoxData.BOX_KIND_NORMAL, "box data preview defaults should use normal boxes")
 	_expect(StageClearResultBoxData.get_box_display_label("normal") == "일반 상자", "box data should expose Korean normal box labels")
-	_expect(StageClearResultBoxData.get_box_display_label("advanced") == "고급 상자", "box data should expose Korean advanced box labels")
+	_expect(StageClearResultBoxData.get_box_display_label("advanced") == "일반 상자", "retired advanced ids should display as normal boxes")
 	_expect(StageClearResultBoxData.get_box_display_label("guaranteed_mythic") == "신화 확정 상자", "box data should expose Korean guaranteed mythic box labels")
 
 
 func _verify_resolved_rewards() -> void:
 	var boxes: Array = [
 		{"kind": "normal", "state": "opened", "reward": {"type": "active", "id": "drive"}},
-		{"kind": "advanced", "state": "opening", "reward": {}},
+		{"kind": "normal", "state": "opening", "reward": {}},
 		{"kind": "guaranteed_mythic", "state": "opened", "reward": {"type": "mythic", "id": "star"}},
 	]
 	var rewards: Array = StageClearResultBoxData.get_resolved_rewards(boxes)
@@ -80,7 +80,7 @@ func _verify_box_opening_state() -> void:
 
 	var boxes: Array = [
 		{"kind": "normal", "roll_kind": "normal", "state": "idle", "reward": {}},
-		{"kind": "advanced", "state": "opened", "reward": {"type": "active"}, "reward_emerge": 0.2},
+		{"kind": "normal", "state": "opened", "reward": {"type": "active"}, "reward_emerge": 0.2},
 	]
 	_expect(StageClearResultBoxData.get_next_idle_box_index(boxes) == 0, "box data should find the first idle box")
 	_expect(StageClearResultBoxData.get_next_idle_box_index([{"state": "opened"}]) == -1, "box data should report no idle boxes")
@@ -128,7 +128,7 @@ func _verify_box_opening_with_roll() -> void:
 	var opened_boxes: Array = result.get("boxes", [])
 	var box: Dictionary = opened_boxes[0] if opened_boxes[0] is Dictionary else {}
 	var reward: Dictionary = box.get("reward", {}) as Dictionary
-	_expect(str(reward.get("rolled_kind", "")) == "advanced", "box data should roll rewards from roll_kind when present")
+	_expect(str(reward.get("rolled_kind", "")) == "normal", "retired advanced roll ids should normalize to the normal reward lane")
 
 
 func _roll_kind_callback(kind: String) -> Dictionary:
@@ -181,7 +181,7 @@ func _verify_resolved_perk_append() -> void:
 
 func _verify_immediate_reward_payload() -> void:
 	var box: Dictionary = {
-		"kind": "advanced",
+		"kind": "normal",
 		"state": "opened",
 		"reward": {"type": "mythic", "id": "meteor"},
 	}
@@ -193,7 +193,7 @@ func _verify_immediate_reward_payload() -> void:
 		}
 	)
 	_expect(str(payload.get("id", "")) == "meteor", "immediate payload should copy the opened reward")
-	_expect(str(payload.get("box_kind", "")) == "advanced", "immediate payload should include source box kind")
+	_expect(str(payload.get("box_kind", "")) == "normal", "immediate payload should include source box kind")
 	_expect(str(payload.get("box_state", "")) == "opened", "immediate payload should include source box state")
 	_expect(payload.get("pickup_position", null) is Vector2, "immediate payload should include pickup position")
 	_expect(payload.get("target_player_center", null) is Vector2, "immediate payload should include target position")
@@ -211,7 +211,7 @@ func _verify_immediate_reward_payload() -> void:
 
 func _verify_immediate_reward_grant_attempt() -> void:
 	var boxes: Array = [
-		{"kind": "advanced", "state": "opened", "reward": {"type": "mythic", "id": "meteor"}},
+		{"kind": "normal", "state": "opened", "reward": {"type": "mythic", "id": "meteor"}},
 	]
 	var result: Dictionary = StageClearResultBoxData.try_grant_immediate_reward(
 		boxes,
@@ -261,7 +261,7 @@ func _verify_scene_delegates_box_data() -> void:
 	_expect(box_plan_data_source.find("static func normalize_box_kind") >= 0, "box plan data should own box kind normalization")
 	_expect(box_plan_data_source.find("static func get_box_display_label") >= 0, "box plan data should own box display labels")
 	_expect(box_plan_data_source.find("일반 상자") >= 0, "box plan data should keep Korean normal box fallback label")
-	_expect(box_plan_data_source.find("고급 상자") >= 0, "box plan data should keep Korean advanced box fallback label")
+	_expect(box_plan_data_source.find("고급 상자") < 0, "box plan data should not retain the removed advanced label")
 	_expect(box_plan_data_source.find("신화 확정 상자") >= 0, "box plan data should keep Korean guaranteed mythic fallback label")
 	_expect(box_data_source.find("StageClearResultBoxPlanData.build_standalone_preview_defaults") >= 0, "box data should delegate standalone preview defaults")
 	_expect(box_data_source.find("StageClearResultBoxPlanData.build_boxes_from_plan") >= 0, "box data should delegate reward-plan box materialization")
