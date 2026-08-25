@@ -82,7 +82,7 @@ func _test_stats_for_level() -> void:
 	var real_lv7: Dictionary = catalog.get_perk_data("dash_jump")
 	real_lv7["id"] = "dash_jump"
 	real_lv7["level"] = 7
-	_expect(renderer._perk_stats_for_level(real_lv7) == "활주 거리 49% 증가", "registered overflow must show the generated Lv.7 glide stats")
+	_expect(renderer._perk_stats_for_level(real_lv7) == "활주 지속 49% 증가", "registered overflow must show the generated Lv.7 glide-duration stats")
 
 
 func _test_stat_lines_split_and_collapse() -> void:

@@ -7,6 +7,7 @@ const PhysiqueTrainingOfferPlanner := preload("res://scripts/characters/physique
 const PhysiqueTrainingState := preload("res://scripts/characters/physique_training_state.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 const SmasherDashActiveMotionResolver := preload("res://scripts/characters/smasher_dash_active_motion_resolver.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const MythicItemResourceBonusRuntime := preload("res://scripts/items/mythic_item_resource_bonus_runtime.gd")
@@ -17,10 +18,13 @@ const TowerTrainingTimingJudgmentPolicy := preload("res://scripts/tower_ascent/t
 const EXPECTED_MATRIX_CASES := 99
 const STORAGE_ID := "physique_storage"
 const BASE_DASH_DURATION := 15.0
-const PRE_FIX_DASH_AMOUNT := 5.0
 const FPS_SCALE_60HZ := 1.0
 const FPS_SCALE_72HZ := 60.0 / 72.0
 const SHIPPED_TRAINED_DASH_DISTANCE := 240.0
+const SHIPPED_DASH_DISPLAY_DISTANCES := [240.0, 240.0, 240.0]
+const SHIPPED_DASH_DISTANCES_72HZ := [235.0, 242.0, 246.0]
+const EXPECTED_DASH_DISPLAY_DISTANCES := [240.0, 249.6, 256.0]
+const EXPECTED_DASH_RENDER_TEXT := ["240px", "249.6px", "256px"]
 
 var _catalog: Object = PhysiqueTrainingCatalog.new()
 var _failures: Array[String] = []
@@ -176,10 +180,15 @@ func _verify_dash_duration_label_localization() -> void:
 		)
 		var mugong: Dictionary = RuntimePerkCatalog.new().get_perk_data("dash_jump")
 		if locale == LanguageSettings.LANGUAGE_KOREAN:
-			for level: int in range(1, 6):
-				var level_description := str((mugong.get("descriptions", {}) as Dictionary).get(level, ""))
+			var descriptions: Dictionary = mugong.get("descriptions", {}) as Dictionary
+			for level: int in range(1, 8):
+				var level_description := RuntimePerkOverflowDescriptions.resolve_stats_text(
+					"dash_jump",
+					descriptions,
+					level
+				)
 				_expect(
-					level_description.contains("활주 지속") and not level_description.contains("활주 거리"),
+					level_description == "활주 지속 %d%% 증가" % (level * 7),
 					"dash Mugong Lv.%d must use the duration vocabulary: %s" % [level, level_description]
 				)
 		else:
@@ -189,19 +198,21 @@ func _verify_dash_duration_label_localization() -> void:
 				"%s dash Mugong summary must use the duration vocabulary: %s" % [locale, summary]
 			)
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
+	print("physique_training_display_apply_parity_smoke: dash_vocab=Lv1-Lv7_duration")
 
 
 func _verify_dash_judgment_distances() -> void:
 	var displayed_distances: Array[float] = []
 	var distances_60hz: Array[float] = []
 	var distances_72hz: Array[float] = []
-	var previous_60hz: Array[float] = []
-	var previous_72hz: Array[float] = []
-	for judgment_kind: String in [
+	var rendered_distances: Array[String] = []
+	var judgment_kinds: Array[String] = [
 		TowerTrainingTimingJudgmentPolicy.JUDGMENT_BASE,
 		TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT,
 		TowerTrainingTimingJudgmentPolicy.JUDGMENT_CRITICAL,
-	]:
+	]
+	for tier_index: int in range(judgment_kinds.size()):
+		var judgment_kind: String = judgment_kinds[tier_index]
 		var runtime := RuntimePerkState.new()
 		var card: Dictionary = _catalog.build_card("physique_dash_distance", 0)
 		card["training_effect_multiplier"] = TowerTrainingTimingJudgmentPolicy.applied_multiplier(
@@ -213,15 +224,7 @@ func _verify_dash_judgment_distances() -> void:
 		var predicted_distance := SmasherDashActiveMotionResolver.compute_total_dash_distance(duration)
 		var actual_60hz := _simulate_dash_distance(duration, FPS_SCALE_60HZ)
 		var actual_72hz := _simulate_dash_distance(duration, FPS_SCALE_72HZ)
-		var applied_multiplier := TowerTrainingTimingJudgmentPolicy.applied_multiplier(
-			"physique_dash_distance",
-			judgment_kind
-		)
-		var previous_duration := BASE_DASH_DURATION * (
-			1.0 + PRE_FIX_DASH_AMOUNT * applied_multiplier / 100.0
-		)
-		var old_60hz := _simulate_dash_distance(previous_duration, FPS_SCALE_60HZ)
-		var old_72hz := _simulate_dash_distance(previous_duration, FPS_SCALE_72HZ)
+		var rendered_distance := CharacterInfoOverlayStatsPresenter.format_dash_distance_value(predicted_distance)
 		_expect(
 			is_equal_approx(actual_60hz, predicted_distance),
 			"%s 60Hz dash %.6f must match the fps-independent displayed integration %.6f" % [judgment_kind, actual_60hz, predicted_distance]
@@ -231,14 +234,24 @@ func _verify_dash_judgment_distances() -> void:
 			"%s 72Hz integration %.6f must stay within the measured positive discretization band above display %.6f" % [judgment_kind, actual_72hz, predicted_distance]
 		)
 		_expect(
-			actual_60hz > old_60hz and actual_72hz > old_72hz,
-			"%s corrected amount must not regress either tick-rate leg" % judgment_kind
+			is_equal_approx(predicted_distance, float(EXPECTED_DASH_DISPLAY_DISTANCES[tier_index]))
+			and predicted_distance >= float(SHIPPED_DASH_DISPLAY_DISTANCES[tier_index])
+			and actual_60hz >= float(SHIPPED_DASH_DISPLAY_DISTANCES[tier_index])
+			and actual_72hz >= float(SHIPPED_DASH_DISTANCES_72HZ[tier_index]),
+			"%s corrected distance must not regress the literal shipped display/60Hz/72Hz baselines" % judgment_kind
+		)
+		_expect(
+			rendered_distance == str(EXPECTED_DASH_RENDER_TEXT[tier_index])
+			and (
+				float(rendered_distance.trim_suffix("px")) <= predicted_distance
+				or is_equal_approx(float(rendered_distance.trim_suffix("px")), predicted_distance)
+			),
+			"%s TAB dash-distance text must be exact and never exceed %.6f: %s" % [judgment_kind, predicted_distance, rendered_distance]
 		)
 		displayed_distances.append(predicted_distance)
 		distances_60hz.append(actual_60hz)
 		distances_72hz.append(actual_72hz)
-		previous_60hz.append(old_60hz)
-		previous_72hz.append(old_72hz)
+		rendered_distances.append(rendered_distance)
 	_expect(
 		displayed_distances.size() == 3
 		and absf(displayed_distances[0] - SHIPPED_TRAINED_DASH_DISTANCE) <= 1.0
@@ -247,9 +260,10 @@ func _verify_dash_judgment_distances() -> void:
 		"dash judgment tiers must preserve the 240px base total and remain distinct: %s" % [displayed_distances]
 	)
 	if displayed_distances.size() == 3:
+		print("physique_training_display_apply_parity_smoke: dash_shipped_display=240.000/240.000/240.000 dash_shipped_72hz=235.000/242.000/246.000")
 		print("physique_training_display_apply_parity_smoke: dash_display=%.3f/%.3f/%.3f" % displayed_distances)
-		print("physique_training_display_apply_parity_smoke: dash_before_60hz=%.3f/%.3f/%.3f dash_after_60hz=%.3f/%.3f/%.3f" % [previous_60hz[0], previous_60hz[1], previous_60hz[2], distances_60hz[0], distances_60hz[1], distances_60hz[2]])
-		print("physique_training_display_apply_parity_smoke: dash_before_72hz=%.3f/%.3f/%.3f dash_after_72hz=%.3f/%.3f/%.3f" % [previous_72hz[0], previous_72hz[1], previous_72hz[2], distances_72hz[0], distances_72hz[1], distances_72hz[2]])
+		print("physique_training_display_apply_parity_smoke: dash_render=%s/%s/%s" % rendered_distances)
+		print("physique_training_display_apply_parity_smoke: dash_after_60hz=%.3f/%.3f/%.3f dash_after_72hz=%.3f/%.3f/%.3f" % [distances_60hz[0], distances_60hz[1], distances_60hz[2], distances_72hz[0], distances_72hz[1], distances_72hz[2]])
 
 
 func _simulate_dash_distance(duration_frames: float, fps_scale: float) -> float:
@@ -303,6 +317,29 @@ func _verify_fractional_hit_gauge_stacks() -> void:
 			"hit-gauge stacks=%d TAB value must expose the real fractional gain without rounding up: %s" % [stack_count, displayed]
 		)
 	print("physique_training_display_apply_parity_smoke: hit_gauge=53.5/57.0/60.5/67.5")
+	var mastery_great_runtime := RuntimePerkState.new()
+	mastery_great_runtime.runtime_skill_levels["training_mastery"] = 1
+	var mastery_great_card: Dictionary = _catalog.build_card("physique_hit_gauge", 0, 1.25)
+	mastery_great_card["training_effect_multiplier"] = TowerTrainingTimingJudgmentPolicy.applied_multiplier(
+		"physique_hit_gauge",
+		TowerTrainingTimingJudgmentPolicy.JUDGMENT_GREAT
+	)
+	_expect(
+		mastery_great_runtime._apply_physique_training_choice(mastery_great_card, null, null),
+		"mastery/great hit-gauge fixture must apply"
+	)
+	var mastery_great_actual := resource_runtime.calculate_bluetooth_ring_gauge_charge(
+		RuntimeBridge.new(mastery_great_runtime),
+		50.0
+	)
+	var mastery_great_display := CharacterInfoOverlayStatsPresenter.format_gauge_point_value(mastery_great_actual)
+	_expect(
+		is_equal_approx(mastery_great_actual, 55.6875)
+		and mastery_great_display == "55.6pt"
+		and float(mastery_great_display.trim_suffix("pt")) <= mastery_great_actual,
+		"mastery/great TAB gauge value must not round 55.6875pt upward: %s" % mastery_great_display
+	)
+	print("physique_training_display_apply_parity_smoke: hit_gauge_mastery_great=55.6875 render=%s" % mastery_great_display)
 
 
 func _verify_multiply_before_ceiling() -> void:
@@ -403,14 +440,19 @@ func _verify_offer_and_modal_behavior_contracts() -> void:
 		}) == "5/5",
 		"storage maximum fallback must derive from catalog metadata"
 	)
-	var localization_source := FileAccess.get_file_as_string(
-		"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
+	var legacy_badge := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE,
+		{"width": "2", "effect": "12"}
+	)
+	var judgment_badge := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_JUDGMENT_MAX_BADGE,
+		{"effect": "12%"}
 	)
 	_expect(
-		not localization_source.contains("KEY_TRAINING_BONUS_BADGE")
-		and TowerAscentNodeModalLocalization.KEY_TRAINING_JUDGMENT_MAX_BADGE
-		!= TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE,
-		"the retired timing-badge alias must not bypass the separated badge contract"
+		str(live_choice.get("bonus_badge_text", "")) == judgment_badge
+		and judgment_badge != legacy_badge
+		and not str(live_choice.get("bonus_badge_text", "")).contains("행운 판정 폭"),
+		"live training actions must use the separated judgment badge behavior, never a renamed legacy alias"
 	)
 
 

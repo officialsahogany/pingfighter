@@ -39,7 +39,7 @@ const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_p
 const LINEAR_PATTERNS := {
 	"dash_lightweight": {"prefix": "활주 재충전 ", "per_level": 12, "suffix": "% 감소"},
 	"dash_module_control": {"prefix": "활주 후딜 ", "per_level": 18, "suffix": "% 감소"},
-	"dash_jump": {"prefix": "활주 거리 ", "per_level": 7, "suffix": "% 증가"},
+	"dash_jump": {"prefix": "활주 지속 ", "per_level": 7, "suffix": "% 증가"},
 	"dash_amplification": {"prefix": "최대 활주 횟수 +", "per_level": 1, "suffix": ""},
 	"dash_spirit": {"prefix": "활주시 ", "lane": "laser_chance", "scale": 100.0, "suffix": "% 확률로 레이저 잔상"},
 	"item_luck": {"prefix": "아이템 스폰 대기 ", "lane": "spawn_wait_reduction", "scale": 100.0, "suffix": "% 감소"},

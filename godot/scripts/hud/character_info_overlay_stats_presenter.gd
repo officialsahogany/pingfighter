@@ -189,7 +189,7 @@ static func build_player_stat_rows(
 			include_breakdown
 		),
 		with_breakdown(
-			delta_stat_row("활주 거리", "%dpx" % int(round(dash_distance)), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "활주 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
+			delta_stat_row("활주 거리", format_dash_distance_value(dash_distance), base_dash_distance_value, dash_distance, true, stat_buff_color, stat_debuff_color).merged({"icon": "dash_range", "tooltip_body": "활주 한 번으로 이동하는 거리입니다. 길수록 먼 공도 한 번에 따라갈 수 있습니다."}),
 			dash_distance_breakdown(dash_duration_steps, runtime_state, mythic_item_runtime, dash_distance_multiplier) if include_breakdown else [],
 			include_breakdown
 		),
@@ -1200,6 +1200,10 @@ static func stat_bar_breakdown_text(base_value: float, current_value: float, hig
 # strings): integers stay bare, fractions keep up to two trimmed decimals.
 static func format_gauge_point_value(value: float) -> String:
 	return "%spt" % CharacterInfoOverlayFormatter.format_plain_number(value)
+
+
+static func format_dash_distance_value(value: float) -> String:
+	return "%spx" % CharacterInfoOverlayFormatter.format_plain_number(value)
 
 
 static func _format_stat_number(value: float) -> String:

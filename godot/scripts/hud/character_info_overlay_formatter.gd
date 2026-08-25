@@ -147,9 +147,16 @@ static func format_percent_text(percent: float) -> String:
 
 
 static func format_plain_number(value: float) -> String:
-	if is_equal_approx(value, round(value)):
-		return "%d" % int(round(value))
-	return "%.1f" % value
+	# 실효 능력치 표시는 실제값보다 커지지 않게 소수 첫째 자리에서 내린다.
+	# (예: 55.6875pt -> 55.6pt). 정수는 불필요한 소수부를 붙이지 않는다.
+	# 다만 수학적으로 정확한 249.6 같은 값의 부동소수점 꼬리는 같은 0.1
+	# 격자로 취급해야 249.5로 과도하게 내리지 않는다.
+	var displayed_value: float = snappedf(value, 0.1)
+	if displayed_value > value and not is_equal_approx(displayed_value, value):
+		displayed_value -= 0.1
+	if is_equal_approx(displayed_value, roundf(displayed_value)):
+		return "%d" % int(roundf(displayed_value))
+	return "%.1f" % displayed_value
 
 
 static func perk_level_text(perk: Dictionary) -> String:
