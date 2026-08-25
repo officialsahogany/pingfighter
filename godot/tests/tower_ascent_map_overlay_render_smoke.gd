@@ -37,6 +37,129 @@ class RecordingFullscreenMapCanvas:
 		pass
 
 	@warning_ignore("native_method_override")
+	func draw_circle(
+		_position: Vector2,
+		_radius: float,
+		_color: Color,
+		_filled: bool = true,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_line(
+		_from: Vector2,
+		_to: Vector2,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_dashed_line(
+		_from: Vector2,
+		_to: Vector2,
+		_color: Color,
+		_width: float = -1.0,
+		_dash: float = 2.0,
+		_aligned: bool = true,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_multiline(
+		_points: PackedVector2Array,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_polyline(
+		_points: PackedVector2Array,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_texture(
+		_texture: Texture2D,
+		_position: Vector2,
+		_modulate: Color = Color.WHITE
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_texture_rect(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_tile: bool,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_texture_rect_region(
+		_texture: Texture2D,
+		_rect: Rect2,
+		_src_rect: Rect2,
+		_modulate: Color = Color.WHITE,
+		_transpose: bool = false,
+		_clip_uv: bool = true
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_polygon(
+		_points: PackedVector2Array,
+		_colors: PackedColorArray,
+		_uvs: PackedVector2Array = PackedVector2Array(),
+		_texture: Texture2D = null
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_colored_polygon(
+		_points: PackedVector2Array,
+		_color: Color,
+		_uvs: PackedVector2Array = PackedVector2Array(),
+		_texture: Texture2D = null
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_arc(
+		_center: Vector2,
+		_radius: float,
+		_start_angle: float,
+		_end_angle: float,
+		_point_count: int,
+		_color: Color,
+		_width: float = -1.0,
+		_antialiased: bool = false
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_set_transform(
+		_position: Vector2 = Vector2.ZERO,
+		_rotation: float = 0.0,
+		_scale: Vector2 = Vector2.ONE
+	) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
+	func draw_set_transform_matrix(_xform: Transform2D) -> void:
+		pass
+
+	@warning_ignore("native_method_override")
 	func draw_string(
 		_font: Font,
 		_pos: Vector2,
@@ -144,25 +267,48 @@ func _verify_fullscreen_legend_absent_and_node_catalog_preserved() -> void:
 	var renderer_source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
-	var production_signature := (
-		"func _draw_fullscreen_map_model(\n"
-		+ "\tcanvas: CanvasItem,"
-	)
-	var production_signature_count := renderer_source.count(production_signature)
 	_expect(
-		production_signature_count == 1,
+		not renderer_source.contains("KEY_LEGEND_TYPES"),
+		"the fullscreen renderer must not retain a hidden node-type legend draw"
+	)
+	var model_signature_regex := RegEx.new()
+	var node_signature_regex := RegEx.new()
+	var model_regex_error := model_signature_regex.compile(
+		"func\\s+_draw_fullscreen_map_model\\s*\\(\\s*canvas\\s*:\\s*CanvasItem\\s*,"
+	)
+	var node_regex_error := node_signature_regex.compile(
+		"func\\s+_draw_fullscreen_map_node\\s*\\(\\s*canvas\\s*:\\s*CanvasItem\\s*,"
+	)
+	_expect(model_regex_error == OK, "the fullscreen-map signature regex must compile")
+	_expect(node_regex_error == OK, "the fullscreen-map node signature regex must compile")
+	if model_regex_error != OK or node_regex_error != OK:
+		return
+	var model_signature_count := model_signature_regex.search_all(renderer_source).size()
+	var node_signature_count := node_signature_regex.search_all(renderer_source).size()
+	_expect(
+		model_signature_count == 1,
 		"the production fullscreen-map draw must retain its CanvasItem signature"
 	)
-	if production_signature_count != 1:
+	_expect(
+		node_signature_count == 1,
+		"the production fullscreen-map node draw must retain its CanvasItem signature"
+	)
+	if model_signature_count != 1 or node_signature_count != 1:
 		return
 	# CanvasItem's native draw calls cannot be intercepted by a scripted subclass
 	# through a statically typed parameter. Compile the exact production body with
-	# only that test boundary widened so every parent-level draw_string is recorded.
-	var recording_fixture_script := GDScript.new()
-	recording_fixture_script.source_code = renderer_source.replace(
-		production_signature,
+	# only the two recording boundaries widened so the parent and node labels are
+	# recorded without weakening either production signature.
+	var recording_source := model_signature_regex.sub(
+		renderer_source,
 		"func _draw_fullscreen_map_model(\n\tcanvas: Object,"
 	)
+	recording_source = node_signature_regex.sub(
+		recording_source,
+		"func _draw_fullscreen_map_node(\n\tcanvas: Object,"
+	)
+	var recording_fixture_script := GDScript.new()
+	recording_fixture_script.source_code = recording_source
 	var fixture_reload_error := recording_fixture_script.reload()
 	_expect(
 		fixture_reload_error == OK,
@@ -174,8 +320,12 @@ func _verify_fullscreen_legend_absent_and_node_catalog_preserved() -> void:
 		return
 	var renderer: Object = recording_fixture_script.new()
 	var panel_rect := Rect2(Vector2.ZERO, Vector2(760.0, 750.0))
-	var guardian_spring_label := TowerAscentMapOverlayLocalization.node_kind_label(
-		"guardian_spring"
+	var fallback_label := TowerAscentMapOverlayLocalization.node_kind_label("combat")
+	var fallback_state_label := TowerAscentMapOverlayLocalization.node_state_label(
+		false,
+		true,
+		false,
+		false
 	)
 	renderer.call(
 		"_draw_fullscreen_map_model",
@@ -191,7 +341,20 @@ func _verify_fullscreen_legend_absent_and_node_catalog_preserved() -> void:
 			"scroll_background": {"ready": true},
 			"floor_bands": [],
 			"edges": [],
-			"nodes": [],
+			"nodes": [
+				{
+					"id": "fallback-combat-node",
+					"kind": "combat",
+					"boss_slot_id": "",
+					"label": fallback_label,
+					"completed": true,
+					"world_position": panel_rect.get_center(),
+					"world_art_rect": Rect2(
+						panel_rect.get_center() - Vector2(20.0, 20.0),
+						Vector2(40.0, 40.0)
+					),
+				},
+			],
 			"transition_marker": {},
 			"cloud_layer": {},
 			"floor_reveal_visual": {},
@@ -209,20 +372,16 @@ func _verify_fullscreen_legend_absent_and_node_catalog_preserved() -> void:
 		"the fullscreen map must draw no node-type legend string"
 	)
 	_expect(
-		canvas.drawn_strings.has(
-			TowerAscentMapOverlayLocalization.text(
-				TowerAscentMapOverlayLocalization.KEY_CLOSE_HINT
-			)
-		),
-		"the absence seal must traverse the full model draw through its footer"
+		canvas.drawn_strings.has("fixture header"),
+		"the absence seal must traverse the full model body's direct header draw"
 	)
 	_expect(
-		guardian_spring_label == "수호의 샘터",
-		"removing the footer legend must preserve the guardian-spring node catalog label"
+		canvas.drawn_strings.has(fallback_label),
+		"an iconless combat node must retain its fallback kind label"
 	)
 	_expect(
-		not renderer_source.contains("KEY_LEGEND_TYPES"),
-		"the fullscreen renderer must not retain a hidden node-type legend draw"
+		canvas.drawn_strings.has(fallback_state_label),
+		"an iconless combat node must retain its state label"
 	)
 	canvas.free()
 

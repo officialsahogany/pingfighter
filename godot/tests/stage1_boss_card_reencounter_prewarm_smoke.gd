@@ -265,7 +265,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_production_contract_source()
 	await _verify_cache_state_controls_card_rects_and_warning_once()
-	_verify_stage_only_red_counterproof()
+	await _verify_stage_only_red_counterproof()
 	for opening_variant in VARIANTS:
 		for next_variant in VARIANTS:
 			if opening_variant == next_variant:
@@ -332,6 +332,7 @@ func _verify_production_contract_source() -> void:
 func _verify_cache_state_controls_card_rects_and_warning_once() -> void:
 	var drawer := Stage1PillarHudSceneDrawer.new()
 	var cold_registry := FakeRegistry.new()
+	cold_registry.count_cold_gets = true
 	var cold_probe: Dictionary = {}
 	for variant in VARIANTS:
 		var variant_probe: Dictionary = await _draw_variant(drawer, cold_registry, variant)
@@ -342,6 +343,7 @@ func _verify_cache_state_controls_card_rects_and_warning_once() -> void:
 			cold_probe = variant_probe
 	_expect(int(cold_probe.get("card_rect_count", -1)) == 0, "uncached Pododaejang registry must draw zero boss cards")
 	_expect(int(cold_probe.get("cold_get_calls", -1)) == 0, "uncached draw must not cold-create a boss-card renderer")
+	cold_registry.count_cold_gets = false
 
 	# Reach the cooldown-miss warning through the registry factory, without
 	# directly injecting a renderer into the cache.
@@ -391,14 +393,27 @@ func _verify_stage_only_red_counterproof() -> void:
 	owner.stage1_boss_variant = "podo"
 	var gate_reported_complete := stage_only_gate.prewarm_step(controller, owner, registry)
 	var renderer: Object = registry.get_cached_instance(str(HUD_RENDERER_KEYS["podo"]))
-	var card_rect_count := 0
+	registry.count_cold_gets = true
+	var missing_probe := await _draw_variant(
+		Stage1PillarHudSceneDrawer.new(),
+		registry,
+		"podo"
+	)
+	var card_rect_count := int(missing_probe.get("card_rect_count", -1))
 	_expect(gate_reported_complete, "stage-only RED fixture must falsely report same-stage completion")
 	_expect(
 		renderer == null,
 		"stage-only RED fixture must leave the second-encounter renderer absent"
 	)
 	_expect(card_rect_count == 0, "stage-only RED fixture must reproduce the zero-card failure")
-	print("[BossCardPrewarmRED] stage_only=true next_variant=podo renderer=null card_rects=%d expected_red=true" % card_rect_count)
+	_expect(
+		int(missing_probe.get("cold_get_calls", -1)) == 0,
+		"stage-only RED draw must measure zero cold module creation on the cache-only path"
+	)
+	print("[BossCardPrewarmRED] stage_only=true next_variant=podo renderer=null card_rects=%d cold_gets=%d expected_red=true" % [
+		card_rect_count,
+		int(missing_probe.get("cold_get_calls", -1)),
+	])
 
 
 func _verify_reencounter_permutation(opening_variant: String, next_variant: String) -> void:

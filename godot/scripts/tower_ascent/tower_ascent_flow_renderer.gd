@@ -851,7 +851,7 @@ func build_fullscreen_map_model(flow: Object, viewport_rect: Rect2) -> Dictionar
 				)
 				manual_camera_offset = flow.reanchor_map_camera_manual_offset(
 					previous_view_rect.get_center(),
-					previous_camera.get("offset", manual_camera_offset),
+					manual_camera_offset,
 					previous_zoom,
 					camera_render_multiplier
 				)

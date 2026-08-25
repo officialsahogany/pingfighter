@@ -54,7 +54,9 @@ var _maximum_draw_calls := 0
 var _maximum_draw_seed := 0
 var _maximum_path_draw_calls := 0
 var _maximum_cloud_draw_calls := 0
-var _maximum_dot_gap := 0.0
+var _maximum_draw_base_dot_gap := 0.0
+var _maximum_draw_final_dot_gap := 0.0
+var _maximum_final_dot_gap := 0.0
 var _minimum_fit_all_zoom := INF
 var _maximum_world_height := 0.0
 var _negative_leg_count := 0
@@ -72,6 +74,10 @@ var _maximum_replacement_cloud_draw_calls := 0
 func _init() -> void:
 	TowerAuditionBuildConfig.debug_set_enabled(false)
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_expect(
+		MAP_DRAW_CALL_LIMIT == TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET,
+		"GRT-043: the sweep limit must stay in lockstep with production tuning"
+	)
 	_verify_standard_seeds()
 	_verify_audition_route_unchanged()
 	_verify_negative_legs()
@@ -95,14 +101,17 @@ func _init() -> void:
 			]
 		)
 		print(
-			"tower_ascent_floor_one_expansion_contract_smoke: fit_all_budget seed=%d path=%d clouds=%d total=%d limit=%d max_dot_gap=%0.3f min_fit_all=%0.4f world_height=%0.1f negative_legs=%d"
+			"tower_ascent_floor_one_expansion_contract_smoke: fit_all_budget seed=%d path=%d clouds=%d total=%d limit=%d margin=%d base_dot_gap=%0.3f final_dot_gap=%0.3f max_final_dot_gap=%0.3f min_fit_all=%0.4f world_height=%0.1f negative_legs=%d"
 			% [
 				_maximum_draw_seed,
 				_maximum_path_draw_calls,
 				_maximum_cloud_draw_calls,
 				_maximum_draw_calls,
 				MAP_DRAW_CALL_LIMIT,
-				_maximum_dot_gap,
+				MAP_DRAW_CALL_LIMIT - _maximum_draw_calls,
+				_maximum_draw_base_dot_gap,
+				_maximum_draw_final_dot_gap,
+				_maximum_final_dot_gap,
 				_minimum_fit_all_zoom,
 				_maximum_world_height,
 				_negative_leg_count,
@@ -665,11 +674,23 @@ func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 		"seed %d merged cloud wall must beat the retired 12 floors x 13 calls reserve"
 		% map_seed
 	)
+	var final_dot_gap := float(cache.get("path_dot_gap", 0.0))
+	var base_dot_gap := (
+		float(model.get("art_size", 0.0))
+		* TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO
+	)
+	_expect(
+		final_dot_gap <= base_dot_gap * 1.05,
+		"seed %d must report any hidden dotted-path thinning beyond five percent (%0.3f -> %0.3f)"
+		% [map_seed, base_dot_gap, final_dot_gap]
+	)
 	if total_draw_calls > _maximum_draw_calls:
 		_maximum_draw_calls = total_draw_calls
 		_maximum_draw_seed = map_seed
 		_maximum_path_draw_calls = int(cache.get("path_draw_call_budget", 0))
 		_maximum_cloud_draw_calls = cloud_calls
+		_maximum_draw_base_dot_gap = base_dot_gap
+		_maximum_draw_final_dot_gap = final_dot_gap
 	if replacement_applied and total_draw_calls > _maximum_replacement_draw_calls:
 		_maximum_replacement_draw_calls = total_draw_calls
 		_maximum_replacement_draw_seed = map_seed
@@ -677,7 +698,7 @@ func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 			cache.get("path_draw_call_budget", 0)
 		)
 		_maximum_replacement_cloud_draw_calls = cloud_calls
-	_maximum_dot_gap = maxf(_maximum_dot_gap, float(cache.get("path_dot_gap", 0.0)))
+	_maximum_final_dot_gap = maxf(_maximum_final_dot_gap, final_dot_gap)
 	_minimum_fit_all_zoom = minf(
 		_minimum_fit_all_zoom,
 		float(model.get("minimum_fit_all_zoom", INF))

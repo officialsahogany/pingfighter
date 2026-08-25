@@ -187,6 +187,17 @@ func _verify_route_composition_and_reverse_gate() -> void:
 		bool(drawer.call("_should_suppress_tower_boss_skill_hud", registry)),
 		"active Tower map overlay must suppress boss-skill rails",
 	)
+	for hidden_phase in [
+		"ENDING_CHOICE",
+		"RUN_SETTLEMENT",
+		"FAKE_ENDING_TEASER",
+		"GAUNTLET_TRANSITION",
+	]:
+		flow.phase = hidden_phase
+		_expect(
+			bool(drawer.call("_should_suppress_tower_boss_skill_hud", registry)),
+			"active Tower %s must suppress stale boss-skill rails" % hidden_phase,
+		)
 	flow.active = false
 	_expect(
 		bool(drawer.call("_should_draw_tower_battle_playfield", registry)),

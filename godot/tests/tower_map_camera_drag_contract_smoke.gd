@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerAscentMapCameraModel := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_camera_model.gd"
+)
 
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 const CLICK_JITTER := Vector2(4.0, 0.0)
@@ -32,6 +35,7 @@ func _run() -> void:
 		_verify_threshold_crossing_drags_without_selecting()
 		_verify_surround_start_and_cover_counterproof()
 		_verify_shared_cover_bounds_clamp_all_directions()
+		_verify_drag_accumulates_while_transition_zoom_changes()
 		_verify_manual_camera_priority_and_release_retention()
 		_verify_event_route_and_hot_path_contracts()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -254,7 +258,11 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 	var renderer: Object = fixture["renderer"]
 	var model: Dictionary = fixture["model"]
 	var press_position := VIEWPORT_RECT.get_center()
-	var drag_position := press_position + Vector2(48.0, 72.0)
+	# This leg owns world-anchor retention, so exercise the vertical axis that is
+	# open throughout the transition. Horizontal cover clamping has its own
+	# reverse leg and can legitimately defer a latent X displacement until zoom
+	# opens that axis.
+	var drag_position := press_position + Vector2(0.0, 72.0)
 	flow.handle_input(_mouse_button(press_position, true))
 	flow.handle_input(_mouse_motion(drag_position))
 	flow.handle_input(_mouse_button(drag_position, false))
@@ -294,6 +302,61 @@ func _verify_manual_camera_priority_and_release_retention() -> void:
 	_expect(
 		not bool(flow.has_map_camera_manual_override()),
 		"transition completion must restore automatic tracking for the next map surface"
+	)
+
+
+func _verify_drag_accumulates_while_transition_zoom_changes() -> void:
+	var fixture := _new_transition_fixture(
+		"map-drag-live-zoom-overlap",
+		TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.25
+	)
+	if fixture.is_empty():
+		return
+	var flow: Object = fixture["flow"]
+	var renderer: Object = fixture["renderer"]
+	var initial_model: Dictionary = fixture["model"]
+	var initial_camera: Dictionary = initial_model.get("camera", {})
+	var press_position := VIEWPORT_RECT.get_center()
+	var first_drag_position := press_position + Vector2(32.0, 48.0)
+	flow.handle_input(_mouse_button(press_position, true))
+	flow.handle_input(_mouse_motion(first_drag_position))
+	var first_drag_model: Dictionary = renderer.build_fullscreen_map_model(
+		flow,
+		VIEWPORT_RECT
+	)
+	var first_drag_camera: Dictionary = first_drag_model.get("camera", {})
+	var first_drag_zoom := float(first_drag_camera.get(
+		"render_zoom_multiplier",
+		initial_camera.get("render_zoom_multiplier", 1.0)
+	))
+	var second_drag_delta := Vector2(24.0, 36.0)
+	var second_drag_position := first_drag_position + second_drag_delta
+	var later_elapsed := (
+		_zoom_end_elapsed_sec()
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC * 0.75
+	)
+	flow.set_transition_progress_for_qa(later_elapsed / _transition_duration_sec())
+	flow.handle_input(_mouse_motion(second_drag_position))
+	var live_manual_offset: Vector2 = flow.get_map_camera_manual_offset()
+	flow.handle_input(_mouse_button(second_drag_position, false))
+	var later_model: Dictionary = renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var later_camera: Dictionary = later_model.get("camera", {})
+	var later_zoom := float(later_camera.get("render_zoom_multiplier", first_drag_zoom))
+	_expect(
+		not is_equal_approx(first_drag_zoom, later_zoom),
+		"overlap fixture must advance the automatic transition zoom"
+	)
+	var expected_reanchored_offset := TowerAscentMapCameraModel.cursor_anchored_offset(
+		(first_drag_camera.get("view_rect", VIEWPORT_RECT) as Rect2).get_center(),
+		live_manual_offset,
+		first_drag_zoom,
+		later_zoom
+	)
+	_expect(
+		(flow.get_map_camera_manual_offset() as Vector2).is_equal_approx(
+			expected_reanchored_offset
+		),
+		"in-flight drag must preserve newly accumulated displacement across automatic zoom"
 	)
 
 

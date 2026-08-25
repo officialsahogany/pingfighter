@@ -159,7 +159,10 @@ const TEMP_MAP_PATH_CURVE_SKEW_RATIO := 0.08
 const TEMP_MAP_PATH_ENDPOINT_CLEARANCE_RATIO := 0.68
 const TEMP_MAP_PATH_SAMPLE_MIN := 18
 const TEMP_MAP_PATH_SAMPLE_MAX := 42
-const TEMP_MAP_PATH_DOT_GAP_ART_RATIO := 0.32
+# The 128-seed upper-floor-density sweep showed that 0.32 was always widened
+# as high as ~0.72 by the GRT-043 budget loop. Start at the observed production
+# density instead of silently rebuilding the same cache two or three times.
+const TEMP_MAP_PATH_DOT_GAP_ART_RATIO := 0.74
 const TEMP_MAP_PATH_DOT_OUTER_RADIUS_ART_RATIO := 0.072
 const TEMP_MAP_PATH_DOT_INNER_RADIUS_ART_RATIO := 0.030
 const TEMP_MAP_PATH_DOT_CIRCLE_SEGMENTS := 10

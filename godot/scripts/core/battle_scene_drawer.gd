@@ -14,6 +14,13 @@ const TowerAscentMapHintRenderer := preload(
 )
 
 const BACKGROUND_COLOR := Color(0.02, 0.02, 0.05)
+const TOWER_PLAYFIELD_ONLY_NONCOMBAT_PHASES := [
+	"ROUTE_AIM",
+	"ENDING_CHOICE",
+	"RUN_SETTLEMENT",
+	"FAKE_ENDING_TEASER",
+	"GAUNTLET_TRANSITION",
+]
 
 var _arity_cache: Dictionary = {}
 # 좌측 레터박스 퍽 스트립 렌더러(드로어 소유 — 엔트리 캐시는 렌더러 내부
@@ -541,12 +548,21 @@ func _draw_post_playfield_pillar_hud(canvas: CanvasItem, registry: Object, view_
 
 func _should_suppress_tower_boss_skill_hud(registry: Object) -> bool:
 	var flow_owner: Object = _get_cached_instance(registry, "tower_ascent_flow_owner")
+	var phase_name := (
+		str(flow_owner.get_phase_name())
+		if flow_owner != null and flow_owner.has_method("get_phase_name")
+		else ""
+	)
 	return (
 		flow_owner != null
 		and flow_owner.has_method("is_active")
 		and bool(flow_owner.is_active())
-		and flow_owner.has_method("get_phase_name")
-		and str(flow_owner.get_phase_name()) in ["ROUTE_AIM", "MAP_OVERLAY"]
+		and (
+			phase_name in TOWER_PLAYFIELD_ONLY_NONCOMBAT_PHASES
+			or TowerAscentScreenSpaceSurfacePolicy.uses_screen_space_flow_phase(
+				phase_name
+			)
+		)
 	)
 
 
