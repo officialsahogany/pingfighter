@@ -1652,6 +1652,15 @@ func _draw_fullscreen_map_model(
 			22,
 			PAPER
 		)
+	_draw_fullscreen_map_footer(canvas, panel_rect, font, chrome_ink_soft)
+
+
+func _draw_fullscreen_map_footer(
+	canvas: Object,
+	panel_rect: Rect2,
+	font: Font,
+	text_color: Color
+) -> void:
 	canvas.draw_string(
 		font,
 		Vector2(panel_rect.end.x - 230.0, panel_rect.position.y + 48.0),
@@ -1659,24 +1668,7 @@ func _draw_fullscreen_map_model(
 		HORIZONTAL_ALIGNMENT_RIGHT,
 		196.0,
 		14,
-		chrome_ink_soft
-	)
-	var legend_rect := Rect2(
-		panel_rect.position.x + 34.0,
-		panel_rect.end.y - 56.0,
-		panel_rect.size.x - 68.0,
-		38.0
-	)
-	canvas.draw_rect(legend_rect, Color(PAPER_DEEP, 0.7), true)
-	canvas.draw_rect(legend_rect, GOLD, false, 1.0)
-	canvas.draw_string(
-		font,
-		legend_rect.position + Vector2(10.0, 24.0),
-		TowerAscentMapOverlayLocalization.text(TowerAscentMapOverlayLocalization.KEY_LEGEND_TYPES),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		legend_rect.size.x - 20.0,
-		11,
-		INK
+		text_color
 	)
 
 
@@ -2111,7 +2103,7 @@ func _draw_fullscreen_walker(
 
 
 func _draw_fullscreen_map_node(
-	canvas: CanvasItem,
+	canvas: Object,
 	node: Dictionary,
 	active_candidate_ids: Array,
 	current_node_id: String,
@@ -2245,8 +2237,6 @@ func _draw_map_surface(
 	canvas.draw_rect(MAP_RECT.grow(-8.0), PAPER_DEEP, false, 1.5)
 	_draw_title(canvas, flow, map_overlay)
 	_draw_route_map(canvas, flow, map_overlay)
-	if map_overlay:
-		_draw_map_overlay_legend(canvas)
 
 
 func build_render_model(flow: Object) -> Dictionary:
@@ -3318,39 +3308,6 @@ func _map_icon_modulate(
 	if completed and not current:
 		return Color(0.72, 0.66, 0.54, 0.82)
 	return Color.WHITE
-
-
-func _draw_map_overlay_legend(canvas: CanvasItem) -> void:
-	var panel := Rect2(
-		66.0,
-		TowerAscentTuning.TEMP_MAP_OVERLAY_LEGEND_Y,
-		628.0,
-		50.0
-	)
-	canvas.draw_rect(panel, Color(PAPER_DEEP, 0.82), true)
-	canvas.draw_rect(panel, GOLD, false, 1.5)
-	canvas.draw_string(
-		ThemeDB.fallback_font,
-		panel.position + Vector2(12.0, 19.0),
-		TowerAscentMapOverlayLocalization.text(
-			TowerAscentMapOverlayLocalization.KEY_LEGEND_TYPES
-		),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		panel.size.x - 24.0,
-		11,
-		INK
-	)
-	canvas.draw_string(
-		ThemeDB.fallback_font,
-		panel.position + Vector2(12.0, 39.0),
-		TowerAscentMapOverlayLocalization.text(
-			TowerAscentMapOverlayLocalization.KEY_LEGEND_STATES
-		),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		panel.size.x - 24.0,
-		11,
-		INK_SOFT
-	)
 
 
 func build_node_modal_backdrop_model(
@@ -5557,6 +5514,18 @@ func _draw_route_wind_effect(canvas: Object, flow: Object) -> int:
 
 func debug_draw_route_wind_effect(canvas: Object, flow: Object) -> int:
 	return _draw_route_wind_effect(canvas, flow)
+
+
+func debug_draw_fullscreen_map_footer(canvas: Object, panel_rect: Rect2) -> void:
+	_draw_fullscreen_map_footer(canvas, panel_rect, ThemeDB.fallback_font, INK_SOFT)
+
+
+func debug_draw_fullscreen_map_node(
+	canvas: Object,
+	node: Dictionary,
+	content_rect: Rect2
+) -> void:
+	_draw_fullscreen_map_node(canvas, node, [], "", "", "", content_rect)
 
 
 func debug_draw_route_aim(canvas: Object, flow: Object) -> void:
