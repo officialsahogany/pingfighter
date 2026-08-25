@@ -269,6 +269,7 @@ func begin_tower_boss_transition(owner: Object, registry: Object, encounter: Dic
 	normalized["stage"] = stage_id
 	_tower_transition_encounter = normalized
 	_apply_tower_encounter_identity(owner, normalized)
+	_invalidate_stage_runtime_resources(registry)
 	_begin_stage_transition_loading(owner, registry, stage_id)
 	return true
 
@@ -631,6 +632,12 @@ func _prewarm_stage_transition_runtime_resources(owner: Object, registry: Object
 		return true
 	prewarm_controller.prewarm_stage_runtime_resources(owner, Callable(registry, "get_instance"))
 	return true
+
+
+func _invalidate_stage_runtime_resources(registry: Object) -> void:
+	var prewarm_controller: Object = _get_instance(registry, "battle_boot_resource_prewarm_controller")
+	if prewarm_controller != null and prewarm_controller.has_method("invalidate_stage_runtime_resources"):
+		prewarm_controller.invalidate_stage_runtime_resources()
 
 
 func _prewarm_stage_clear_result_transition_resources(owner: Object, registry: Object) -> bool:

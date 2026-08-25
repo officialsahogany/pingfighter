@@ -446,7 +446,7 @@ func _test_same_stage_frame_lane_rewarm() -> void:
 		"victory_highlight_recorder": recorder,
 	}
 	var controller := BattleBootResourcePrewarmController.new()
-	controller.stage_runtime_resources_prewarmed_for_stage = owner.current_stage
+	controller.stage_runtime_resources_prewarmed_for_key = "1:dalji"
 	var first_complete := controller.prewarm_stage_runtime_resources_step(
 		owner,
 		Callable(self, "_get_rewarm_module")

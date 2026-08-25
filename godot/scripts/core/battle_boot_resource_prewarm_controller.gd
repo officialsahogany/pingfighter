@@ -89,8 +89,8 @@ var battle_stage_clear_result_prewarmed: bool = false
 var battle_stage_clear_result_prewarmed_for := ""
 var stage_intro_resources_prewarmed: bool = false
 var stage_intro_resources_prewarm_step_index: int = 0
-var stage_runtime_resources_prewarmed_for_stage: int = 0
-var stage_runtime_prewarm_step_stage: int = 0
+var stage_runtime_resources_prewarmed_for_key := ""
+var stage_runtime_prewarm_step_key := ""
 var stage_runtime_prewarm_step_index: int = 0
 var stage_runtime_prewarm_detail_label: String = ""
 var victory_highlight_frame_lane_prewarmed := false
@@ -320,6 +320,13 @@ func prewarm_stage_runtime_resources(owner: Object, module_getter: Callable) -> 
 	_attach_battle_pso_prewarmer(owner)
 
 
+func invalidate_stage_runtime_resources() -> void:
+	stage_runtime_resources_prewarmed_for_key = ""
+	stage_runtime_prewarm_step_key = ""
+	stage_runtime_prewarm_step_index = 0
+	stage_runtime_prewarm_detail_label = ""
+
+
 func get_stage_runtime_prewarm_debug_label(owner: Object) -> String:
 	var current_stage: int = _get_current_stage(owner)
 	var step_index := stage_runtime_prewarm_step_index
@@ -335,15 +342,16 @@ func get_stage_runtime_prewarm_debug_label(owner: Object) -> String:
 
 func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable, wait_for_frame_gated_pso: bool = true) -> bool:
 	var current_stage: int = _get_current_stage(owner)
+	var prewarm_key := _get_stage_runtime_prewarm_key(owner, current_stage)
 	# Frame capture owns match-scoped resources while this controller's stage
 	# cache is stage-scoped. Reattach and revive that lane before consulting the
 	# stage gate so a same-stage rematch cannot inherit an unavailable recorder.
 	if not prewarm_victory_highlight_frame_lane_step(owner, module_getter):
 		return false
-	if stage_runtime_resources_prewarmed_for_stage == current_stage:
+	if stage_runtime_resources_prewarmed_for_key == prewarm_key:
 		return true
-	if stage_runtime_prewarm_step_stage != current_stage:
-		stage_runtime_prewarm_step_stage = current_stage
+	if stage_runtime_prewarm_step_key != prewarm_key:
+		stage_runtime_prewarm_step_key = prewarm_key
 		stage_runtime_prewarm_step_index = 0
 		stage_runtime_prewarm_detail_label = ""
 	var total_steps := (
@@ -367,8 +375,8 @@ func prewarm_stage_runtime_resources_step(owner: Object, module_getter: Callable
 	stage_runtime_prewarm_detail_label = ""
 	stage_runtime_prewarm_step_index += 1
 	if stage_runtime_prewarm_step_index >= total_steps:
-		stage_runtime_resources_prewarmed_for_stage = current_stage
-		stage_runtime_prewarm_step_stage = 0
+		stage_runtime_resources_prewarmed_for_key = prewarm_key
+		stage_runtime_prewarm_step_key = ""
 		stage_runtime_prewarm_step_index = 0
 		return true
 	return false
@@ -1588,6 +1596,11 @@ func _get_current_stage(owner: Object) -> int:
 	if owner == null:
 		return 1
 	return int(owner.get("current_stage"))
+
+
+func _get_stage_runtime_prewarm_key(owner: Object, current_stage: int) -> String:
+	var stage1_boss_variant := _get_stage1_boss_variant(owner) if current_stage == 1 else "default"
+	return "%d:%s" % [current_stage, stage1_boss_variant]
 
 
 func _get_selected_character_type(owner: Object) -> String:
