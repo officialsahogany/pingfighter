@@ -174,7 +174,8 @@ class FakeRegistry:
 func _verify_staged_prewarm_real_entry() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var state := RuntimePerkState.new()
-	state.runtime_skill_levels = {"item_luck": 5, "common_bulk_up": 5}
+	state.runtime_skill_levels = {"item_luck": 3, "common_bulk_up": 5}
+	_expect(int(catalog.get_perk_data("item_luck").get("max_level", 0)) == 3, "staged prewarm fixture should keep item_luck at the catalog max level")
 	var record: Dictionary = state.commit_perk_fusion(
 		["item_luck", "common_bulk_up"],
 		{"outcome": "success"},

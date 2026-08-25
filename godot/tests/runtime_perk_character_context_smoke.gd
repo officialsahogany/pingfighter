@@ -27,7 +27,7 @@ func _verify_character_aliases_and_keys() -> void:
 	_expect(context.normalize_character_type("unknown") == "smasher", "unknown character should fall back to smasher")
 	_expect(context.get_skill_config_key("soldier") == "commando_skill_config", "soldier should route to Commando skill config")
 	_expect(context.get_skill_state_key("viper") == "viper_skill_state", "viper should route to Viper skill state")
-	_expect(context.get_skill_config_key("optimus") == "", "optimus should preserve the no-config runtime-perk route")
+	_expect(context.get_skill_config_key("optimus") == "optimus_skill_config", "optimus should route to its shared skill config")
 
 
 func _verify_owner_character_type_compatibility() -> void:
@@ -35,7 +35,8 @@ func _verify_owner_character_type_compatibility() -> void:
 	_expect(context.get_owner_character_type(null) == "smasher", "null owner should fall back to smasher")
 	_expect(context.get_owner_character_type(FakeOwner.new({"selected_character_type": "commando"})) == "soldier", "owner Commando alias should read as soldier")
 	_expect(context.get_owner_character_type(FakeOwner.new({"selected_character_type": "viper"})) == "viper", "owner Viper should read as viper")
-	_expect(context.get_owner_character_type(FakeOwner.new({"selected_character_type": "optimus"})) == "smasher", "owner Optimus fallback should preserve existing state behavior")
+	_expect(context.get_owner_character_type(FakeOwner.new({"selected_character_type": "optimus"})) == "optimus", "owner Optimus should preserve its normalized character identity")
+	_expect(context.get_owner_character_type(FakeOwner.new({"selected_character_type": "io"})) == "optimus", "owner Io alias should preserve the Optimus identity")
 
 
 func _verify_stage_and_dash_token_fallbacks() -> void:

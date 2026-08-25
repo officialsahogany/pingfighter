@@ -31,6 +31,24 @@ func process(
 	var updated_ball_vel: Variant = bounce_result.get("ball_vel", ball_velocity)
 	if updated_ball_vel is Vector2:
 		response["ball_vel"] = updated_ball_vel
+	var dalji_vision_state: Object = deps.get("dalji_vision_chosik_state", null)
+	if (
+		not bool(bounce_result.get("rematch_requested", false))
+		and dalji_vision_state != null
+		and dalji_vision_state.has_method("consume_wall_rebound_speed_boost")
+	):
+		# The normal wall resolver damps first. Linked Tops instead derives its
+		# one-shot +30% exit from the pre-wall speed and remembers the effective
+		# pre-top speed for the eventual boss-guard restore.
+		var linked_top_result: Variant = dalji_vision_state.call(
+			"consume_wall_rebound_speed_boost",
+			_get_vector2(response, "ball_vel", ball_velocity),
+			side,
+			ball_velocity.length(),
+			impact_boost
+		)
+		if linked_top_result is Dictionary:
+			response.merge(linked_top_result as Dictionary, true)
 	if bool(bounce_result.get("rematch_requested", false)):
 		response["rematch_requested"] = true
 

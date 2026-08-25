@@ -15,8 +15,7 @@ const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_p
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const SmasherSkillOrbTooltipRenderer := preload("res://scripts/hud/smasher_skill_orb_tooltip_renderer.gd")
 const BattleSkillIconPaths := preload("res://scripts/resources/battle_skill_icon_paths.gd")
-const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
-const VictoryLootPhaseState := preload("res://scripts/core/victory_loot_phase_state.gd")
+const TowerRewardPickOfferBuilder := preload("res://scripts/tower_ascent/tower_reward_pick_offer_builder.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
@@ -117,14 +116,6 @@ class FakeVisionReflectionState:
 		}
 
 
-class FakeRuntimePerkState:
-	extends RefCounted
-	var runtime_skill_levels: Dictionary = {}
-	var collected := 0
-	func collect_star_points(amount: int, _character: String, _catalog: Object, _owner: Object, _registry: Object, _defer: bool) -> void:
-		collected += amount
-
-
 class FakeRegistry:
 	extends RefCounted
 	var instances: Dictionary = {}
@@ -134,10 +125,15 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
-class FakePlanBuilder:
+class FakeUnlockStore:
 	extends RefCounted
-	func build_reward_plan(_player_score: int, _boss_score: int) -> Dictionary:
-		return {"boxes": [{"kind": "normal"}, {"kind": "normal"}]}
+	var allowed_id := ""
+
+	func _init(new_allowed_id: String = "") -> void:
+		allowed_id = new_allowed_id
+
+	func is_unlocked(content_type: String, content_id: String) -> bool:
+		return content_type == "runtime_perk" and content_id == allowed_id
 
 
 class FakeInputReader:
@@ -162,7 +158,7 @@ func _init() -> void:
 	_verify_strict_shift_command_and_ball_return()
 	_verify_ball_update_owner_integration()
 	_verify_real_ball_update_contract()
-	_verify_reserved_offer_and_reward_box()
+	_verify_tower_reward_pick_contract()
 	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
 		print("dalji_vision_chosik_smoke: ok")
@@ -650,77 +646,41 @@ func _make_runtime_top(pos: Vector2) -> Dictionary:
 	}
 
 
-func _verify_reserved_offer_and_reward_box() -> void:
-	var catalog := RuntimePerkCatalog.new()
-	var unreserved_choices := catalog.get_choices("smasher", {}, false, 3)
-	_expect(not _has_choice(unreserved_choices, CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID), "Vision manual must not enter the ordinary random pool")
-	_expect(catalog.reserve_boss_vision_offer(CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID), "boss reward should reserve a valid Vision manual")
-	var choices := catalog.get_choices("smasher", {}, false, 3)
-	_expect_eq(str((choices[0] as Dictionary).get("id", "")), CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID, "reserved Vision manual should be the first card")
-	_expect_eq(str((choices[0] as Dictionary).get("offer_lane", "")), "boss_vision_reserved", "reserved card should expose its boss reward lane")
-	var full_catalog := RuntimePerkCatalog.new()
-	full_catalog.set_full_chosik_swap_offer_roll_for_tests(func() -> float: return 1.0)
-	full_catalog.reserve_boss_vision_offer(CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID)
-	var full_choices := full_catalog.get_choices("smasher", {
-		"unlock_plasma": 1,
-		"unlock_recovery_skill": 1,
-		"unlock_cleanse": 1,
-	}, false, 3)
-	_expect_eq(str((full_choices[0] as Dictionary).get("id", "")), CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID, "boss reservation must bypass the ordinary full-Chosik random gate")
-
-	var loot_state := VictoryLootPhaseState.new()
-	loot_state._plan_builder = FakePlanBuilder.new()
-	loot_state.set_vision_offer_roll_for_tests(func() -> float: return 0.1999)
-	var runtime_state := FakeRuntimePerkState.new()
-	var reward_catalog := RuntimePerkCatalog.new()
-	var registry := FakeRegistry.new({"runtime_perk_state": runtime_state, "runtime_perk_catalog": reward_catalog})
+func _verify_tower_reward_pick_contract() -> void:
+	var unlock_id := CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+	var boss_slot_id := "floor_01_dalji"
+	var builder := TowerRewardPickOfferBuilder.new()
 	var owner := FakeOwner.new()
-	_expect(loot_state.start(owner, registry, 3, 0, Callable()), "Dalji victory should start loot phase")
-	_expect_eq(int(loot_state.get_status_for_tests().get("vision_offer_box_count", 0)), 1, "one screen-level success roll should mark exactly one box")
-	var vision_box: Dictionary = {}
-	for box_value: Variant in loot_state.boxes:
-		if box_value is Dictionary and str((box_value as Dictionary).get("boss_vision_offer_id", "")) != "":
-			vision_box = box_value as Dictionary
-			break
-	var vision_box_sheet_path := loot_state.get_box_sheet_path_for_tests(vision_box)
-	_expect_eq(vision_box_sheet_path, VictoryLootPhaseState.DALJI_VISION_BOX_SHEET_PATH, "Vision reward box should use the dedicated Dalji opening sheet")
-	_verify_transparent_sheet(vision_box_sheet_path, Vector2i(4, 4), Vector2i(256, 256), "vision reward box")
-	var threshold_miss_loot_state := VictoryLootPhaseState.new()
-	threshold_miss_loot_state._plan_builder = FakePlanBuilder.new()
-	threshold_miss_loot_state.set_vision_offer_roll_for_tests(func() -> float: return 0.20)
-	threshold_miss_loot_state.start(FakeOwner.new(), registry, 3, 0, Callable())
-	_expect_eq(int(threshold_miss_loot_state.get_status_for_tests().get("vision_offer_box_count", 0)), 0, "a roll at the exclusive 20-percent upper bound must miss")
-	var gaksi_loot_state := VictoryLootPhaseState.new()
-	gaksi_loot_state._plan_builder = FakePlanBuilder.new()
-	gaksi_loot_state.set_vision_offer_roll_for_tests(func() -> float: return 0.0)
-	var gaksi_owner := FakeOwner.new()
-	gaksi_owner.stage1_boss_variant = "gaksi"
-	gaksi_loot_state.start(gaksi_owner, registry, 3, 0, Callable())
-	_expect_eq(int(gaksi_loot_state.get_status_for_tests().get("vision_offer_box_count", 0)), 0, "Gaksi victory must not drop Dalji's manual")
-	var owned_loot_state := VictoryLootPhaseState.new()
-	owned_loot_state._plan_builder = FakePlanBuilder.new()
-	owned_loot_state.set_vision_offer_roll_for_tests(func() -> float: return 0.0)
-	runtime_state.runtime_skill_levels[CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID] = 1
-	owned_loot_state.start(FakeOwner.new(), registry, 3, 0, Callable())
-	_expect_eq(int(owned_loot_state.get_status_for_tests().get("vision_offer_box_count", 0)), 0, "owned Vision manual must not drop again")
-	runtime_state.runtime_skill_levels.clear()
-
-	var resolver := StageClearRewardResolver.new()
-	var summary := resolver.grant_rewards([{
-		"type": "starpoint",
-		"amount": 1,
-		"reserved_perk_offer_id": CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID,
-	}], owner, registry)
-	_expect_eq(int(summary.get("granted", 0)), 1, "Vision manual reward should grant one perk choice point")
-	_expect(reward_catalog.has_reserved_boss_vision_offer(), "reward resolver should reserve the boss Vision choice before opening it")
-	_expect_eq(runtime_state.collected, 1, "reward should collect exactly one choice point")
-
-
-func _has_choice(choices: Array, choice_id: String) -> bool:
-	for value: Variant in choices:
-		if value is Dictionary and str((value as Dictionary).get("id", "")) == choice_id:
-			return true
-	return false
+	var registry := FakeRegistry.new({
+		"tower_ascent_unlock_store": FakeUnlockStore.new(unlock_id),
+		"smasher_skill_config": SmasherSkillConfig.new(),
+	})
+	var choice: Dictionary = builder._build_vision_choice(
+		boss_slot_id,
+		{"skipped_boss_ids": [], "burned_vision_boss_ids": []},
+		owner,
+		registry,
+		{}
+	)
+	_expect_eq(str(choice.get("id", "")), unlock_id, "Dalji boss slot should build the live Tower Vision choice")
+	_expect_eq(str(choice.get("boss_slot_id", "")), boss_slot_id, "Vision choice should retain the selected map boss slot")
+	_expect_eq(str(choice.get("reward_pick_kind", "")), "vision", "Vision choice should use the Tower reward-pick lane")
+	_expect_eq(int(choice.get("current_level", -1)), 0, "unowned Vision choice should begin at level zero")
+	_expect_eq(int(choice.get("next_level", -1)), 1, "unowned Vision choice should grant level one")
+	_expect(builder._build_vision_choice(
+		"floor_02_cheongringwi",
+		{},
+		owner,
+		registry,
+		{}
+	).is_empty(), "a different selected boss slot must not leak Dalji's Vision reward")
+	var locked_registry := FakeRegistry.new({
+		"tower_ascent_unlock_store": FakeUnlockStore.new(),
+		"smasher_skill_config": SmasherSkillConfig.new(),
+	})
+	_expect(builder._build_vision_choice(boss_slot_id, {}, owner, locked_registry, {}).is_empty(), "locked Dalji Vision content must not enter the Tower reward pick")
+	_expect(builder._build_vision_choice(boss_slot_id, {"skipped_boss_ids": [boss_slot_id]}, owner, registry, {}).is_empty(), "a skipped Dalji boss must not grant its Vision reward")
+	_expect(builder._build_vision_choice(boss_slot_id, {}, owner, registry, {unlock_id: 1}).is_empty(), "an owned Dalji Vision manual must not be offered again")
 
 
 func _verify_transparent_icon(path: String, expected_size: Vector2i, label: String) -> void:
@@ -738,24 +698,6 @@ func _verify_transparent_icon(path: String, expected_size: Vector2i, label: Stri
 	var used_rect := image.get_used_rect()
 	_expect(used_rect.position.x > 0 and used_rect.position.y > 0, "%s visible alpha bounds should not touch the top or left edge" % label)
 	_expect(used_rect.end.x < expected_size.x and used_rect.end.y < expected_size.y, "%s visible alpha bounds should not touch the bottom or right edge" % label)
-
-
-func _verify_transparent_sheet(path: String, grid: Vector2i, cell_size: Vector2i, label: String) -> void:
-	var texture: Texture2D = load(path) as Texture2D
-	_expect(texture != null, "%s sheet should load as Texture2D" % label)
-	if texture == null:
-		return
-	var image: Image = texture.get_image()
-	_expect(image != null and not image.is_empty(), "%s sheet should expose image data" % label)
-	if image == null or image.is_empty():
-		return
-	_expect_eq(image.get_size(), grid * cell_size, "%s sheet dimensions" % label)
-	for row in range(grid.y):
-		for column in range(grid.x):
-			var cell := image.get_region(Rect2i(Vector2i(column, row) * cell_size, cell_size))
-			var used_rect := cell.get_used_rect()
-			_expect(not used_rect.has_area() or (used_rect.position.x > 0 and used_rect.position.y > 0), "%s frame %d,%d alpha should not touch top or left" % [label, column, row])
-			_expect(not used_rect.has_area() or (used_rect.end.x < cell_size.x and used_rect.end.y < cell_size.y), "%s frame %d,%d alpha should not touch bottom or right" % [label, column, row])
 
 
 func _expect(condition: bool, message: String) -> void:

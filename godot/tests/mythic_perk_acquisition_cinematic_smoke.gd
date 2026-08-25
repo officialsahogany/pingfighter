@@ -12,6 +12,7 @@ const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catal
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
+const TowerAscentChestContract := preload("res://scripts/tower_ascent/tower_ascent_chest_contract.gd")
 
 const CAPTURE_PREARM_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal_prearm.png"
 const CAPTURE_ARMED_PATH := "res://../.tmp/mythic_perk_acquisition_cinematic/mythic_perk_reveal_armed.png"
@@ -65,9 +66,18 @@ class FakeRegistry:
 
 	func _init(new_instances: Dictionary = {}) -> void:
 		instances = new_instances
+		if not instances.has("tower_ascent_unlock_store"):
+			instances["tower_ascent_unlock_store"] = FakeUnlockStore.new()
 
 	func get_instance(key: String) -> Object:
 		return instances.get(key, null)
+
+
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
 
 
 class OneMythicCatalog:
@@ -179,8 +189,15 @@ func _verify_mythic_box_choice_opens_and_selection_starts_cinematic() -> void:
 		"runtime_perk_catalog": perk_catalog,
 	})
 	var resolver := StageClearRewardResolver.new()
-	var reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
-	_expect(str(reward.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON mythic box should roll a mythic perk choice reward")
+	var reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
+	_expect(str(reward.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON supreme-art chest should roll a mythic perk choice reward")
+	var retired_reward := resolver.roll_reward(
+		StageClearRewardResolver.BOX_GUARANTEED_MYTHIC,
+		owner,
+		registry,
+		0.999999
+	)
+	_expect(str(retired_reward.get("type", "")) != StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "retired guaranteed-mythic id must not bypass the flag-ON normal chest lane")
 	_expect(str(reward.get("perk_id", "")) == "", "mythic perk choice reward should not pre-pick a perk id")
 
 	var summary: Dictionary = resolver.grant_rewards([reward], owner, registry)
@@ -233,8 +250,8 @@ func _verify_mythic_box_choice_forwards_box_coordinates_to_cinematic() -> void:
 		"runtime_perk_catalog": perk_catalog,
 	})
 	var resolver := StageClearRewardResolver.new()
-	var reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
-	_expect(str(reward.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "guaranteed mythic box should roll a mythic perk choice reward")
+	var reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
+	_expect(str(reward.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "supreme-art chest should roll a mythic perk choice reward")
 	# 상자 오픈 payload(build_immediate_reward_payload)가 싣는 상자 위치 좌표를 모사.
 	var box_pickup := Vector2(232.0, 306.0)
 	var box_player_center := Vector2(612.0, 286.0)
@@ -341,7 +358,7 @@ func _verify_guaranteed_angel_choice_reserves_next_intro() -> void:
 		"runtime_perk_catalog": perk_catalog,
 	})
 	var resolver := StageClearRewardResolver.new()
-	var reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
+	var reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
 	var summary: Dictionary = resolver.grant_rewards([reward], owner, registry)
 	_expect(int(summary.get("mythic_perk_choice_opened", 0)) == 1, "guaranteed mythic channel should open when Angel is the only eligible card")
 	_expect(perk_state.current_choices.size() == 1, "Angel-only guaranteed mythic pool should produce one card")
@@ -424,7 +441,7 @@ func _verify_mythic_perk_choice_fallback_does_not_start_cinematic() -> void:
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	})
 	var resolver := StageClearRewardResolver.new()
-	var reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
+	var reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
 	_expect(str(reward.get("type", "")) == StageClearRewardResolver.REWARD_STARPOINT, "slot-full mythic perk choice roll should fall back to starpoints")
 	var summary: Dictionary = resolver.grant_rewards([reward], owner, registry)
 	_expect(int(summary.get("starpoint_granted", 0)) == 3, "slot-full mythic_perk fallback should grant starpoints")
@@ -445,7 +462,7 @@ func _verify_single_unowned_mythic_choice() -> void:
 		"runtime_perk_catalog": perk_catalog,
 	})
 	var resolver := StageClearRewardResolver.new()
-	var reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
+	var reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
 	var summary: Dictionary = resolver.grant_rewards([reward], owner, registry)
 	_expect(int(summary.get("mythic_perk_choice_opened", 0)) == 1, "one available mythic should still open the mythic choice modal")
 	_expect(perk_state.current_choices.size() == 1, "one available mythic should produce a one-card choice")

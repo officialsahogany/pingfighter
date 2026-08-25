@@ -90,7 +90,7 @@ func _verify_runtime_routing() -> void:
 	var runtime: Object = PlayerCharacterRuntime.new()
 	_expect(runtime.normalize("io") == "optimus", "Io alias should normalize to Optimus runtime")
 	_expect(runtime.get_player_controller_key("optimus") == "optimus_player_controller", "Optimus should route to its player controller")
-	_expect(runtime.get_skill_config_key("optimus") == "", "Optimus v1 should not expose Smasher skill config")
+	_expect(runtime.get_skill_config_key("optimus") == "optimus_skill_config", "Optimus should expose its shared skill config")
 	_expect(runtime.get_combo_state_key("optimus") == "", "Optimus v1 should not expose Smasher combo state")
 
 

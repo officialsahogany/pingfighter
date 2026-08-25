@@ -13,6 +13,8 @@ const StageClearResultImmediateRewardGrantData := preload("res://scripts/core/st
 const StageClearResultRewardCardDrawHelper := preload("res://scripts/ui/stage_clear_result_reward_card_draw_helper.gd")
 const StageClearResultSummaryBuilder := preload("res://scripts/ui/stage_clear_result_summary_builder.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
+const TowerAscentChestContract := preload("res://scripts/tower_ascent/tower_ascent_chest_contract.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 const RESULT_RENDER_CAPTURE_PATH := "res://../.tmp/perk_conversion_s5a/mythic_perk_result_card.png"
 
@@ -47,9 +49,30 @@ class FakeRegistry:
 
 	func _init(new_instances: Dictionary = {}) -> void:
 		instances = new_instances
+		if not instances.has("tower_ascent_unlock_store"):
+			instances["tower_ascent_unlock_store"] = FakeUnlockStore.new()
 
 	func get_instance(key: String) -> Object:
 		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
+
+
+class FakeTowerFlowOwner:
+	extends RefCounted
+	var collected_muhon := 0
+
+	func collect_muhon(amount: int, _owner: Object) -> Dictionary:
+		collected_muhon += amount
+		return {"accepted": true, "amount": amount}
 
 
 class CountingMythicRuntime:
@@ -117,9 +140,9 @@ func _init() -> void:
 
 func _run() -> void:
 	PerkConversionFlags.debug_set_enabled(false)
-	_verify_flag_off_legacy_mythic_routes()
+	_verify_conversion_off_current_tower_routes()
 	_verify_flag_on_stage_clear_mythic_perk_grant()
-	_verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback()
+	_verify_slot_full_mythic_perk_reward_collects_tower_muhon()
 	_verify_flag_on_field_and_pandora_mythic_suppression()
 	_verify_all_owned_fallback_starpoints()
 	await _verify_result_screen_card_uses_animated_mythic_perk_icon()
@@ -134,15 +157,19 @@ func _run() -> void:
 	quit(1)
 
 
-func _verify_flag_off_legacy_mythic_routes() -> void:
+func _verify_conversion_off_current_tower_routes() -> void:
 	var resolver := StageClearRewardResolver.new()
 	PerkConversionFlags.debug_set_enabled(false)
-	_expect(str(resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC).get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC, "flag-OFF guaranteed mythic box should stay mythic item")
+	var registry := FakeRegistry.new()
+	_expect(TowerAscentFeatureFlags.is_vertical_slice_enabled(), "conversion smoke should exercise the default flag-ON Tower lane")
+	_expect(str(resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, null, registry).get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "Tower supreme-art chest should keep its mythic-perk choice lane when conversion is off")
 	_expect(str(resolver._roll_normal_box_reward(null, null, 0.99).get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC, "flag-OFF normal mythic lane should stay mythic item")
 	_expect(str(resolver._roll_advanced_box_reward(null, null, 0.0).get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC, "flag-OFF advanced mythic lane should stay mythic item")
 
-	var field_candidates: Array[Dictionary] = ActiveItemFieldSpawnPool.new().build_spawn_candidates(FakeRegistry.new())
-	_expect(_count_spawn_group(field_candidates, "mythic") > 0, "flag-OFF field spawn should still include mythic item candidates")
+	var field_candidates: Array[Dictionary] = ActiveItemFieldSpawnPool.new().build_spawn_candidates(registry)
+	_expect(_count_spawn_group(field_candidates, "active") > 0, "flag-OFF Tower field spawn should keep active candidates")
+	_expect(_count_spawn_group(field_candidates, "passive") == 0, "flag-OFF Tower field spawn should still suppress passive equipment")
+	_expect(_count_spawn_group(field_candidates, "mythic") == 0, "flag-OFF Tower field spawn should still suppress mythic equipment")
 	var pandora_builder := PandoraLegacyPoolBuilder.new()
 	_expect(not pandora_builder.build_mythic_pool(MythicItemCatalog.new()).is_empty(), "flag-OFF Pandora mythic pool should stay populated")
 
@@ -160,8 +187,8 @@ func _verify_flag_on_stage_clear_mythic_perk_grant() -> void:
 		"runtime_perk_state": perk_state,
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	})
-	var guaranteed: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
-	_expect(str(guaranteed.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON guaranteed mythic box should roll mythic_perk_choice")
+	var guaranteed: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
+	_expect(str(guaranteed.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "flag-ON supreme-art chest should roll mythic_perk_choice")
 	_expect(str(guaranteed.get("perk_id", "")) == "", "flag-ON mythic_perk_choice reward should not carry a pre-picked perk_id")
 
 	var summary: Dictionary = resolver.grant_rewards([guaranteed], owner, registry)
@@ -221,7 +248,7 @@ func _verify_flag_on_stage_clear_mythic_perk_grant() -> void:
 	immediate_choice_owner.queue_free()
 
 
-func _verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback() -> void:
+func _verify_slot_full_mythic_perk_reward_collects_tower_muhon() -> void:
 	# 상자에서 온 mythic_perk 보상이 grant 시점에 (모든 신화퍽 소유로) 스타포인트 폴백되면,
 	# 결과화면의 지연 선택 게이트 / 박스별 보상 추적 플로우를 타도록 defer_starpoint_choice
 	# 를 반환해야 한다. 폴백이 지연 플래그를 물려받지 않으면 폴백 선택 모달이 게이트를 우회해
@@ -237,6 +264,8 @@ func _verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback() -> voi
 		"runtime_perk_state": perk_state,
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	})
+	var flow_owner := FakeTowerFlowOwner.new()
+	registry.instances["tower_ascent_flow_owner"] = flow_owner
 	var resolver := StageClearRewardResolver.new()
 	var reward := {"type": "mythic_perk", "perk_id": "odins_eye", "id": "odins_eye", "fallback_starpoints": 3}
 
@@ -276,6 +305,8 @@ func _verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback() -> voi
 		"runtime_perk_state": choice_perk_state,
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 	})
+	var choice_flow_owner := FakeTowerFlowOwner.new()
+	choice_registry.instances["tower_ascent_flow_owner"] = choice_flow_owner
 	var choice_reward := {"type": "mythic_perk_choice", "choice_count": 3, "fallback_starpoints": 3}
 	var choice_deferred_result: Dictionary = StageClearResultImmediateRewardGrantData.grant_immediate_box_reward(
 		choice_reward,
@@ -288,7 +319,9 @@ func _verify_slot_full_mythic_perk_box_reward_defers_starpoint_fallback() -> voi
 	_expect(not bool(choice_deferred_result.get("mythic_perk_choice_opened", false)), "grant-time mythic_perk_choice fallback should not report an opened choice")
 	_expect(bool(choice_deferred_result.get("defer_starpoint_choice", false)), "grant-time mythic_perk_choice fallback should request the deferred starpoint choice")
 	_expect(not choice_perk_state.is_choice_active(), "deferred mythic_perk_choice fallback should not open the perk choice modal immediately")
-	_expect(int(choice_perk_state.pending_skill_choices) >= 1, "deferred mythic_perk_choice fallback should bank pending choices for the deferred open")
+	_expect(int(choice_perk_state.pending_skill_choices) == 0, "Tower mythic-perk fallback should not bank a retired battle choice")
+	_expect(choice_flow_owner.collected_muhon == 3, "Tower mythic-perk choice fallback should collect its three Muhon")
+	_expect(flow_owner.collected_muhon == 6, "both direct mythic-perk fallback grants should collect three Muhon")
 	choice_owner.queue_free()
 	owner.queue_free()
 
@@ -324,12 +357,15 @@ func _verify_all_owned_fallback_starpoints() -> void:
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 		"mythic_item_runtime": CountingMythicRuntime.new(),
 	})
+	var flow_owner := FakeTowerFlowOwner.new()
+	registry.instances["tower_ascent_flow_owner"] = flow_owner
 	var resolver := StageClearRewardResolver.new()
-	var fallback_reward: Dictionary = resolver.roll_reward(StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, owner, registry)
+	var fallback_reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, owner, registry)
 	_expect(str(fallback_reward.get("type", "")) == StageClearRewardResolver.REWARD_STARPOINT, "all-owned mythic_perk roll should fall back to starpoints")
 	_expect(int(fallback_reward.get("amount", 0)) >= 1 and int(fallback_reward.get("amount", 0)) <= 3, "mythic_perk fallback starpoints should stay in ★1-3 range")
 	var summary: Dictionary = resolver.grant_rewards([fallback_reward], owner, registry)
 	_expect(int(summary.get("starpoint_granted", 0)) == int(fallback_reward.get("amount", 0)), "all-owned fallback should grant the fallback starpoint amount")
+	_expect(flow_owner.collected_muhon == int(fallback_reward.get("amount", 0)), "all-owned Tower fallback should collect the same Muhon amount")
 	owner.queue_free()
 
 
@@ -339,7 +375,7 @@ func _verify_result_screen_card_uses_animated_mythic_perk_icon() -> void:
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 		"runtime_perk_state": RuntimePerkState.new(),
 	}))
-	var boxes := [{"kind": StageClearRewardResolver.BOX_GUARANTEED_MYTHIC, "state": "opened", "reward": reward}]
+	var boxes := [{"kind": TowerAscentChestContract.CHEST_SUPREME_ART, "state": "opened", "reward": reward}]
 	var summary_state: Dictionary = StageClearResultSummaryBuilder.build_result_summary_state({}, boxes)
 	_expect(int(summary_state.get("perk_reward_count", 0)) == 1, "result summary should classify mythic_perk box reward as a perk")
 	_expect(int(summary_state.get("item_reward_count", 0)) == 0, "result summary should not classify mythic_perk box reward as an item")

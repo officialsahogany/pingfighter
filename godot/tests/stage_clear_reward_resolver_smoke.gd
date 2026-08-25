@@ -9,6 +9,8 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const StageClearRewardResolver := preload("res://scripts/core/stage_clear_reward_resolver.gd")
+const TowerAscentChestContract := preload("res://scripts/tower_ascent/tower_ascent_chest_contract.gd")
+const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
 
 var _failures: Array[String] = []
 
@@ -63,11 +65,32 @@ class FakeNodeOwner:
 class FakeRegistry:
 	var instances: Dictionary = {}
 
-	func _init(new_instances: Dictionary) -> void:
+	func _init(new_instances: Dictionary = {}) -> void:
 		instances = new_instances
+		if not instances.has("tower_ascent_unlock_store"):
+			instances["tower_ascent_unlock_store"] = FakeUnlockStore.new()
 
 	func get_instance(key: String) -> Object:
 		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
+
+
+class FakeTowerFlowOwner:
+	extends RefCounted
+	var collected_muhon := 0
+
+	func collect_muhon(amount: int, _owner: Object) -> Dictionary:
+		collected_muhon += amount
+		return {"accepted": true, "amount": amount}
 
 
 class FakeCinematicMythicRuntime:
@@ -158,6 +181,8 @@ func _verify_module_registration() -> void:
 
 func _verify_roll_contract() -> void:
 	var resolver: Object = StageClearRewardResolver.new()
+	var registry := FakeRegistry.new()
+	_expect(TowerAscentFeatureFlags.is_vertical_slice_enabled(), "reward smoke should exercise the default flag-ON Tower lane")
 	_expect(not resolver._is_advanced_box_kind("advanced"), "advanced must no longer be recognized as a live box tier")
 	_expect(not resolver._is_advanced_box_kind("mythic"), "the legacy mythic alias must no longer revive the advanced tier")
 	_expect(resolver._resolve_advanced_box_reward_type(0.0) == "mythic", "advanced boxes should map the low 3 percent to mythic items")
@@ -167,52 +192,27 @@ func _verify_roll_contract() -> void:
 	_expect(resolver._resolve_advanced_box_reward_type(0.28) == "advanced_starpoint_3", "advanced boxes should map the next 10 percent to three-starpoint rewards")
 	_expect(resolver._resolve_advanced_box_reward_type(0.379) == "advanced_starpoint_3", "advanced box three-starpoint range should end before 38 percent")
 	_expect(resolver._resolve_advanced_box_reward_type(0.38) == "passive", "advanced boxes should map the upper 62 percent to passive items")
-	_expect(str(resolver.roll_reward("advanced").get("type", "")) in ["active", "mythic", "starpoint", "passive"], "retired advanced ids should fall through to the normal reward lane")
-	_expect(str(resolver.roll_reward("mythic").get("type", "")) in ["active", "mythic", "starpoint", "passive"], "legacy mythic ids should fall through to the normal reward lane")
-	var guaranteed_reward: Dictionary = resolver.roll_reward("guaranteed_mythic")
-	_expect(str(guaranteed_reward.get("type", "")) == "mythic", "guaranteed mythic boxes should always roll a mythic item")
-	_expect(str(guaranteed_reward.get("item_name", "")) != "", "guaranteed mythic reward should carry a grantable item name")
-	_expect(str(guaranteed_reward.get("icon_path", "")) != "", "guaranteed mythic reward should expose the real item icon path")
+	_expect(str(resolver.roll_reward("advanced", null, registry).get("type", "")) in ["active", "mythic", "starpoint", "passive"], "retired advanced ids should fall through to the flag-ON normal reward lane")
+	_expect(str(resolver.roll_reward("mythic", null, registry).get("type", "")) in ["active", "mythic", "starpoint", "passive"], "legacy mythic ids should fall through to the flag-ON normal reward lane")
+	var retired_reward: Dictionary = resolver.roll_reward("guaranteed_mythic", null, registry, 0.999999)
+	_expect(str(retired_reward.get("type", "")) == "starpoint", "retired guaranteed-mythic id should follow the flag-ON normal chest lane")
+	var supreme_reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_SUPREME_ART, null, registry)
+	_expect(str(supreme_reward.get("type", "")) == StageClearRewardResolver.REWARD_MYTHIC_PERK_CHOICE, "supreme-art chest should use the live guaranteed mythic-perk channel")
+	_expect(int(supreme_reward.get("choice_count", 0)) == 3, "supreme-art reward should preserve the three-card choice contract")
 
-	var mythic_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.0)
-	_expect(str(mythic_reward.get("type", "")) == "mythic", "advanced box low roll should return a mythic item reward")
-	_expect(str(mythic_reward.get("item_name", "")) != "", "mythic item reward should carry a grantable item name")
-	_expect(str(mythic_reward.get("icon_path", "")) != "", "mythic item reward should expose the real item icon path")
-	var starpoint_double_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.03)
+	var starpoint_double_reward: Dictionary = resolver._roll_advanced_box_reward(null, registry, 0.03)
 	_expect(str(starpoint_double_reward.get("type", "")) == "starpoint", "advanced box middle roll should return starpoints")
 	_expect(int(starpoint_double_reward.get("amount", 0)) == 2, "advanced box two-starpoint reward should grant two points")
-	var starpoint_triple_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.28)
+	var starpoint_triple_reward: Dictionary = resolver._roll_advanced_box_reward(null, registry, 0.28)
 	_expect(str(starpoint_triple_reward.get("type", "")) == "starpoint", "advanced box upper-middle roll should return starpoints")
 	_expect(int(starpoint_triple_reward.get("amount", 0)) == 3, "advanced box three-starpoint reward should grant three points")
-	var passive_reward: Dictionary = resolver._roll_advanced_box_reward(null, null, 0.38)
-	_expect(str(passive_reward.get("type", "")) == "passive", "advanced box high roll should return a passive item")
-	_expect(str(passive_reward.get("item_name", "")) != "", "advanced box passive reward should carry a grantable item name")
-	_expect(str(passive_reward.get("icon_path", "")) != "", "advanced box passive reward should expose the real item icon path")
-
-	var normal_counts := {
-		"active": 0,
-		"passive": 0,
-		"starpoint": 0,
-		"mythic": 0,
-	}
-	for _i in range(400):
-		var normal_reward: Dictionary = resolver.roll_reward("normal")
-		var reward_type: String = str(normal_reward.get("type", ""))
-		_expect(
-			reward_type in ["active", "passive", "starpoint", "mythic"],
-			"normal box should roll active, passive, starpoint, or mythic rewards"
-		)
-		if normal_counts.has(reward_type):
-			normal_counts[reward_type] = int(normal_counts[reward_type]) + 1
-		if reward_type == "starpoint":
-			var amount: int = int(normal_reward.get("amount", 0))
-			_expect(amount == 1, "normal box starpoint rewards should grant exactly one perk choice")
-		else:
-			_expect(str(normal_reward.get("icon_path", "")) != "", "item rewards should expose the real item icon path")
-	var normal_mythic_reward: Dictionary = resolver._roll_normal_box_reward(null, null, 0.99)
-	_expect(str(normal_mythic_reward.get("type", "")) == "mythic", "normal box upper range should return a mythic item")
-	_expect(str(normal_mythic_reward.get("item_name", "")) != "", "normal box mythic reward should carry a grantable item name")
-	_expect(str(normal_mythic_reward.get("icon_path", "")) != "", "normal box mythic reward should expose the real item icon path")
+	var active_reward: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_NORMAL, null, registry, 0.10)
+	_expect(str(active_reward.get("type", "")) == "active", "flag-ON normal chest should retain the active-item segment")
+	_expect(str(active_reward.get("item_name", "")) != "", "flag-ON active reward should carry a grantable item name")
+	_expect(str(active_reward.get("icon_path", "")) != "", "flag-ON active reward should expose its catalog icon path")
+	var normal_starpoint: Dictionary = resolver.roll_reward(TowerAscentChestContract.CHEST_NORMAL, null, registry, 0.999999)
+	_expect(str(normal_starpoint.get("type", "")) == "starpoint", "flag-ON normal chest upper range should remain in the normal starpoint lane")
+	_expect(int(normal_starpoint.get("amount", 0)) == 1, "flag-ON normal chest starpoint reward should grant one Muhon unit")
 
 
 func _verify_normal_box_reward_odds() -> void:
@@ -270,6 +270,11 @@ func _verify_grant_paths() -> void:
 	var speedboots: Dictionary = mythic_catalog.build_item_by_name("speedboots")
 	var megingjord: Dictionary = mythic_catalog.build_item_by_name("megingjord")
 	var elixir_of_mastery: Dictionary = active_catalog.build_item_by_name("elixir_of_mastery")
+	_expect(str(speedboots.get("icon_path", "")) != "", "passive catalog reward should expose the real item icon path")
+	_expect(str(megingjord.get("icon_path", "")) != "", "mythic catalog reward should expose the real item icon path")
+	_expect(str(elixir_of_mastery.get("icon_path", "")) != "", "mythic-rarity active reward should expose the real item icon path")
+	var tower_flow_owner := FakeTowerFlowOwner.new()
+	registry.instances["tower_ascent_flow_owner"] = tower_flow_owner
 	var resolver: Object = StageClearRewardResolver.new()
 	var summary: Dictionary = resolver.grant_rewards([
 		{"type": "active", "item_name": "gauge_charge", "label": "Gauge Charge"},
@@ -289,8 +294,9 @@ func _verify_grant_paths() -> void:
 	_expect(mythic_runtime.has_owned_item_name("speedboots"), "passive reward should enter mythic/passive runtime inventory")
 	_expect(mythic_runtime.has_owned_item_name("megingjord"), "mythic reward should enter mythic/passive runtime inventory")
 	_expect(not mythic_runtime.has_owned_item_name("elixir_of_mastery"), "Daeseong Yeongdan reward should not enter mythic equipment inventory")
-	_expect(bool(perk_state.is_choice_active()), "starpoint reward should open the runtime perk choice flow")
-	_expect(owner.runtime_perk_pending_choices == 1, "starpoint reward should sync one pending perk choice to the owner")
+	_expect(not bool(perk_state.is_choice_active()), "flag-ON starpoint reward should not reopen the retired battle choice flow")
+	_expect(owner.runtime_perk_pending_choices == 0, "flag-ON starpoint reward should leave pending perk choices untouched")
+	_expect(tower_flow_owner.collected_muhon == 1, "flag-ON starpoint reward should collect exactly one Muhon through the cached Tower owner")
 	active_runtime.reset()
 	mythic_runtime.reset()
 	perk_state.reset()

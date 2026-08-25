@@ -217,7 +217,9 @@ func _test_fusion_hover_reaches_right_panel() -> void:
 	var renderer: Object = RuntimePerkOverlayRenderer.new()
 	var catalog: Object = RuntimePerkCatalog.new()
 	var projector: Object = PerkFusionDisplayProjection.new()
-	var levels := {"common_swiftness": 5, "item_luck": 5}
+	var levels := {"common_swiftness": 5, "item_luck": 3}
+	_expect(int(catalog.get_perk_data("common_swiftness").get("max_level", 0)) == int(levels["common_swiftness"]), "fusion fixture should keep common_swiftness at the catalog max level")
+	_expect(int(catalog.get_perk_data("item_luck").get("max_level", 0)) == int(levels["item_luck"]), "fusion fixture should keep item_luck at the catalog max level")
 	var record := {
 		"fusion_id": "fusion_0",
 		"sources": ["common_swiftness", "item_luck"],

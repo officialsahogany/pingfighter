@@ -31,7 +31,7 @@ const Stage2WaterCannonPayloadFactory := preload(
 const Stage2WaterFragmentPlayerHitApplier := preload(
 	"res://scripts/stages/stage2/stage2_water_fragment_player_hit_applier.gd"
 )
-const VictoryLootPhaseState := preload("res://scripts/core/victory_loot_phase_state.gd")
+const TowerRewardPickOfferBuilder := preload("res://scripts/tower_ascent/tower_reward_pick_offer_builder.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
 
 const SKILL_ID := CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_ID
@@ -207,10 +207,15 @@ class FakeRegistry:
 		return instances.get(key, null)
 
 
-class FakePlanBuilder:
+class FakeUnlockStore:
 	extends RefCounted
-	func build_reward_plan(_player_score: int, _boss_score: int) -> Dictionary:
-		return {"boxes": [{"kind": "normal"}, {"kind": "normal"}]}
+	var allowed_id := ""
+
+	func _init(new_allowed_id: String = "") -> void:
+		allowed_id = new_allowed_id
+
+	func is_unlocked(content_type: String, content_id: String) -> bool:
+		return content_type == "runtime_perk" and content_id == allowed_id
 
 
 func _init() -> void:
@@ -223,7 +228,7 @@ func _init() -> void:
 	_verify_strict_command_and_quake_rockfall()
 	_verify_fragment_boss_knockback_contract()
 	_verify_real_ball_update_contract()
-	_verify_stage2_reward_box_contract()
+	_verify_stage2_tower_reward_pick_contract()
 	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
 		print("cheongringwi_vision_chosik_smoke: ok")
@@ -685,43 +690,34 @@ func _verify_real_ball_update_contract() -> void:
 	_expect_eq((deps.get("feedback") as FakeFeedback).hit_shake_calls, 1, "the rock break should request the Stage 2 boss hit shake")
 
 
-func _verify_stage2_reward_box_contract() -> void:
-	var catalog := RuntimePerkCatalog.new()
-	_expect(not _has_choice(catalog.get_choices("smasher", {}, false, 3), UNLOCK_ID), "Stage 2 manual must not enter the ordinary random pool")
-	_expect(catalog.reserve_boss_vision_offer(UNLOCK_ID), "Stage 2 boss reward should reserve its manual")
-	var reserved_choices := catalog.get_choices("smasher", {}, false, 3)
-	_expect_eq(str((reserved_choices[0] as Dictionary).get("id", "")), UNLOCK_ID, "reserved Stage 2 manual should be the first card")
-	_expect_eq(str((reserved_choices[0] as Dictionary).get("offer_lane", "")), "boss_vision_reserved", "reserved card should expose the boss Vision lane")
-
-	var runtime_state := FakeRuntimePerkState.new()
-	var registry := FakeRegistry.new({"runtime_perk_state": runtime_state})
-	var hit_state := VictoryLootPhaseState.new()
-	hit_state._plan_builder = FakePlanBuilder.new()
-	hit_state.set_vision_offer_roll_for_tests(func() -> float: return 0.1999)
-	_expect(hit_state.start(FakeOwner.new(), registry, 3, 0, Callable()), "Stage 2 victory should start loot phase")
-	_expect_eq(int(hit_state.get_status_for_tests().get("vision_offer_box_count", 0)), 1, "a screen-level roll below 20 percent should mark one box")
-	var vision_box: Dictionary = {}
-	for value: Variant in hit_state.boxes:
-		if value is Dictionary and str((value as Dictionary).get("boss_vision_offer_id", "")) == UNLOCK_ID:
-			vision_box = value as Dictionary
-			break
-	_expect(not vision_box.is_empty(), "Stage 2 success should mark a Cheongringwi Vision box")
-	var sheet_path := hit_state.get_box_sheet_path_for_tests(vision_box)
-	_expect_eq(sheet_path, VictoryLootPhaseState.CHEONGRINGWI_VISION_BOX_SHEET_PATH, "Stage 2 Vision box should use its dedicated sheet")
-	_verify_transparent_sheet(sheet_path, Vector2i(4, 4), Vector2i(256, 256), "Cheongringwi Vision box")
-
-	var miss_state := VictoryLootPhaseState.new()
-	miss_state._plan_builder = FakePlanBuilder.new()
-	miss_state.set_vision_offer_roll_for_tests(func() -> float: return 0.20)
-	miss_state.start(FakeOwner.new(), registry, 3, 0, Callable())
-	_expect_eq(int(miss_state.get_status_for_tests().get("vision_offer_box_count", 0)), 0, "the exclusive 20-percent upper bound should miss")
-
-	runtime_state.runtime_skill_levels[SKILL_ID] = 1
-	var owned_state := VictoryLootPhaseState.new()
-	owned_state._plan_builder = FakePlanBuilder.new()
-	owned_state.set_vision_offer_roll_for_tests(func() -> float: return 0.0)
-	owned_state.start(FakeOwner.new(), registry, 3, 0, Callable())
-	_expect_eq(int(owned_state.get_status_for_tests().get("vision_offer_box_count", 0)), 0, "an owned Stage 2 Vision Chosik should not drop again")
+func _verify_stage2_tower_reward_pick_contract() -> void:
+	var boss_slot_id := "floor_02_cheongringwi"
+	var builder := TowerRewardPickOfferBuilder.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new({
+		"tower_ascent_unlock_store": FakeUnlockStore.new(UNLOCK_ID),
+		"smasher_skill_config": SmasherSkillConfig.new(),
+	})
+	var choice: Dictionary = builder._build_vision_choice(
+		boss_slot_id,
+		{"skipped_boss_ids": [], "burned_vision_boss_ids": []},
+		owner,
+		registry,
+		{}
+	)
+	_expect_eq(str(choice.get("id", "")), UNLOCK_ID, "Cheongringwi boss slot should build the live Tower Vision choice")
+	_expect_eq(str(choice.get("boss_slot_id", "")), boss_slot_id, "Stage 2 Vision choice should retain the selected map boss slot")
+	_expect_eq(str(choice.get("reward_pick_kind", "")), "vision", "Stage 2 Vision choice should use the Tower reward-pick lane")
+	_expect_eq(int(choice.get("current_level", -1)), 0, "unowned Stage 2 Vision choice should begin at level zero")
+	_expect_eq(int(choice.get("next_level", -1)), 1, "unowned Stage 2 Vision choice should grant level one")
+	_expect(builder._build_vision_choice("floor_01_dalji", {}, owner, registry, {}).is_empty(), "a different selected boss slot must not leak Cheongringwi's Vision reward")
+	var locked_registry := FakeRegistry.new({
+		"tower_ascent_unlock_store": FakeUnlockStore.new(),
+		"smasher_skill_config": SmasherSkillConfig.new(),
+	})
+	_expect(builder._build_vision_choice(boss_slot_id, {}, owner, locked_registry, {}).is_empty(), "locked Cheongringwi Vision content must not enter the Tower reward pick")
+	_expect(builder._build_vision_choice(boss_slot_id, {"burned_vision_boss_ids": [boss_slot_id]}, owner, registry, {}).is_empty(), "a burned Cheongringwi boss reward must not return")
+	_expect(builder._build_vision_choice(boss_slot_id, {}, owner, registry, {SKILL_ID: 1}).is_empty(), "an owned Stage 2 Vision Chosik must not be offered again")
 
 
 func _input_command(
@@ -765,13 +761,6 @@ func _make_control_config(special_gauge: float) -> Dictionary:
 	}
 
 
-func _has_choice(choices: Array, choice_id: String) -> bool:
-	for value: Variant in choices:
-		if value is Dictionary and str((value as Dictionary).get("id", "")) == choice_id:
-			return true
-	return false
-
-
 func _verify_transparent_icon(path: String, expected_size: Vector2i, label: String) -> void:
 	var texture: Texture2D = load(path) as Texture2D
 	_expect(texture != null, "%s should load as Texture2D" % label)
@@ -787,24 +776,6 @@ func _verify_transparent_icon(path: String, expected_size: Vector2i, label: Stri
 	var used_rect := image.get_used_rect()
 	_expect(used_rect.position.x > 0 and used_rect.position.y > 0, "%s alpha should not touch top or left" % label)
 	_expect(used_rect.end.x < expected_size.x and used_rect.end.y < expected_size.y, "%s alpha should not touch bottom or right" % label)
-
-
-func _verify_transparent_sheet(path: String, grid: Vector2i, cell_size: Vector2i, label: String) -> void:
-	var texture: Texture2D = load(path) as Texture2D
-	_expect(texture != null, "%s sheet should load as Texture2D" % label)
-	if texture == null:
-		return
-	var image: Image = texture.get_image()
-	_expect(image != null and not image.is_empty(), "%s should expose image data" % label)
-	if image == null or image.is_empty():
-		return
-	_expect_eq(image.get_size(), grid * cell_size, "%s sheet dimensions" % label)
-	for row in range(grid.y):
-		for column in range(grid.x):
-			var cell := image.get_region(Rect2i(Vector2i(column, row) * cell_size, cell_size))
-			var used_rect := cell.get_used_rect()
-			_expect(not used_rect.has_area() or (used_rect.position.x > 0 and used_rect.position.y > 0), "%s frame %d,%d should not touch top or left" % [label, column, row])
-			_expect(not used_rect.has_area() or (used_rect.end.x < cell_size.x and used_rect.end.y < cell_size.y), "%s frame %d,%d should not touch bottom or right" % [label, column, row])
 
 
 func _get_vector2(value: Variant) -> Vector2:

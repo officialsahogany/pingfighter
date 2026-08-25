@@ -12,7 +12,7 @@ func get_skill_config_key(character_type: String) -> String:
 		"soldier":
 			return "commando_skill_config"
 		"optimus":
-			return ""
+			return "optimus_skill_config"
 		"blacksmith":
 			return "blacksmith_skill_config"
 	return "smasher_skill_config"
@@ -54,16 +54,7 @@ func get_owner_character_type(owner: Object) -> String:
 	var value: Variant = owner.get("selected_character_type")
 	if value == null:
 		return "smasher"
-	var normalized: String = str(value).strip_edges().to_lower()
-	if normalized == "viper":
-		return "viper"
-	if normalized == "soldier" or normalized == "commando":
-		return "soldier"
-	if normalized == "optimus" or normalized == "io":
-		return "smasher"
-	if normalized == "blacksmith" or normalized == "baltor" or normalized == "kohaku":
-		return "blacksmith"
-	return "smasher"
+	return normalize_character_type(str(value))
 
 
 func get_normalized_owner_character_type(owner: Object) -> String:
