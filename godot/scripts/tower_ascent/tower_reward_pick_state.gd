@@ -24,6 +24,8 @@ const CONTINUE_SIZE := Vector2(220.0, 42.0)
 const CONTINUE_BOTTOM_MARGIN := 34.0
 const TEMP_REWARD_PICK_ABSORB_DURATION_SEC := 0.78
 const TEMP_REWARD_PICK_PANEL_GAP_PX := 32.0
+const DISABLED_REASON_INSUFFICIENT_MUHON := "insufficient_muhon"
+const DISABLED_REASON_PERK_SLOT_LIMIT := "perk_slot_limit"
 
 var active := false
 var animation_time := 0.0
@@ -256,15 +258,13 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 	var model_choices: Array[Dictionary] = []
 	for index in range(choices.size()):
 		var choice := choices[index].duplicate(true)
-		var cost := int(choice.get("reward_pick_cost", 0))
 		var absorption: Dictionary = _get_purchase_absorption_for_slot(index)
+		var disabled_reason := _get_purchase_disabled_reason(index, choice, balances)
 		choice["reward_pick_spent"] = spent_flags[index]
 		choice["reward_pick_absorbing"] = not absorption.is_empty()
 		choice["reward_pick_empty"] = spent_flags[index] and absorption.is_empty()
-		choice["reward_pick_enabled"] = (
-			not spent_flags[index]
-			and int(balances.get("muhon", 0)) >= cost
-		)
+		choice["reward_pick_enabled"] = disabled_reason.is_empty()
+		choice["reward_pick_disabled_reason"] = disabled_reason
 		model_choices.append(choice)
 	return {
 		"title": TowerRewardPickLocalization.text("title"),
@@ -375,6 +375,10 @@ func _purchase(index: int) -> void:
 	var choice := choices[index]
 	var cost := maxi(0, int(choice.get("reward_pick_cost", 0)))
 	var balances := _get_balances()
+	var slot_status := _get_choice_slot_status(choice)
+	if not bool(slot_status.get("accepted", false)):
+		_status_text = TowerRewardPickLocalization.text(DISABLED_REASON_PERK_SLOT_LIMIT)
+		return
 	if int(balances.get("muhon", 0)) < cost:
 		_status_text = TowerRewardPickLocalization.text("insufficient")
 		return
@@ -559,12 +563,44 @@ func _can_auto_finish() -> bool:
 func _has_no_affordable_unspent_card() -> bool:
 	if spent_flags.is_empty():
 		return false
-	var muhon := int(_get_balances().get("muhon", 0))
+	var balances := _get_balances()
 	for index in range(choices.size()):
 		if index < spent_flags.size() and not spent_flags[index]:
-			if muhon >= maxi(0, int(choices[index].get("reward_pick_cost", 0))):
+			if _get_purchase_disabled_reason(index, choices[index], balances).is_empty():
 				return false
 	return true
+
+
+func _get_purchase_disabled_reason(
+	index: int,
+	choice: Dictionary,
+	balances: Dictionary
+) -> String:
+	if index < 0 or index >= spent_flags.size() or spent_flags[index]:
+		return "spent"
+	var slot_status := _get_choice_slot_status(choice)
+	if not bool(slot_status.get("accepted", false)):
+		return DISABLED_REASON_PERK_SLOT_LIMIT
+	if int(balances.get("muhon", 0)) < maxi(0, int(choice.get("reward_pick_cost", 0))):
+		return DISABLED_REASON_INSUFFICIENT_MUHON
+	return ""
+
+
+func _get_choice_slot_status(choice: Dictionary, target_level: int = -1) -> Dictionary:
+	if _catalog == null or not _catalog.has_method("get_perk_slot_apply_status"):
+		return {"accepted": true, "blocked_reason": ""}
+	var status_value: Variant = _catalog.call(
+		"get_perk_slot_apply_status",
+		choice,
+		_get_runtime_skill_levels(),
+		_registry,
+		target_level
+	)
+	return (
+		(status_value as Dictionary).duplicate(true)
+		if status_value is Dictionary
+		else {"accepted": false, "blocked_reason": DISABLED_REASON_PERK_SLOT_LIMIT}
+	)
 
 
 func _reset_auto_finish_hold() -> void:

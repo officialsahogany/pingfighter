@@ -31,6 +31,10 @@ const TEXT := {
 		"ko": "무혼이 부족합니다", "en": "Not enough Muhon", "zh": "武魂不足", "ja": "武魂が足りません",
 		"es": "Muhon insuficiente", "pt-BR": "Muhon insuficiente", "ru": "Недостаточно мухона",
 	},
+	"perk_slot_limit": {
+		"ko": "무공 슬롯이 가득 찼습니다", "en": "Mugong slots are full", "zh": "武功栏位已满", "ja": "武功スロットが満杯です",
+		"es": "Los espacios de Mugong están llenos", "pt-BR": "Os espaços de Mugong estão cheios", "ru": "Ячейки мугона заполнены",
+	},
 	"hint": {
 		"ko": "카드를 여러 장 살 수 있습니다", "en": "You may buy multiple cards", "zh": "可以购买多张卡牌", "ja": "複数のカードを購入できます",
 		"es": "Puedes comprar varias cartas", "pt-BR": "Você pode comprar várias cartas", "ru": "Можно купить несколько карт",

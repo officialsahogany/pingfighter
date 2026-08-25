@@ -142,6 +142,37 @@ class FakeRuntimePerkCatalog:
 		var value: Variant = data.get(perk_id, {})
 		return (value as Dictionary).duplicate(true) if value is Dictionary else {}
 
+	func count_owned_slot_perks(runtime_levels: Dictionary, _slot_context: Object = null) -> int:
+		var count := 0
+		for level_value in runtime_levels.values():
+			if int(level_value) > 0:
+				count += 1
+		return count
+
+	func get_perk_slot_limit(_runtime_levels: Dictionary, _slot_context: Object = null) -> int:
+		return 6
+
+	func get_perk_slot_apply_status(
+		perk_data: Dictionary,
+		runtime_levels: Dictionary,
+		slot_context: Object = null,
+		target_level: int = -1
+	) -> Dictionary:
+		var perk_id := str(perk_data.get("id", ""))
+		var current_level := int(runtime_levels.get(perk_id, 0))
+		var next_level := target_level if target_level >= 0 else current_level + 1
+		var slot_free := not str(perk_data.get("unlocks_skill", "")).is_empty()
+		var extra_slots := 0 if slot_free or current_level > 0 or next_level <= 0 else 1
+		var count := count_owned_slot_perks(runtime_levels, slot_context)
+		var accepted := extra_slots == 0 or count + extra_slots <= 6
+		return {
+			"accepted": accepted,
+			"blocked_reason": "" if accepted else RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON,
+			"extra_slots": extra_slots,
+			"occupied_slots": count,
+			"slot_limit": 6,
+		}
+
 
 class FakeRuntimePerkState:
 	extends RefCounted
@@ -169,12 +200,19 @@ class FakeRuntimePerkState:
 	func _try_arm_resume_safety(_owner: Object, _registry: Object) -> void:
 		pass
 
-	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
-		apply_calls += 1
+	func apply_choice(choice: Dictionary, _owner: Object, registry: Object) -> bool:
 		var perk_id := str(choice.get("id", ""))
 		var unlocked_skill := str(choice.get("unlocks_skill", ""))
 		if perk_id.is_empty():
 			return false
+		var status: Dictionary = catalog.get_perk_slot_apply_status(
+			choice,
+			runtime_skill_levels,
+			registry
+		)
+		if not bool(status.get("accepted", false)):
+			return false
+		apply_calls += 1
 		if unlocked_skill.is_empty():
 			runtime_skill_levels[perk_id] = int(runtime_skill_levels.get(perk_id, 0)) + 1
 			return true
@@ -278,6 +316,7 @@ func _init() -> void:
 	_verify_acquire_swap_remove_transactions_and_snapshot()
 	_verify_swap_rejection_rolls_back_without_payment()
 	_verify_insufficient_muhon_is_a_no_op()
+	_verify_mugong_slot_budget_rechecks_fixed_offer()
 	_verify_flag_off_is_untouched()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -471,6 +510,62 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 	_finish_flow(flow, owner)
 
 
+func _verify_mugong_slot_budget_rechecks_fixed_offer() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var fixture := _build_fixture()
+	fixture.runtime_state.runtime_skill_levels = {
+		"owned_slot_1": 1,
+		"owned_slot_2": 1,
+		"owned_slot_3": 1,
+		"owned_slot_4": 1,
+		"owned_slot_5": 1,
+	}
+	var flow := TowerAscentFlowOwner.new()
+	var owner := FakeOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "fallen-monk-slot-budget",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "fallen_monk",
+		"run_state": {"muhon": 40},
+		"registry": fixture.registry,
+	}), "slot-budget monk fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "slot-budget monk fixture must arrive at the fixed storefront")
+	var initial_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var mugong_actions: Array[Dictionary] = []
+	for action_value in initial_actions:
+		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")).begins_with("fallen_monk:mugong:"):
+			mugong_actions.append(action_value as Dictionary)
+	_expect(mugong_actions.size() >= 2, "fixed monk offer must retain multiple Mugong cards for the recheck leg")
+	for action in mugong_actions:
+		_expect(bool(action.get("enabled", false)), "each fixed Mugong card must begin enabled at 5/6")
+	var first_action := mugong_actions[0]
+	var first_result := flow.execute_node_action(
+		str(first_action.get("id", "")),
+		"fallen-monk-slot-budget:first"
+	)
+	_expect(bool(first_result.get("accepted", false)) and bool(first_result.get("applied", false)), "first Mugong purchase must fill the sixth slot")
+	_expect(fixture.catalog.count_owned_slot_perks(fixture.runtime_state.runtime_skill_levels, fixture.registry) == 6, "first fixed-offer purchase must end at 6/6")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 38, "first Mugong purchase must debit exactly once")
+	var refreshed_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var blocked_action := {}
+	for action_value in refreshed_actions:
+		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")).begins_with("fallen_monk:mugong:"):
+			blocked_action = action_value as Dictionary
+			break
+	_expect(not blocked_action.is_empty(), "remaining fixed Mugong card must stay visible after one purchase")
+	_expect(not bool(blocked_action.get("enabled", true)), "remaining fixed Mugong card must disable after the board reaches 6/6")
+	_expect(str(blocked_action.get("disabled_reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "disabled monk card must expose the shared slot-limit reason")
+	_expect(not str(blocked_action.get("unavailable_reason", "")).is_empty(), "disabled monk card must expose a player-facing slot-limit message")
+	var apply_calls_before: int = int(fixture.runtime_state.apply_calls)
+	var blocked_result := flow.execute_node_action(
+		str(blocked_action.get("id", "")),
+		"fallen-monk-slot-budget:blocked"
+	)
+	_expect(not bool(blocked_result.get("accepted", true)) and str(blocked_result.get("reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "direct fixed-offer execution must reject with the shared slot-limit reason")
+	_expect(fixture.runtime_state.apply_calls == apply_calls_before and int(flow.get_run_state_snapshot().get("muhon", -1)) == 38, "blocked fixed-offer execution must issue no apply or debit")
+	_finish_flow(flow, owner)
+
+
 func _verify_flag_off_is_untouched() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
 	var fixture := _build_fixture()
@@ -492,6 +587,7 @@ func _verify_source_contract() -> void:
 	_expect(source.find("apply_choice") >= 0 and source.find("confirm_pending_unlock_swap") >= 0, "acquire and swap must use existing runtime state entry points")
 	_expect(source.find("remove_runtime_unlock_for_skill") >= 0, "remove must reuse the existing unlock cleanup path")
 	_expect(source.find("RandomNumberGenerator.new()") >= 0 and source.find(".shuffle()") < 0, "offer generation must use an isolated RNG without advancing gameplay randomness")
+	_expect(source.find("get_perk_slot_apply_status") >= 0 and source.find("PERK_SLOT_LIMIT_BLOCKED_REASON") >= 0, "monk actions must recheck the shared apply-side slot gate")
 	_expect(source.find("plaza_") < 0 and source.find("perform_academy") < 0, "monk node must not reuse persistent plaza payment or the academy stub")
 
 

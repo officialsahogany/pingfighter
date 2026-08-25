@@ -793,7 +793,29 @@ func activate_elixir_of_mastery(owner: Object, registry: Object) -> bool:
 	if not perk_catalog.has_method("get_all_perk_data") or not perk_state.has_method("apply_choice"):
 		return false
 	var runtime_skill_levels: Dictionary = perk_state.runtime_skill_levels if "runtime_skill_levels" in perk_state else {}
-	var all_skill_pools: Array = [perk_catalog.get_all_perk_data()]
+	var all_perk_data: Dictionary = perk_catalog.get_all_perk_data()
+	var capacity_safe_pool: Dictionary = {}
+	for skill_id_value in all_perk_data.keys():
+		var skill_id := str(skill_id_value)
+		var perk_data_value: Variant = all_perk_data.get(skill_id_value, {})
+		if not (perk_data_value is Dictionary):
+			continue
+		var perk_data := perk_data_value as Dictionary
+		var target_level := ElixirOfMasteryRuntime.get_mastery_target_level(skill_id, perk_data)
+		if target_level <= 0:
+			continue
+		if perk_catalog.has_method("get_perk_slot_apply_status"):
+			var status_value: Variant = perk_catalog.call(
+				"get_perk_slot_apply_status",
+				perk_data,
+				runtime_skill_levels,
+				registry,
+				target_level
+			)
+			if not (status_value is Dictionary) or not bool((status_value as Dictionary).get("accepted", false)):
+				continue
+		capacity_safe_pool[skill_id] = perk_data.duplicate(true)
+	var all_skill_pools: Array = [capacity_safe_pool]
 	var apply_func: Callable = func(skill_id: String) -> void:
 		var perk_data: Dictionary = perk_catalog.get_perk_data(skill_id) if perk_catalog.has_method("get_perk_data") else {}
 		if perk_data.is_empty():

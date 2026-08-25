@@ -14,6 +14,7 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const RuntimePerkIconRenderer := preload("res://scripts/hud/runtime_perk_icon_renderer.gd")
 const RuntimePerkOverlayRenderer := preload("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const ActiveItemEffectController := preload("res://scripts/items/active_item_effect_controller.gd")
 
 const OFFER_SCAN_COUNT := 500
 const CAPTURE_PATH := "res://../.tmp/perk_slot_limit/perk_slot_limit_choice_modal.png"
@@ -71,10 +72,44 @@ class FakeRegistry:
 	var instances: Dictionary = {}
 
 	func _init(new_instances: Dictionary = {}) -> void:
-		instances = new_instances
+		instances = new_instances.duplicate()
+		if not instances.has("tower_ascent_unlock_store"):
+			instances["tower_ascent_unlock_store"] = FakeUnlockStore.new()
 
 	func get_instance(key: String) -> Object:
 		return instances.get(key, null)
+
+
+class FakeUnlockStore:
+	extends RefCounted
+
+	func is_unlocked(_content_type: String, _content_id: String) -> bool:
+		return true
+
+
+class MasteryCatalogProbe:
+	extends RefCounted
+
+	var backing: Object = RuntimePerkCatalog.new()
+
+	func get_all_perk_data() -> Dictionary:
+		return {"star_detector": backing.get_perk_data("star_detector")}
+
+	func get_perk_data(perk_id: String) -> Dictionary:
+		return backing.get_perk_data(perk_id)
+
+	func get_perk_slot_apply_status(
+		perk_data: Dictionary,
+		runtime_levels: Dictionary,
+		slot_context: Object = null,
+		target_level: int = -1
+	) -> Dictionary:
+		return backing.get_perk_slot_apply_status(
+			perk_data,
+			runtime_levels,
+			slot_context,
+			target_level
+		)
 
 
 class ByproductSlotState:
@@ -132,6 +167,8 @@ func _run() -> void:
 	_verify_non_consuming_choices_survive_full_slots()
 	_verify_mythic_grant_respects_slots()
 	_verify_slot_status_data()
+	_verify_apply_gate_blocks_slot_overflow_and_delta()
+	_verify_elixir_respects_target_slot_delta()
 	_verify_fusion_byproduct_slot_expansion()
 	_verify_overoccupied_state_blocks_new_and_preserves_owned()
 	_verify_fusion_byproduct_apply_fanout()
@@ -234,7 +271,9 @@ func _verify_slot_classifier_and_count() -> void:
 func _verify_offer_budget_at_five_slots() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var levels := _five_slot_levels()
-	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT)
+	var registry := FakeRegistry.new()
+	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT, null, registry)
+	_expect(not choices.is_empty(), "five-slot offer fixture must produce real candidates")
 	_expect(_has_choice_id(choices, "item_recycle"), "with five occupied slots, a new slot-consuming perk should still be offerable")
 	_expect(_has_choice_id(choices, "dash_acceleration"), "with five occupied slots, owned slot-consuming perks should still level up")
 
@@ -242,7 +281,9 @@ func _verify_offer_budget_at_five_slots() -> void:
 func _verify_offer_budget_at_six_slots() -> void:
 	var catalog := RuntimePerkCatalog.new()
 	var levels := _full_slot_levels()
-	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT)
+	var registry := FakeRegistry.new()
+	var choices: Array = catalog.get_choices("smasher", levels, true, OFFER_SCAN_COUNT, null, registry)
+	_expect(not choices.is_empty(), "six-slot offer fixture must produce owned or slot-free candidates")
 	_expect(not _has_choice_id(choices, "item_recycle"), "with six occupied slots, new slot-consuming perks should be filtered out")
 	_expect(_has_choice_id(choices, "dash_acceleration"), "with six occupied slots, owned slot-consuming level-ups should remain offerable")
 
@@ -262,6 +303,77 @@ func _verify_non_consuming_choices_survive_full_slots() -> void:
 	var choices_without_instant: Array = catalog.get_choices("smasher", full_levels, true, OFFER_SCAN_COUNT, owner, registry)
 	_expect(_has_choice_id(choices_without_instant, "unlock_plasma"), "full slots should not suppress unlock_* active-skill choices")
 	owner.free()
+
+
+func _verify_apply_gate_blocks_slot_overflow_and_delta() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var state := RuntimePerkState.new()
+	state.runtime_skill_levels = _five_slot_levels()
+	var registry := FakeRegistry.new({
+		"runtime_perk_state": state,
+		"runtime_perk_catalog": catalog,
+	})
+	var sixth_choice: Dictionary = catalog.get_perk_data("star_detector")
+	sixth_choice["id"] = "star_detector"
+	_expect(state.apply_choice(sixth_choice, null, registry), "central apply path must accept the sixth unit-slot perk")
+	_expect_eq(catalog.count_owned_slot_perks(state.runtime_skill_levels, registry), 6, "accepted sixth perk must fill the base slot budget")
+	var blocked_choice: Dictionary = catalog.get_perk_data("item_recycle")
+	blocked_choice["id"] = "item_recycle"
+	_expect(not state.apply_choice(blocked_choice, null, registry), "central apply path must reject a new seventh perk at the base limit")
+	_expect(not state.runtime_skill_levels.has("item_recycle"), "rejected central apply must not mutate levels")
+	var forged_choice := {
+		"id": "item_recycle",
+		"max_level": 0,
+		"is_instant": true,
+	}
+	_expect(not state.apply_choice(forged_choice, null, registry), "canonical apply gate must reject caller metadata that disguises a slot perk")
+	_expect(not state.runtime_skill_levels.has("item_recycle"), "forged slot-free metadata must not mutate levels")
+	var owned_choice: Dictionary = catalog.get_perk_data("dash_acceleration")
+	owned_choice["id"] = "dash_acceleration"
+	_expect(state.apply_choice(owned_choice, null, registry), "owned unit-slot level-up must remain legal at full slots")
+	_expect_eq(catalog.count_owned_slot_perks(state.runtime_skill_levels, registry), 6, "owned unit-slot level-up must not consume another slot")
+
+	var delta_state := RuntimePerkState.new()
+	delta_state.runtime_skill_levels = {
+		"dash_amplification": 1,
+		"item_luck": 1,
+		"item_gauge_mastery": 1,
+		"item_caffeine": 1,
+		"item_polish": 1,
+	}
+	var delta_registry := FakeRegistry.new({
+		"runtime_perk_state": delta_state,
+		"runtime_perk_catalog": catalog,
+	})
+	var delta_choice: Dictionary = catalog.get_perk_data("dash_amplification")
+	delta_choice["id"] = "dash_amplification"
+	var delta_status: Dictionary = catalog.get_perk_slot_apply_status(
+		delta_choice,
+		delta_state.runtime_skill_levels,
+		delta_registry,
+		3
+	)
+	_expect(not bool(delta_status.get("accepted", true)), "dash amplification target must reserve its whole slot delta")
+	_expect_eq(int(delta_status.get("extra_slots", 0)), 2, "dash amplification level 1 to 3 must cost two additional slots")
+	_expect(str(delta_status.get("blocked_reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "delta rejection must expose the shared slot-limit reason")
+	_expect(not delta_state.apply_choice_at_target_level(delta_choice, 3, null, delta_registry), "target-level apply path must reject an oversized slot delta")
+	_expect_eq(int(delta_state.runtime_skill_levels.get("dash_amplification", 0)), 1, "rejected target-level apply must preserve the prior level")
+
+
+func _verify_elixir_respects_target_slot_delta() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var probe_catalog := MasteryCatalogProbe.new()
+	var accepted_state := RuntimePerkState.new()
+	accepted_state.runtime_skill_levels = _full_slot_levels()
+	var accepted_registry := FakeRegistry.new({
+		"runtime_perk_state": accepted_state,
+		"runtime_perk_catalog": probe_catalog,
+	})
+	var accepted_controller := ActiveItemEffectController.new()
+	seed(17)
+	_expect(accepted_controller.activate_elixir_of_mastery(null, accepted_registry), "elixir must keep an owned unit-slot upgrade eligible at 6/6")
+	_expect_eq(int(accepted_state.runtime_skill_levels.get("star_detector", 0)), 3, "accepted elixir must reach the catalog mastery target")
+	_expect_eq(catalog.count_owned_slot_perks(accepted_state.runtime_skill_levels, accepted_registry), 6, "elixir-owned upgrade must preserve the full 6/6 slot count")
 
 
 func _verify_mythic_grant_respects_slots() -> void:
@@ -377,7 +489,7 @@ func _verify_fusion_byproduct_apply_fanout() -> void:
 
 func _verify_legacy_expansion_live_paths_and_defensive_restore_hook() -> void:
 	var catalog := RuntimePerkCatalog.new()
-	var choices: Array = catalog.get_choices("smasher", {}, true, OFFER_SCAN_COUNT)
+	var choices: Array = catalog.get_choices("smasher", {}, true, OFFER_SCAN_COUNT, null, FakeRegistry.new())
 	_expect(not _has_choice_id(choices, "common_expansion"), "flag ON: common_expansion must not appear in the live offer pool")
 	_expect(not _has_choice_id(catalog.get_debug_perk_entries("smasher"), "common_expansion"), "flag ON: the debug picker must not grant the retired perk as a slot-consuming dead entry")
 	var legacy_data: Dictionary = catalog.get_perk_data("common_expansion")
@@ -520,6 +632,7 @@ func _verify_flag_off_isolation() -> void:
 	# flag OFF: 한도는 중앙 격리로 고정 6(UI는 flag와 무관하게 조회),
 	# 확장 퍽은 레거시 장신구 의미(소모 + 장신구 슬롯 2→4 유지).
 	var catalog := RuntimePerkCatalog.new()
+	var offer_registry := FakeRegistry.new()
 	_expect_eq(catalog.get_perk_slot_limit({"common_expansion": 4}), RuntimePerkCatalog.BASE_PERK_SLOT_LIMIT, "flag OFF: the slot limit must stay pinned at 6 regardless of expansion levels")
 	var expansion_data := catalog.get_perk_data("common_expansion")
 	expansion_data["id"] = "common_expansion"
@@ -530,9 +643,9 @@ func _verify_flag_off_isolation() -> void:
 	_expect(str(expansion_data.get("detail", "")).find("장신구") >= 0, "flag OFF: the expansion perk detail must describe the legacy accessory meaning")
 	# get_perk_data(조회)만 고치면 실제 오퍼는 pool 원본(새 정의)을 직접
 	# 읽어 계약을 우회한다 — 실오퍼 후보에서 레거시 계약을 직접 봉인.
-	var off_offer_choices: Array = catalog.get_choices("smasher", {"common_expansion": 2}, true, OFFER_SCAN_COUNT)
+	var off_offer_choices: Array = catalog.get_choices("smasher", {"common_expansion": 2}, true, OFFER_SCAN_COUNT, null, offer_registry)
 	_expect(not _has_choice_id(off_offer_choices, "common_expansion"), "flag OFF: the real offer must stop the expansion perk at the legacy max level of 2 (levels 3~4 must not surface)")
-	var off_fresh_choices: Array = catalog.get_choices("smasher", {}, true, OFFER_SCAN_COUNT)
+	var off_fresh_choices: Array = catalog.get_choices("smasher", {}, true, OFFER_SCAN_COUNT, null, offer_registry)
 	var off_expansion_choice: Dictionary = {}
 	for off_choice_value in off_fresh_choices:
 		if off_choice_value is Dictionary and str((off_choice_value as Dictionary).get("id", "")) == "common_expansion":
@@ -641,7 +754,7 @@ func _five_slot_levels() -> Dictionary:
 func _build_meridian_expanded_state(catalog: Object) -> Object:
 	var state := RuntimePerkState.new()
 	state.runtime_skill_levels = {
-		"item_luck": 5,
+		"item_luck": 3,
 		"common_bulk_up": 5,
 		"dash_lightweight": 1,
 		"dash_module_control": 1,

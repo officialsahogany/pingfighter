@@ -18,6 +18,7 @@ const BASE_CHOICE_COUNT := 3
 # flag OFF에서는 고정 6이며 common_expansion은 레거시 장신구 의미.
 const BASE_PERK_SLOT_LIMIT := 6
 const MAX_PERK_SLOT_LIMIT := 7
+const PERK_SLOT_LIMIT_BLOCKED_REASON := "perk_slot_limit"
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const FUSION_SLOT_EXPANSION_BYPRODUCT_ID := "meridian_expand"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
@@ -1674,6 +1675,57 @@ func get_perk_slot_status(runtime_levels: Dictionary, slot_context: Object = nul
 	}
 
 
+func get_perk_slot_apply_status(
+	perk_data: Dictionary,
+	runtime_levels: Dictionary,
+	slot_context: Object = null,
+	target_level: int = -1
+) -> Dictionary:
+	var resolved_data := _resolve_slot_perk_data(perk_data)
+	var perk_id := str(resolved_data.get("id", "")).strip_edges()
+	var current_level := int(runtime_levels.get(perk_id, 0))
+	var next_level := target_level
+	if next_level < 0:
+		next_level = current_level + 1
+		var max_level := int(resolved_data.get("max_level", -1))
+		if max_level > 0:
+			next_level = mini(next_level, max_level)
+	var current_cost := get_slot_cost_for_level(resolved_data, current_level)
+	var next_cost := get_slot_cost_for_level(resolved_data, next_level)
+	var extra_slots := maxi(0, next_cost - current_cost)
+	var occupied_slots := count_owned_slot_perks(runtime_levels, slot_context)
+	var slot_limit := get_perk_slot_limit(runtime_levels, slot_context)
+	var accepted := extra_slots == 0 or occupied_slots + extra_slots <= slot_limit
+	return {
+		"accepted": accepted,
+		"blocked_reason": "" if accepted else PERK_SLOT_LIMIT_BLOCKED_REASON,
+		"perk_id": perk_id,
+		"current_level": current_level,
+		"next_level": next_level,
+		"current_cost": current_cost,
+		"next_cost": next_cost,
+		"extra_slots": extra_slots,
+		"occupied_slots": occupied_slots,
+		"slot_limit": slot_limit,
+		"remaining_slots": maxi(0, slot_limit - occupied_slots),
+	}
+
+
+func _resolve_slot_perk_data(perk_data: Dictionary) -> Dictionary:
+	var resolved := perk_data.duplicate(true)
+	var perk_id := str(resolved.get("id", resolved.get("perk_id", ""))).strip_edges()
+	if perk_id.is_empty():
+		return resolved
+	var canonical := get_perk_data(perk_id)
+	if not canonical.is_empty():
+		# Slot classification and costs are an apply-side authority boundary.
+		# Never let caller-authored display/offer metadata weaken canonical flags
+		# or max levels (for example, forged max_level=0 / is_instant=true).
+		resolved = canonical.duplicate(true)
+	resolved["id"] = perk_id
+	return resolved
+
+
 func get_debug_perk_entries(_character_type: String = "") -> Array:
 	var entries: Array = []
 	_append_debug_pool_entries(entries, COMMON_PERKS, "common")
@@ -2139,7 +2191,6 @@ func _roll_open_chosik_offer() -> bool:
 
 
 func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_context: Object = null) -> Array:
-	var occupied_slots := count_owned_slot_perks(runtime_levels, slot_context)
 	var filtered: Array = []
 	for value in choices:
 		if not (value is Dictionary):
@@ -2155,13 +2206,13 @@ func _filter_perk_slot_budget(choices: Array, runtime_levels: Dictionary, slot_c
 		var choice_id: String = str(choice.get("id", ""))
 		var current_level: int = int(runtime_levels.get(choice_id, choice.get("current_level", 0)))
 		var next_level: int = int(choice.get("next_level", current_level + 1))
-		var current_cost: int = get_slot_cost_for_level(choice, current_level)
-		var next_cost: int = get_slot_cost_for_level(choice, next_level)
-		var extra_slots: int = max(0, next_cost - current_cost)
-		if (
-			extra_slots == 0
-			or occupied_slots + extra_slots <= get_perk_slot_limit(runtime_levels, slot_context)
-		):
+		var slot_status := get_perk_slot_apply_status(
+			choice,
+			runtime_levels,
+			slot_context,
+			next_level
+		)
+		if bool(slot_status.get("accepted", false)):
 			filtered.append(choice)
 	return filtered
 

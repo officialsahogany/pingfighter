@@ -33,6 +33,9 @@ const RuntimePerkChoiceLayout := preload(
 const RuntimePerkCatalog := preload(
 	"res://scripts/characters/runtime_perk_catalog.gd"
 )
+const RuntimePerkState := preload(
+	"res://scripts/characters/runtime_perk_state.gd"
+)
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
@@ -433,6 +436,7 @@ func _init() -> void:
 	_verify_offer_order_eligibility_and_prices()
 	_verify_no_training_seed_sweep_and_saturated_fallback()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
+	_verify_slot_limit_rechecks_each_purchase()
 	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
 	_verify_unaffordable_board_auto_finish_and_failure_latch()
 	_verify_vision_purchase_and_continue_burn_semantics()
@@ -788,6 +792,90 @@ func _verify_stable_four_card_multi_buy_and_fusion_return() -> void:
 	_expect(renderer_source.find("if spent:") >= 0 and renderer_source.find("continue") >= 0, "spent cards must leave empty renderer slots after absorption")
 	state.call("_finish")
 	_expect(not state.active and _finish_calls == 1 and flow.finalize_calls == 1, "continue must finalize exactly once after external modal return")
+
+
+func _verify_slot_limit_rechecks_each_purchase() -> void:
+	var catalog := RuntimePerkCatalog.new()
+	var runtime := RuntimePerkState.new()
+	runtime.runtime_skill_levels = _five_slot_levels()
+	var flow := FakeFlowOwner.new()
+	flow.balances["muhon"] = 20
+	var registry := FakeRegistry.new()
+	registry.instances = {
+		"runtime_perk_state": runtime,
+		"runtime_perk_catalog": catalog,
+		"runtime_perk_overlay_renderer": FakeCardRenderer.new(),
+		"runtime_perk_icon_renderer": FakeIconRenderer.new(),
+		"tower_ascent_flow_owner": flow,
+	}
+	var offer_builder := FakeOfferBuilder.new()
+	offer_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_reward_perk_card(catalog, "star_detector", "mugong", 1),
+			_reward_perk_card(catalog, "item_recycle", "mugong", 1),
+			_reward_perk_card(catalog, "common_bulk_up", "mugong", 1),
+			_reward_perk_card(catalog, "dash_lightweight", "mugong", 1),
+		],
+	}
+	var state := TowerRewardPickState.new()
+	state.set("_offer_builder", offer_builder)
+	_expect(state.start(null, registry, Callable()), "real reward slot fixture must start")
+	for index in range(4):
+		state.call("_purchase", index)
+	_expect(state.spent_flags == [true, false, false, false], "five-slot reward board must commit only the first new unit-slot card")
+	_expect_eq(catalog.count_owned_slot_perks(runtime.runtime_skill_levels, registry), 6, "reward purchases must stop exactly at 6/6 instead of reaching 9/6")
+	_expect_eq(int(flow.balances.get("muhon", -1)), 19, "blocked reward cards must not debit Muhon")
+	for blocked_id in ["item_recycle", "common_bulk_up", "dash_lightweight"]:
+		_expect(not runtime.runtime_skill_levels.has(blocked_id), "blocked reward purchase must not add %s" % blocked_id)
+	var blocked_model: Dictionary = state.build_view_model()
+	var blocked_choices: Array = blocked_model.get("choices", [])
+	for index in range(1, blocked_choices.size()):
+		var blocked_choice := blocked_choices[index] as Dictionary
+		_expect(not bool(blocked_choice.get("reward_pick_enabled", true)), "remaining new reward card %d must disable immediately at 6/6" % index)
+		_expect(str(blocked_choice.get("reward_pick_disabled_reason", "")) == "perk_slot_limit", "disabled reward card must expose the slot-limit reason")
+	_expect(str(blocked_model.get("status_text", "")) == TowerRewardPickLocalization.text("perk_slot_limit"), "blocked click must show the localized slot-limit message")
+	state.reset()
+
+	var full_runtime := RuntimePerkState.new()
+	full_runtime.runtime_skill_levels = _five_slot_levels()
+	full_runtime.runtime_skill_levels["star_detector"] = 1
+	var full_registry := FakeRegistry.new()
+	full_registry.instances = {
+		"runtime_perk_state": full_runtime,
+		"runtime_perk_catalog": catalog,
+		"runtime_perk_overlay_renderer": FakeCardRenderer.new(),
+		"runtime_perk_icon_renderer": FakeIconRenderer.new(),
+		"tower_ascent_flow_owner": FakeFlowOwner.new(),
+	}
+	var full_offer_builder := FakeOfferBuilder.new()
+	full_offer_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [
+			_reward_perk_card(catalog, "dash_acceleration", "mugong", 1),
+			{
+				"id": "perk_fusion",
+				"name": "Fusion",
+				"is_perk_fusion": true,
+				"max_level": 0,
+				"reward_pick_kind": "fusion",
+				"reward_pick_cost": 1,
+			},
+			_reward_perk_card(catalog, "item_recycle", "mugong", 1),
+		],
+	}
+	var full_state := TowerRewardPickState.new()
+	full_state.set("_offer_builder", full_offer_builder)
+	_expect(full_state.start(null, full_registry, Callable()), "full reward board fixture must start")
+	var full_choices: Array = full_state.build_view_model().get("choices", [])
+	_expect(bool((full_choices[0] as Dictionary).get("reward_pick_enabled", false)), "owned unit-slot upgrade must remain enabled at 6/6")
+	_expect(bool((full_choices[1] as Dictionary).get("reward_pick_enabled", false)), "slot-free fusion must remain enabled at 6/6")
+	_expect(not bool((full_choices[2] as Dictionary).get("reward_pick_enabled", true)), "new unit-slot perk must be disabled at 6/6")
+	full_state.reset()
 
 
 func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
@@ -1258,6 +1346,29 @@ func _card(kind: String, choice_id: String, cost: int) -> Dictionary:
 	}
 
 
+func _reward_perk_card(
+	catalog: Object,
+	perk_id: String,
+	kind: String,
+	cost: int
+) -> Dictionary:
+	var choice: Dictionary = catalog.get_perk_data(perk_id)
+	choice["id"] = perk_id
+	choice["reward_pick_kind"] = kind
+	choice["reward_pick_cost"] = cost
+	return choice
+
+
+func _five_slot_levels() -> Dictionary:
+	return {
+		"dash_acceleration": 1,
+		"item_luck": 1,
+		"item_gauge_mastery": 1,
+		"item_caffeine": 1,
+		"item_polish": 1,
+	}
+
+
 func _unique_choice_count(choices: Array) -> int:
 	var ids: Dictionary = {}
 	for value in choices:
@@ -1291,3 +1402,7 @@ func _reject_effect() -> bool:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _expect_eq(actual: int, expected: int, message: String) -> void:
+	_expect(actual == expected, "%s (expected %d, got %d)" % [message, expected, actual])

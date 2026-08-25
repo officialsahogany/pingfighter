@@ -58,6 +58,7 @@ const KEY_MONK_ACQUIRE_COMPLETED := "tower_ascent.node_modal.fallen_monk.acquire
 const KEY_MONK_SWAP_COMPLETED := "tower_ascent.node_modal.fallen_monk.swap_completed"
 const KEY_MONK_REMOVE_COMPLETED := "tower_ascent.node_modal.fallen_monk.remove_completed"
 const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_unavailable"
+const KEY_MONK_MUGONG_SLOT_FULL := "tower_ascent.node_modal.fallen_monk.mugong_slot_full"
 const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
 const KEY_SPRING_PALM_OPTION := "tower_ascent.node_modal.guardian_spring.palm_option"
 const KEY_SPRING_STATUE_DIALOGUE := "tower_ascent.node_modal.guardian_spring.statue_dialogue"
@@ -147,6 +148,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SHOP_INVENTORY_UNAVAILABLE: "상점 재고를 준비할 수 없습니다.",
 		KEY_COST_MUHON: "{amount} 무혼",
 		KEY_INSUFFICIENT_MUHON: "무혼 {required} 필요, {shortfall} 부족",
+		KEY_MONK_MUGONG_SLOT_FULL: "무공 슬롯이 가득 찼습니다.",
 		KEY_TRAINING_STAT_OPTION: "체질 수련: {name}",
 		KEY_TRAINING_MAXIMUM: "효과 한계",
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",

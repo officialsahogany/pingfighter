@@ -29,7 +29,8 @@ func is_mugong_candidate(
 	data: Dictionary,
 	runtime_levels: Dictionary,
 	character_type: String,
-	registry: Object
+	registry: Object,
+	enforce_perk_slot_budget: bool = false
 ) -> bool:
 	var perk_id := str(data.get("id", data.get("perk_id", ""))).strip_edges()
 	if perk_id.is_empty() or str(data.get("rarity", "")).to_lower() == "mythic":
@@ -51,8 +52,25 @@ func is_mugong_candidate(
 	for excluded_flag in EXCLUDED_MUGONG_FLAGS:
 		if bool(data.get(excluded_flag, false)):
 			return false
+	var current_level := int(runtime_levels.get(perk_id, 0))
 	var max_level := maxi(1, int(data.get("max_level", 0)))
-	return int(runtime_levels.get(perk_id, 0)) < max_level
+	if current_level >= max_level:
+		return false
+	if not enforce_perk_slot_budget:
+		return true
+	var catalog: Object = null
+	if registry != null and registry.has_method("get_instance"):
+		catalog = registry.call("get_instance", "runtime_perk_catalog")
+	if catalog == null or not catalog.has_method("get_perk_slot_apply_status"):
+		return false
+	var status_value: Variant = catalog.call(
+		"get_perk_slot_apply_status",
+		data,
+		runtime_levels,
+		registry,
+		current_level + 1
+	)
+	return status_value is Dictionary and bool((status_value as Dictionary).get("accepted", false))
 
 
 func is_chosik_candidate(

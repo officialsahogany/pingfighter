@@ -7,6 +7,7 @@ const RuntimePerkCallbackMap := preload("res://scripts/characters/runtime_perk_c
 const RuntimePerkPayloadAccess := preload("res://scripts/characters/runtime_perk_payload_access.gd")
 
 const MythicPerkGrantHelper := preload("res://scripts/characters/mythic_perk_grant_helper.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkChoiceStandardPath := preload("res://scripts/characters/runtime_perk_choice_standard_path.gd")
 const RuntimePerkLevelSideEffects := preload("res://scripts/characters/runtime_perk_level_side_effects.gd")
 
@@ -118,6 +119,15 @@ func apply_choice_at_target_level(
 	for flag_name in TARGET_LEVEL_BLOCKED_FLAGS:
 		if bool(choice.get(flag_name, false)):
 			return {"accepted": false, "blocked_reason": "target_level_special_forbidden"}
+	var slot_gate := _validate_perk_slot_delta(
+		choice,
+		target_level,
+		registry,
+		runtime_state,
+		runtime_skill_levels
+	)
+	if not bool(slot_gate.get("accepted", false)):
+		return _with_choice_id(slot_gate, choice_id)
 	if not level_side_effects.has_method("build_target_level_choice_update"):
 		return {"accepted": false, "blocked_reason": "missing_target_level_builder"}
 	var update_value: Variant = level_side_effects.call(
@@ -195,6 +205,15 @@ func apply_choice(
 	if not bool(dispatch.get("accepted", false)):
 		return dispatch
 	var choice_id: String = str(dispatch.get("choice_id", choice.get("id", "")))
+	var slot_gate := _validate_perk_slot_delta(
+		choice,
+		-1,
+		registry,
+		runtime_state,
+		runtime_skill_levels
+	)
+	if not bool(slot_gate.get("accepted", false)):
+		return _with_choice_id(slot_gate, choice_id)
 	var action_result: Dictionary = choice_action_runner.run_dispatch(
 		dispatch,
 		choice,
@@ -279,6 +298,34 @@ func apply_choice(
 		owner,
 		registry
 	)
+
+
+func _validate_perk_slot_delta(
+	choice: Dictionary,
+	target_level: int,
+	registry: Object,
+	runtime_state: Object,
+	runtime_skill_levels: Dictionary
+) -> Dictionary:
+	var catalog: Object = null
+	if registry != null and registry.has_method("get_instance"):
+		catalog = registry.call("get_instance", "runtime_perk_catalog")
+	if catalog == null or not catalog.has_method("get_perk_slot_apply_status"):
+		catalog = RuntimePerkCatalog.new()
+	var slot_context: Object = registry if registry != null else runtime_state
+	var status_value: Variant = catalog.call(
+		"get_perk_slot_apply_status",
+		choice,
+		runtime_skill_levels,
+		slot_context,
+		target_level
+	)
+	if status_value is Dictionary:
+		return (status_value as Dictionary).duplicate(true)
+	return {
+		"accepted": false,
+		"blocked_reason": RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON,
+	}
 
 
 func _with_choice_id(result: Dictionary, choice_id: String) -> Dictionary:

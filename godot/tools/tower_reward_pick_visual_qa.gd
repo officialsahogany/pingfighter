@@ -177,9 +177,19 @@ func _run() -> void:
 		return
 	if not await _capture_offer("vision_reward_pick.png", _build_vision_choices(), 0, output_dir):
 		return
+	if not await _capture_offer(
+		"full_slot_reward_pick.png",
+		_build_full_slot_choices(),
+		2,
+		output_dir,
+		false,
+		_full_slot_levels(),
+		2
+	):
+		return
 	LanguageSettings.set_test_locale_override("")
 	print("tower_reward_pick_visual_qa: evidence=%s" % output_dir)
-	print("tower_reward_pick_visual_qa: captures=3")
+	print("tower_reward_pick_visual_qa: captures=4")
 	print("tower_reward_pick_visual_qa: ok")
 	quit(0)
 
@@ -189,7 +199,9 @@ func _capture_offer(
 	choices: Array[Dictionary],
 	selected_index: int,
 	output_dir: String,
-	capture_empty_after_purchase: bool = false
+	capture_empty_after_purchase: bool = false,
+	runtime_levels: Dictionary = {},
+	blocked_purchase_index: int = -1
 ) -> bool:
 	for choice in choices:
 		if (
@@ -203,9 +215,12 @@ func _capture_offer(
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var icon_renderer := RuntimePerkIconRenderer.new()
 	var registry := CaptureRegistry.new()
+	var runtime_state := CaptureRuntimeState.new()
+	if not runtime_levels.is_empty():
+		runtime_state.runtime_skill_levels = runtime_levels.duplicate(true)
 	registry.instances = {
 		"tower_ascent_flow_owner": flow,
-		"runtime_perk_state": CaptureRuntimeState.new(),
+		"runtime_perk_state": runtime_state,
 		"runtime_perk_catalog": RuntimePerkCatalog.new(),
 		"runtime_perk_overlay_renderer": renderer,
 		"runtime_perk_icon_renderer": icon_renderer,
@@ -233,6 +248,26 @@ func _capture_offer(
 		push_error("reward-pick capture must include the +4 margin in both balance and acquisition rows")
 		quit(1)
 		return false
+	if blocked_purchase_index >= 0:
+		reward_state.call("_purchase", blocked_purchase_index)
+		reward_state.update(1.0)
+		var blocked_model: Dictionary = reward_state.build_view_model(Vector2(GAME_SIZE))
+		var blocked_choices: Array = blocked_model.get("choices", [])
+		if (
+			blocked_choices.size() != 4
+			or not bool((blocked_choices[0] as Dictionary).get("reward_pick_enabled", false))
+			or not bool((blocked_choices[1] as Dictionary).get("reward_pick_enabled", false))
+			or bool((blocked_choices[2] as Dictionary).get("reward_pick_enabled", true))
+			or bool((blocked_choices[3] as Dictionary).get("reward_pick_enabled", true))
+			or str((blocked_choices[2] as Dictionary).get("reward_pick_disabled_reason", "")) != "perk_slot_limit"
+			or str((blocked_choices[3] as Dictionary).get("reward_pick_disabled_reason", "")) != "perk_slot_limit"
+			or str(blocked_model.get("status_text", "")) != TowerRewardPickLocalization.text("perk_slot_limit")
+			or int(flow.balances.get("muhon", -1)) != 11
+			or runtime_state.runtime_skill_levels.has("item_recycle")
+		):
+			push_error("full-slot visual fixture did not preserve upgrades while disabling new perks")
+			quit(1)
+			return false
 	var viewport := SubViewport.new()
 	viewport.size = GAME_SIZE
 	viewport.transparent_bg = false
@@ -318,6 +353,28 @@ func _build_vision_choices() -> Array[Dictionary]:
 		_finalize_choice(catalog.get_perk_data("common_swiftness"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("megingjord"), "supreme", 5),
 	]
+
+
+func _build_full_slot_choices() -> Array[Dictionary]:
+	var catalog := RuntimePerkCatalog.new()
+	var fusion := (_build_general_choices()[2] as Dictionary).duplicate(true)
+	return [
+		_finalize_choice(catalog.get_perk_data("dash_acceleration"), "mugong", 2),
+		fusion,
+		_finalize_choice(catalog.get_perk_data("item_recycle"), "mugong", 2),
+		_finalize_choice(catalog.get_perk_data("common_bulk_up"), "mugong", 2),
+	]
+
+
+func _full_slot_levels() -> Dictionary:
+	return {
+		"dash_acceleration": 1,
+		"item_luck": 1,
+		"item_gauge_mastery": 1,
+		"item_caffeine": 1,
+		"item_polish": 1,
+		"star_detector": 1,
+	}
 
 
 func _finalize_choice(source: Dictionary, kind: String, cost: int) -> Dictionary:

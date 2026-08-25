@@ -136,7 +136,13 @@ func build_actions(
 		if _has_consumed_choice(node_id, str(choice.get("id", ""))):
 			continue
 		if str(choice.get("fallen_monk_kind", "chosik")) == "mugong":
-			result.append(_build_mugong_action(choice, balances))
+			result.append(_build_mugong_action(
+				choice,
+				balances,
+				runtime_levels,
+				catalog,
+				registry
+			))
 			continue
 		var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
 		if unlocked_skill.is_empty() or _is_skill_equipped(skill_config, unlocked_skill):
@@ -297,7 +303,8 @@ func _build_offer(
 				candidate_data,
 				runtime_levels,
 				character_type,
-				registry
+				registry,
+				true
 			):
 				mugong_ids.append(perk_id)
 			continue
@@ -413,10 +420,42 @@ func _build_action(
 	}
 
 
-func _build_mugong_action(choice: Dictionary, balances: Dictionary) -> Dictionary:
+func _build_mugong_action(
+	choice: Dictionary,
+	balances: Dictionary,
+	runtime_levels: Dictionary,
+	catalog: Object,
+	registry: Object
+) -> Dictionary:
 	var choice_id := str(choice.get("id", "")).strip_edges()
 	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
 	var affordable := int(balances.get("muhon", 0)) >= cost
+	var slot_allowed := false
+	if catalog != null and catalog.has_method("get_perk_slot_apply_status"):
+		var status_value: Variant = catalog.call(
+			"get_perk_slot_apply_status",
+			choice,
+			runtime_levels,
+			registry,
+			int(choice.get("next_level", int(runtime_levels.get(choice_id, 0)) + 1))
+		)
+		slot_allowed = status_value is Dictionary and bool((status_value as Dictionary).get("accepted", false))
+	var disabled_reason := ""
+	var unavailable_reason := ""
+	if not slot_allowed:
+		disabled_reason = RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON
+		unavailable_reason = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_MONK_MUGONG_SLOT_FULL
+		)
+	elif not affordable:
+		disabled_reason = "insufficient_muhon"
+		unavailable_reason = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
+			{
+				"required": cost,
+				"shortfall": cost - int(balances.get("muhon", 0)),
+			}
+		)
 	return {
 		"id": "%s%s:%s" % [ACTION_PREFIX, OP_MUGONG, choice_id],
 		"label": str(choice.get("name", choice_id)),
@@ -424,15 +463,9 @@ func _build_mugong_action(choice: Dictionary, balances: Dictionary) -> Dictionar
 			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
 			{"amount": cost}
 		),
-		"enabled": affordable,
-		"disabled_reason": "" if affordable else "insufficient_muhon",
-		"unavailable_reason": "" if affordable else TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
-			{
-				"required": cost,
-				"shortfall": cost - int(balances.get("muhon", 0)),
-			}
-		),
+		"enabled": affordable and slot_allowed,
+		"disabled_reason": disabled_reason,
+		"unavailable_reason": unavailable_reason,
 		"payload": {
 			"operation": OP_MUGONG,
 			"choice": choice.duplicate(true),
