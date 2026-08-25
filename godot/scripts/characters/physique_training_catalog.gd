@@ -40,6 +40,9 @@ const CEILING_NONE := 0.0
 const CEILING_FULL_REDUCTION := 100.0
 const CEILING_COOLDOWN_REDUCTION := 95.0
 const CEILING_POSTURE_CORRECTION := 100.0
+# 연속 위치 적분 전환 뒤에도 기본 판정 1회가 종전 240px를 보존하도록
+# 15 기본 프레임을 정확히 16 프레임으로 만드는 증가율(20 / 3%)을 쓴다.
+const DASH_DISTANCE_AMOUNT := 20.0 / 3.0
 
 const TRAINING_IDS: Array[String] = [
 	"physique_dash_recharge",
@@ -72,7 +75,7 @@ const DATA := {
 	},
 	"physique_dash_distance": {
 		"name": "비천보 수련", "source_perk_id": "dash_jump",
-		"stat_key": "dash_distance_bonus_pct", "amount": 5.0,
+		"stat_key": "dash_distance_bonus_pct", "amount": DASH_DISTANCE_AMOUNT,
 		"max_count": UNLIMITED_COUNT, "weight": 1.0, "value_label": "활주 지속", "unit": "%",
 		"detail": "활주가 이어지는 시간이 늘어 더 멀리 나아갑니다. 무공 슬롯을 쓰지 않습니다.",
 	},
@@ -230,8 +233,8 @@ func build_card(
 	var card := {
 		"id": training_id,
 		"name": str(data.get("name", training_id)),
-		# 카드 문구 계약(2026-08-24): 앞쪽 수치는 언제나 원시 퍼레벨 증가량이다.
-		# 이미 적용된 수련이 있을 때만 판정 배율·숙련 배율을 포함한 다음 총합을 괄호로 붙인다.
+		# 카드 문구 계약(2026-08-25): 앞쪽 수치는 amount × 실효 수련 숙련 배율이다.
+		# 판정 배율은 성공 뒤 적용값에만 더하고, 괄호 누적값은 두 배율이 반영된 이력을 잇는다.
 		"description": _build_effect_line(
 			value_label,
 			per_level_value,

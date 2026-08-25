@@ -37,7 +37,6 @@ const KEY_TRAINING_STAT_OPTION := "tower_ascent.node_modal.training.stat_option"
 const KEY_TRAINING_MAXIMUM := "tower_ascent.node_modal.training.maximum"
 const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_TIMING_BADGE := "tower_ascent.node_modal.training.timing_badge"
-const KEY_TRAINING_BONUS_BADGE := KEY_TRAINING_TIMING_BADGE
 const KEY_TRAINING_JUDGMENT_MAX_BADGE := "tower_ascent.node_modal.training.judgment_max_badge"
 const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
 const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
