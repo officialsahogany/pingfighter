@@ -1,6 +1,7 @@
 extends RefCounted
 
 const BallContextReader := preload("res://scripts/ball/ball_context_reader.gd")
+const PlayerKnockbackImmunity := preload("res://scripts/stages/common/player_knockback_immunity.gd")
 
 const STAGE_ID := 1
 const BOSS_VARIANT := "gaksi"
@@ -225,6 +226,23 @@ func _check_player_collision(scene: Dictionary, context: Dictionary, deps: Dicti
 			return {
 				"stage1_gaksital_fan_throw_hit": true,
 				"stage1_gaksital_fan_throw_smoke_blocked": true,
+			}
+		# 부동갑주(celestial_armor): 부채는 스턴+넉백 동시 stun-bearing 히트라 전체를
+		# stun 게이트로 막는다(한 롤로 스턴·넉백 동시 스킵 — 부분차단 버그 봉인).
+		# 클렌즈는 별개 전체-히트 게이트(기력 무소모). proc 시 갑주 웨이브가 대신 피드백.
+		if PlayerKnockbackImmunity.is_cleanse_immune(deps, context):
+			return {
+				"stage1_gaksital_fan_throw_hit": true,
+				"stage1_gaksital_fan_throw_player_hit_blocked_by_cleanse": true,
+			}
+		if PlayerKnockbackImmunity.try_block_player_stun(deps, context, "stage1_fan_throw"):
+			# P1-B: 갑주 기력 차감(owner/frame_context=context)을 스냅샷 dict(scene)에 반영.
+			# 안 그러면 볼-패스 프레임엔드 스냅샷이 stale scene[special_gauge]로 owner를 덮어
+			# 갑주 소모가 환불된다(scene ≠ context, apply_snapshot 무조건 덮어쓰기).
+			scene["special_gauge"] = float(context.get("special_gauge", scene.get("special_gauge", 0.0)))
+			return {
+				"stage1_gaksital_fan_throw_hit": true,
+				"stage1_gaksital_fan_throw_player_hit_blocked_by_armor": true,
 			}
 		hit_effect_timer = HIT_EFFECT_FRAMES
 		hit_effect_pos = player_center

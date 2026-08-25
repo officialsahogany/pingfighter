@@ -60,7 +60,10 @@ func try_consume_immunity(
 	deps: Dictionary
 ) -> bool:
 	var normalized_effect_type: String = effect_type.strip_edges().to_lower() if effect_type != "" else "generic"
-	if normalized_effect_type != "stun":
+	# 부동갑주 계약 = "스턴·넉백 무시"(WIP 파괴 후 복원). 스턴 AND 넉백만 차단 대상;
+	# 화상(burn)과 패들-히트 recoil/generic은 계약 제외라 항상 통과. 콜사이트(stage1/2/6·
+	# paddle_bounce)는 이미 "knockback"을 요청하는데 이 게이트가 스턴만 허용해 막고 있었다.
+	if normalized_effect_type != "stun" and normalized_effect_type != "knockback":
 		return false
 	if runtime.celestial_armor_state.consume_paired_proc_bypass(source, normalized_effect_type):
 		return true
