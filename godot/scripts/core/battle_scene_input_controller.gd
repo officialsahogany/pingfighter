@@ -429,7 +429,11 @@ func _get_module(module_getter: Callable, key: String) -> Object:
 
 
 func _queue_redraw(owner: Object) -> void:
-	if owner != null and owner.has_method("queue_redraw"):
+	if owner == null:
+		return
+	if owner.has_method("request_battle_redraw"):
+		owner.request_battle_redraw()
+	elif owner.has_method("queue_redraw"):
 		owner.queue_redraw()
 
 
