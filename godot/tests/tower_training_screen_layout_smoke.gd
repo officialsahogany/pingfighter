@@ -26,7 +26,7 @@ func _run() -> void:
 	_verify_training_stage_reservations()
 	_verify_layout_cache_is_size_owned()
 	_verify_compact_description_three_row_budget()
-	_verify_compact_unavailable_reason_reserves_description_row()
+	_verify_shop_cells_bypass_compact_card_text_layout()
 	_verify_compact_hover_detail_lane_geometry()
 	_verify_training_hanji_chrome_assets_and_gate()
 	if _failures.is_empty():
@@ -124,25 +124,36 @@ func _verify_service_card_layout_profiles() -> void:
 	var shop_flags: Dictionary = shop_model.get("layout_flags", {})
 	_expect(
 		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_COMPACT, false)),
-		"shop view model must carry its compact-grid layout flag"
+		"shop view model must preserve its compatibility compact-layout flag"
+	)
+	_expect(
+		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_TRADE_PANELS, false)),
+		"shop view model must carry its split trade-panel layout flag"
 	)
 	var shop_layout: Dictionary = shop_modal.build_screen_layout(BASE_VIEW_SIZE, shop_flags)
 	_expect(
-		(shop_layout.get("card_grid_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_CARD_GRID_RECT),
-		"shop must resolve its dedicated compact 3x2 grid"
+		(shop_layout.get("shop_player_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_TRADE_PLAYER_PANEL_RECT),
+		"shop must resolve the Tower-owned player panel geometry"
+	)
+	_expect(
+		(shop_layout.get("shop_stock_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_TRADE_STOCK_PANEL_RECT),
+		"shop must resolve the Tower-owned stock panel geometry"
 	)
 	var shop_rects: Array = shop_model.get("action_rects", [])
 	var shop_card := shop_rects[0] as Rect2
-	_expect(is_equal_approx(shop_card.size.y, 106.0), "shop card height must shrink to the compact profile's 106px base")
+	# Feedback 7 keeps the old compact flag for compatibility, while the visible
+	# surface now uses occupied 42px cells instead of the 106px card renderer.
+	_expect(shop_card.size.is_equal_approx(Vector2.ONE * TowerAscentNodeModalState.SHOP_TRADE_CELL_SIZE), "shop stock must use 42px cells")
 	_expect(
-		shop_card.size.y / shop_card.size.x <= RuntimePerkOverlayRenderer.TOWER_NODE_COMPACT_CARD_MAX_ASPECT,
-		"shop card aspect must select the shared compact renderer profile"
+		int(shop_layout.get("shop_stock_columns", 0)) == 3
+		and int(shop_layout.get("shop_stock_rows", 0)) == 2,
+		"six stock items must derive a 3x2 occupied grid"
 	)
-	var shop_text_layout := RuntimePerkOverlayRenderer.new().build_tower_node_card_text_layout(
-		_training_card_action(0, "shop"),
-		shop_card
+	_expect(
+		int(shop_layout.get("shop_player_columns", -1)) == 0
+		and int(shop_layout.get("shop_player_rows", -1)) == 0,
+		"empty owned inventory must derive a 0x0 grid without placeholder cells"
 	)
-	_expect(bool(shop_text_layout.get("compact_card", false)), "production shop card rect must activate compact icon and text sizing")
 	_expect(
 		(shop_rects[6] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT),
 		"shop must retain the established end-work footer"
@@ -257,6 +268,52 @@ func _verify_compact_description_three_row_budget() -> void:
 	)
 	var live_badge_rows: Array = live_layout.get("bonus_badge_rows", [])
 	_expect(live_badge_rows.is_empty(), "large Vulkan viewport must also reserve no ordinary training badge row")
+
+
+func _verify_shop_cells_bypass_compact_card_text_layout() -> void:
+	var shop_modal := _build_six_card_modal("shop")
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var disabled_action := _chance_gem_shop_action(false, "insufficient gold")
+	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
+		var cell_rect := shop_modal.get_action_rects(view_size)[5] as Rect2
+		var content_scale := minf(
+			view_size.x / BASE_VIEW_SIZE.x,
+			view_size.y / BASE_VIEW_SIZE.y
+		)
+		var retired_card_layout := renderer.build_tower_node_card_text_layout(
+			disabled_action,
+			cell_rect
+		)
+		_expect(
+			cell_rect.size.is_equal_approx(
+				Vector2.ONE * TowerAscentNodeModalState.SHOP_TRADE_CELL_SIZE * content_scale
+			),
+			"production shop stock must retain a scaled square cell at %s" % view_size
+		)
+		_expect(
+			not bool(retired_card_layout.get("compact_card", true)),
+			"42px square shop cells must not activate the retired compact-card profile at %s" % view_size
+		)
+		_expect(
+			not bool(retired_card_layout.get("unavailable_reason_row_reserved", true)),
+			"shop-cell unavailable copy must bypass card description reservation at %s" % view_size
+		)
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	)
+	var shop_draw_start := renderer_source.find("func _draw_shop_trade_panels(")
+	var shop_draw_end := renderer_source.find("func _draw_shop_trade_tooltip(")
+	var shop_draw_source := renderer_source.substr(
+		shop_draw_start,
+		shop_draw_end - shop_draw_start
+	)
+	_expect(
+		shop_draw_start >= 0
+		and shop_draw_end > shop_draw_start
+		and shop_draw_source.find("draw_tower_shop_item_cell") >= 0
+		and shop_draw_source.find("build_tower_node_hover_detail_layout") < 0,
+		"production shop cells must bypass per-card hover-detail layout"
+	)
 
 
 func _verify_compact_unavailable_reason_reserves_description_row() -> void:

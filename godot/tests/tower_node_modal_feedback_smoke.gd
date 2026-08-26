@@ -49,6 +49,8 @@ class CountingRegistry:
 	extends RefCounted
 	var renderer: Object
 	var runtime_state_requests := 0
+	var tooltip_requests := 0
+	var tooltip_overlay := RefCounted.new()
 
 	func _init(renderer_value: Object) -> void:
 		renderer = renderer_value
@@ -59,6 +61,9 @@ class CountingRegistry:
 			return null
 		if key == "runtime_perk_overlay_renderer":
 			return renderer
+		if key == "character_info_overlay":
+			tooltip_requests += 1
+			return tooltip_overlay
 		return null
 
 
@@ -91,6 +96,7 @@ func _run() -> void:
 	_verify_authoritative_receipt_and_deadlines()
 	_verify_visual_plan_and_longest_hover_rows()
 	_verify_no_hover_lookup_gate()
+	_verify_shop_tooltip_lookup_gate()
 	_verify_shop_presentation_adapter()
 	_verify_training_presentation_adapter()
 	_verify_fallen_monk_presentation_adapter()
@@ -211,6 +217,41 @@ func _verify_no_hover_lookup_gate() -> void:
 	_expect(not renderer_source.contains("_tower_node_training_hover_preview"), "retired training hover preview builder must be removed")
 	_expect(not renderer_source.contains("_tower_node_hover_detail_preview"), "retired training hover preview cache must be removed")
 	_expect(not context_source.contains("hover_detail_context"), "flow render context must remove the retired training hover projection injection")
+
+
+func _verify_shop_tooltip_lookup_gate() -> void:
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var registry := CountingRegistry.new(renderer)
+	var flow := TowerAscentFlowOwner.new()
+	flow.set("_active_registry", registry)
+	flow.set("_active_owner", RefCounted.new())
+	flow.set("_node_modal_kind", "shop")
+	var modal: Object = flow.get("_node_modal_state")
+	var actions: Array[Dictionary] = []
+	for index in range(6):
+		actions.append({
+			"id": "shop_purchase:probe-%d" % index,
+			"label": "shop probe %d" % index,
+			"cost_text": "%d gold" % (index + 1),
+			"payload": {"choice": {
+				"name": "shop probe %d" % index,
+				"description": "tooltip probe",
+				"level_text": "common",
+			}},
+		})
+	modal.open("shop-tooltip-gate", "shop", {"gold": 30}, actions)
+	var idle_context := flow.get_node_modal_render_context()
+	_expect(registry.tooltip_requests == 0, "GRT-043 idle shop frame must perform zero tooltip lookups")
+	_expect(not idle_context.has("shop_item_tooltip_overlay"), "idle shop context must inject no tooltip overlay")
+	var corner := (modal.get_action_rects()[0] as Rect2).position + Vector2(2.0, 2.0)
+	modal.update_hover_at_position(corner)
+	var hover_context := flow.get_node_modal_render_context()
+	_expect(registry.tooltip_requests == 1, "occupied shop-cell hover must request the canonical tooltip exactly once")
+	_expect(hover_context.has("shop_item_tooltip_overlay"), "occupied shop-cell hover must inject the tooltip overlay")
+	modal.update_hover_at_position(Vector2.ZERO)
+	var exited_context := flow.get_node_modal_render_context()
+	_expect(registry.tooltip_requests == 1, "leaving shop cells must not perform another tooltip lookup")
+	_expect(not exited_context.has("shop_item_tooltip_overlay"), "non-hover shop context must remove the tooltip overlay")
 
 
 func _verify_shop_presentation_adapter() -> void:

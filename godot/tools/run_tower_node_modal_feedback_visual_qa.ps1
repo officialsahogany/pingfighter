@@ -45,7 +45,7 @@ try {
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
-        -or -not $outputText.Contains("tower_node_modal_feedback_visual_qa: captures=13") `
+        -or -not $outputText.Contains("tower_node_modal_feedback_visual_qa: captures=14") `
         -or -not $outputText.Contains("tower_node_modal_feedback_visual_qa: strips=3") `
         -or -not $outputText.Contains("tower_node_modal_feedback_visual_qa: ok")
     ) {

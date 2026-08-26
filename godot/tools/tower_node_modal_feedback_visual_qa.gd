@@ -15,9 +15,12 @@ const RuntimePerkOverlayRenderer := preload(
 const RuntimePerkIconRenderer := preload(
 	"res://scripts/hud/runtime_perk_icon_renderer.gd"
 )
+const CharacterInfoOverlayCore := preload(
+	"res://scripts/hud/character_info_overlay_core.gd"
+)
 
 const VIEW_SIZE := Vector2i(2020, 1246)
-const OUTPUT_DIR := "res://.godot/codex_captures/tower_node_modal_feedback_s3"
+const OUTPUT_DIR := "res://.godot/codex_captures/tower_shop_split_feedback7"
 const FRAME_NAMES := [
 	"idle",
 	"hover_000",
@@ -30,6 +33,7 @@ const FRAME_NAMES := [
 	"reject_000",
 	"reject_040",
 	"reject_159",
+	"shop_idle",
 	"shop_hover",
 	"fallen_monk_hover",
 ]
@@ -62,11 +66,18 @@ class CaptureFlow:
 	var modal_state: Object
 	var card_renderer: Object
 	var icon_renderer: Object
+	var tooltip_overlay: Object
 
-	func _init(state_value: Object, card_value: Object, icon_value: Object) -> void:
+	func _init(
+		state_value: Object,
+		card_value: Object,
+		icon_value: Object,
+		tooltip_value: Object
+	) -> void:
 		modal_state = state_value
 		card_renderer = card_value
 		icon_renderer = icon_value
+		tooltip_overlay = tooltip_value
 
 	func get_phase_name() -> String:
 		return "NODE_MODAL"
@@ -75,10 +86,13 @@ class CaptureFlow:
 		return modal_state.build_view_model(view_size)
 
 	func get_node_modal_kind() -> String:
-		return "training"
+		return str(modal_state.build_view_model().get("node_kind", "training"))
 
 	func get_node_modal_render_context() -> Dictionary:
-		return {"card_renderer": card_renderer, "icon_renderer": icon_renderer}
+		var context := {"card_renderer": card_renderer, "icon_renderer": icon_renderer}
+		if modal_state.has_shop_item_hover():
+			context["shop_item_tooltip_overlay"] = tooltip_overlay
+		return context
 
 
 class CaptureCanvas:
@@ -99,6 +113,7 @@ class CaptureCanvas:
 
 var _card_renderer := RuntimePerkOverlayRenderer.new()
 var _icon_renderer := RuntimePerkIconRenderer.new()
+var _tooltip_overlay := CharacterInfoOverlayCore.new()
 var _modal := TowerAscentNodeModalState.new()
 var _frames: Dictionary = {}
 
@@ -125,7 +140,12 @@ func _run() -> void:
 		return
 	_modal.open("s3-visual", "training", {"gold": 30, "muhon": 8}, _actions("training", false))
 	_modal.set_clock_msec_for_tests(1000)
-	var flow := CaptureFlow.new(_modal, _card_renderer, _icon_renderer)
+	var flow := CaptureFlow.new(
+		_modal,
+		_card_renderer,
+		_icon_renderer,
+		_tooltip_overlay
+	)
 	var viewport := SubViewport.new()
 	viewport.size = VIEW_SIZE
 	viewport.transparent_bg = false
@@ -174,7 +194,14 @@ func _run() -> void:
 		if not await _capture_frame(viewport, canvas, output_dir, str(timed_frame[0])):
 			return
 	_modal.open("s3-shop-visual", "shop", {"gold": 120, "muhon": 6}, _actions("shop", false))
+	_modal.set_shop_owned_items([
+		_shop_owned_choice("단련의 부적", Color(0.56, 0.78, 0.92)),
+		_shop_owned_choice("화염 구슬", Color(0.93, 0.42, 0.22)),
+		_shop_owned_choice("수호 장식", Color(0.54, 0.84, 0.58)),
+	])
 	_modal.set_clock_msec_for_tests(4000)
+	if not await _capture_frame(viewport, canvas, output_dir, "shop_idle"):
+		return
 	var shop_corner := (_modal.get_action_rects(Vector2(VIEW_SIZE))[0] as Rect2).position + Vector2(2.0, 2.0)
 	_modal.update_hover_at_position(shop_corner, Vector2(VIEW_SIZE))
 	_modal.set_clock_msec_for_tests(4120)
@@ -256,6 +283,7 @@ func _assert_visible_differences() -> bool:
 		["hover_120", "press", "hover/press"],
 		["success_000", "success_210", "success motion"],
 		["reject_000", "reject_040", "rejection shake"],
+		["shop_idle", "shop_hover", "shop icon hover tooltip"],
 	]:
 		if _sampled_difference_count(
 			_frames.get(str(comparison[0]), null),
@@ -330,3 +358,17 @@ func _actions(node_kind: String, disabled_first: bool) -> Array:
 			},
 		})
 	return result
+
+
+func _shop_owned_choice(display_name: String, color: Color) -> Dictionary:
+	return {
+		"id": display_name,
+		"name": display_name,
+		"description": "현재 원정에서 보유한 아이템입니다. 이 목록에서는 판매할 수 없습니다.",
+		"rarity": "rare",
+		"level_text": "희귀 · 보유 중",
+		"icon_color": color,
+		"card_content_kind": "active_item",
+		"item_data": {"name": display_name, "color": color},
+		"owned_kind": "active",
+	}

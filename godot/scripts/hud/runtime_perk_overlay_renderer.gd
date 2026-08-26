@@ -26,6 +26,9 @@ const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuni
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerShopNodeModalState := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
 
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
@@ -947,6 +950,125 @@ static func should_draw_tower_node_bonus_badge(
 		and float(visual_state.get("success_progress", -1.0)) < 0.0
 		and float(visual_state.get("rejection_progress", -1.0)) < 0.0
 	)
+
+
+func draw_tower_shop_item_cell(
+	canvas: CanvasItem,
+	choice: Dictionary,
+	rect: Rect2,
+	selected: bool,
+	hovered: bool,
+	enabled: bool,
+	icon_renderer: Object = null,
+	active_item_hud_visuals: Object = null
+) -> void:
+	if canvas == null or not rect.has_area():
+		return
+	var rarity := str(choice.get("rarity", "common"))
+	var premium := rarity in ["legendary", "mythic"] or bool(choice.get("is_unique", false))
+	var fill := Color(0.12, 0.095, 0.075, 0.96)
+	var border := Color(0.48, 0.38, 0.24, 0.94)
+	if premium:
+		fill = Color(0.18, 0.105, 0.055, 0.97)
+		border = Color(0.88, 0.61, 0.21, 0.98)
+	if hovered:
+		fill = fill.lightened(0.18)
+		border = Color(1.0, 0.82, 0.40, 1.0)
+	canvas.draw_rect(rect, fill, true)
+	canvas.draw_rect(rect, border, false, 2.0 if hovered or selected else 1.0)
+	_draw_tower_node_card_icon(
+		canvas,
+		choice,
+		rect.grow(-4.0),
+		icon_renderer,
+		active_item_hud_visuals
+	)
+	if not enabled:
+		canvas.draw_rect(rect.grow(-1.0), Color(0.12, 0.10, 0.09, 0.48), true)
+		canvas.draw_line(
+			rect.position + Vector2(6.0, 6.0),
+			rect.end - Vector2(6.0, 6.0),
+			Color(0.72, 0.28, 0.23, 0.92),
+			2.0
+		)
+
+
+func prewarm_tower_shop_cells(
+	actions: Array,
+	owned_items: Array,
+	layout: Dictionary,
+	active_item_hud_visuals: Object = null
+) -> Dictionary:
+	var player_rects: Array[Rect2] = []
+	var stock_rects: Array[Rect2] = []
+	var player_panel: Rect2 = layout.get("shop_player_panel_rect", Rect2())
+	var stock_panel: Rect2 = layout.get("shop_stock_panel_rect", Rect2())
+	var cell_size := float(layout.get("shop_cell_size", 0.0))
+	var cell_gap := float(layout.get("shop_cell_gap", 0.0))
+	var start_offset: Vector2 = layout.get("shop_cell_start_offset", Vector2.ZERO)
+	var player_columns := int(layout.get("shop_player_columns", 0))
+	var stock_columns := int(layout.get("shop_stock_columns", 0))
+	var player_visible_count := mini(
+		owned_items.size(),
+		int(layout.get("shop_player_visible_count", 0))
+	)
+	for visible_index in range(player_visible_count):
+		var choice_value: Variant = owned_items[visible_index]
+		if not (choice_value is Dictionary):
+			continue
+		player_rects.append(TowerShopNodeModalState.get_shop_cell_rect(
+			player_panel,
+			visible_index,
+			player_columns,
+			cell_size,
+			cell_gap,
+			start_offset
+		))
+		_prewarm_tower_shop_choice(choice_value as Dictionary, active_item_hud_visuals)
+	var stock_visible_index := 0
+	for action_value in actions:
+		if not (action_value is Dictionary):
+			continue
+		var action := action_value as Dictionary
+		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
+			continue
+		if stock_visible_index >= int(layout.get("shop_stock_visible_count", 0)):
+			break
+		stock_rects.append(TowerShopNodeModalState.get_shop_cell_rect(
+			stock_panel,
+			stock_visible_index,
+			stock_columns,
+			cell_size,
+			cell_gap,
+			start_offset
+		))
+		var payload_value: Variant = action.get("payload", {})
+		if payload_value is Dictionary:
+			var choice_value: Variant = (payload_value as Dictionary).get("choice", {})
+			if choice_value is Dictionary:
+				_prewarm_tower_shop_choice(
+					choice_value as Dictionary,
+					active_item_hud_visuals
+				)
+		stock_visible_index += 1
+	return {
+		"player_rects": player_rects,
+		"stock_rects": stock_rects,
+		"player_count": player_rects.size(),
+		"stock_count": stock_rects.size(),
+	}
+
+
+func _prewarm_tower_shop_choice(
+	choice: Dictionary,
+	active_item_hud_visuals: Object
+) -> void:
+	var item_data_value: Variant = choice.get("item_data", {})
+	if item_data_value is Dictionary and not (item_data_value as Dictionary).is_empty():
+		_tower_active_item_icon_renderer.prewarm_item_icon(
+			item_data_value as Dictionary,
+			active_item_hud_visuals
+		)
 
 
 func draw_tower_node_card(
@@ -5126,6 +5248,28 @@ func _prepare_text_caches() -> void:
 	_text_size_cache.clear()
 
 
+func _get_tower_node_compact_font(compact_scale: float) -> Font:
+	var base := _get_font()
+	if base == null:
+		return base
+	# At the rail's 8-10px Korean size the fallback font can let adjacent
+	# syllable boxes touch. Keep the adjustment scoped to compact tower cards;
+	# wider cards and every other HUD surface retain the canonical font metrics.
+	var spacing := maxi(1, int(round(compact_scale)))
+	if (
+		_tower_node_compact_font == null
+		or _tower_node_compact_font_base != base
+		or _tower_node_compact_font_spacing != spacing
+	):
+		var variation := FontVariation.new()
+		variation.base_font = base
+		variation.set_spacing(TextServer.SPACING_GLYPH, spacing)
+		_tower_node_compact_font = variation
+		_tower_node_compact_font_base = base
+		_tower_node_compact_font_spacing = spacing
+	return _tower_node_compact_font
+
+
 func _get_text_size(font: Font, text: String, font_size: int) -> Vector2:
 	var cache_key: String = "%d|%d|%s" % [font.get_instance_id(), font_size, text]
 	if _text_size_cache.has(cache_key):
@@ -5151,28 +5295,6 @@ func _get_font() -> Font:
 	if _fallback_font == null:
 		_fallback_font = ThemeDB.fallback_font
 	return _fallback_font
-
-
-func _get_tower_node_compact_font(compact_scale: float) -> Font:
-	var base := _get_font()
-	if base == null:
-		return base
-	# At the rail's 8-10px Korean size the fallback font can let adjacent
-	# syllable boxes touch. Keep the adjustment scoped to compact tower cards;
-	# wider cards and every other HUD surface retain the canonical font metrics.
-	var spacing := maxi(1, int(round(compact_scale)))
-	if (
-		_tower_node_compact_font == null
-		or _tower_node_compact_font_base != base
-		or _tower_node_compact_font_spacing != spacing
-	):
-		var variation := FontVariation.new()
-		variation.base_font = base
-		variation.set_spacing(TextServer.SPACING_GLYPH, spacing)
-		_tower_node_compact_font = variation
-		_tower_node_compact_font_base = base
-		_tower_node_compact_font_spacing = spacing
-	return _tower_node_compact_font
 
 
 func _capture_draw_msec() -> void:

@@ -4,6 +4,15 @@ const TowerTrainingTimingJudgmentPolicy := preload(
 	"res://scripts/tower_ascent/tower_training_timing_judgment_policy.gd"
 )
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const TowerShopActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
+const TowerShopOwnedItemPresenter := preload(
+	"res://scripts/hud/character_info_overlay_passive_item_presenter.gd"
+)
+const TowerShopOwnerState := preload(
+	"res://scripts/hud/character_info_overlay_owner_state.gd"
+)
+
+var _tower_shop_active_item_catalog: Object = TowerShopActiveItemCatalog.new()
 
 func get_run_state_snapshot() -> Dictionary:
 	return _run_state.export_economy()
@@ -366,6 +375,108 @@ func _shop_stock_label(stock: Dictionary) -> String:
 			)
 	return str(stock.get("display_name", stock.get("item_name", "")))
 
+
+func _build_shop_owned_items() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var source_items: Array[Dictionary] = []
+	var active_slots_value: Variant = TowerShopOwnerState.owner_value(
+		_active_owner,
+		"active_item_slots",
+		[]
+	)
+	if active_slots_value is Array:
+		for item_value in active_slots_value as Array:
+			if not (item_value is Dictionary) or (item_value as Dictionary).is_empty():
+				continue
+			var item_data := (item_value as Dictionary).duplicate(true)
+			var item_name := str(item_data.get("name", "")).strip_edges()
+			if not item_name.is_empty():
+				var catalog_item: Dictionary = _tower_shop_active_item_catalog.build_item_by_name(
+					item_name
+				)
+				if not catalog_item.is_empty():
+					catalog_item.merge(item_data, true)
+					item_data = catalog_item
+			_append_shop_owned_choice(result, source_items, item_data, "active")
+	var passive_items: Array = TowerShopOwnedItemPresenter.passive_inventory_items(
+		_active_owner,
+		_active_registry,
+		_get_registry_instance(_active_registry, "mythic_item_runtime")
+	)
+	for item_value in passive_items:
+		if item_value is Dictionary:
+			_append_shop_owned_choice(
+				result,
+				source_items,
+				item_value as Dictionary,
+				"passive"
+			)
+	var equipment := TowerShopOwnerState.equipment_state_from_owner(_active_owner)
+	for slot_value in equipment.values():
+		if slot_value is Dictionary:
+			_append_shop_owned_choice(
+				result,
+				source_items,
+				slot_value as Dictionary,
+				"equipment"
+			)
+		elif slot_value is Array:
+			for item_value in slot_value as Array:
+				if item_value is Dictionary:
+					_append_shop_owned_choice(
+						result,
+						source_items,
+						item_value as Dictionary,
+						"equipment"
+					)
+	return result
+
+
+func _append_shop_owned_choice(
+	result: Array[Dictionary],
+	source_items: Array[Dictionary],
+	item_data: Dictionary,
+	owned_kind: String
+) -> void:
+	if item_data.is_empty() or _shop_owned_contains_item(source_items, item_data):
+		return
+	source_items.append(item_data)
+	var rarity := str(item_data.get("rarity", item_data.get("quality", "common")))
+	var display_name := str(item_data.get(
+		"display_name",
+		item_data.get("name", "")
+	)).strip_edges()
+	if display_name.is_empty():
+		return
+	result.append({
+		"id": str(item_data.get("_inventory_id", item_data.get("name", display_name))),
+		"name": display_name,
+		"description": str(item_data.get("description", "")),
+		"rarity": rarity,
+		"level_text": str(item_data.get("level_text", _shop_rarity_label(rarity))),
+		"icon_color": item_data.get("color", Color(0.78, 0.78, 0.78)),
+		"card_content_kind": "active_item",
+		"item_data": item_data.duplicate(true),
+		"owned_kind": owned_kind,
+	})
+
+
+func _shop_owned_contains_item(
+	source_items: Array[Dictionary],
+	candidate: Dictionary
+) -> bool:
+	var candidate_inventory_id := str(candidate.get("_inventory_id", "")).strip_edges()
+	for source in source_items:
+		var source_inventory_id := str(source.get("_inventory_id", "")).strip_edges()
+		if (
+			not candidate_inventory_id.is_empty()
+			and source_inventory_id == candidate_inventory_id
+		):
+			return true
+		if is_same(source, candidate):
+			return true
+	return false
+
 func _execute_shop_purchase(stock_id: String, requested_resolution_id: String = "") -> Dictionary:
 	var stock := _find_shop_stock(stock_id)
 	if stock.is_empty():
@@ -496,8 +607,11 @@ func _rollback_shop_active_item(item_name: String) -> void:
 
 func _refresh_shop_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_shop_actions())
+	_node_modal_state.set_shop_owned_items(_build_shop_owned_items())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
+	if has_method("_prewarm_shop_trade_cells"):
+		call("_prewarm_shop_trade_cells")
 
 func _build_training_actions() -> Array[Dictionary]:
 	var offer := _get_or_create_training_offer()

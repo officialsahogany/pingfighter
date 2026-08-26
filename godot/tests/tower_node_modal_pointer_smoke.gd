@@ -518,21 +518,71 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 		var layout: Dictionary = modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
 		var rects: Array = model.get("action_rects", [])
 		_expect(rects.size() == 7, "%s must expose six cards plus the end-work action" % node_kind)
+		if node_kind == "shop":
+			# Feedback 7 replaces only the shop's compact card surface. GRT-022
+			# still requires the right-stock drawer and hit test to consume the
+			# exact same top-corner geometry source.
+			var stock_panel: Rect2 = layout.get("shop_stock_panel_rect", Rect2())
+			var stock_columns := int(layout.get("shop_stock_columns", 0))
+			for index in range(6):
+				var expected_rect := TowerAscentNodeModalState.get_shop_cell_rect(
+					stock_panel,
+					index,
+					stock_columns,
+					float(layout.get("shop_cell_size", 0.0)),
+					float(layout.get("shop_cell_gap", 0.0)),
+					layout.get("shop_cell_start_offset", Vector2.ZERO)
+				)
+				var rect := rects[index] as Rect2
+				_expect(rect.is_equal_approx(expected_rect), "shop stock %d must use the shared cell rect" % index)
+				_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "shop stock %d top corner must be selectable" % index)
+				_expect(str(modal.get_selected_action().get("id", "")) == "shop-card-%d" % index, "shop stock %d hit test must select its drawn cell" % index)
+			var prewarm_probe := RuntimePerkOverlayRenderer.new().prewarm_tower_shop_cells(
+				model.get("actions", []),
+				[],
+				model,
+				null
+			)
+			var prewarm_stock_rects: Array = prewarm_probe.get("stock_rects", [])
+			_expect(prewarm_stock_rects.size() == 6, "shop prewarm must visit exactly six occupied stock cells")
+			for index in range(prewarm_stock_rects.size()):
+				_expect((prewarm_stock_rects[index] as Rect2).is_equal_approx(rects[index] as Rect2), "shop prewarm cell %d must match draw/hit geometry" % index)
+			modal.set_shop_owned_items([{
+				"id": "owned-probe",
+				"name": "owned probe",
+				"item_data": {"name": "owned-probe"},
+			}])
+			var owned_layout := modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
+			var owned_rect := TowerAscentNodeModalState.get_shop_cell_rect(
+				owned_layout.get("shop_player_panel_rect", Rect2()),
+				0,
+				int(owned_layout.get("shop_player_columns", 0)),
+				float(owned_layout.get("shop_cell_size", 0.0)),
+				float(owned_layout.get("shop_cell_gap", 0.0)),
+				owned_layout.get("shop_cell_start_offset", Vector2.ZERO)
+			)
+			var owned_corner := owned_rect.position + Vector2(2.0, 2.0)
+			_expect(not stock_panel.intersects(owned_layout.get("shop_player_panel_rect", Rect2())), "shop player and stock panels must not overlap")
+			_expect(modal.get_owned_cell_index_at(owned_corner) == 0, "owned top corner must resolve through the shared cell rect")
+			_expect(not modal.select_at_position(owned_corner), "owned read-only cell must not enter the action selection route")
+			_expect(not modal.begin_pointer_press(owned_corner), "owned read-only click must never arm a purchase")
+			_expect(not modal.select_at_position(TowerAscentNodeModalState.SHOP_CARD_GRID_RECT.position + Vector2(2.0, 2.0)), "retired compact-card top corner must not purchase stock")
+			var end_work_rect := rects[6] as Rect2
+			_expect(end_work_rect.is_equal_approx(owned_layout.get("end_work_rect", Rect2())), "shop end-work action must use its flagged footer rect")
+			_expect(modal.select_at_position(end_work_rect.position + Vector2(2.0, 2.0)), "shop end-work top corner must be selectable")
+			_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "shop footer hit test must select end-work")
+			continue
 		var card_grid_rect: Rect2 = layout.get("card_grid_rect", Rect2())
 		var column_gap := float(layout.get("grid_column_gap", TowerAscentNodeModalState.GRID_COLUMN_GAP))
 		var row_gap := float(layout.get("grid_row_gap", TowerAscentNodeModalState.GRID_ROW_GAP))
 		# S5 수련 1x6 레일과 피드백3 상점 compact 3x2 모두 생산 레이아웃
 		# 플래그를 따라야 한다. 상단 모서리 표본이 GRT-022 반증 정본이다.
 		var is_training_grid := str(node_kind) == "training"
-		var is_shop_grid := str(node_kind) == "shop"
 		var grid_columns := TowerAscentNodeModalState.CARD_GRID_COLUMNS
 		var grid_rows := TowerAscentNodeModalState.CARD_GRID_ROWS
 		if is_training_grid:
 			grid_columns = TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
 			grid_rows = TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS
-		elif is_shop_grid:
-			grid_columns = TowerAscentNodeModalState.SHOP_CARD_GRID_COLUMNS
-			grid_rows = TowerAscentNodeModalState.SHOP_CARD_GRID_ROWS
 		var card_width := (
 			card_grid_rect.size.x
 			- column_gap

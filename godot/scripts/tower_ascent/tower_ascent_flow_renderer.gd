@@ -3,6 +3,9 @@ extends RefCounted
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
+const TowerShopNodeModalState := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
 const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
@@ -151,6 +154,7 @@ const BALANCE_TEXT_GAP := 10.0
 const BALANCE_FONT_SIZE := 18.0
 const BALANCE_TEXT_OUTLINE_SIZE := 2.0
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const LAYOUT_FLAG_SHOP_TRADE_PANELS := "shop_trade_panels"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
 
@@ -3650,6 +3654,12 @@ func _draw_node_modal(
 		)
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
 		_draw_training_stage_layout(canvas, model, content_scale, render_context)
+	var uses_shop_trade_panels := bool(layout_flags.get(
+		LAYOUT_FLAG_SHOP_TRADE_PANELS,
+		false
+	))
+	if uses_shop_trade_panels:
+		_draw_shop_trade_panels(canvas, model, render_context)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var interaction_visuals: Array = model.get("interaction_visuals", [])
@@ -3675,6 +3685,10 @@ func _draw_node_modal(
 			)
 		)
 		var action := actions[index] as Dictionary
+		if uses_shop_trade_panels and str(action.get("id", "")) != "end_work":
+			# Shop stock was drawn as 42px cells above. Only the shared footer action
+			# remains in this legacy row/card loop.
+			continue
 		if (
 			bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false))
 			and str(action.get("id", "")) != "end_work"
@@ -3757,6 +3771,215 @@ func _draw_node_modal(
 		508.0 * content_scale,
 		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
+	)
+	if uses_shop_trade_panels:
+		_draw_shop_trade_tooltip(canvas, model, render_context)
+
+
+func _draw_shop_trade_panels(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var player_panel: Rect2 = model.get("shop_player_panel_rect", Rect2())
+	var stock_panel: Rect2 = model.get("shop_stock_panel_rect", Rect2())
+	if not player_panel.has_area() or not stock_panel.has_area():
+		return
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var font := ThemeDB.fallback_font
+	for panel_rect in [player_panel, stock_panel]:
+		canvas.draw_rect(panel_rect, Color(0.31, 0.22, 0.14, 0.16), true)
+		canvas.draw_rect(panel_rect, Color(0.45, 0.27, 0.16, 0.88), false, 2.0 * content_scale)
+	canvas.draw_string(
+		font,
+		player_panel.position + Vector2(14.0, 25.0) * content_scale,
+		"%s %d" % [
+			str(model.get("shop_player_label", "보유 중")),
+			(model.get("shop_owned_items", []) as Array).size(),
+		],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		player_panel.size.x - 28.0 * content_scale,
+		maxi(10, int(round(15.0 * content_scale))),
+		INK
+	)
+	canvas.draw_string(
+		font,
+		stock_panel.position + Vector2(14.0, 25.0) * content_scale,
+		"%s %d" % [
+			str(model.get("shop_stock_label", "판매 목록")),
+			int(model.get("shop_stock_visible_count", 0)),
+		],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		stock_panel.size.x - 28.0 * content_scale,
+		maxi(10, int(round(15.0 * content_scale))),
+		INK
+	)
+	var card_renderer: Object = render_context.get("card_renderer", null)
+	if card_renderer == null or not card_renderer.has_method("draw_tower_shop_item_cell"):
+		return
+	var icon_renderer: Object = render_context.get("icon_renderer", null)
+	var active_visuals: Object = render_context.get("active_item_hud_visuals", null)
+	var cell_size := float(model.get("shop_cell_size", 0.0))
+	var cell_gap := float(model.get("shop_cell_gap", 0.0))
+	var start_offset: Vector2 = model.get("shop_cell_start_offset", Vector2.ZERO)
+	var owned_items: Array = model.get("shop_owned_items", [])
+	var owned_visible_count := mini(
+		owned_items.size(),
+		int(model.get("shop_player_visible_count", 0))
+	)
+	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
+	for visible_index in range(owned_visible_count):
+		if not (owned_items[visible_index] is Dictionary):
+			continue
+		var cell_rect := TowerShopNodeModalState.get_shop_cell_rect(
+			player_panel,
+			visible_index,
+			int(model.get("shop_player_columns", 0)),
+			cell_size,
+			cell_gap,
+			start_offset
+		)
+		card_renderer.call(
+			"draw_tower_shop_item_cell",
+			canvas,
+			owned_items[visible_index] as Dictionary,
+			cell_rect,
+			false,
+			visible_index == hovered_owned_index,
+			true,
+			icon_renderer,
+			active_visuals
+		)
+	var actions: Array = model.get("actions", [])
+	var selected_index := int(model.get("selected_index", -1))
+	var hovered_index := int(model.get("hovered_index", -1))
+	var stock_visible_index := 0
+	for action_index in range(actions.size()):
+		if not (actions[action_index] is Dictionary):
+			continue
+		var action := actions[action_index] as Dictionary
+		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
+			continue
+		if stock_visible_index >= int(model.get("shop_stock_visible_count", 0)):
+			break
+		var payload_value: Variant = action.get("payload", {})
+		var choice: Dictionary = (
+			(payload_value as Dictionary).get("choice", {})
+			if payload_value is Dictionary
+			else {}
+		)
+		var cell_rect := TowerShopNodeModalState.get_shop_cell_rect(
+			stock_panel,
+			stock_visible_index,
+			int(model.get("shop_stock_columns", 0)),
+			cell_size,
+			cell_gap,
+			start_offset
+		)
+		card_renderer.call(
+			"draw_tower_shop_item_cell",
+			canvas,
+			choice,
+			cell_rect,
+			action_index == selected_index,
+			action_index == hovered_index,
+			bool(action.get("enabled", true)),
+			icon_renderer,
+			active_visuals
+		)
+		stock_visible_index += 1
+
+
+func _draw_shop_trade_tooltip(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var tooltip_overlay: Object = render_context.get("shop_item_tooltip_overlay", null)
+	if (
+		tooltip_overlay == null
+		or not tooltip_overlay.has_method("_set_hover_data")
+		or not tooltip_overlay.has_method("_draw_dual_item_tooltip")
+	):
+		return
+	var choice: Dictionary = {}
+	var action: Dictionary = {}
+	var anchor_rect := Rect2()
+	var entries: Array = []
+	var right_header := ""
+	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
+	if hovered_owned_index >= 0:
+		var owned_items: Array = model.get("shop_owned_items", [])
+		if hovered_owned_index >= owned_items.size():
+			return
+		choice = owned_items[hovered_owned_index] as Dictionary
+		anchor_rect = TowerShopNodeModalState.get_shop_cell_rect(
+			model.get("shop_player_panel_rect", Rect2()),
+			hovered_owned_index,
+			int(model.get("shop_player_columns", 0)),
+			float(model.get("shop_cell_size", 0.0)),
+			float(model.get("shop_cell_gap", 0.0)),
+			model.get("shop_cell_start_offset", Vector2.ZERO)
+		)
+		entries = [{"text": str(model.get("shop_owned_read_only_text", "보유 중 · 판매 불가"))}]
+		right_header = str(model.get("shop_player_label", "보유 중"))
+	else:
+		var hovered_index := int(model.get("hovered_index", -1))
+		var actions: Array = model.get("actions", [])
+		var action_rects: Array = model.get("action_rects", [])
+		if hovered_index < 0 or hovered_index >= actions.size():
+			return
+		action = actions[hovered_index] as Dictionary
+		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
+			return
+		var payload_value: Variant = action.get("payload", {})
+		if not (payload_value is Dictionary):
+			return
+		choice = (payload_value as Dictionary).get("choice", {})
+		anchor_rect = action_rects[hovered_index] as Rect2
+		entries.append({"text": str(action.get("cost_text", ""))})
+		var reason := str(action.get("unavailable_reason", "")).strip_edges()
+		entries.append({
+			"text": reason if not reason.is_empty() else str(model.get(
+				"shop_purchase_available_text",
+				"구매 가능"
+			))
+		})
+		right_header = str(model.get("shop_stock_label", "판매 목록"))
+	if choice.is_empty() or not anchor_rect.has_area():
+		return
+	var body := str(choice.get("description", "")).strip_edges()
+	if body.is_empty():
+		body = "설명이 없습니다."
+	var color_value: Variant = choice.get("icon_color", Color(0.78, 0.65, 0.42))
+	var color: Color = color_value if color_value is Color else Color(0.78, 0.65, 0.42)
+	var data_value: Variant = tooltip_overlay.call(
+		"_set_hover_data",
+		{},
+		str(choice.get("name", action.get("label", ""))),
+		str(choice.get("level_text", choice.get("rarity", ""))),
+		body,
+		color,
+		Color.WHITE,
+		anchor_rect,
+		entries,
+		right_header
+	)
+	if not (data_value is Dictionary):
+		return
+	tooltip_overlay.call(
+		"_draw_dual_item_tooltip",
+		canvas,
+		data_value as Dictionary,
+		model.get("pointer_position", anchor_rect.get_center()),
+		model.get("view_size", Vector2(760.0, 750.0)),
+		ThemeDB.fallback_font,
+		color,
+		str(choice.get("name", action.get("label", ""))),
+		str(choice.get("level_text", choice.get("rarity", ""))),
+		body,
+		entries,
+		render_context.get("icon_renderer", null)
 	)
 
 

@@ -112,6 +112,17 @@ func get_node_modal_render_context() -> Dictionary:
 		context["training_stats_tooltip_overlay"] = (
 			_get_cached_node_modal_render_module("character_info_overlay")
 		)
+	if (
+		_node_modal_kind == "shop"
+		and _node_modal_state != null
+		and _node_modal_state.has_shop_item_hover()
+	):
+		# GRT-043: the canonical dual-tooltip host is injected only for a
+		# retained occupied cell hover. An idle shop frame performs no tooltip
+		# registry lookup and allocates no tooltip data.
+		context["shop_item_tooltip_overlay"] = (
+			_get_cached_node_modal_render_module("character_info_overlay")
+		)
 	if _node_modal_kind == "training" and _node_modal_state != null:
 		var training_stage_presentation: Object = (
 			_node_modal_state.get_training_stage_presentation()
@@ -195,6 +206,9 @@ func _open_node_modal() -> void:
 		_run_state.export_economy(),
 		_build_node_modal_actions()
 	)
+	if _node_modal_kind == "shop":
+		_node_modal_state.set_shop_owned_items(_build_shop_owned_items())
+		_prewarm_shop_trade_cells()
 	_configure_training_stage_presentation()
 	_configure_guardian_spring_presentation()
 	_prepare_training_stats_panel()
@@ -214,6 +228,27 @@ func _open_node_modal() -> void:
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
 		))
+
+
+func _prewarm_shop_trade_cells() -> void:
+	var card_renderer := _get_cached_node_modal_render_module(
+		"runtime_perk_overlay_renderer"
+	)
+	if (
+		card_renderer == null
+		or not card_renderer.has_method("prewarm_tower_shop_cells")
+	):
+		return
+	var model: Dictionary = _node_modal_state.build_view_model(
+		TowerAscentNodeModalState.BASE_VIEW_SIZE
+	)
+	card_renderer.call(
+		"prewarm_tower_shop_cells",
+		model.get("actions", []),
+		model.get("shop_owned_items", []),
+		model,
+		_get_cached_node_modal_render_module("active_item_hud_visuals")
+	)
 
 func _handle_node_modal_input(event: InputEvent) -> void:
 	var view_size := _get_node_modal_view_size()
