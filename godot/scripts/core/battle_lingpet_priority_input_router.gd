@@ -10,10 +10,23 @@ func handle_input(
 	owner: Object,
 	registry: Object,
 	module_getter: Callable,
-	view_size: Vector2
+	view_size: Vector2,
+	pre_overflow_modal_router: Object = null
 ) -> bool:
 	if _call_modal_gate_bool(module_getter, "is_lingpet_acquire_cutin_active"):
 		_handle_acquire_cutin_input(event, owner, registry, module_getter)
+		return true
+	# Stable X1 insertion seam: acquisition -> pre-overflow modal -> overflow.
+	# The adapter owns the modal swallow rule so a locally ignored event cannot
+	# leak into the Tower modal underneath an active inserted router.
+	if _handle_pre_overflow_modal_input(
+		pre_overflow_modal_router,
+		event,
+		owner,
+		registry,
+		module_getter,
+		view_size
+	):
 		return true
 	if _call_modal_gate_bool(module_getter, "is_lingpet_overflow_choice_active"):
 		_handle_overflow_choice_input(
@@ -28,6 +41,32 @@ func handle_input(
 		_handle_guardian_enhance_cutin_input(event, owner, registry, module_getter)
 		return true
 	return false
+
+
+func _handle_pre_overflow_modal_input(
+	modal_router: Object,
+	event: InputEvent,
+	owner: Object,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2
+) -> bool:
+	if (
+		modal_router == null
+		or not modal_router.has_method("is_active")
+		or not bool(modal_router.call("is_active", module_getter))
+	):
+		return false
+	if modal_router.has_method("handle_input"):
+		modal_router.call(
+			"handle_input",
+			event,
+			owner,
+			registry,
+			module_getter,
+			view_size
+		)
+	return true
 
 
 func _handle_guardian_enhance_cutin_input(

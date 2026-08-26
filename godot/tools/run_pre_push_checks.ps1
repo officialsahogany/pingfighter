@@ -128,6 +128,7 @@ $focusedSmoke = @(
     "res://tests/tower_victory_margin_muhon_reward_smoke.gd",
     "res://tests/battle_scene_victory_modal_draw_order_smoke.gd",
     "res://tests/battle_scene_modal_overlap_input_smoke.gd",
+    "res://tests/battle_overlay_input_priority_preservation_smoke.gd",
     "res://tests/battle_reward_modal_input_router_owner_smoke.gd",
     "res://tests/mythic_perk_acquisition_cinematic_smoke.gd",
     "res://tests/mythic_acquisition_modal_gate_progress_smoke.gd",
