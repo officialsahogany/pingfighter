@@ -79,6 +79,7 @@ class FakeOwner:
 	extends RefCounted
 	var current_stage := 2
 	var stage1_boss_variant := "dalji"
+	var stage_boss_variant := "dalji"
 	var selected_character_type := "smasher"
 	var special_gauge := 250.0
 	var boss_pos := Vector2(330.0, 80.0)
@@ -694,6 +695,10 @@ func _verify_stage2_tower_reward_pick_contract() -> void:
 	var boss_slot_id := "floor_02_cheongringwi"
 	var builder := TowerRewardPickOfferBuilder.new()
 	var owner := FakeOwner.new()
+	# Tower reward identity is strict to the arrived map encounter. The shared
+	# FakeOwner intentionally keeps the legacy campaign's stale Dalji value;
+	# this focused Tower fixture opts into its actually selected boss.
+	owner.stage_boss_variant = "cheongringwi"
 	var registry := FakeRegistry.new({
 		"tower_ascent_unlock_store": FakeUnlockStore.new(UNLOCK_ID),
 		"smasher_skill_config": SmasherSkillConfig.new(),

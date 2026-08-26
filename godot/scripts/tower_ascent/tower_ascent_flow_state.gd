@@ -112,7 +112,9 @@ const SELECTOR_RESET_Y := 92.0
 
 var _active := false
 var _map_seed := 0
+var _map_seed_available := false
 var _prepared := false
+var _last_prepare_status: Dictionary = {}
 var _prepared_resolution_id := ""
 var _phase := PHASE_COMBAT
 var _graph_phases: Array[Dictionary] = []
@@ -241,6 +243,8 @@ func _reset_runtime_state() -> void:
 	_active_owner = null
 	_active_registry = null
 	_active = false
+	_map_seed = 0
+	_map_seed_available = false
 	_prepared = false
 	_prepared_resolution_id = ""
 	_phase = PHASE_COMBAT
@@ -419,6 +423,82 @@ func _get_owner_int(owner: Object, property_name: String, fallback: int) -> int:
 	return fallback if value == null else int(value)
 
 
+func _resolve_prepare_map_seed(
+	owner: Object,
+	context: Dictionary,
+	reuse_existing_run: bool
+) -> Dictionary:
+	var selection_status := _get_selection_map_seed_status(owner)
+	var selection_has_seed := bool(selection_status.get("found", false))
+	var selection_seed := int(selection_status.get("map_seed", 0))
+	var context_has_seed := context.has("map_seed")
+	var context_seed := int(context.get("map_seed", 0))
+	if context_has_seed and selection_has_seed and context_seed != selection_seed:
+		return {
+			"accepted": false,
+			"reason": "context_selection_map_seed_mismatch",
+			"requested_seed": context_seed,
+			"selection_seed": selection_seed,
+		}
+	var requested_seed := context_seed if context_has_seed else selection_seed
+	var source := "context" if context_has_seed else "selection"
+	var requested_seed_available := context_has_seed or selection_has_seed
+	if not requested_seed_available and reuse_existing_run and _map_seed_available:
+		requested_seed = _map_seed
+		source = "existing_run"
+		requested_seed_available = true
+	if not requested_seed_available:
+		return {
+			"accepted": false,
+			"reason": "missing_authoritative_map_seed",
+			"requested_seed": requested_seed,
+			"selection_seed": selection_seed,
+		}
+	if _prepared and requested_seed != _map_seed:
+		return {
+			"accepted": false,
+			"reason": "prepared_map_seed_mismatch",
+			"requested_seed": requested_seed,
+			"prepared_seed": _map_seed,
+			"selection_seed": selection_seed,
+		}
+	if reuse_existing_run and _map_seed_available and requested_seed != _map_seed:
+		return {
+			"accepted": false,
+			"reason": "run_map_seed_mismatch",
+			"requested_seed": requested_seed,
+			"prepared_seed": _map_seed,
+			"selection_seed": selection_seed,
+		}
+	return {
+		"accepted": true,
+		"reason": "resolved",
+		"map_seed": requested_seed,
+		"source": source,
+	}
+
+
+func _get_selection_map_seed_status(owner: Object) -> Dictionary:
+	if owner == null or not owner.has_method("get_node_or_null"):
+		return {"found": false, "map_seed": 0}
+	if owner is Node and not (owner as Node).is_inside_tree():
+		return {"found": false, "map_seed": 0}
+	var selection_state: Object = owner.call("get_node_or_null", "/root/GameSelectionState")
+	if selection_state == null or not selection_state.has_method("get_selection"):
+		return {"found": false, "map_seed": 0}
+	var selection_value: Variant = selection_state.call("get_selection")
+	if not (selection_value is Dictionary):
+		return {"found": false, "map_seed": 0}
+	var selection := selection_value as Dictionary
+	return {
+		"found": bool(selection.get(
+			"tower_map_seed_available",
+			selection.has("tower_map_seed")
+		)),
+		"map_seed": int(selection.get("tower_map_seed", 0)),
+	}
+
+
 func _warn_boss_identity_mismatch(
 	node: Dictionary,
 	opening_stage1_variant: String = ""
@@ -459,9 +539,6 @@ func _sync_owner_chance_gems(owner: Object) -> void:
 		return
 	owner.set("chance_gems_count", _run_state.get_chance_gems())
 	owner.set("chance_gems_max", TowerAscentRunState.MAX_CHANCE_GEMS)
-
-func _derive_map_seed(run_id: String, current_stage: int) -> int:
-	return absi(hash("%s:%d:%s" % [run_id, current_stage, MAP_GENERATOR_VERSION]))
 
 func _normalize_node_modal_kind(value: String) -> String:
 	var normalized := value.strip_edges().to_lower()

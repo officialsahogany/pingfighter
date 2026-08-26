@@ -30,16 +30,28 @@ const REENTRY_PROGRESS_FIELDS: Array[String] = [
 
 func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> bool:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		_last_prepare_status = {"accepted": false, "reason": "feature_disabled"}
 		push_warning("[TowerAscent] prepare rejected: feature_disabled")
 		return false
 	if _active:
+		_last_prepare_status = {"accepted": false, "reason": "flow_active"}
 		push_warning("[TowerAscent] prepare rejected: flow_active")
 		return false
-	if _prepared:
-		return true
 	var reuse_existing_run: bool = bool(
 		_run_state.has_started() and not context.has("run_id")
 	)
+	var map_seed_resolution := _resolve_prepare_map_seed(
+		owner,
+		context,
+		reuse_existing_run
+	)
+	if not bool(map_seed_resolution.get("accepted", false)):
+		_last_prepare_status = map_seed_resolution.duplicate(true)
+		return false
+	if _prepared:
+		_last_prepare_status = map_seed_resolution.duplicate(true)
+		return true
+	var requested_map_seed := int(map_seed_resolution.get("map_seed", 0))
 	# Boot prewarm starts the run-local economy before any map exists. That is
 	# not a combat re-entry: trying to restore its empty current_node_id rejects
 	# the first live victory while RefCounted fixtures (which skip boot prewarm)
@@ -57,7 +69,6 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		else {}
 	)
 	var existing_progress := _capture_reentry_progress() if restore_existing_progress else {}
-	var existing_map_seed := _map_seed
 	var existing_combat_node_id := str(existing_progress.get("current_node_id", ""))
 	_reset_runtime_state()
 	var run_id := str(context.get(
@@ -74,28 +85,36 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	if reuse_existing_run:
 		progress["start_card"] = existing_start_card.duplicate(true)
 	if not _run_state.begin(run_id, economy, [], progress):
+		_last_prepare_status = {"accepted": false, "reason": "run_state_begin_failed"}
 		push_warning("[TowerAscent] prepare rejected: run_state_begin_failed")
 		return false
 	var current_stage := int(context.get("current_stage", _get_owner_int(owner, "current_stage", 1)))
-	_map_seed = int(context.get(
-		"map_seed",
-		existing_map_seed if restore_existing_progress else _derive_map_seed(run_id, current_stage)
-	))
+	_map_seed = requested_map_seed
+	_map_seed_available = true
 	_node_modal_kind = _normalize_node_modal_kind(str(context.get(
 		"node_modal_kind",
 		"guardian_spring"
 	)))
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	if not _build_generated_graph(current_stage):
+		_last_prepare_status = {"accepted": false, "reason": "generated_graph_invalid"}
 		push_warning("[TowerAscent] prepare rejected: generated_graph_invalid")
 		return false
 	if not restore_existing_progress and current_stage == 1 and owner != null:
 		var opening_variant_value: Variant = owner.get("stage1_boss_variant")
 		if opening_variant_value != null:
-			_warn_boss_identity_mismatch(
+			var opening_identity_mismatch := _warn_boss_identity_mismatch(
 				_get_node(_route_source_node_id),
 				str(opening_variant_value)
 			)
+			if opening_identity_mismatch:
+				_reset_runtime_state()
+				_last_prepare_status = {
+					"accepted": false,
+					"reason": "opening_boss_identity_mismatch",
+					"map_seed": requested_map_seed,
+				}
+				return false
 	_prewarm_map_scroll_assets()
 	# S5: the rich Spring scene is warmed at Tower stage entry, not on the first
 	# guardian-spring node frame. Its catalog is all-or-nothing and the modal keeps
@@ -103,6 +122,7 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 	prewarm_guardian_spring_presentation_assets()
 	_route_pickup_state.prewarm_candidates()
 	if restore_existing_progress and not _restore_reentry_progress(existing_progress):
+		_last_prepare_status = {"accepted": false, "reason": "reentry_progress_invalid"}
 		push_warning("[TowerAscent] prepare rejected: reentry_progress_invalid")
 		return false
 	_current_node_id = (
@@ -123,10 +143,16 @@ func prepare_vertical_slice_combat(owner: Object, context: Dictionary = {}) -> b
 		_prepared_resolution_id
 	)
 	if pending.is_empty():
+		_last_prepare_status = {"accepted": false, "reason": "resolution_prepare_failed"}
 		push_warning("[TowerAscent] prepare rejected: resolution_prepare_failed")
 		return false
 	_pending_rewards.append(pending)
 	_prepared = true
+	_last_prepare_status = {
+		"accepted": true,
+		"reason": "prepared",
+		"map_seed": _map_seed,
+	}
 	return true
 
 
@@ -389,6 +415,10 @@ func get_start_card_result() -> Dictionary:
 
 func get_map_seed() -> int:
 	return _map_seed
+
+
+func get_last_prepare_status() -> Dictionary:
+	return _last_prepare_status.duplicate(true)
 
 func get_graph_edges() -> Array[Dictionary]:
 	return _graph_edges

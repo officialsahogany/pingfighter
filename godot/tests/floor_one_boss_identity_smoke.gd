@@ -156,13 +156,16 @@ func _run() -> void:
 	TowerAuditionBuildConfig.debug_set_enabled(false)
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	_verify_seed_is_single_authority_and_rerolls()
+	_verify_explicit_variant_cannot_bypass_seed_authority()
+	_verify_seed_zero_resolves_tower_identity()
+	_verify_online_route_preserves_legacy_explicit_identity()
 	_verify_floor_one_roster_and_icon_parity()
 	_verify_stage1_transition_variant_parity("gaksi")
 	_verify_stage1_transition_variant_parity("podo")
 	_verify_legacy_flag_off_keeps_seed_zero()
 	TowerAuditionBuildConfig.debug_clear_enabled_override()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	_expect(_leg_count == 5, "all five floor-one identity legs must execute")
+	_expect(_leg_count == 8, "all eight floor-one identity legs must execute")
 
 	if _failures.is_empty():
 		print("floor_one_boss_identity_smoke: legs=%d" % _leg_count)
@@ -308,6 +311,68 @@ func _verify_floor_one_roster_and_icon_parity() -> void:
 	selection_state.free()
 
 
+func _verify_explicit_variant_cannot_bypass_seed_authority() -> void:
+	_leg_count += 1
+	var map_seed := 640813
+	var registry := TowerAscentBossRegistry.new()
+	var slots := registry.get_seeded_floor_slots(1, map_seed)
+	_expect(not slots.is_empty(), "explicit-bypass fixture must resolve a seeded gate")
+	if slots.is_empty():
+		return
+	var expected_variant := str(slots[0].get("variant", ""))
+	var forced_variant := "gaksi" if expected_variant != "gaksi" else "podo"
+	var selection := {
+		"tower_map_seed": map_seed,
+		"stage1_boss_variant": forced_variant,
+		"stage1_boss_variant_explicit": true,
+	}
+	var resolved := BattleSceneSelectionStartupLifecycle.new().resolve_stage1_boss_variant(
+		selection,
+		1
+	)
+	_expect(
+		resolved == expected_variant and resolved != forced_variant,
+		"Tower explicit variant must not bypass the seeded Floor 1 gate"
+	)
+
+
+func _verify_seed_zero_resolves_tower_identity() -> void:
+	_leg_count += 1
+	var slots := TowerAscentBossRegistry.new().get_seeded_floor_slots(1, 0)
+	_expect(not slots.is_empty(), "seed-zero identity fixture must resolve a Floor 1 gate")
+	if slots.is_empty():
+		return
+	var resolved := BattleSceneSelectionStartupLifecycle.new().resolve_stage1_boss_variant({
+		"tower_map_seed": 0,
+		"tower_map_seed_available": true,
+		"stage1_boss_variant": "gaksi",
+		"stage1_boss_variant_explicit": true,
+	}, 1)
+	_expect(
+		resolved == str(slots[0].get("variant", "")),
+		"Tower seed zero must resolve the generated gate instead of falling through to roulette"
+	)
+
+
+func _verify_online_route_preserves_legacy_explicit_identity() -> void:
+	_leg_count += 1
+	var selection_state := GameSelectionState.new()
+	selection_state.set_stage(1, "gaksi", true)
+	selection_state.request_online_match({"role": "host"})
+	var selection: Dictionary = selection_state.get_selection()
+	var resolved := BattleSceneSelectionStartupLifecycle.new().resolve_stage1_boss_variant(
+		selection,
+		1
+	)
+	_expect(
+		bool(selection.get("online_match_pending", false))
+		and not bool(selection.get("tower_map_seed_available", true))
+		and resolved == "gaksi",
+		"online Stage 1 must use the legacy explicit boss identity without inventing a Tower seed"
+	)
+	selection_state.free()
+
+
 func _verify_stage1_transition_variant_parity(variant: String) -> void:
 	_leg_count += 1
 	var driver := BattleSceneMatchEventDriver.new()
@@ -386,7 +451,8 @@ func _verify_legacy_flag_off_keeps_seed_zero() -> void:
 	var selection_state := GameSelectionState.new()
 	selection_state.request_tower_start_card_entry()
 	_expect(
-		int(selection_state.get_selection().get("tower_map_seed", -1)) == 0,
+		int(selection_state.get_selection().get("tower_map_seed", -1)) == 0
+		and not bool(selection_state.get_selection().get("tower_map_seed_available", true)),
 		"explicit vertical-slice OFF must preserve the legacy seed-zero campaign route"
 	)
 	selection_state.free()

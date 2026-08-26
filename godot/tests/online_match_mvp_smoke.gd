@@ -3,6 +3,9 @@ extends SceneTree
 const BattleViewLayout := preload("res://scripts/core/battle_view_layout.gd")
 const BattleSceneFrameController := preload("res://scripts/core/battle_scene_frame_controller.gd")
 const BattleSceneInputController := preload("res://scripts/core/battle_scene_input_controller.gd")
+const BattleSceneSelectionStartupLifecycle := preload(
+	"res://scripts/core/battle_scene_selection_startup_lifecycle.gd"
+)
 const GameAudio := preload("res://scripts/audio/game_audio.gd")
 const GameSelectionStateScript := preload("res://scripts/core/game_selection_state.gd")
 const MatchScoreState := preload("res://scripts/core/match_score_state.gd")
@@ -15,6 +18,9 @@ const OnlineMatchSession := preload("res://scripts/network/online_match_session.
 const OnlineMatchSimulation := preload("res://scripts/network/online_match_simulation.gd")
 const OnlinePaddleState := preload("res://scripts/network/online_paddle_state.gd")
 const RoundFlowState := preload("res://scripts/core/round_flow_state.gd")
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
 const AUDIO_TEST_PADDLE_SOURCE_X := 120.0
 const AUDIO_TEST_WALL_SOURCE_X := 640.0
 
@@ -347,6 +353,7 @@ func _run() -> void:
 	_verify_all_runtime_scripts_construct()
 	_verify_online_lobby_scene_constructs()
 	_verify_missing_online_modules_fail_closed()
+	_verify_online_selection_uses_explicit_legacy_boss_route()
 	_verify_command_line_bootstrap_contract()
 	if _failures.is_empty():
 		print("online_match_mvp_smoke: ok")
@@ -1022,6 +1029,28 @@ func _verify_command_line_bootstrap_contract() -> void:
 		"cancelled online request must not leak its logo-skip flag into the next single-player battle"
 	)
 	selection_state.free()
+
+
+func _verify_online_selection_uses_explicit_legacy_boss_route() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var selection_state := GameSelectionStateScript.new()
+	selection_state.set_stage(1, "gaksi", true)
+	selection_state.debug_set_tower_map_seed(730031)
+	selection_state.request_online_match({"role": "host"})
+	var selection: Dictionary = selection_state.get_selection()
+	var resolved := BattleSceneSelectionStartupLifecycle.new().resolve_stage1_boss_variant(
+		selection,
+		1
+	)
+	_expect(
+		bool(selection.get("online_match_pending", false))
+		and not bool(selection.get("tower_map_seed_available", true))
+		and int(selection.get("tower_map_seed", -1)) == 0,
+		"online request must explicitly select the legacy no-Tower-seed route"
+	)
+	_expect(resolved == "gaksi", "online startup must preserve its explicit Stage 1 boss identity")
+	selection_state.free()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 
 
 func _field_mirrored_top_y() -> float:

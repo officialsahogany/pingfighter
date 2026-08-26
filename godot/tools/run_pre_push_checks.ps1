@@ -121,6 +121,7 @@ $focusedSmoke = @(
     "res://tests/tower_optional_extra_boss_distribution_smoke.gd",
     "res://tests/tower_ascent_floor_one_expansion_contract_smoke.gd",
     "res://tests/floor_one_boss_identity_smoke.gd",
+    "res://tests/tower_map_seed_authority_smoke.gd",
     "res://tests/tower_arrived_boss_identity_smoke.gd",
     "res://tests/tower_ascent_boss_floor_contract_smoke.gd",
     "res://tests/tower_reward_pick_smoke.gd",

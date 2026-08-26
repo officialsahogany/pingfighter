@@ -3,6 +3,12 @@ extends SceneTree
 const TowerAscentBossRewardCatalog := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_reward_catalog.gd"
 )
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
+const TowerAscentChestContextBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_chest_context_builder.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
@@ -63,9 +69,27 @@ class FakeOwner:
 
 	var selected_character_type := "smasher"
 	var current_stage := 1
+	var stage1_boss_variant := "dalji"
+	var stage_boss_variant := ""
 	var player_pos := Vector2(302.5, 700.0)
 	var player_paddle_width := 155.0
 	var player_paddle_height := 50.0
+
+
+class ShellLikeOwner:
+	extends RefCounted
+
+	var values: Dictionary = {}
+
+	func _init(initial_values: Dictionary) -> void:
+		values = initial_values.duplicate(true)
+
+	func _get(property: StringName) -> Variant:
+		return values.get(str(property), null)
+
+	func _set(property: StringName, value: Variant) -> bool:
+		values[str(property)] = value
+		return true
 
 
 class FakeUnlockStore:
@@ -434,6 +458,7 @@ func _init() -> void:
 	_verify_reward_balance_row_budget()
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_offer_order_eligibility_and_prices()
+	_verify_vision_identity_fail_closed_and_legacy_parity()
 	_verify_no_training_seed_sweep_and_saturated_fallback()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
 	_verify_slot_limit_rechecks_each_purchase()
@@ -595,6 +620,129 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 	var full_choice: Dictionary = (full_offer.get("choices", []) as Array)[0]
 	_expect(bool(full_choice.get("vision_swap_required", false)), "full Chosik slots must keep Vision eligible through a swap route")
 	_expect(not (full_choice.get("vision_swap_candidates", []) as Array).is_empty(), "full-slot Vision card must carry explicit swap candidates")
+
+
+func _verify_vision_identity_fail_closed_and_legacy_parity() -> void:
+	var runtime := FakeRuntimeState.new()
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), null)
+	var builder := TowerRewardPickOfferBuilder.new()
+	var boss_registry := TowerAscentBossRegistry.new()
+	var cases := [
+		{"variant": "dalji", "slot_id": "floor_01_dalji"},
+		{"variant": "gaksi", "slot_id": "floor_01_gaksital"},
+		{"variant": "podo", "slot_id": "floor_01_podo"},
+	]
+	for case in cases:
+		var owner := FakeOwner.new()
+		owner.stage1_boss_variant = str(case.get("variant", ""))
+		var slot_id := str(case.get("slot_id", ""))
+		var choice: Dictionary = builder.call(
+			"_build_vision_choice",
+			slot_id,
+			{},
+			owner,
+			registry,
+			{}
+		)
+		var tower_vision_id := str(choice.get("id", ""))
+		var legacy := VictoryLootPhaseState.new()
+		legacy.set("_current_stage", 1)
+		var legacy_vision_id := str(legacy.call("_get_boss_vision_offer_id", owner))
+		var chest_vision_id := str(
+			TowerAscentChestContextBuilder.new().call(
+				"_get_boss_vision_offer_id",
+				owner,
+				1
+			)
+		)
+		_expect(
+			tower_vision_id == legacy_vision_id and tower_vision_id == chest_vision_id,
+			"Tower reward, legacy victory, and chest copies must agree for Stage 1 %s"
+			% str(case.get("variant", ""))
+		)
+	var shell_cases := [
+		{"stage": 1, "variant": "dalji", "slot_id": "floor_01_dalji"},
+		{"stage": 1, "variant": "gaksi", "slot_id": "floor_01_gaksital"},
+		{"stage": 2, "variant": "cheongringwi", "slot_id": "floor_02_cheongringwi"},
+		{"stage": 3, "variant": "yeonmyo", "slot_id": "floor_03_yeonmyo"},
+	]
+	for case in shell_cases:
+		var stage := int(case.get("stage", 0))
+		var variant_property := "stage1_boss_variant" if stage == 1 else "stage_boss_variant"
+		var shell_values := {"current_stage": stage}
+		shell_values[variant_property] = str(case.get("variant", ""))
+		var shell_owner := ShellLikeOwner.new(shell_values)
+		var slot_id := str(case.get("slot_id", ""))
+		var shell_choice: Dictionary = builder.call(
+			"_build_vision_choice",
+			slot_id,
+			{},
+			shell_owner,
+			registry,
+			{}
+		)
+		_expect(
+			str(shell_choice.get("id", ""))
+				== TowerAscentBossRewardCatalog.get_vision_unlock_id(slot_id),
+			"shell _get owner must retain the %s Tower Vision choice" % slot_id
+		)
+	var legacy_stage_cases := [
+		{"stage": 2, "variant": "dalji", "expected_slot": "floor_02_cheongringwi"},
+		{"stage": 2, "variant": "molewang", "expected_slot": "floor_02_cheongringwi"},
+		{"stage": 2, "variant": "arachne", "expected_slot": "floor_02_cheongringwi"},
+		{"stage": 3, "variant": "dalji", "expected_slot": "floor_03_yeonmyo"},
+		{"stage": 3, "variant": "teddy_bear", "expected_slot": "floor_03_yeonmyo"},
+		{"stage": 3, "variant": "alice", "expected_slot": "floor_03_yeonmyo"},
+	]
+	for case in legacy_stage_cases:
+		var stage := int(case.get("stage", 0))
+		var owner := ShellLikeOwner.new({
+			"current_stage": stage,
+			"stage_boss_variant": str(case.get("variant", "")),
+		})
+		var expected_id := TowerAscentBossRewardCatalog.get_vision_unlock_id(
+			str(case.get("expected_slot", ""))
+		)
+		var legacy := VictoryLootPhaseState.new()
+		legacy.set("_current_stage", stage)
+		_expect(
+			str(legacy.call("_get_boss_vision_offer_id", owner)) == expected_id
+			and str(TowerAscentChestContextBuilder.new().call(
+				"_get_boss_vision_offer_id",
+				owner,
+				stage
+			)) == expected_id,
+			"legacy Stage %d Vision coverage must ignore stale/variant owner value %s"
+			% [stage, str(case.get("variant", ""))]
+		)
+	var mismatched_owner := FakeOwner.new()
+	mismatched_owner.stage1_boss_variant = "gaksi"
+	var owner_slot_id := TowerAscentBossRewardCatalog.get_boss_slot_id_for_stage_variant(
+		1,
+		mismatched_owner.stage1_boss_variant
+	)
+	var owner_key := boss_registry.canonical_encounter_key(
+		boss_registry.resolve_battle_encounter(owner_slot_id)
+	)
+	var node_key := boss_registry.canonical_encounter_key(
+		boss_registry.resolve_battle_encounter("floor_01_dalji")
+	)
+	_expect(
+		not owner_key.is_empty() and owner_key != node_key,
+		"vision mismatch fixture must carry different canonical encounter keys"
+	)
+	var blocked_choice: Dictionary = builder.call(
+		"_build_vision_choice",
+		"floor_01_dalji",
+		{},
+		mismatched_owner,
+		registry,
+		{}
+	)
+	_expect(
+		blocked_choice.is_empty(),
+		"Vision lane must fail closed when the node slot and live encounter identities differ"
+	)
 
 
 func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:

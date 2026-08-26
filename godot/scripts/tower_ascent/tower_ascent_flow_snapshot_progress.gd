@@ -43,6 +43,7 @@ func restore_snapshot(
 	if not (edges_variant is Array) or (edges_variant as Array).size() < 3:
 		return false
 	_map_seed = int(snapshot.get("map_seed", 0))
+	_map_seed_available = true
 	_header_subtitle = "생성 지도 검증판 · %s" % _run_state.get_run_id()
 	_graph_nodes.assign((nodes_variant as Array).duplicate(true))
 	_graph_edges.assign((edges_variant as Array).duplicate(true))

@@ -577,10 +577,13 @@ func _verify_alias_and_seed_zero_boundary() -> void:
 	)
 	var zero_seed_variant := lifecycle.resolve_stage1_boss_variant({
 		"tower_map_seed": 0,
+		"tower_map_seed_available": true,
 	}, 1)
+	var zero_seed_slots := TowerAscentBossRegistry.new().get_seeded_floor_slots(1, 0)
 	_expect(
-		zero_seed_variant in ["dalji", "gaksi", "podo"],
-		"seed-zero compatibility route must remain playable after emitting its warning"
+		not zero_seed_slots.is_empty()
+		and zero_seed_variant == str(zero_seed_slots[0].get("variant", "")),
+		"seed-zero Tower identity must resolve the same generated opening gate"
 	)
 	selection.free()
 

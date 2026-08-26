@@ -134,6 +134,8 @@ func _build_vision_choice(
 	registry: Object,
 	runtime_levels: Dictionary
 ) -> Dictionary:
+	if not _owner_boss_identity_matches_slot(owner, boss_slot_id):
+		return {}
 	var skipped: Array = context.get("skipped_boss_ids", []) as Array
 	var burned: Array = context.get("burned_vision_boss_ids", []) as Array
 	if skipped.has(boss_slot_id) or burned.has(boss_slot_id):
@@ -170,6 +172,21 @@ func _build_vision_choice(
 				TowerRewardPickLocalization.text("vision_swap"),
 			]
 	return choice
+
+
+func _owner_boss_identity_matches_slot(owner: Object, boss_slot_id: String) -> bool:
+	var current_stage := int(_get_owner_value(owner, "current_stage", 0))
+	var variant_property := "stage1_boss_variant" if current_stage == 1 else "stage_boss_variant"
+	var owner_variant: Variant = _get_owner_value(owner, variant_property, "")
+	var owner_slot_id := TowerAscentBossRewardCatalog.get_boss_slot_id_for_stage_variant(
+		current_stage,
+		owner_variant
+	)
+	if owner_slot_id.is_empty():
+		return false
+	var owner_key := TowerAscentBossRewardCatalog.get_canonical_encounter_key(owner_slot_id)
+	var node_key := TowerAscentBossRewardCatalog.get_canonical_encounter_key(boss_slot_id)
+	return not owner_key.is_empty() and owner_key == node_key
 
 
 func _build_supreme_choice(
@@ -300,6 +317,13 @@ func _append_choice(
 func _runtime_levels(runtime_state: Object) -> Dictionary:
 	var value: Variant = runtime_state.get("runtime_skill_levels")
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
+	if owner == null:
+		return fallback
+	var value: Variant = owner.get(key)
+	return fallback if value == null else value
 
 
 func _shuffle_with_rng(values: Array[Dictionary], rng: RandomNumberGenerator) -> void:

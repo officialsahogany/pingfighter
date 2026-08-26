@@ -6,6 +6,9 @@ const CommonSkillCatalog := preload(
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
 )
+const TowerAscentBossRewardCatalog := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_reward_catalog.gd"
+)
 
 # These are compatibility IDs, not new player-facing names. Keep the chest
 # contract loadable before the separate boss-Vision content track lands.
@@ -63,18 +66,15 @@ func build_secret_chosik_reward(vision_offer_id: String) -> Dictionary:
 
 
 func _get_boss_vision_offer_id(owner: Object, current_stage: int) -> String:
-	if current_stage == 1:
-		var variant := str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower()
-		if variant == "dalji":
-			return DALJI_VISION_UNLOCK_ID
-		if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
-			return GAKSITAL_VISION_UNLOCK_ID
-		return ""
-	if current_stage == 2:
-		return CHEONGRINGWI_VISION_UNLOCK_ID
-	if current_stage == 3:
-		return YEONMYO_VISION_UNLOCK_ID
-	return ""
+	var variant_property := "stage1_boss_variant" if current_stage == 1 else "stage_boss_variant"
+	return TowerAscentBossRewardCatalog.get_legacy_vision_unlock_id_for_stage_variant(
+		current_stage,
+		_get_owner_value(
+			owner,
+			variant_property,
+			TowerAscentBossRewardCatalog.get_default_stage_variant(current_stage)
+		)
+	)
 
 
 func _is_boss_vision_catalog_available(vision_unlock_id: String) -> bool:
@@ -136,7 +136,5 @@ func _get_owner_value(owner: Object, key: String, fallback: Variant) -> Variant:
 func _get_object_value(target: Object, key: String, fallback: Variant) -> Variant:
 	if target == null:
 		return fallback
-	for property_info in target.get_property_list():
-		if str(property_info.get("name", "")) == key:
-			return target.get(key)
-	return fallback
+	var value: Variant = target.get(key)
+	return fallback if value == null else value

@@ -42,6 +42,15 @@ var _reset_calls := 0
 var _shell_finish_calls := 0
 
 
+class FakeSelectionState:
+	extends RefCounted
+
+	var tower_map_seed := 0
+
+	func get_selection() -> Dictionary:
+		return {"tower_map_seed": tower_map_seed}
+
+
 class FakeOwner:
 	extends RefCounted
 
@@ -51,9 +60,15 @@ class FakeOwner:
 	var boss_score := 3
 	var cooldown_seconds := 2.5
 	var redraw_requests := 0
+	var selection_state: Object = null
 
 	func request_battle_redraw() -> void:
 		redraw_requests += 1
+
+	func get_node_or_null(path: NodePath) -> Object:
+		if path == NodePath("/root/GameSelectionState"):
+			return selection_state
+		return null
 
 
 class FakeResultScreen:
@@ -446,7 +461,7 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 		"start-card selection must commit its result to the prewarmed run"
 	)
 
-	var first_context := {"current_stage": 1, "registry": registry}
+	var first_context := {"current_stage": 1, "map_seed": 59001, "registry": registry}
 	_expect(
 		flow.prepare_vertical_slice_combat(owner, first_context),
 		"real BattleSceneShell first victory must prepare after boot prewarm"
@@ -486,7 +501,7 @@ func _verify_real_shell_boot_prewarm_first_and_second_victory() -> void:
 	_expect(not flow.is_active(), "real-shell first route completion must close the tower slice")
 	_expect(_shell_finish_calls == 1, "real-shell first route must invoke the encounter callback once")
 
-	var second_context := {"current_stage": 2, "registry": registry}
+	var second_context := {"current_stage": 2, "map_seed": 59001, "registry": registry}
 	_expect(
 		flow.prepare_vertical_slice_combat(owner, second_context),
 		"same-run real BattleSceneShell second victory must prepare"
@@ -550,6 +565,8 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		"battle_scene_match_event_driver": transition,
 	}
 	var owner := FakeOwner.new()
+	owner.selection_state = FakeSelectionState.new()
+	owner.selection_state.tower_map_seed = 59003
 	var driver := BattleSceneMatchFlowDriver.new()
 	driver.call(
 		"_finish_victory_highlight",
@@ -611,6 +628,7 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 	var owner := FakeOwner.new()
 	var snapshot_context := {
 		"run_id": "snapshot-contract",
+		"map_seed": 61731,
 		"run_state": {"gold": 17, "muhon": 23, "chance_gems": 2},
 		"node_reward_bundle": {"gold": 5, "muhon": 2},
 	}
@@ -687,7 +705,10 @@ func _verify_snapshot_round_trip_and_required_fields() -> void:
 		"restore must reject a snapshot taken outside a post-commit stable boundary"
 	)
 	var pending_source := TowerAscentFlowOwner.new()
-	_expect(pending_source.prepare_vertical_slice_combat(owner, {"run_id": "unstable-pending"}), "pending fixture must prepare")
+	_expect(pending_source.prepare_vertical_slice_combat(owner, {
+		"run_id": "unstable-pending",
+		"map_seed": 61731,
+	}), "pending fixture must prepare")
 	_expect(pending_source.export_persistable_snapshot().is_empty(), "pending reward boundary must not be persistable")
 
 
@@ -695,7 +716,10 @@ func _verify_physics_gate_updates_only_selector_flow() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var flow := TowerAscentFlowOwner.new()
 	var owner := FakeOwner.new()
-	flow.begin_vertical_slice(owner, Callable(), {"run_id": "physics-gate"})
+	flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "physics-gate",
+		"map_seed": 69411,
+	})
 	flow.debug_launch_miss()
 	var registry := FakeRegistry.new()
 	registry.instances["tower_ascent_flow_owner"] = flow
@@ -774,7 +798,10 @@ func _verify_input_controller_routes_modal_confirm() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var flow := TowerAscentFlowOwner.new()
 	var owner := FakeOwner.new()
-	flow.begin_vertical_slice(owner, Callable(), {"run_id": "input-route"})
+	flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "input-route",
+		"map_seed": 78431,
+	})
 	var registry := FakeRegistry.new()
 	registry.instances["tower_ascent_flow_owner"] = flow
 	var holder := ModuleHolder.new()

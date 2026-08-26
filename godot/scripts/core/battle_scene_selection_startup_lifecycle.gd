@@ -12,14 +12,14 @@ const TowerAscentFeatureFlags := preload(
 )
 const DEFAULT_LEAGUE_MODE := "junior"
 # Player-facing Stage 1 roulette pool. Each entry has a complete production
-# combat, HUD, audio, display-name, and reset path. Explicit debug/Tower
-# selections still bypass this roulette without consuming its RNG.
+# combat, HUD, audio, display-name, and reset path. Explicit debug selections
+# bypass this roulette only on the legacy vertical-slice-OFF route.
 const STAGE1_RANDOM_BOSS_VARIANTS: Array[String] = ["dalji", "gaksi", "podo"]
 
 var character_runtime: Object = PlayerCharacterRuntime.new()
 var stage1_boss_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var stage1_boss_rng_ready := false
-var _seed_zero_warning_emitted := false
+var _missing_seed_rejection_emitted := false
 
 
 func apply_selection_state(owner: Object) -> void:
@@ -120,11 +120,15 @@ func normalize_stage1_boss_variant(value: String) -> String:
 func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> String:
 	if entry_stage != 1:
 		return "dalji"
-	if bool(selection.get("stage1_boss_variant_explicit", false)):
-		return normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
 	if TowerAscentFeatureFlags.is_vertical_slice_enabled():
+		if bool(selection.get("online_match_pending", false)):
+			return _resolve_legacy_stage1_boss_variant(selection)
 		var map_seed := int(selection.get("tower_map_seed", 0))
-		if map_seed != 0:
+		var map_seed_available := bool(selection.get(
+			"tower_map_seed_available",
+			selection.has("tower_map_seed")
+		))
+		if map_seed_available:
 			var seeded_slots := TowerAscentBossRegistry.new().get_seeded_floor_slots(1, map_seed)
 			if not seeded_slots.is_empty():
 				var gate_slot: Dictionary = seeded_slots[0]
@@ -140,11 +144,18 @@ func resolve_stage1_boss_variant(selection: Dictionary, entry_stage: int) -> Str
 					]
 				)
 				return opening_variant
-		if map_seed == 0 and not _seed_zero_warning_emitted:
-			_seed_zero_warning_emitted = true
+		if not _missing_seed_rejection_emitted:
+			_missing_seed_rejection_emitted = true
 			push_warning(
-				"[TowerAscent] floor1_identity map_seed=0; using legacy random opening boss"
+				"[TowerAscent] floor1_identity rejected: authoritative map_seed is missing"
 			)
+		return ""
+	return _resolve_legacy_stage1_boss_variant(selection)
+
+
+func _resolve_legacy_stage1_boss_variant(selection: Dictionary) -> String:
+	if bool(selection.get("stage1_boss_variant_explicit", false)):
+		return normalize_stage1_boss_variant(str(selection.get("stage1_boss_variant", "dalji")))
 	return select_random_stage1_boss_variant()
 
 

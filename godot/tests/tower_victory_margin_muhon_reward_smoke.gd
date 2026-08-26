@@ -28,6 +28,15 @@ const RECORD_STORE_PATH := "user://tower_victory_margin_muhon_reward_smoke.json"
 var _failures: Array[String] = []
 
 
+class FakeSelectionState:
+	extends RefCounted
+
+	var tower_map_seed := 730031
+
+	func get_selection() -> Dictionary:
+		return {"tower_map_seed": tower_map_seed}
+
+
 class FakeOwner:
 	extends RefCounted
 
@@ -39,6 +48,12 @@ class FakeOwner:
 	var chance_gems_count := 0
 	var chance_gems_max := 3
 	var victory_loot_phase_active := false
+	var selection_state: Object = FakeSelectionState.new()
+
+	func get_node_or_null(path: NodePath) -> Object:
+		if path == NodePath("/root/GameSelectionState"):
+			return selection_state
+		return null
 
 
 class MutableScoreboard:

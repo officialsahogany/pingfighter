@@ -19,6 +19,9 @@ const TowerAscentChestContract := preload(
 const TowerAscentChestContextBuilder := preload(
 	"res://scripts/tower_ascent/tower_ascent_chest_context_builder.gd"
 )
+const TowerAscentBossRewardCatalog := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_reward_catalog.gd"
+)
 const TowerRewardPickState := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_state.gd"
 )
@@ -637,18 +640,15 @@ func _build_tower_chest_context(owner: Object, registry: Object) -> Dictionary:
 
 
 func _get_boss_vision_offer_id(owner: Object) -> String:
-	if _current_stage == 1:
-		var variant := str(_get_owner_value(owner, "stage1_boss_variant", "dalji")).strip_edges().to_lower()
-		if variant == "dalji":
-			return CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
-		if variant in ["gaksi", "gaksital", "talkwangdae", "talchum"]:
-			return CommonSkillCatalog.GAKSITAL_VISION_FAN_THROW_UNLOCK_ID
-		return ""
-	if _current_stage == 2:
-		return CommonSkillCatalog.CHEONGRINGWI_VISION_DRAGON_TORRENT_UNLOCK_ID
-	if _current_stage == 3:
-		return CommonSkillCatalog.YEONMYO_VISION_BONGHONGWE_UNLOCK_ID
-	return ""
+	var variant_property := "stage1_boss_variant" if _current_stage == 1 else "stage_boss_variant"
+	return TowerAscentBossRewardCatalog.get_legacy_vision_unlock_id_for_stage_variant(
+		_current_stage,
+		_get_owner_value(
+			owner,
+			variant_property,
+			TowerAscentBossRewardCatalog.get_default_stage_variant(_current_stage)
+		)
+	)
 
 
 func _get_boss_vision_offer_chance() -> float:

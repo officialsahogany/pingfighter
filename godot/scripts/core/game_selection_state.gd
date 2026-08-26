@@ -30,6 +30,7 @@ var skip_battle_logo_once: bool = false
 var _character_prologue_entry_requested: bool = false
 var _tower_start_card_entry_requested: bool = false
 var tower_map_seed: int = 0
+var tower_map_seed_available := false
 var _pending_online_match_request: Dictionary = {}
 var _online_match_skip_logo_armed := false
 
@@ -155,12 +156,15 @@ func request_tower_start_card_entry() -> void:
 		if next_seed == previous_seed:
 			next_seed = 1 if previous_seed >= 0x7FFFFFFF else previous_seed + 1
 		tower_map_seed = next_seed
+		tower_map_seed_available = true
 	else:
 		tower_map_seed = 0
+		tower_map_seed_available = false
 
 
-func debug_set_tower_map_seed(value: int) -> void:
-	tower_map_seed = maxi(0, value)
+func debug_set_tower_map_seed(value: int, available: bool = true) -> void:
+	tower_map_seed = value
+	tower_map_seed_available = available
 
 
 func peek_tower_start_card_entry_request() -> bool:
@@ -181,6 +185,11 @@ func consume_skip_battle_logo_once() -> bool:
 
 
 func request_online_match(config: Dictionary) -> void:
+	# Online MVP has no shared Tower run-seed handshake. Keep its Stage 1 boss
+	# routing on the legacy selection path until both peers can receive one
+	# authoritative seed; independently generated seeds would desync the match.
+	tower_map_seed = 0
+	tower_map_seed_available = false
 	var role := "host" if str(config.get("role", "host")) == "host" else "client"
 	_pending_online_match_request = {
 		"role": role,
@@ -222,6 +231,8 @@ func get_selection() -> Dictionary:
 		"stage1_boss_variant_explicit": stage1_boss_variant_explicit,
 		"stage_boss_variant": stage_boss_variant,
 		"tower_map_seed": tower_map_seed,
+		"tower_map_seed_available": tower_map_seed_available,
+		"online_match_pending": not _pending_online_match_request.is_empty(),
 	}
 
 
