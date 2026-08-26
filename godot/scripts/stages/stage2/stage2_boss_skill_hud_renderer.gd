@@ -5,7 +5,6 @@ const BossSkillCardHudSpec := preload("res://scripts/stages/common/boss_skill_ca
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetRailCard := preload("res://scripts/stages/common/lingpet_rail_card.gd")
 const Stage2BossSkillHudAssets := preload("res://scripts/stages/stage2/stage2_boss_skill_hud_assets.gd")
-const Stage2BossSkillState := preload("res://scripts/stages/stage2/stage2_boss_skill_state.gd")
 
 const JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.JUNGLE_QUAKE_SKILLCARD_TEXTURE_PATH
 const SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH := Stage2BossSkillHudAssets.SPEED_DEFENSE_SKILLCARD_TEXTURE_PATH
@@ -24,7 +23,6 @@ var _prewarm_done := false
 var _prewarm_step_index := 0
 var _metrics_cache_pillar_width := -1.0
 var _metrics_cache: Dictionary = {}
-var _queue_positions := {}
 
 
 func prewarm_assets() -> void:
@@ -107,12 +105,7 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 
 	for i in range(entries.size()):
 		var skill: Dictionary = entries[i]
-		var target_y: float = start_y + float(i) * (card_h + card_gap)
-		var key: String = str(skill.get("id", "stage2_skill_%d" % i))
-		var motion: Dictionary = BossSkillCardHudSpec.advance_card_shuffle(
-			_queue_positions, key, card_x, target_y, scale_factor, time_seconds
-		)
-		var rect := Rect2(Vector2(float(motion.get("x", card_x)), round(float(motion.get("y", target_y)))), Vector2(card_w, card_h))
+		var rect := Rect2(Vector2(card_x, start_y + float(i) * (card_h + card_gap)), Vector2(card_w, card_h))
 		card_rects.append(rect)
 		var card_sample_start: int = _perf_begin(perf_logger)
 		if LingpetRailCard.is_lingpet_skill(skill):
@@ -121,7 +114,6 @@ func draw(canvas: CanvasItem, context: Dictionary) -> void:
 		else:
 			_draw_card(canvas, rect, skill, scale_factor, font, time_seconds)
 			_perf_end(perf_logger, "stage2.rail.cards_draw", card_sample_start)
-	BossSkillCardHudSpec.prune_shuffle_store(_queue_positions, entries)
 	BossSkillCardHudSpec.prune_card_fill_store(_card_fills, entries)
 
 	var gauge_sample_start: int = _perf_begin(perf_logger)
@@ -302,24 +294,24 @@ func _get_tooltip_info(value: Variant) -> Dictionary:
 		skill_id = str(value)
 	if skill_id == "jungle_quake":
 		return {
-			"name": "지맥진동",
+			"name": "정글지진",
 			"trigger": "자동",
 			"cooldown": "쿨타임 40초",
-			"description": "봉인석을 내려쳐 전장을 뒤흔들고 낙석을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.",
+			"description": "바닥을 흔들어 바위와 충격을 일으킵니다. 압박 단계가 높을수록 낙석이 늘어납니다.",
 		}
 	if skill_id == "water_cannon":
 		return {
 			"name": "용소격류",
-			"trigger": "바위 등장 후 자동",
+			"trigger": "자동 / 바위 등장 후",
 			"cooldown": "쿨타임 30초",
-			"description": "플레이어 %d점부터 사용할 수 있으며 격노 중에는 즉시 해금됩니다. 용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다." % Stage2BossSkillState.WATER_CANNON_UNLOCK_PLAYER_SCORE,
+			"description": "용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.",
 		}
 	if skill_id == "speed_defense":
 		return {
-			"name": "용린호체",
+			"name": "스피드디펜스",
 			"trigger": "자동",
 			"cooldown": "쿨타임 25초",
-			"description": "용린의 호체를 둘러 이동과 반응이 빨라지고 상태 이상을 막습니다.",
+			"description": "짧은 시간 동안 보스 이동과 반응이 빨라지고 상태 이상을 막습니다.",
 		}
 	if LingpetRailCard.is_lingpet_skill(skill) or skill_id == LingpetRailCard.SKILL_ID:
 		return LingpetRailCard.tooltip_info(skill)
