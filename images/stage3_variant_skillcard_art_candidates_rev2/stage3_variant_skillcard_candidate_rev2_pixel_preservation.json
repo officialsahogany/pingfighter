@@ -1,0 +1,45 @@
+{
+  "reference_file_sha256": "4359e687acfa15348db2f7e72ffdffeca566187ef9ef93f7378fb5118d4cddb9",
+  "reference_dimensions": [
+    1024,
+    96
+  ],
+  "reference_mode": "RGBA",
+  "reference_rgba_sha256": "983a6fd3271deda9503c4e581b77d95164b141924d8306b999527d3d8efb1ac1",
+  "atlas_top_row_rgba_sha256": "983a6fd3271deda9503c4e581b77d95164b141924d8306b999527d3d8efb1ac1",
+  "all_four_existing_cells_preserved": true,
+  "cells": [
+    {
+      "index": 0,
+      "before_rgba_sha256": "620c58fe7666a76f51754f8e1b025f9c72d7ffae51de537cee1c95c730ec76e1",
+      "after_rgba_sha256": "620c58fe7666a76f51754f8e1b025f9c72d7ffae51de537cee1c95c730ec76e1",
+      "changed_pixels": 0,
+      "difference_bbox": null,
+      "preserved": true
+    },
+    {
+      "index": 1,
+      "before_rgba_sha256": "e50665ed8bfa5a8f4aa9f0987a8aa69ef614a1ec27d502089ba05174b15e2c45",
+      "after_rgba_sha256": "e50665ed8bfa5a8f4aa9f0987a8aa69ef614a1ec27d502089ba05174b15e2c45",
+      "changed_pixels": 0,
+      "difference_bbox": null,
+      "preserved": true
+    },
+    {
+      "index": 2,
+      "before_rgba_sha256": "c6f750d82962dee305f21c42853d6feccc47204a839f7aa67b53c1859d5ea3af",
+      "after_rgba_sha256": "c6f750d82962dee305f21c42853d6feccc47204a839f7aa67b53c1859d5ea3af",
+      "changed_pixels": 0,
+      "difference_bbox": null,
+      "preserved": true
+    },
+    {
+      "index": 3,
+      "before_rgba_sha256": "9cee98ca7819ce213219867facfd7a407d9584b9afc17144d3e0e2d5114ac988",
+      "after_rgba_sha256": "9cee98ca7819ce213219867facfd7a407d9584b9afc17144d3e0e2d5114ac988",
+      "changed_pixels": 0,
+      "difference_bbox": null,
+      "preserved": true
+    }
+  ]
+}

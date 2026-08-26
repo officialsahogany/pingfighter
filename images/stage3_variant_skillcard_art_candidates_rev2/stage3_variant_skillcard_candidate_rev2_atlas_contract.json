@@ -1,0 +1,25 @@
+{
+  "cell_width": 256,
+  "cell_height": 96,
+  "cols": 4,
+  "rows": 3,
+  "frames": 11,
+  "atlas_width": 1024,
+  "atlas_height": 288,
+  "unused_cells": [
+    11
+  ],
+  "mapping": {
+    "tear_shower": 0,
+    "curse_chest": 1,
+    "psycho_ball": 2,
+    "canonical_unindexed_cell": 3,
+    "cotton_throw": 4,
+    "cotton_bomb": 5,
+    "deadly_hug": 6,
+    "heart_beam": 7,
+    "mirror_world": 8,
+    "size_shift": 9,
+    "rabbit_projectile": 10
+  }
+}
