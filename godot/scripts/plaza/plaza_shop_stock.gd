@@ -13,7 +13,10 @@ const MAX_STOCK_COUNT := 12
 const LEGENDARY_ROLL_CHANCE := 0.05
 const FEATURED_DISCOUNT_RATE := 0.20
 const FEATURED_COUNT := 2
-const GUARANTEED_ACTIVE_ITEM_NAMES: Array[String] = []
+const GUARANTEED_ACTIVE_ITEM_NAMES: Array[String] = [
+	"wall",
+	"boomerang",
+]
 
 
 func build_inventory(

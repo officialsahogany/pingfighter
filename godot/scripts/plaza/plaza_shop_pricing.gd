@@ -65,7 +65,10 @@ const ROLL_BONUS_RANGES := {
 	"low": 0.08,
 }
 
-const ACTIVE_BASE_PRICES := {}
+const ACTIVE_BASE_PRICES := {
+	"wall": 80,
+	"boomerang": 120,
+}
 
 
 static func get_base_price(item_name: String) -> int:
