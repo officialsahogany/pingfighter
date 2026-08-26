@@ -408,7 +408,5 @@ func _get_applied_training_count(
 func _get_object_value(owner: Object, key: String, fallback: Variant) -> Variant:
 	if owner == null:
 		return fallback
-	for property in owner.get_property_list():
-		if str(property.get("name", "")) == key:
-			return owner.get(key)
-	return fallback
+	var value: Variant = owner.get(key)
+	return fallback if value == null else value

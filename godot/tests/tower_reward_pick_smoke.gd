@@ -271,6 +271,32 @@ class FakeCatalog:
 		}
 
 
+class CharacterAwareFakeCatalog:
+	extends RefCounted
+
+	func get_choices(
+		character_type: String,
+		_runtime_levels: Dictionary,
+		_exclude_instant: bool = false,
+		_base_choice_count: int = 3,
+		_owner: Object = null,
+		_registry: Object = null
+	) -> Array:
+		if character_type == "viper":
+			return [{
+				"id": "kick_enhance",
+				"name": "천각심법",
+				"max_level": 3,
+				"character_restriction": "viper",
+			}]
+		return [{
+			"id": "dash_spirit",
+			"name": "잔영호법",
+			"max_level": 3,
+			"character_restriction": "smasher",
+		}]
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -457,6 +483,7 @@ func _init() -> void:
 	_verify_seven_locale_copy_contract()
 	_verify_reward_balance_row_budget()
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
+	_verify_shell_owner_preserves_character_specific_training_candidate()
 	_verify_offer_order_eligibility_and_prices()
 	_verify_vision_identity_fail_closed_and_legacy_parity()
 	_verify_no_training_seed_sweep_and_saturated_fallback()
@@ -551,6 +578,36 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 				str((choice_value as Dictionary).get("id", "")) != "common_expansion",
 				"retired common_expansion leaked into a tower reward candidate"
 			)
+
+
+func _verify_shell_owner_preserves_character_specific_training_candidate() -> void:
+	var registry := _build_registry(FakeRuntimeState.new(), FakeSkillConfig.new(), null)
+	registry.instances["runtime_perk_catalog"] = CharacterAwareFakeCatalog.new()
+	var offer: Dictionary = TowerAscentTrainingOfferBuilder.new().build_offer(
+		"shell-owner-character-candidate",
+		77,
+		ShellLikeOwner.new({"selected_character_type": "viper"}),
+		registry,
+		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
+	)
+	var has_viper_perk := false
+	var has_smasher_perk := false
+	for choice_value in offer.get("mugong_choices", []):
+		if choice_value is Dictionary:
+			var choice_id := str((choice_value as Dictionary).get("id", ""))
+			has_viper_perk = has_viper_perk or choice_id == "kick_enhance"
+			has_smasher_perk = has_smasher_perk or choice_id == "dash_spirit"
+	var passed := (
+		bool(offer.get("accepted", false))
+		and has_viper_perk
+		and not has_smasher_perk
+	)
+	_expect(
+		passed,
+		"shell _get owner must return the Viper-specific training candidate instead of the Smasher fallback"
+	)
+	if passed:
+		print("tower_reward_pick_smoke: shell_owner_character=viper returned_perk=kick_enhance")
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:
