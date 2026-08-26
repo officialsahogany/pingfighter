@@ -10,6 +10,21 @@
   **그런데 앞선 두 반려를 만든 것과 같은 결함 계열이 이 기능의 반대쪽 절반에
   살아남았다.**
 
+## ★먼저 읽어라 (새 세션이면 필수)
+
+이 문서는 **세 번째 반려 사유서**다. 원 요구사항은 여기 없다.
+아래에서 "F7" "F8-a" "F8-b" "F9" "F10-1~4" 로 참조하는 것은 **2차 반려서**의
+항목 번호다.
+
+1. **원 지시문**: `docs/feedback7_reward_hover_highlight_codex_handoff.md`
+2. **1차 반려서**: `docs/feedback7_reward_hover_highlight_fix_codex_handoff.md`
+3. **2차 반려서**: `docs/feedback7_reward_hover_highlight_fix2_codex_handoff.md`
+   ← **아래 항목 번호의 출처다. 반드시 읽어라.**
+4. **직전 구현**: `git -C D:\codex_tmp\bosspong_rewardhover_a325 -c safe.directory='*' show 51c5a06f9`
+   (계보: `a325ffc29` → `0ad9b38e9` → `6ef939a28` → `51c5a06f9`)
+5. 그 워크트리는 **이미 존재한다. 새로 만들지 마라.** 없으면 관제탑에 보고하라.
+6. 본 트리 현재 HEAD 는 `d5a7404db` 이고 **읽기 전용**이다.
+
 ---
 
 ## [P1] F11 — cyan 착지 링의 draw 호출을 지워도 전 스위트가 GREEN이다
