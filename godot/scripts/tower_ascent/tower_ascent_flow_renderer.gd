@@ -3,9 +3,6 @@ extends RefCounted
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
-const TowerShopNodeModalState := preload(
-	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
-)
 const TowerAscentMapOverlayLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
@@ -134,6 +131,7 @@ const BOSS_ART_GRID := Vector2i(2, 2)
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
+const MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX := 56.0
 const MAP_SCROLL_ROW_PITCH := 160.0
 const MAP_SCROLL_NODE_ART_SIZE := 32.0
 const MAP_SCROLL_ROUTE_BRUSH_WIDTH := 18.0
@@ -154,7 +152,6 @@ const BALANCE_TEXT_GAP := 10.0
 const BALANCE_FONT_SIZE := 18.0
 const BALANCE_TEXT_OUTLINE_SIZE := 2.0
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
-const LAYOUT_FLAG_SHOP_TRADE_PANELS := "shop_trade_panels"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
 
@@ -2356,6 +2353,11 @@ func build_scroll_background_model(
 		return {"ready": false, "reason": "paper_unavailable", "tiles": []}
 	var tiles: Array[Dictionary] = []
 	var draw_chunks: Array[Dictionary] = []
+	var seam_overlap_world_px := (
+		MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX
+		* tile_size.y
+		/ MAP_SCROLL_TILE_SIZE.y
+	)
 	var previous_asset_key := ""
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
@@ -2391,18 +2393,65 @@ func build_scroll_background_model(
 		var chunk_y := band_rect.position.y
 		while chunk_y < band_rect.end.y - 0.001:
 			var chunk_height := minf(tile_size.y, band_rect.end.y - chunk_y)
+			var paper_rect := Rect2(
+				Vector2(world_rect.position.x, chunk_y),
+				Vector2(tile_size.x, chunk_height)
+			)
+			var draw_rect := paper_rect
+			var alpha_ramp_world_px := (
+				minf(seam_overlap_world_px, chunk_height * 0.5)
+				if not draw_chunks.is_empty()
+				else 0.0
+			)
+			var paper_source_rect := Rect2(
+				Vector2.ZERO,
+				Vector2(1.0, chunk_height / tile_size.y)
+			)
+			var normalized_source_rect := paper_source_rect
+			var seam_entry_rect := Rect2()
+			var seam_entry_source_rect := Rect2()
+			var seam_tail_rect := Rect2()
+			var seam_tail_source_rect := Rect2()
+			if alpha_ramp_world_px > 0.0:
+				var normalized_ramp := alpha_ramp_world_px / tile_size.y
+				seam_entry_rect = Rect2(
+					Vector2(world_rect.position.x, paper_rect.position.y - alpha_ramp_world_px),
+					Vector2(tile_size.x, alpha_ramp_world_px)
+				)
+				seam_entry_source_rect = Rect2(
+					Vector2(0.0, normalized_ramp),
+					Vector2(1.0, normalized_ramp)
+				)
+				draw_rect.size.y -= alpha_ramp_world_px
+				normalized_source_rect.position.y += normalized_ramp
+				normalized_source_rect.size.y -= normalized_ramp
+				seam_tail_rect = Rect2(
+					Vector2(
+						world_rect.position.x,
+						paper_rect.end.y - alpha_ramp_world_px
+					),
+					Vector2(tile_size.x, alpha_ramp_world_px)
+				)
+				seam_tail_source_rect = Rect2(
+					Vector2(
+						0.0,
+						(chunk_height - alpha_ramp_world_px) / tile_size.y
+					),
+					Vector2(1.0, alpha_ramp_world_px / tile_size.y)
+				)
 			draw_chunks.append({
 				"floor": floor_number,
 				"realm_kind": band_realm_kind,
 				"asset_key": asset_key,
-				"rect": Rect2(
-					Vector2(world_rect.position.x, chunk_y),
-					Vector2(tile_size.x, chunk_height)
-				),
-				"normalized_source_rect": Rect2(
-					Vector2.ZERO,
-					Vector2(1.0, chunk_height / tile_size.y)
-				),
+				"paper_rect": paper_rect,
+				"paper_source_rect": paper_source_rect,
+				"rect": draw_rect,
+				"alpha_ramp_world_px": alpha_ramp_world_px,
+				"normalized_source_rect": normalized_source_rect,
+				"seam_entry_rect": seam_entry_rect,
+				"seam_entry_source_rect": seam_entry_source_rect,
+				"seam_tail_rect": seam_tail_rect,
+				"seam_tail_source_rect": seam_tail_source_rect,
 				"paper_texture": paper_texture,
 				"texture": texture,
 			})
@@ -2429,8 +2478,8 @@ func build_scroll_background_model(
 		})
 	if tiles.is_empty() or draw_chunks.is_empty():
 		return {"ready": false, "reason": "missing_band_tiles", "tiles": []}
-	var first_tile_rect: Rect2 = (draw_chunks[0] as Dictionary).get("rect", Rect2())
-	var last_tile_rect: Rect2 = (draw_chunks[-1] as Dictionary).get("rect", Rect2())
+	var first_tile_rect: Rect2 = (draw_chunks[0] as Dictionary).get("paper_rect", Rect2())
+	var last_tile_rect: Rect2 = (draw_chunks[-1] as Dictionary).get("paper_rect", Rect2())
 	var tile_world_rect := Rect2(
 		Vector2(world_rect.position.x, first_tile_rect.position.y),
 		Vector2(tile_size.x, last_tile_rect.end.y - first_tile_rect.position.y)
@@ -2442,7 +2491,13 @@ func build_scroll_background_model(
 		"realm_kind": realm_kind,
 		"tiles": tiles,
 		"draw_chunks": draw_chunks,
+		# One native paper draw and one phase-mapped art draw per existing chunk.
+		"draw_call_count": draw_chunks.size() * 2,
 	}
+
+
+func get_map_scroll_band_seam_overlap_world_px() -> float:
+	return MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX
 
 
 func resolve_segment_floor_for_world_y(
@@ -2900,27 +2955,33 @@ func _draw_scroll_background_model(
 ) -> void:
 	if not bool(model.get("ready", false)):
 		return
+	# Render every native-scale paper underlay before any band artwork. Every real
+	# seam has the same bounded entry/body/tail phase: the entry walks backward
+	# from the interior to the body's first texel, so neither bright edge gutter
+	# is sampled in the overlap. The reflected tail starts on the body's final
+	# texel, and the next entry fades over it. The map top alone has no incoming
+	# seam; this is the intentional chunk-0 exception.
 	for tile_variant in model.get("draw_chunks", model.get("tiles", [])):
 		if not (tile_variant is Dictionary):
 			continue
 		var tile := tile_variant as Dictionary
-		var world_target: Rect2 = tile.get("rect", Rect2())
+		var world_target: Rect2 = tile.get("paper_rect", tile.get("rect", Rect2()))
 		_draw_scroll_texture_region(
 			canvas,
 			tile.get("paper_texture", null) as Texture2D,
 			world_target,
 			clip_rect,
 			camera_model,
-			tile.get("normalized_source_rect", Rect2(0.0, 0.0, 1.0, 1.0))
+			tile.get("paper_source_rect", Rect2(0.0, 0.0, 1.0, 1.0))
 		)
-		_draw_scroll_texture_region(
-			canvas,
-			tile.get("texture", null) as Texture2D,
-			world_target,
-			clip_rect,
-			camera_model,
-			tile.get("normalized_source_rect", Rect2(0.0, 0.0, 1.0, 1.0))
-		)
+	for tile_variant in model.get("draw_chunks", model.get("tiles", [])):
+		if not (tile_variant is Dictionary):
+			continue
+		var tile := tile_variant as Dictionary
+		# rev2 rejected green-key matte extraction, not runtime vertex alpha.
+		# This one polygon draw maps the bounded entry/body/tail phases directly;
+		# it never keys or rewrites the opaque RGB source pixels.
+		_draw_scroll_texture_phase(canvas, tile, clip_rect, camera_model)
 
 
 func _draw_scroll_texture_region(
@@ -2956,6 +3017,91 @@ func _draw_scroll_texture_region(
 		false,
 		true
 	)
+
+
+func _draw_scroll_texture_phase(
+	canvas: CanvasItem,
+	tile: Dictionary,
+	clip_rect: Rect2,
+	camera_model: Dictionary
+) -> void:
+	var texture := tile.get("texture", null) as Texture2D
+	var body_rect: Rect2 = tile.get("rect", Rect2())
+	var body_source_rect: Rect2 = tile.get(
+		"normalized_source_rect",
+		Rect2(0.0, 0.0, 1.0, 1.0)
+	)
+	var entry_rect: Rect2 = tile.get("seam_entry_rect", Rect2())
+	var entry_source_rect: Rect2 = tile.get("seam_entry_source_rect", Rect2())
+	var tail_rect: Rect2 = tile.get("seam_tail_rect", Rect2())
+	var tail_source_rect: Rect2 = tile.get("seam_tail_source_rect", Rect2())
+	if texture == null or not body_rect.has_area():
+		return
+	if not entry_rect.has_area() or not tail_rect.has_area():
+		_draw_scroll_texture_region(
+			canvas,
+			texture,
+			body_rect,
+			clip_rect,
+			camera_model,
+			body_source_rect
+		)
+		return
+	var world_target := entry_rect.merge(body_rect).merge(tail_rect)
+	var projected_target := _camera_world_rect_to_screen(camera_model, world_target)
+	var visible_target := projected_target.intersection(clip_rect)
+	if visible_target.size.x <= 0.0 or visible_target.size.y <= 0.0:
+		return
+	var projected_entry := _camera_world_rect_to_screen(camera_model, entry_rect)
+	var projected_body := _camera_world_rect_to_screen(camera_model, body_rect)
+	var projected_tail := _camera_world_rect_to_screen(camera_model, tail_rect)
+	var row_y: Array[float] = [visible_target.position.y]
+	if projected_entry.end.y > visible_target.position.y + 0.001 and projected_entry.end.y < visible_target.end.y - 0.001:
+		row_y.append(projected_entry.end.y)
+	if projected_body.end.y > visible_target.position.y + 0.001 and projected_body.end.y < visible_target.end.y - 0.001:
+		row_y.append(projected_body.end.y)
+	row_y.append(visible_target.end.y)
+	var polygon_points := PackedVector2Array()
+	for y in row_y:
+		polygon_points.append(Vector2(visible_target.position.x, y))
+	for row_index in range(row_y.size() - 1, -1, -1):
+		polygon_points.append(Vector2(visible_target.end.x, row_y[row_index]))
+	var colors := PackedColorArray()
+	var uvs := PackedVector2Array()
+	for point in polygon_points:
+		var relative_x := (
+			(point.x - projected_target.position.x) / projected_target.size.x
+		)
+		var source_v := body_source_rect.position.y
+		var alpha := 1.0
+		if point.y <= projected_entry.end.y + 0.001:
+			var entry_t := clampf(
+				(point.y - projected_entry.position.y) / projected_entry.size.y,
+				0.0,
+				1.0
+			)
+			source_v = entry_source_rect.end.y - entry_source_rect.size.y * entry_t
+			alpha = entry_t
+		elif point.y <= projected_body.end.y + 0.001:
+			var body_t := clampf(
+				(point.y - projected_body.position.y) / projected_body.size.y,
+				0.0,
+				1.0
+			)
+			source_v = body_source_rect.position.y + body_source_rect.size.y * body_t
+		else:
+			var tail_t := clampf(
+				(point.y - projected_tail.position.y) / projected_tail.size.y,
+				0.0,
+				1.0
+			)
+			source_v = tail_source_rect.end.y - tail_source_rect.size.y * tail_t
+		colors.append(Color(1.0, 1.0, 1.0, alpha))
+		uvs.append(Vector2(
+			body_source_rect.position.x + body_source_rect.size.x * relative_x,
+			source_v
+		))
+	canvas.draw_polygon(polygon_points, colors, uvs, texture)
 
 
 func get_render_cache_debug_state() -> Dictionary:
@@ -3654,12 +3800,6 @@ func _draw_node_modal(
 		)
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
 		_draw_training_stage_layout(canvas, model, content_scale, render_context)
-	var uses_shop_trade_panels := bool(layout_flags.get(
-		LAYOUT_FLAG_SHOP_TRADE_PANELS,
-		false
-	))
-	if uses_shop_trade_panels:
-		_draw_shop_trade_panels(canvas, model, render_context)
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var interaction_visuals: Array = model.get("interaction_visuals", [])
@@ -3685,10 +3825,6 @@ func _draw_node_modal(
 			)
 		)
 		var action := actions[index] as Dictionary
-		if uses_shop_trade_panels and str(action.get("id", "")) != "end_work":
-			# Shop stock was drawn as 42px cells above. Only the shared footer action
-			# remains in this legacy row/card loop.
-			continue
 		if (
 			bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false))
 			and str(action.get("id", "")) != "end_work"
@@ -3771,215 +3907,6 @@ func _draw_node_modal(
 		508.0 * content_scale,
 		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
-	)
-	if uses_shop_trade_panels:
-		_draw_shop_trade_tooltip(canvas, model, render_context)
-
-
-func _draw_shop_trade_panels(
-	canvas: CanvasItem,
-	model: Dictionary,
-	render_context: Dictionary
-) -> void:
-	var player_panel: Rect2 = model.get("shop_player_panel_rect", Rect2())
-	var stock_panel: Rect2 = model.get("shop_stock_panel_rect", Rect2())
-	if not player_panel.has_area() or not stock_panel.has_area():
-		return
-	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
-	var font := ThemeDB.fallback_font
-	for panel_rect in [player_panel, stock_panel]:
-		canvas.draw_rect(panel_rect, Color(0.31, 0.22, 0.14, 0.16), true)
-		canvas.draw_rect(panel_rect, Color(0.45, 0.27, 0.16, 0.88), false, 2.0 * content_scale)
-	canvas.draw_string(
-		font,
-		player_panel.position + Vector2(14.0, 25.0) * content_scale,
-		"%s %d" % [
-			str(model.get("shop_player_label", "보유 중")),
-			(model.get("shop_owned_items", []) as Array).size(),
-		],
-		HORIZONTAL_ALIGNMENT_LEFT,
-		player_panel.size.x - 28.0 * content_scale,
-		maxi(10, int(round(15.0 * content_scale))),
-		INK
-	)
-	canvas.draw_string(
-		font,
-		stock_panel.position + Vector2(14.0, 25.0) * content_scale,
-		"%s %d" % [
-			str(model.get("shop_stock_label", "판매 목록")),
-			int(model.get("shop_stock_visible_count", 0)),
-		],
-		HORIZONTAL_ALIGNMENT_LEFT,
-		stock_panel.size.x - 28.0 * content_scale,
-		maxi(10, int(round(15.0 * content_scale))),
-		INK
-	)
-	var card_renderer: Object = render_context.get("card_renderer", null)
-	if card_renderer == null or not card_renderer.has_method("draw_tower_shop_item_cell"):
-		return
-	var icon_renderer: Object = render_context.get("icon_renderer", null)
-	var active_visuals: Object = render_context.get("active_item_hud_visuals", null)
-	var cell_size := float(model.get("shop_cell_size", 0.0))
-	var cell_gap := float(model.get("shop_cell_gap", 0.0))
-	var start_offset: Vector2 = model.get("shop_cell_start_offset", Vector2.ZERO)
-	var owned_items: Array = model.get("shop_owned_items", [])
-	var owned_visible_count := mini(
-		owned_items.size(),
-		int(model.get("shop_player_visible_count", 0))
-	)
-	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
-	for visible_index in range(owned_visible_count):
-		if not (owned_items[visible_index] is Dictionary):
-			continue
-		var cell_rect := TowerShopNodeModalState.get_shop_cell_rect(
-			player_panel,
-			visible_index,
-			int(model.get("shop_player_columns", 0)),
-			cell_size,
-			cell_gap,
-			start_offset
-		)
-		card_renderer.call(
-			"draw_tower_shop_item_cell",
-			canvas,
-			owned_items[visible_index] as Dictionary,
-			cell_rect,
-			false,
-			visible_index == hovered_owned_index,
-			true,
-			icon_renderer,
-			active_visuals
-		)
-	var actions: Array = model.get("actions", [])
-	var selected_index := int(model.get("selected_index", -1))
-	var hovered_index := int(model.get("hovered_index", -1))
-	var stock_visible_index := 0
-	for action_index in range(actions.size()):
-		if not (actions[action_index] is Dictionary):
-			continue
-		var action := actions[action_index] as Dictionary
-		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
-			continue
-		if stock_visible_index >= int(model.get("shop_stock_visible_count", 0)):
-			break
-		var payload_value: Variant = action.get("payload", {})
-		var choice: Dictionary = (
-			(payload_value as Dictionary).get("choice", {})
-			if payload_value is Dictionary
-			else {}
-		)
-		var cell_rect := TowerShopNodeModalState.get_shop_cell_rect(
-			stock_panel,
-			stock_visible_index,
-			int(model.get("shop_stock_columns", 0)),
-			cell_size,
-			cell_gap,
-			start_offset
-		)
-		card_renderer.call(
-			"draw_tower_shop_item_cell",
-			canvas,
-			choice,
-			cell_rect,
-			action_index == selected_index,
-			action_index == hovered_index,
-			bool(action.get("enabled", true)),
-			icon_renderer,
-			active_visuals
-		)
-		stock_visible_index += 1
-
-
-func _draw_shop_trade_tooltip(
-	canvas: CanvasItem,
-	model: Dictionary,
-	render_context: Dictionary
-) -> void:
-	var tooltip_overlay: Object = render_context.get("shop_item_tooltip_overlay", null)
-	if (
-		tooltip_overlay == null
-		or not tooltip_overlay.has_method("_set_hover_data")
-		or not tooltip_overlay.has_method("_draw_dual_item_tooltip")
-	):
-		return
-	var choice: Dictionary = {}
-	var action: Dictionary = {}
-	var anchor_rect := Rect2()
-	var entries: Array = []
-	var right_header := ""
-	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
-	if hovered_owned_index >= 0:
-		var owned_items: Array = model.get("shop_owned_items", [])
-		if hovered_owned_index >= owned_items.size():
-			return
-		choice = owned_items[hovered_owned_index] as Dictionary
-		anchor_rect = TowerShopNodeModalState.get_shop_cell_rect(
-			model.get("shop_player_panel_rect", Rect2()),
-			hovered_owned_index,
-			int(model.get("shop_player_columns", 0)),
-			float(model.get("shop_cell_size", 0.0)),
-			float(model.get("shop_cell_gap", 0.0)),
-			model.get("shop_cell_start_offset", Vector2.ZERO)
-		)
-		entries = [{"text": str(model.get("shop_owned_read_only_text", "보유 중 · 판매 불가"))}]
-		right_header = str(model.get("shop_player_label", "보유 중"))
-	else:
-		var hovered_index := int(model.get("hovered_index", -1))
-		var actions: Array = model.get("actions", [])
-		var action_rects: Array = model.get("action_rects", [])
-		if hovered_index < 0 or hovered_index >= actions.size():
-			return
-		action = actions[hovered_index] as Dictionary
-		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
-			return
-		var payload_value: Variant = action.get("payload", {})
-		if not (payload_value is Dictionary):
-			return
-		choice = (payload_value as Dictionary).get("choice", {})
-		anchor_rect = action_rects[hovered_index] as Rect2
-		entries.append({"text": str(action.get("cost_text", ""))})
-		var reason := str(action.get("unavailable_reason", "")).strip_edges()
-		entries.append({
-			"text": reason if not reason.is_empty() else str(model.get(
-				"shop_purchase_available_text",
-				"구매 가능"
-			))
-		})
-		right_header = str(model.get("shop_stock_label", "판매 목록"))
-	if choice.is_empty() or not anchor_rect.has_area():
-		return
-	var body := str(choice.get("description", "")).strip_edges()
-	if body.is_empty():
-		body = "설명이 없습니다."
-	var color_value: Variant = choice.get("icon_color", Color(0.78, 0.65, 0.42))
-	var color: Color = color_value if color_value is Color else Color(0.78, 0.65, 0.42)
-	var data_value: Variant = tooltip_overlay.call(
-		"_set_hover_data",
-		{},
-		str(choice.get("name", action.get("label", ""))),
-		str(choice.get("level_text", choice.get("rarity", ""))),
-		body,
-		color,
-		Color.WHITE,
-		anchor_rect,
-		entries,
-		right_header
-	)
-	if not (data_value is Dictionary):
-		return
-	tooltip_overlay.call(
-		"_draw_dual_item_tooltip",
-		canvas,
-		data_value as Dictionary,
-		model.get("pointer_position", anchor_rect.get_center()),
-		model.get("view_size", Vector2(760.0, 750.0)),
-		ThemeDB.fallback_font,
-		color,
-		str(choice.get("name", action.get("label", ""))),
-		str(choice.get("level_text", choice.get("rarity", ""))),
-		body,
-		entries,
-		render_context.get("icon_renderer", null)
 	)
 
 

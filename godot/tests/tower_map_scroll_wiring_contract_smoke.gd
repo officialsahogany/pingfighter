@@ -36,6 +36,8 @@ func _run() -> void:
 	_verify_deterministic_nonrepeating_floor_variants()
 	_verify_production_prewarm_order_and_draw_peek_contract()
 	_verify_opaque_floor_tile_render_model_and_fallback()
+	_verify_band_chunk_scale_invariant_boundary_fixture()
+	_verify_fullscreen_draw_call_budget_lockstep()
 	_verify_three_route_brush_states_and_geometry()
 	_verify_fullscreen_medal_node_contract()
 	_verify_floor_gate_plaque_three_slice_contract()
@@ -323,13 +325,44 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		previous_key = asset_key
 		previous_floor = int(tile.get("floor", 0))
 	var previous_end_y := tile_world_rect.position.y
-	for chunk_variant in draw_chunks:
+	var expected_overlap_base_world_px := 56.0
+	_expect(
+		is_equal_approx(
+			renderer.get_map_scroll_band_seam_overlap_world_px(),
+			expected_overlap_base_world_px
+		),
+		"band chunks must retain the approved 56px base-world overlap"
+	)
+	var expected_overlap := expected_overlap_base_world_px * map_scale
+	_expect(draw_chunks.size() == 22, "the 34-row map must retain its existing 22 draw chunks")
+	_expect(
+		int(background.get("draw_call_count", -1)) == draw_chunks.size() * 2,
+		"bounded entry/body/tail phases must remain one art draw per chunk"
+	)
+	var first_band_scale := _chunk_vertical_scale(draw_chunks[0] as Dictionary, "texture")
+	var first_chunk := draw_chunks[0] as Dictionary
+	var first_paper_scale := _chunk_vertical_scale_for_rects(
+		first_chunk.get("paper_rect", Rect2()),
+		first_chunk.get("normalized_source_rect", Rect2()),
+		first_chunk.get("paper_texture", null) as Texture2D
+	)
+	var production_scales_match := true
+	var production_source_bounds_ok := true
+	for chunk_index in range(draw_chunks.size()):
+		var chunk_variant: Variant = draw_chunks[chunk_index]
 		var chunk := chunk_variant as Dictionary
 		var chunk_rect: Rect2 = chunk.get("rect", Rect2())
+		var alpha_ramp_world_px := float(chunk.get("alpha_ramp_world_px", -1.0))
 		var source_rect: Rect2 = chunk.get(
 			"normalized_source_rect",
 			Rect2(0.0, 0.0, 1.0, 1.0)
 		)
+		var paper_rect: Rect2 = chunk.get("paper_rect", Rect2())
+		var paper_source_rect: Rect2 = chunk.get("paper_source_rect", Rect2())
+		var seam_entry_rect: Rect2 = chunk.get("seam_entry_rect", Rect2())
+		var seam_entry_source_rect: Rect2 = chunk.get("seam_entry_source_rect", Rect2())
+		var seam_tail_rect: Rect2 = chunk.get("seam_tail_rect", Rect2())
+		var seam_tail_source_rect: Rect2 = chunk.get("seam_tail_source_rect", Rect2())
 		_expect(chunk.get("texture", null) is Texture2D, "every opaque draw chunk must own its cached band texture")
 		_expect(chunk.get("paper_texture", null) is Texture2D, "every opaque draw chunk must retain the common paper underlay")
 		_expect(
@@ -342,16 +375,154 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			and is_equal_approx(chunk_rect.size.x, tile_world_rect.size.x),
 			"every repeated band chunk must span the scroll width"
 		)
-		_expect(is_equal_approx(chunk_rect.position.y, previous_end_y), "opaque draw chunks must meet without overlap or alpha gaps")
+		var required_overlap := expected_overlap if chunk_index > 0 else 0.0
+		_expect(
+			is_equal_approx(paper_rect.position.y, previous_end_y)
+			and is_equal_approx(chunk_rect.position.y, paper_rect.position.y)
+			and is_equal_approx(chunk_rect.end.y, paper_rect.end.y - required_overlap),
+			"native-scale band bodies must reserve exactly one reflected tail"
+		)
+		_expect(
+			is_equal_approx(alpha_ramp_world_px, required_overlap),
+			"every overlap must carry the matching vertical alpha ramp"
+		)
 		_expect(
 			is_equal_approx(
 				source_rect.size.y,
 				chunk_rect.size.y / (320.0 * map_scale)
 			),
-			"partial band chunks must crop source art instead of stretching it"
+			"band-body source and target heights must preserve native scale"
 		)
-		previous_end_y = chunk_rect.end.y
-	_expect(is_equal_approx(previous_end_y, tile_world_rect.end.y), "the opaque tile stack must cover the complete scroll world")
+		_expect(
+			is_equal_approx(source_rect.position.y, required_overlap / (320.0 * map_scale)),
+			"later bodies must begin after the omitted bright source gutter"
+		)
+		var body_source_bounds_ok := (
+			source_rect.position.y >= -0.0001 and source_rect.end.y <= 1.0001
+		)
+		var paper_source_bounds_ok := (
+			paper_source_rect.position.y >= -0.0001
+			and paper_source_rect.end.y <= 1.0001
+		)
+		production_source_bounds_ok = (
+			production_source_bounds_ok
+			and body_source_bounds_ok
+			and paper_source_bounds_ok
+		)
+		_expect(
+			body_source_bounds_ok,
+			"every band-body source rect must stay inside normalized texture bounds"
+		)
+		_expect(
+			paper_source_bounds_ok,
+			"every paper source rect must stay inside normalized texture bounds"
+		)
+		if chunk_index == 0:
+			_expect(
+				not seam_entry_rect.has_area()
+				and not seam_entry_source_rect.has_area()
+				and not seam_tail_rect.has_area()
+				and not seam_tail_source_rect.has_area(),
+				"the map-top chunk must omit incoming seam phase geometry"
+			)
+		else:
+			_expect(
+				is_equal_approx(seam_entry_rect.position.y, paper_rect.position.y - required_overlap)
+				and is_equal_approx(seam_entry_rect.end.y, paper_rect.position.y),
+				"every real seam must own one bounded incoming phase strip"
+			)
+			var entry_source_bounds_ok := (
+				seam_entry_source_rect.position.y >= -0.0001
+				and seam_entry_source_rect.end.y <= 1.0001
+			)
+			production_source_bounds_ok = (
+				production_source_bounds_ok and entry_source_bounds_ok
+			)
+			_expect(
+				entry_source_bounds_ok,
+				"every seam-entry source rect must stay inside normalized texture bounds"
+			)
+			_expect(
+				is_equal_approx(
+					_chunk_vertical_scale_for_rects(
+						seam_entry_rect,
+						seam_entry_source_rect,
+						chunk.get("texture", null) as Texture2D
+					),
+					first_band_scale
+				),
+				"every reflected seam entry must preserve native art scale"
+			)
+			_expect(
+				is_equal_approx(seam_tail_rect.position.y, chunk_rect.end.y)
+				and is_equal_approx(seam_tail_rect.end.y, paper_rect.end.y),
+				"every shifted body must end in one bounded reflected tail"
+			)
+			var tail_source_bounds_ok := (
+				seam_tail_source_rect.position.y >= -0.0001
+				and seam_tail_source_rect.end.y <= 1.0001
+			)
+			production_source_bounds_ok = (
+				production_source_bounds_ok and tail_source_bounds_ok
+			)
+			_expect(
+				tail_source_bounds_ok,
+				"every seam-tail source rect must stay inside normalized texture bounds"
+			)
+			_expect(
+				is_equal_approx(
+					_chunk_vertical_scale_for_rects(
+						seam_tail_rect,
+						seam_tail_source_rect,
+						chunk.get("texture", null) as Texture2D
+					),
+					first_band_scale
+				),
+				"every reflected seam tail must preserve the first chunk's native art scale"
+			)
+		var band_scale_matches := is_equal_approx(
+			_chunk_vertical_scale(chunk, "texture"),
+			first_band_scale
+		)
+		var paper_scale_matches := is_equal_approx(
+			_chunk_vertical_scale_for_rects(
+				paper_rect,
+				paper_source_rect,
+				chunk.get("paper_texture", null) as Texture2D
+			),
+			first_paper_scale
+		)
+		production_scales_match = (
+			production_scales_match and band_scale_matches and paper_scale_matches
+		)
+		_expect(
+			band_scale_matches,
+			"band layer scale must match the first chunk for every production chunk"
+		)
+		_expect(
+			paper_scale_matches,
+			"paper layer scale must match the first chunk for every production chunk"
+		)
+		_expect(not chunk.has("content_rect"), "content_rect must not survive as duplicate dead geometry")
+		_expect(chunk.has("paper_rect"), "paper_rect must remain the live logical chunk geometry")
+		previous_end_y = paper_rect.end.y
+	_expect(
+		is_equal_approx(previous_end_y, tile_world_rect.end.y),
+		"the opaque tile stack must cover the complete scroll world: end=%.3f expected=%.3f"
+			% [previous_end_y, tile_world_rect.end.y]
+	)
+	print(
+		"[TowerMapBandScaleInvariant] production_chunks=%d scale_match=%s band_scale=%.6f paper_scale=%.6f source_bounds=%s entries=%d reflected_tails=%d"
+			% [
+				draw_chunks.size(),
+				str(production_scales_match),
+				first_band_scale,
+				first_paper_scale,
+				str(production_source_bounds_ok),
+				draw_chunks.size() - 1,
+				draw_chunks.size() - 1,
+			]
+	)
 	var legacy: Dictionary = renderer.build_render_model(flow).get("legacy_scroll_background", {})
 	_expect(bool(legacy.get("ready", false)), "the transformed legacy surface must use the same approved tiles")
 
@@ -377,7 +548,192 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 	)
 	_expect(renderer_source.find("draw_texture_rect_region") >= 0, "S3 must crop only camera-visible source regions")
+	_expect(renderer_source.find("alpha = entry_t") >= 0, "band entries must retain their vertex-alpha fade owner")
+	_expect(renderer_source.find("_draw_scroll_texture_phase") >= 0, "every real seam must retain its bounded reflected entry/tail owner")
+	_expect(renderer_source.find("canvas.draw_polygon(polygon_points, colors, uvs, texture)") >= 0, "the seam ramp must remain one polygon draw per RGB band chunk")
 	_expect(renderer_source.find("draw_rect(MAP_RECT, PAPER, true)") >= 0, "S3 must retain the procedural paper fallback")
+	_leg_count += 1
+
+
+func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
+	var catalog := TowerMapScrollAssetCatalog.new()
+	catalog.prewarm_all()
+	var resolutions: Dictionary = {}
+	for asset_key in catalog.get_asset_keys():
+		resolutions[asset_key] = catalog.get_cached_resolution(asset_key)
+	var chunk_heights := PackedFloat32Array([320.0, 320.0, 160.0, 100.0])
+	var floor_bands: Array[Dictionary] = []
+	var chunk_y := 0.0
+	for index in range(chunk_heights.size()):
+		var chunk_height := float(chunk_heights[index])
+		floor_bands.append({
+			"segment_floor": index + 1,
+			"realm_kind": "human_realm",
+			"segment_rect": Rect2(0.0, chunk_y, 692.0, chunk_height),
+			"y": chunk_y + chunk_height * 0.5,
+		})
+		chunk_y += chunk_height
+	var renderer := TowerAscentFlowRenderer.new()
+	var model := renderer.build_scroll_background_model(
+		floor_bands,
+		Rect2(0.0, 0.0, 692.0, chunk_y),
+		"human_realm",
+		resolutions,
+		Vector2(692.0, 320.0)
+	)
+	_expect(bool(model.get("ready", false)), "scale boundary fixture must resolve approved textures")
+	var chunks: Array = model.get("draw_chunks", [])
+	_expect(chunks.size() == chunk_heights.size(), "scale boundary fixture must retain one chunk per requested height")
+	if chunks.size() != chunk_heights.size():
+		_leg_count += 1
+		return
+	var expected_fades := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
+	var expected_target_heights := PackedFloat32Array([320.0, 264.0, 104.0, 50.0])
+	var expected_entry_heights := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
+	var expected_tail_heights := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
+	var first_band_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "texture")
+	var first_paper_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "paper_texture")
+	var boundary_scales_match := true
+	var boundary_source_bounds_ok := true
+	for index in range(chunks.size()):
+		var chunk := chunks[index] as Dictionary
+		var chunk_rect: Rect2 = chunk.get("rect", Rect2())
+		var source_rect: Rect2 = chunk.get("normalized_source_rect", Rect2())
+		var paper_rect: Rect2 = chunk.get("paper_rect", Rect2())
+		var paper_source_rect: Rect2 = chunk.get("paper_source_rect", Rect2())
+		var entry_rect: Rect2 = chunk.get("seam_entry_rect", Rect2())
+		var entry_source_rect: Rect2 = chunk.get("seam_entry_source_rect", Rect2())
+		var tail_rect: Rect2 = chunk.get("seam_tail_rect", Rect2())
+		var tail_source_rect: Rect2 = chunk.get("seam_tail_source_rect", Rect2())
+		_expect(
+			is_equal_approx(chunk_rect.size.y, float(expected_target_heights[index])),
+			"boundary chunk %d target must expand by exactly its source-matched overlap" % index
+		)
+		_expect(
+			is_equal_approx(float(chunk.get("alpha_ramp_world_px", -1.0)), float(expected_fades[index])),
+			"boundary chunk %d must retain the expected 320/160/cap fade span" % index
+		)
+		_expect(
+			is_equal_approx(entry_rect.size.y, float(expected_entry_heights[index])),
+			"boundary chunk %d must retain its bounded reflected-entry height" % index
+		)
+		_expect(
+			is_equal_approx(tail_rect.size.y, float(expected_tail_heights[index])),
+			"boundary chunk %d must retain its bounded reflected-tail height" % index
+		)
+		var source_bounds_ok := (
+			source_rect.position.y >= -0.0001 and source_rect.end.y <= 1.0001
+			and paper_source_rect.position.y >= -0.0001
+			and paper_source_rect.end.y <= 1.0001
+			and entry_source_rect.position.y >= -0.0001
+			and entry_source_rect.end.y <= 1.0001
+			and tail_source_rect.position.y >= -0.0001
+			and tail_source_rect.end.y <= 1.0001
+		)
+		boundary_source_bounds_ok = boundary_source_bounds_ok and source_bounds_ok
+		_expect(
+			source_bounds_ok,
+			"320/160/cap body and reflected-tail source rects must stay inside [0,1]"
+		)
+		var band_scale_matches := is_equal_approx(
+			_chunk_vertical_scale(chunk, "texture"),
+			first_band_scale
+		)
+		var paper_scale_matches := is_equal_approx(
+			_chunk_vertical_scale_for_rects(
+				paper_rect,
+				paper_source_rect,
+				chunk.get("paper_texture", null) as Texture2D
+			),
+			first_paper_scale
+		)
+		boundary_scales_match = (
+			boundary_scales_match and band_scale_matches and paper_scale_matches
+		)
+		_expect(
+			band_scale_matches,
+			"320/160/cap band scale must match the first 320px chunk"
+		)
+		_expect(
+			paper_scale_matches,
+			"320/160/cap paper scale must match the first 320px chunk"
+		)
+	print(
+		"[TowerMapBandScaleBoundary] content_heights=320,320,160,100 target_heights=320,264,104,50 entry_heights=0,56,56,50 tail_heights=0,56,56,50 fades=0,56,56,50 scale_match=%s source_bounds=%s band_scale=%.6f paper_scale=%.6f"
+			% [
+				str(boundary_scales_match),
+				str(boundary_source_bounds_ok),
+				first_band_scale,
+				first_paper_scale,
+			]
+	)
+	_leg_count += 1
+
+
+func _chunk_vertical_scale(chunk: Dictionary, texture_key: String) -> float:
+	var texture := chunk.get(texture_key, null) as Texture2D
+	var target_rect: Rect2 = chunk.get("rect", Rect2())
+	var source_rect: Rect2 = chunk.get("normalized_source_rect", Rect2())
+	if texture == null or source_rect.size.y <= 0.0 or texture.get_height() <= 0:
+		return -1.0
+	return target_rect.size.y / (source_rect.size.y * float(texture.get_height()))
+
+
+func _chunk_vertical_scale_for_rects(
+	target_rect: Rect2,
+	source_rect: Rect2,
+	texture: Texture2D
+) -> float:
+	if texture == null or source_rect.size.y <= 0.0 or texture.get_height() <= 0:
+		return -1.0
+	return target_rect.size.y / (source_rect.size.y * float(texture.get_height()))
+
+
+func _verify_fullscreen_draw_call_budget_lockstep() -> void:
+	var worst_seed := -1
+	var worst_draw_calls := -1
+	var worst_background_draw_calls := -1
+	for map_seed in range(1, 129):
+		var flow := TowerAscentFlowOwner.new()
+		_expect(flow.begin_vertical_slice(null, Callable(), {
+			"run_id": "tower-map-band-seam-budget-%d" % map_seed,
+			"map_seed": map_seed,
+		}), "the draw-call budget fixture must begin for seed %d" % map_seed)
+		var renderer := TowerAscentFlowRenderer.new()
+		var model := renderer.build_fullscreen_map_model(
+			flow,
+			Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+		)
+		var debug_state := renderer.get_render_cache_debug_state()
+		var draw_calls := int(debug_state.get("total_map_draw_call_budget", -1))
+		var background: Dictionary = model.get("scroll_background", {})
+		var background_draw_calls := int(background.get("draw_call_count", -1))
+		_expect(
+			draw_calls <= TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET,
+			"seed %d map draw calls %d must stay within the sealed %d ceiling"
+				% [map_seed, draw_calls, TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET]
+		)
+		_expect(
+			background_draw_calls
+				== (background.get("draw_chunks", []) as Array).size() * 2,
+			"seed %d must retain one paper and one phase-mapped art draw per chunk"
+				% map_seed
+		)
+		if draw_calls > worst_draw_calls:
+			worst_seed = map_seed
+			worst_draw_calls = draw_calls
+			worst_background_draw_calls = background_draw_calls
+		if flow.has_method("_finish_vertical_slice"):
+			flow.call("_finish_vertical_slice")
+	print(
+		"[TowerMapBandSeamBudget] seeds=128 worst_seed=%d map_draw_calls=%d/%d background_draw_calls=%d"
+			% [
+				worst_seed,
+				worst_draw_calls,
+				TowerAscentTuning.TEMP_MAP_PATH_DRAW_CALL_BUDGET,
+				worst_background_draw_calls,
+			]
+	)
 	_leg_count += 1
 
 
