@@ -40,10 +40,20 @@ func reset_for_ball_reset(deps: Dictionary) -> void:
 
 func reset_for_serve(deps: Dictionary) -> void:
 	reset_power_and_drive(deps, false)
+	_clear_yangui_hoechun_for_serve(deps)
 	reset_combo_effects(deps)
 	effect_cleanup.clear_ball_effects(deps, true)
 	effect_cleanup.clear_impact_effects(deps)
 	effect_cleanup.clear_ball_renderer(deps)
+
+
+func _clear_yangui_hoechun_for_serve(deps: Dictionary) -> void:
+	var mythic_item_runtime: Object = deps.get("mythic_item_runtime", null)
+	if mythic_item_runtime == null:
+		return
+	var yangui_runtime: Object = mythic_item_runtime.get("yangui_hoechun_runtime")
+	if yangui_runtime != null and yangui_runtime.has_method("clear_runtime"):
+		yangui_runtime.clear_runtime()
 
 
 func reset_wall_bounce_guard(deps: Dictionary) -> void:

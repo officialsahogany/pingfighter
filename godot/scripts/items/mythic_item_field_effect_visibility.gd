@@ -37,6 +37,8 @@ func has_visible_field_effects(runtime: Object, ragnarok_impact_duration: float)
 		return true
 	if runtime.celestial_armor_state.is_wave_active():
 		return true
+	if runtime.yangui_hoechun_runtime.has_visible_effects():
+		return true
 	if runtime.hermes_shoes_state.is_visible(runtime.is_hermes_shoes_active()):
 		return true
 	if runtime.baal_boots_effect_state.is_visible(

@@ -8,6 +8,7 @@ const HornStrawberryTimerGaugeRenderer := preload("res://scripts/items/horn_stra
 const MomentumFieldRenderer := preload("res://scripts/items/mythic_item_momentum_field_renderer.gd")
 const PoseidonFieldRenderer := preload("res://scripts/items/mythic_item_poseidon_field_renderer.gd")
 const RagnarokFieldRenderer := preload("res://scripts/items/mythic_item_ragnarok_field_renderer.gd")
+const YanguiHoechunFieldRenderer := preload("res://scripts/items/mythic_item_yangui_hoechun_field_renderer.gd")
 
 const MAX_RENDERED_VENOM_MIST_PARTICLES := 32
 const MAX_RENDERED_RAINBOW_FUR_GLOVE_PARTICLES := 20
@@ -55,6 +56,11 @@ var _horn_strawberry_timer_renderer: Object = HornStrawberryTimerGaugeRenderer.n
 var _momentum_field_renderer: Object = MomentumFieldRenderer.new()
 var _poseidon_field_renderer: Object = PoseidonFieldRenderer.new()
 var _ragnarok_field_renderer: Object = RagnarokFieldRenderer.new()
+var _yangui_hoechun_field_renderer: Object = YanguiHoechunFieldRenderer.new()
+
+
+func set_yangui_hoechun_field_renderer_for_test(renderer: Object) -> void:
+	_yangui_hoechun_field_renderer = renderer
 
 
 func tear_down_hermes_shoes_fx(free_host: bool = false) -> void:
@@ -89,6 +95,7 @@ func draw_field_effects(
 	var adversity_armor_visible: bool = runtime.adversity_armor_runtime.is_effect_active(runtime)
 	var shrapnel_armor_visible: bool = runtime.shrapnel_armor_runtime.is_effect_active(runtime)
 	var celestial_armor_visible: bool = runtime.celestial_armor_state.is_wave_active()
+	var yangui_hoechun_visible: bool = runtime.yangui_hoechun_runtime.has_visible_effects()
 	var hermes_visible: bool = runtime.hermes_shoes_state.is_visible(runtime.is_hermes_shoes_active())
 	var baal_visible: bool = runtime.baal_boots_effect_state.is_visible(
 		runtime.baal_boots_weather_state.cinematic_active,
@@ -106,7 +113,7 @@ func draw_field_effects(
 		or horn_strawberry_effect_visible
 	)
 	var acquisition_visible: bool = runtime.acquisition_cinematic != null and runtime.acquisition_cinematic.is_active()
-	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
+	if not impact_active and not stun_active and runtime.ragnarok_sparks.is_empty() and not poseidon_visible and not knee_pads_visible and not soul_burst_visible and not foul_whistle_visible and not revival_visible and not sensor_visible and not venom_mist_visible and not rainbow_glove_visible and not adversity_armor_visible and not shrapnel_armor_visible and not celestial_armor_visible and not yangui_hoechun_visible and not hermes_visible and not baal_visible and not horn_strawberry_visible and not acquisition_visible:
 		return
 	_record_visible_counters(perf_logger, {
 		"ragnarok_impact": impact_active,
@@ -123,6 +130,7 @@ func draw_field_effects(
 		"adversity_armor": adversity_armor_visible,
 		"shrapnel_armor": shrapnel_armor_visible,
 		"celestial_armor": celestial_armor_visible,
+		"yangui_hoechun": yangui_hoechun_visible,
 		"hermes_shoes": hermes_visible,
 		"baal_boots": baal_visible,
 		"horn_strawberry_effect": horn_strawberry_effect_visible,
@@ -131,6 +139,14 @@ func draw_field_effects(
 	})
 	var detail_perf_logger: Object = perf_logger if _should_record_field_detail(perf_logger) else null
 	var field_size: Vector2 = _as_vector2(constants.get("field_size", Vector2(760.0, 750.0)), Vector2(760.0, 750.0))
+	if yangui_hoechun_visible:
+		var yangui_sample_start: int = _perf_begin(detail_perf_logger)
+		_yangui_hoechun_field_renderer.draw_effect(
+			canvas,
+			shake_offset,
+			runtime.yangui_hoechun_runtime.get_draw_context()
+		)
+		_perf_end(detail_perf_logger, "mythic.yangui_hoechun", yangui_sample_start)
 	if horn_strawberry_effect_visible:
 		var horn_sample_start: int = _perf_begin(detail_perf_logger)
 		if horn_strawberry_context.is_empty():
