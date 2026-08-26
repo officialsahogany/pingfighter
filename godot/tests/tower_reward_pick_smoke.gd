@@ -42,6 +42,12 @@ const RuntimePerkCatalog := preload(
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
+const RuntimePerkEffectiveLevels := preload(
+	"res://scripts/characters/runtime_perk_effective_levels.gd"
+)
+const RuntimePerkEffectiveStatQuerySurface := preload(
+	"res://scripts/characters/runtime_perk_effective_stat_query_surface.gd"
+)
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
@@ -477,7 +483,66 @@ class FakeScoreboard:
 		return 3
 
 
+class FakeFusionEffectiveLevelRuntime:
+	extends RefCounted
+
+	var runtime_skill_levels: Dictionary = {"dash_amplification": 2}
+	var item_perk_level_bonus := 0
+	var viper_ignition_aura_active := false
+
+	func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
+		return 1 if perk_id == "dash_amplification" else 0
+
+
+class RewardHoverDrawProbe:
+	extends Node2D
+
+	var renderer: Object
+	var view_model: Dictionary
+	var catalog: Object
+	var snapshot: Dictionary
+	var mouse_pos: Vector2
+	var view_size: Vector2
+
+	func _draw() -> void:
+		renderer.draw_tower_reward_pick(
+			self,
+			view_model,
+			null,
+			catalog,
+			null,
+			view_size,
+			snapshot,
+			mouse_pos
+		)
+
+
+class RewardHoverDrawCallSpy:
+	extends RefCounted
+
+	var draw_rect_calls: Array[Dictionary] = []
+
+	func draw_rect(
+		rect: Rect2,
+		color: Color,
+		filled: bool = true,
+		width: float = -1.0,
+		antialiased: bool = false
+	) -> void:
+		draw_rect_calls.append({
+			"rect": rect,
+			"color": color,
+			"filled": filled,
+			"width": width,
+			"antialiased": antialiased,
+		})
+
+
 func _init() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_seven_locale_copy_contract()
@@ -490,6 +555,9 @@ func _init() -> void:
 	_verify_stable_four_card_multi_buy_and_fusion_return()
 	_verify_slot_limit_rechecks_each_purchase()
 	_verify_fullscreen_stats_ledger_hover_and_cache_contract()
+	_verify_reward_hover_highlight_contract()
+	_verify_reward_hover_draw_output_contract()
+	await _verify_reward_hover_draw_wiring_behavior()
 	_verify_unaffordable_board_auto_finish_and_failure_latch()
 	_verify_vision_purchase_and_continue_burn_semantics()
 	_verify_full_slot_vision_swap_confirm_and_cancel()
@@ -1109,6 +1177,7 @@ func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
 	_expect(state.start(owner, registry, Callable()), "fullscreen reward ledger fixture must start")
 	_expect(runtime.stats_capture_calls == 0, "a fresh reward pick must not inherit a stale perk-modal stats context")
 	_expect(catalog.slot_status_calls == 1, "reward entry must cache perk-slot status exactly once")
+	var entry_slot_status_calls := catalog.slot_status_calls
 	state.update(1.0)
 	_expect(
 		runtime.stats_capture_calls == 1
@@ -1173,9 +1242,18 @@ func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
 	)
 	state.draw(null, LIVE_VIEW_SIZE)
 	_expect(catalog.slot_status_calls == 1, "repeated draw frames must not rescan perk-slot status")
+	var repeated_draw_slot_status_calls := catalog.slot_status_calls
 	state.call("_purchase", 0)
 	state.update(0.016)
 	_expect(catalog.slot_status_calls == 2, "a committed purchase must invalidate and refresh slot status once")
+	print(
+		"tower_reward_hover_lookup_counts: entry=%d repeated_draw=%d post_purchase=%d"
+		% [
+			entry_slot_status_calls,
+			repeated_draw_slot_status_calls,
+			catalog.slot_status_calls,
+		]
+	)
 
 	var highlight_value: Variant = RuntimePerkOverlayRenderer.resolve_tower_reward_slot_highlight_keys(
 		["mugong_a", "mugong_b", "mugong_c"],
@@ -1187,6 +1265,694 @@ func _verify_fullscreen_stats_ledger_hover_and_cache_contract() -> void:
 		"slot transition highlights must follow perk keys, never shifted slot indices"
 	)
 	state.reset()
+
+
+func _verify_reward_hover_highlight_contract() -> void:
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var renderer_source := FileAccess.get_file_as_string(
+		"res://scripts/hud/runtime_perk_overlay_renderer.gd"
+	)
+	var reward_draw_body := _extract_function_source(
+		renderer_source,
+		"func draw_tower_reward_pick("
+	)
+	_expect(
+		reward_draw_body.contains("_resolve_tower_reward_hover_preview("),
+		"reward draw must resolve the hover preview on the production path"
+	)
+	var status_panel_body := _extract_function_source(
+		renderer_source,
+		"func _draw_status_panel("
+	)
+	var status_panel_call := _extract_call_source(reward_draw_body, "_draw_status_panel(")
+	_expect(
+		status_panel_call.contains("reward_hover_preview"),
+		"reward draw must pass its resolved hover preview into the status panel"
+	)
+	_expect(
+		status_panel_body.contains("_reward_hover_landing_slot"),
+		"status-panel draw must consume the simulated landing marker"
+	)
+	_expect(
+		status_panel_body.contains("if reward_hover_material_keys.has(skill_key):")
+		and status_panel_body.contains("_draw_tower_reward_material_preview("),
+		"status-panel draw must gate and draw the fusion material preview at its consumption site"
+	)
+	var card_rect := Rect2(120.0, 90.0, 220.0, 310.0)
+	var new_mugong := {
+		"id": "mugong_mid",
+		"reward_pick_kind": "mugong",
+		"current_level": 0,
+		"next_level": 4,
+		"max_level": 5,
+		"reward_pick_enabled": true,
+	}
+	var open_snapshot := {
+		"perk_slot_status": {
+			"count": 3,
+			"limit": 6,
+			"is_full": false,
+		},
+		"perk_slot_status_cached": true,
+	}
+	var idle_build_count := renderer.get_tower_reward_hover_preview_build_count_for_tests()
+	var idle_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[new_mugong],
+		[card_rect],
+		Vector2(20.0, 20.0),
+		open_snapshot
+	)
+	_expect(idle_preview.is_empty(), "no reward-card hover must keep the ledger preview empty")
+	_expect(
+		renderer.get_tower_reward_hover_preview_build_count_for_tests() == idle_build_count,
+		"GRT-043: no reward-card hover must not invoke the preview interpreter"
+	)
+	var bypass_gate_counterproof := RuntimePerkOverlayRenderer.build_tower_reward_hover_preview(
+		new_mugong,
+		open_snapshot.perk_slot_status
+	)
+	_expect(
+		not bypass_gate_counterproof.is_empty(),
+		"the no-hover fixture must turn RED if the strict hover gate is bypassed"
+	)
+
+	var landing_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[new_mugong],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	_expect(
+		int(landing_preview.get("empty_slot_requests", 0)) == 1,
+		"a new Mugong hover must request exactly one destination cell"
+	)
+	var landing_key_levels: Dictionary = landing_preview.get("landing_key_levels", {})
+	_expect(
+		int(landing_key_levels.get("mugong_mid", 0)) == 4,
+		"the destination request must remain keyed and carry the offered next level"
+	)
+	_expect(
+		renderer.get_tower_reward_hover_preview_build_count_for_tests() == idle_build_count + 1,
+		"the first eligible reward hover must build once"
+	)
+	var landing_projection_count := (
+		renderer.get_tower_reward_hover_landing_projection_count_for_tests()
+	)
+	var cached_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[new_mugong],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	_expect(cached_preview == landing_preview, "unchanged reward hover inputs must reuse the preview model")
+	_expect(
+		renderer.get_tower_reward_hover_preview_build_count_for_tests() == idle_build_count + 1,
+		"fade redraws must not rebuild the reward hover preview"
+	)
+	_expect(
+		renderer.get_tower_reward_hover_landing_projection_count_for_tests()
+		== landing_projection_count,
+		"fade redraws must not recompute landing levels before the preview cache gate"
+	)
+	var supreme_choice := {
+		"id": "megingjord",
+		"reward_pick_kind": "supreme",
+		"max_level": 1,
+		"current_level": 0,
+		"next_level": 1,
+		"reward_pick_enabled": true,
+	}
+	var supreme_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[supreme_choice],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	_expect(
+		int((supreme_preview.get("landing_key_levels", {}) as Dictionary).get("megingjord", 0)) == 1
+		and int(supreme_preview.get("empty_slot_requests", 0)) == 1,
+		"a new supreme perk must use the same one-slot landing path as a new Mugong"
+	)
+	var supreme_upgrade := supreme_choice.duplicate(true)
+	supreme_upgrade["current_level"] = 1
+	supreme_upgrade["next_level"] = 1
+	var supreme_upgrade_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[supreme_upgrade],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	_expect(
+		supreme_upgrade_preview.is_empty(),
+		"an owned supreme upgrade must not request another slot destination"
+	)
+	var dash_upgrade := {
+		"id": "dash_amplification",
+		"reward_pick_kind": "mugong",
+		"current_level": 1,
+		"next_level": 2,
+		"max_level": 3,
+		"reward_pick_enabled": true,
+	}
+	var dash_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[dash_upgrade],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	var dash_landing_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		[{"id": "dash_amplification", "level": 1}],
+		6,
+		dash_preview
+	)
+	_expect(
+		int(dash_preview.get("empty_slot_requests", 0)) == 1
+		and _find_entry_index_by_flag(dash_landing_grid, "_reward_hover_landing_slot") == 1,
+		"Glide Orb Lv.1-to-2 hover must preview its one additional occupied slot"
+	)
+
+	var acquired := [
+		{"id": "alpha_high", "level": 5},
+		{"id": "zeta_same_rank", "level": 4},
+		{"id": "omega_low", "level": 1},
+	]
+	var baseline_grid: Array = renderer._build_status_slot_grid(
+		acquired,
+		6,
+		{}
+	)
+	var first_empty_index := -1
+	for index in range(baseline_grid.size()):
+		var baseline_entry: Dictionary = baseline_grid[index]
+		if bool(baseline_entry.get("_empty_slot", false)):
+			first_empty_index = index
+			break
+	var grid_build_count := renderer.get_tower_reward_hover_grid_build_count_for_tests()
+	var landing_grid: Array = renderer._build_status_slot_grid(
+		acquired,
+		6,
+		landing_preview
+	)
+	var landing_index := -1
+	for index in range(landing_grid.size()):
+		var landing_entry: Dictionary = landing_grid[index]
+		if bool(landing_entry.get("_reward_hover_landing_slot", false)):
+			landing_index = index
+			break
+	_expect(first_empty_index == 3, "counterproof fixture must expose the naive first empty cell")
+	_expect(
+		landing_index == 1,
+		"virtual add plus canonical re-sort must place the Lv.4 Mugong at its real landing index"
+	)
+	_expect(
+		landing_index != first_empty_index,
+		"the sorted fixture must turn RED under a first-empty implementation"
+	)
+	_expect(
+		renderer.get_tower_reward_hover_grid_build_count_for_tests() == grid_build_count + 1,
+		"the first eligible hover grid must assemble once"
+	)
+	var _cached_landing_grid: Array = renderer._build_status_slot_grid(
+		acquired,
+		6,
+		landing_preview
+	)
+	_expect(
+		renderer.get_tower_reward_hover_grid_build_count_for_tests() == grid_build_count + 1,
+		"continuous fade frames must not rebuild the hover slot grid"
+	)
+	var changed_acquired: Array = acquired.duplicate(true)
+	(changed_acquired[1] as Dictionary)["level"] = 6
+	var changed_acquired_build_count := renderer.get_tower_reward_hover_grid_build_count_for_tests()
+	var changed_acquired_grid: Array = renderer._build_status_slot_grid(
+		changed_acquired,
+		6,
+		landing_preview
+	)
+	_expect(
+		renderer.get_tower_reward_hover_grid_build_count_for_tests() == changed_acquired_build_count + 1,
+		"same-size acquired content changes must invalidate the hover-grid cache"
+	)
+	var changed_limit_build_count := renderer.get_tower_reward_hover_grid_build_count_for_tests()
+	var changed_limit_grid: Array = renderer._build_status_slot_grid(
+		changed_acquired,
+		7,
+		landing_preview
+	)
+	_expect(
+		renderer.get_tower_reward_hover_grid_build_count_for_tests() == changed_limit_build_count + 1
+		and changed_limit_grid.size() == 7
+		and changed_acquired_grid.size() == 6,
+		"runtime slot-limit changes must invalidate and resize the hover-grid cache"
+	)
+
+	var bonus_choice := {
+		"id": "item_luck",
+		"reward_pick_kind": "mugong",
+		"current_level": 0,
+		"next_level": 1,
+		"max_level": 5,
+		"reward_pick_enabled": true,
+	}
+	var bonus_snapshot := open_snapshot.duplicate(true)
+	bonus_snapshot["runtime_skill_levels"] = {
+		"alpha_high": 5,
+		"omega_low": 1,
+	}
+	bonus_snapshot["item_perk_level_bonus"] = 2
+	var bonus_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[bonus_choice],
+		[card_rect],
+		card_rect.get_center(),
+		bonus_snapshot
+	)
+	var bonus_acquired := [
+		{"id": "alpha_high", "level": 7},
+		{"id": "omega_low", "level": 3},
+	]
+	var bonus_landing_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		bonus_acquired,
+		6,
+		bonus_preview
+	)
+	var bonus_landing_index := _find_entry_index_by_flag(
+		bonus_landing_grid,
+		"_reward_hover_landing_slot"
+	)
+	var purchased_acquired: Array = bonus_acquired.duplicate(true)
+	purchased_acquired.append({"id": "item_luck", "level": 3})
+	purchased_acquired.sort_custom(RuntimePerkOverlayRenderer.sort_tower_reward_hover_perks)
+	var purchased_index := _find_entry_index_by_id(purchased_acquired, "item_luck")
+	_expect(
+		int((bonus_preview.get("landing_key_levels", {}) as Dictionary).get("item_luck", 0)) == 3
+		and bonus_landing_index == purchased_index
+		and purchased_index == 1,
+		"item level bonus hover landing must match the canonical post-purchase index"
+	)
+	print(
+		"tower_reward_hover_effective_level_landing: bonus=2 landing_index=%d purchased_index=%d"
+		% [bonus_landing_index, purchased_index]
+	)
+
+	var fusion_limit_break_snapshot := open_snapshot.duplicate(true)
+	fusion_limit_break_snapshot["runtime_skill_levels"] = {"dash_amplification": 1}
+	fusion_limit_break_snapshot["effective_runtime_skill_levels"] = {
+		"dash_amplification": 2,
+	}
+	fusion_limit_break_snapshot["item_perk_level_bonus"] = 0
+	var fusion_limit_break_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[dash_upgrade],
+		[card_rect],
+		card_rect.get_center(),
+		fusion_limit_break_snapshot
+	)
+	var fusion_limit_break_landing_level := int(
+		(fusion_limit_break_preview.get("landing_key_levels", {}) as Dictionary).get(
+			"dash_amplification",
+			0
+		)
+	)
+	var pure_projected_level := RuntimePerkEffectiveLevels.new().get_runtime_skill_level(
+		{"dash_amplification": 2},
+		0,
+		false,
+		"dash_amplification"
+	)
+	var query_surface := RuntimePerkEffectiveStatQuerySurface.new()
+	var purchased_ledger_levels: Dictionary = query_surface.get_effective_runtime_skill_levels(
+		RuntimePerkEffectiveLevels.new(),
+		FakeFusionEffectiveLevelRuntime.new()
+	)
+	_expect(
+		pure_projected_level == 2
+		and fusion_limit_break_landing_level == 3
+		and int(purchased_ledger_levels.get("dash_amplification", 0)) == 3,
+		"hover landing must preserve the query-surface fusion limit break and match the post-purchase ledger"
+	)
+	print(
+		"tower_reward_hover_query_surface_landing: pure=%d hover=%d ledger=%d"
+		% [
+			pure_projected_level,
+			fusion_limit_break_landing_level,
+			int(purchased_ledger_levels.get("dash_amplification", 0)),
+		]
+	)
+
+	var aliased_acquired := [
+		{"id": "mugong_mid", "level": 1, "_slot_cell_index": 9},
+	]
+	var aliased_acquired_before: Array = aliased_acquired.duplicate(true)
+	var alias_mutation_preview := RuntimePerkOverlayRenderer.build_tower_reward_hover_preview(
+		new_mugong,
+		open_snapshot.perk_slot_status,
+		4
+	)
+	var _alias_mutation_grid: Array = (
+		RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+			aliased_acquired,
+			6,
+			alias_mutation_preview
+		)
+	)
+	_expect(
+		aliased_acquired == aliased_acquired_before,
+		"hover-grid projection must deep-copy entries before mutating level and cell index"
+	)
+
+	var ambiguous_landing_grid: Array = (
+		RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+			acquired,
+			6,
+			{
+				"empty_slot_requests": 2,
+				"landing_key_levels": {"alpha": 4, "beta": 3},
+			}
+		)
+	)
+	_expect(
+		_find_entry_index_by_flag(
+			ambiguous_landing_grid,
+			"_reward_hover_landing_slot"
+		) == -1,
+		"multiple landing identities must fail closed instead of starving later keys"
+	)
+
+	var fusion_projection_snapshot := {
+		"effective_runtime_skill_levels": {},
+		"perk_fusion_display_projection": {
+			"entries": [
+				{
+					"type": "fusion",
+					"id": "fusion_1",
+					"fusion_id": "fusion_1",
+					"fusion_revision": 1,
+					"sources": ["common_bulk_up", "common_swiftness"],
+					"source_names": ["bulk", "swift"],
+					"base_levels": {"common_bulk_up": 1, "common_swiftness": 1},
+					"effective_levels": {"common_bulk_up": 1, "common_swiftness": 1},
+					"summary": "fusion fixture",
+					"slot_cost": 1,
+					"record_payload": {
+						"fusion_id": "fusion_1",
+						"sources": ["common_bulk_up", "common_swiftness"],
+						"outcome": "success",
+					},
+				},
+			],
+		},
+	}
+	var fusion_slot_entries: Array = renderer._build_acquired_perks_for_snapshot(
+		{},
+		RuntimePerkCatalog.new(),
+		null,
+		fusion_projection_snapshot
+	)
+	_expect(fusion_slot_entries.size() == 1, "fusion landing fixture must own one folded slot")
+	if fusion_slot_entries.size() == 1:
+		var fusion_slot: Dictionary = fusion_slot_entries[0]
+		_expect(
+			str(fusion_slot.get("id", "")).begins_with("perk_fusion_pair:"),
+			"status rendering must retain the transformed fusion icon identity"
+		)
+		_expect(
+			str(fusion_slot.get("_sort_id", "")) == "fusion_1",
+			"status rendering must preserve the pre-transform fusion sort identity"
+		)
+		var item_luck_preview := RuntimePerkOverlayRenderer.build_tower_reward_hover_preview(
+			{
+				"id": "item_luck",
+				"reward_pick_kind": "mugong",
+				"current_level": 0,
+				"next_level": 1,
+				"max_level": 5,
+			},
+			{"count": 1, "limit": 6, "is_full": false}
+		)
+		var fusion_landing_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+			fusion_slot_entries,
+			6,
+			item_luck_preview
+		)
+		var fusion_landing_index := -1
+		for index in range(fusion_landing_grid.size()):
+			var fusion_landing_entry: Dictionary = fusion_landing_grid[index]
+			if bool(fusion_landing_entry.get("_reward_hover_landing_slot", false)):
+				fusion_landing_index = index
+				break
+		_expect(
+			fusion_landing_index == 1,
+			"fusion_1 must remain before a level-1 item_luck landing after id transformation"
+		)
+		print(
+			"tower_reward_hover_fusion_landing: original=fusion_1 new=item_luck landing_index=%d"
+			% fusion_landing_index
+		)
+
+	var fusion_choice := {
+		"id": "perk_fusion",
+		"reward_pick_kind": "fusion",
+		"eligible_sources": ["alpha_high", "zeta_same_rank", "omega_low"],
+		"reward_pick_enabled": true,
+	}
+	var fusion_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[fusion_choice],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	var material_keys: Dictionary = fusion_preview.get("material_keys", {})
+	_expect(
+		material_keys.size() == 3
+		and material_keys.has("alpha_high")
+		and material_keys.has("zeta_same_rank")
+		and material_keys.has("omega_low"),
+		"fusion hover must highlight every eligible source when the candidate pool exceeds two"
+	)
+	var arbitrary_two_only := {
+		"alpha_high": true,
+		"zeta_same_rank": true,
+	}
+	_expect(
+		arbitrary_two_only != material_keys,
+		"the three-source fixture must turn RED if the renderer arbitrarily keeps only two"
+	)
+
+	var full_snapshot := open_snapshot.duplicate(true)
+	full_snapshot["perk_slot_status"] = {
+		"count": 6,
+		"limit": 6,
+		"is_full": true,
+	}
+	var full_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[new_mugong],
+		[card_rect],
+		card_rect.get_center(),
+		full_snapshot
+	)
+	_expect(bool(full_preview.get("slot_full", false)), "full-slot hover must expose the existing full state")
+	_expect(
+		int(full_preview.get("empty_slot_requests", -1)) == 0
+		and (full_preview.get("landing_key_levels", {}) as Dictionary).is_empty(),
+		"full-slot hover must not draw a false destination or duplicate W1's disabled treatment"
+	)
+
+
+func _verify_reward_hover_draw_wiring_behavior() -> void:
+	var card_rect := Rect2(80.0, 55.0, 210.0, 260.0)
+	var base_snapshot := {
+		"runtime_skill_levels": {
+			"common_bulk_up": 2,
+			"common_swiftness": 1,
+		},
+		"effective_runtime_skill_levels": {
+			"common_bulk_up": 2,
+			"common_swiftness": 1,
+		},
+		"perk_slot_status": {"count": 2, "limit": 6, "is_full": false},
+		"perk_slot_status_cached": true,
+		"pending_skill_choices": 0,
+		"gold_from_perks": 0,
+	}
+	var landing_choice := {
+		"id": "item_luck",
+		"name": "landing fixture",
+		"reward_pick_kind": "mugong",
+		"current_level": 0,
+		"next_level": 1,
+		"max_level": 5,
+		"reward_pick_enabled": true,
+	}
+	var landing_renderer := RuntimePerkOverlayRenderer.new()
+	landing_renderer.set_training_stat_preview_draw_msec_for_tests(200)
+	var landing_probe := _build_reward_hover_draw_probe(
+		landing_renderer,
+		landing_choice,
+		card_rect,
+		base_snapshot
+	)
+	get_root().add_child(landing_probe)
+	landing_probe.queue_redraw()
+	await process_frame
+	await process_frame
+	_expect(
+		landing_renderer.get_tower_reward_landing_draw_count_for_tests() > 0,
+		"F11 action seal: draw_tower_reward_pick must reach the cyan landing-ring draw call"
+	)
+	_expect(
+		landing_renderer.get_tower_reward_material_draw_count_for_tests() == 0,
+		"new-perk hover must not reach the fusion material-ring draw call"
+	)
+	landing_probe.queue_free()
+	await process_frame
+
+	var fusion_choice := {
+		"id": "perk_fusion",
+		"name": "fusion fixture",
+		"reward_pick_kind": "fusion",
+		"eligible_sources": ["common_bulk_up", "common_swiftness"],
+		"reward_pick_enabled": true,
+	}
+	var material_renderer := RuntimePerkOverlayRenderer.new()
+	material_renderer.set_training_stat_preview_draw_msec_for_tests(200)
+	var material_probe := _build_reward_hover_draw_probe(
+		material_renderer,
+		fusion_choice,
+		card_rect,
+		base_snapshot
+	)
+	get_root().add_child(material_probe)
+	material_probe.queue_redraw()
+	await process_frame
+	await process_frame
+	_expect(
+		material_renderer.get_tower_reward_material_draw_count_for_tests() >= 2,
+		"F11 action seal: fusion hover must reach every eligible material-ring draw call"
+	)
+	_expect(
+		material_renderer.get_tower_reward_landing_draw_count_for_tests() == 0,
+		"fusion hover must not reach the cyan destination-ring draw call"
+	)
+	material_probe.queue_free()
+	await process_frame
+	print(
+		"tower_reward_hover_draw_wiring: landing_calls=%d material_calls=%d"
+		% [
+			landing_renderer.get_tower_reward_landing_draw_count_for_tests(),
+			material_renderer.get_tower_reward_material_draw_count_for_tests(),
+		]
+	)
+
+
+func _verify_reward_hover_draw_output_contract() -> void:
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var slot_rect := Rect2(120.0, 240.0, 72.0, 88.0)
+	var fade := 0.5
+	var landing_spy := RewardHoverDrawCallSpy.new()
+	renderer._draw_tower_reward_landing_preview(landing_spy, slot_rect, fade)
+	_expect(
+		landing_spy.draw_rect_calls.size() == 1,
+		"G1 output seal: cyan landing hover must issue exactly one canvas.draw_rect"
+	)
+	if landing_spy.draw_rect_calls.size() == 1:
+		var landing_call: Dictionary = landing_spy.draw_rect_calls[0]
+		_expect(
+			(landing_call.get("rect", Rect2()) as Rect2) == slot_rect.grow(5.0)
+			and (landing_call.get("color", Color.TRANSPARENT) as Color).is_equal_approx(
+				Color(0.22, 0.88, 1.0, 0.92 * fade)
+			)
+			and not bool(landing_call.get("filled", true))
+			and is_equal_approx(float(landing_call.get("width", 0.0)), 2.5),
+			"G1 output seal: cyan landing hover must emit the exact outside rect, color, and width"
+		)
+
+	var material_spy := RewardHoverDrawCallSpy.new()
+	renderer._draw_tower_reward_material_preview(material_spy, slot_rect, fade)
+	_expect(
+		material_spy.draw_rect_calls.size() == 1,
+		"G1 output seal: red material hover must issue exactly one canvas.draw_rect"
+	)
+	if material_spy.draw_rect_calls.size() == 1:
+		var material_call: Dictionary = material_spy.draw_rect_calls[0]
+		_expect(
+			(material_call.get("rect", Rect2()) as Rect2) == slot_rect.grow(-3.0)
+			and (material_call.get("color", Color.TRANSPARENT) as Color).is_equal_approx(
+				Color(1.0, 0.32, 0.46, 0.94 * fade)
+			)
+			and not bool(material_call.get("filled", true))
+			and is_equal_approx(float(material_call.get("width", 0.0)), 3.0),
+			"G1 output seal: red material hover must emit the exact inset rect, color, and width"
+		)
+
+	var zero_fade_spy := RewardHoverDrawCallSpy.new()
+	renderer._draw_tower_reward_landing_preview(zero_fade_spy, slot_rect, 0.0)
+	renderer._draw_tower_reward_material_preview(zero_fade_spy, slot_rect, 0.0)
+	_expect(
+		zero_fade_spy.draw_rect_calls.is_empty(),
+		"G2 output seal: zero fade must suppress both hover draw_rect calls"
+	)
+	_expect(
+		renderer.get_tower_reward_landing_draw_count_for_tests() == 1
+		and renderer.get_tower_reward_material_draw_count_for_tests() == 1,
+		"G2 output seal: zero fade must not increment visible-output counters"
+	)
+	var landing_output: Dictionary = (
+		landing_spy.draw_rect_calls[0]
+		if landing_spy.draw_rect_calls.size() == 1
+		else {}
+	)
+	var material_output: Dictionary = (
+		material_spy.draw_rect_calls[0]
+		if material_spy.draw_rect_calls.size() == 1
+		else {}
+	)
+	print(
+		"tower_reward_hover_draw_output: landing_draw_rect_calls=%d material_draw_rect_calls=%d landing_rect=%s landing_color=%s material_rect=%s material_color=%s"
+		% [
+			landing_spy.draw_rect_calls.size(),
+			material_spy.draw_rect_calls.size(),
+			landing_output.get("rect", Rect2()),
+			landing_output.get("color", Color.TRANSPARENT),
+			material_output.get("rect", Rect2()),
+			material_output.get("color", Color.TRANSPARENT),
+		]
+	)
+	print(
+		"tower_reward_hover_zero_fade: draw_rect_calls=%d"
+		% zero_fade_spy.draw_rect_calls.size()
+	)
+
+
+func _build_reward_hover_draw_probe(
+	renderer: Object,
+	choice: Dictionary,
+	card_rect: Rect2,
+	snapshot: Dictionary
+) -> RewardHoverDrawProbe:
+	var probe := RewardHoverDrawProbe.new()
+	probe.renderer = renderer
+	probe.catalog = RuntimePerkCatalog.new()
+	probe.snapshot = snapshot.duplicate(true)
+	probe.mouse_pos = card_rect.get_center()
+	probe.view_size = Vector2(1024.0, 720.0)
+	probe.view_model = {
+		"animation_time": 1.0,
+		"title": "reward hover draw fixture",
+		"choices": [choice.duplicate(true)],
+		"card_rects": [card_rect],
+		"selected_index": 0,
+		"reward_session_id": 901,
+		"layout": {
+			"title_pos": Vector2(512.0, 34.0),
+			"layout_scale": 1.0,
+			"cards_start": card_rect.position,
+			"card_size": card_rect.size,
+			"card_gap": 0.0,
+			"desc_rect": Rect2(),
+			"panel_rect": Rect2(40.0, 410.0, 900.0, 150.0),
+			"stats_rect": Rect2(),
+		},
+	}
+	return probe
 
 
 func _verify_unaffordable_board_auto_finish_and_failure_latch() -> void:
@@ -1602,6 +2368,52 @@ func _accept_effect() -> bool:
 func _reject_effect() -> bool:
 	_effect_calls += 1
 	return false
+
+
+func _extract_function_source(source: String, header: String) -> String:
+	var start := source.find(header)
+	if start < 0:
+		return ""
+	var next_instance := source.find("\nfunc ", start + header.length())
+	var next_static := source.find("\nstatic func ", start + header.length())
+	var next := next_instance
+	if next < 0 or (next_static >= 0 and next_static < next):
+		next = next_static
+	if next < 0:
+		return source.substr(start)
+	return source.substr(start, next - start)
+
+
+func _extract_call_source(source: String, call_header: String) -> String:
+	var start := source.find(call_header)
+	if start < 0:
+		return ""
+	var depth := 0
+	for offset in range(start, source.length()):
+		var character := source.substr(offset, 1)
+		if character == "(":
+			depth += 1
+		elif character == ")":
+			depth -= 1
+			if depth == 0:
+				return source.substr(start, offset - start + 1)
+	return ""
+
+
+func _find_entry_index_by_flag(entries: Array, flag: String) -> int:
+	for index in range(entries.size()):
+		var entry_value: Variant = entries[index]
+		if entry_value is Dictionary and bool((entry_value as Dictionary).get(flag, false)):
+			return index
+	return -1
+
+
+func _find_entry_index_by_id(entries: Array, entry_id: String) -> int:
+	for index in range(entries.size()):
+		var entry_value: Variant = entries[index]
+		if entry_value is Dictionary and str((entry_value as Dictionary).get("id", "")) == entry_id:
+			return index
+	return -1
 
 
 func _expect(condition: bool, message: String) -> void:

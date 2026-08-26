@@ -290,6 +290,48 @@ func get_effective_runtime_skill_levels(effective_levels: Object, runtime_state:
 	return resolved_levels
 
 
+func project_runtime_skill_level_from_snapshot(
+	effective_levels: Object,
+	current_runtime_levels: Dictionary,
+	current_effective_levels: Dictionary,
+	projected_runtime_levels: Dictionary,
+	item_perk_level_bonus: int,
+	viper_ignition_aura_active: bool,
+	skill_id: String
+) -> int:
+	if effective_levels == null or not effective_levels.has_method("get_runtime_skill_level"):
+		return 0
+	var clean_skill_id := skill_id.strip_edges()
+	if clean_skill_id.is_empty():
+		return 0
+	var projected_level := int(effective_levels.get_runtime_skill_level(
+		projected_runtime_levels,
+		maxi(0, item_perk_level_bonus),
+		viper_ignition_aura_active,
+		clean_skill_id
+	))
+	if projected_level <= 0:
+		return 0
+	# Snapshot consumers cannot call back into live fusion state during draw. The
+	# authoritative current map was produced by this query surface, so its delta
+	# from the pure projection is exactly the already-resolved limit-break lane.
+	# Carry that stable delta onto the hypothetical raw-level map.
+	var current_pure_level := int(effective_levels.get_runtime_skill_level(
+		current_runtime_levels,
+		maxi(0, item_perk_level_bonus),
+		viper_ignition_aura_active,
+		clean_skill_id
+	))
+	var current_authoritative_level := int(
+		current_effective_levels.get(clean_skill_id, current_pure_level)
+	)
+	var resolved_limit_break_bonus := maxi(
+		0,
+		current_authoritative_level - current_pure_level
+	)
+	return projected_level + resolved_limit_break_bonus
+
+
 func get_runtime_skill_bonus(
 	effective_levels: Object,
 	runtime_state: Object,

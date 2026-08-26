@@ -173,9 +173,27 @@ func _run() -> void:
 		push_error("reward-pick capture directory creation failed: %d" % mkdir_error)
 		quit(1)
 		return
-	if not await _capture_offer("four_card_reward_pick.png", _build_general_choices(), 0, output_dir, true):
+	if not await _capture_offer(
+		"four_card_reward_pick.png",
+		_build_general_choices(),
+		0,
+		output_dir,
+		true,
+		{},
+		-1,
+		-1
+	):
 		return
-	if not await _capture_offer("vision_reward_pick.png", _build_vision_choices(), 0, output_dir):
+	if not await _capture_offer(
+		"vision_reward_pick.png",
+		_build_vision_choices(),
+		0,
+		output_dir,
+		false,
+		{},
+		-1,
+		-1
+	):
 		return
 	if not await _capture_offer(
 		"full_slot_reward_pick.png",
@@ -184,12 +202,42 @@ func _run() -> void:
 		output_dir,
 		false,
 		_full_slot_levels(),
+		2,
+		-1
+	):
+		return
+	if not await _capture_offer(
+		"hover_new_mugong_destination.png",
+		_build_general_choices(),
+		0,
+		output_dir,
+		false,
+		{
+			"common_swiftness": 2,
+			"megingjord": 1,
+		},
+		-1,
+		0
+	):
+		return
+	if not await _capture_offer(
+		"hover_fusion_materials.png",
+		_build_general_choices(),
+		2,
+		output_dir,
+		false,
+		{
+			"common_bulk_up": 3,
+			"common_swiftness": 2,
+			"megingjord": 1,
+		},
+		-1,
 		2
 	):
 		return
 	LanguageSettings.set_test_locale_override("")
 	print("tower_reward_pick_visual_qa: evidence=%s" % output_dir)
-	print("tower_reward_pick_visual_qa: captures=4")
+	print("tower_reward_pick_visual_qa: captures=6")
 	print("tower_reward_pick_visual_qa: ok")
 	quit(0)
 
@@ -199,9 +247,10 @@ func _capture_offer(
 	choices: Array[Dictionary],
 	selected_index: int,
 	output_dir: String,
-	capture_empty_after_purchase: bool = false,
-	runtime_levels: Dictionary = {},
-	blocked_purchase_index: int = -1
+	capture_empty_after_purchase: bool,
+	runtime_levels: Dictionary,
+	blocked_purchase_index: int,
+	hover_index: int
 ) -> bool:
 	for choice in choices:
 		if (
@@ -240,6 +289,16 @@ func _capture_offer(
 		return false
 	reward_state.selected_index = selected_index
 	reward_state.update(1.0)
+	if hover_index >= 0:
+		var hover_rects: Array = reward_state.get_card_rects(Vector2(GAME_SIZE))
+		if hover_index >= hover_rects.size() or not (hover_rects[hover_index] is Rect2):
+			push_error("reward-pick hover capture index is outside the card grid")
+			quit(1)
+			return false
+		reward_state.reward_hover_mouse_pos = (hover_rects[hover_index] as Rect2).get_center()
+		# Half opacity on the shared 800ms raised-cosine makes the fade itself
+		# visible in a still frame instead of capturing an endpoint plateau.
+		renderer.set_training_stat_preview_draw_msec_for_tests(200)
 	var opening_model: Dictionary = reward_state.build_view_model(Vector2(GAME_SIZE))
 	if (
 		str(opening_model.get("balance_text", "")) != "무혼 : 11개"
@@ -333,6 +392,11 @@ func _build_general_choices() -> Array[Dictionary]:
 			"description": "보유 무공 두 개를 융합",
 			"detail": "기존 무공합일 선택 화면으로 이동합니다.",
 			"is_perk_fusion": true,
+			"eligible_sources": [
+				"common_bulk_up",
+				"common_swiftness",
+				"megingjord",
+			],
 			"icon_color": Color(0.54, 0.28, 0.72),
 		}, "fusion", 3),
 		_finalize_choice(catalog.get_perk_data("megingjord"), "supreme", 5),

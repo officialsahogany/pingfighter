@@ -10,6 +10,11 @@ const CharacterInfoOverlayTooltipPresenter := preload("res://scripts/hud/charact
 const CharacterInfoOverlayState := preload("res://scripts/hud/character_info_overlay_state.gd")
 const CharacterInfoOverlayStatsPresenter := preload("res://scripts/hud/character_info_overlay_stats_presenter.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
+const RuntimePerkEffectiveStatQuerySurface := preload(
+	"res://scripts/characters/runtime_perk_effective_stat_query_surface.gd"
+)
 const RuntimePerkTrainingStatPreview := preload("res://scripts/characters/runtime_perk_training_stat_preview.gd")
 const RuntimePerkOverflowDescriptions := preload("res://scripts/characters/runtime_perk_overflow_descriptions.gd")
 const RuntimePerkDescriptionEmphasis := preload("res://scripts/hud/runtime_perk_description_emphasis.gd")
@@ -185,6 +190,19 @@ var _choice_visual_transition_started_msec := 0
 var _tower_reward_slot_session_id := -1
 var _tower_reward_slot_keys: Array[String] = []
 var _tower_reward_slot_highlight_keys: Array[String] = []
+var _tower_reward_hover_preview_signature := 0
+var _tower_reward_hover_preview_cache_valid := false
+var _tower_reward_hover_preview_model: Dictionary = {}
+var _tower_reward_hover_preview_build_count := 0
+var _tower_reward_hover_grid_signature := 0
+var _tower_reward_hover_grid_cache_valid := false
+var _tower_reward_hover_grid_entries: Array = []
+var _tower_reward_hover_grid_build_count := 0
+var _tower_reward_hover_effective_levels: Object = RuntimePerkEffectiveLevels.new()
+var _tower_reward_hover_effective_query_surface: Object = RuntimePerkEffectiveStatQuerySurface.new()
+var _tower_reward_hover_landing_projection_count := 0
+var _tower_reward_landing_draw_count := 0
+var _tower_reward_material_draw_count := 0
 var _tower_active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 # prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
 # 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
@@ -1815,6 +1833,12 @@ func draw_tower_reward_pick(
 	var layout: Dictionary = _get_dict(view_model.get("layout", {}))
 	var choices: Array = _get_array(view_model.get("choices", []))
 	var rects: Array = _get_array(view_model.get("card_rects", []))
+	var reward_hover_preview := _resolve_tower_reward_hover_preview(
+		choices,
+		rects,
+		mouse_pos,
+		snapshot
+	)
 	var absorption_by_slot: Dictionary = _tower_reward_absorption_by_slot(view_model)
 	var selected_index := int(view_model.get("selected_index", 0))
 	RuntimePerkTraditionalChrome.draw_backdrop(
@@ -1923,7 +1947,8 @@ func draw_tower_reward_pick(
 		icon_renderer,
 		view_size,
 		mouse_pos,
-		int(view_model.get("reward_session_id", -1))
+		int(view_model.get("reward_session_id", -1)),
+		reward_hover_preview
 	)
 	_draw_stats_band(
 		canvas,
@@ -3720,7 +3745,8 @@ func _draw_status_panel(
 	icon_renderer: Object,
 	view_size: Vector2 = Vector2.ZERO,
 	mouse_pos_override: Variant = null,
-	reward_session_id: int = -1
+	reward_session_id: int = -1,
+	reward_hover_preview: Dictionary = {}
 ) -> void:
 	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, rect)
 
@@ -3787,8 +3813,20 @@ func _draw_status_panel(
 	# 퍽(_slot_free_cell)이 빈칸을 잠식하면 카운터(5/7)와 그리드 빈칸 수가
 	# 어긋난다(코덱스 v1 P1).
 	var slot_limit_for_grid: int = max(1, int(slot_status.get("limit", 6)))
-	var grid_entries: Array = _build_status_slot_grid(acquired, slot_limit_for_grid)
+	var grid_entries: Array = _build_status_slot_grid(
+		acquired,
+		slot_limit_for_grid,
+		reward_hover_preview
+	)
 	var display_slots: int = max(1, grid_entries.size())
+	var reward_hover_material_keys: Dictionary = _get_dict(
+		reward_hover_preview.get("material_keys", {})
+	)
+	var reward_hover_fade := (
+		training_stat_preview_alpha_at(_get_draw_msec())
+		if not reward_hover_preview.is_empty()
+		else 0.0
+	)
 
 	var mouse_pos: Vector2 = Vector2(-1.0, -1.0)
 	if mouse_pos_override is Vector2:
@@ -3806,6 +3844,8 @@ func _draw_status_panel(
 			# Empty slot: a recessed talisman board and seal, not a modern plus button.
 			RuntimePerkTraditionalChrome.draw_talisman_slot(canvas, slot_rect, false, Color.WHITE)
 			RuntimePerkTraditionalChrome.draw_empty_seal(canvas, slot_rect.get_center(), min(slot_rect.size.x, slot_rect.size.y) * 0.22)
+			if bool(skill.get("_reward_hover_landing_slot", false)):
+				_draw_tower_reward_landing_preview(canvas, slot_rect, reward_hover_fade)
 			continue
 		var is_mythic: bool = str(skill.get("rarity", "")).to_lower() == "mythic"
 		var skill_key := _get_perk_slot_key(skill)
@@ -3848,6 +3888,8 @@ func _draw_status_panel(
 			)
 		if is_mythic:
 			_draw_mythic_ornament_frame(canvas, slot_rect, 1.0, 0.72)
+		if reward_hover_material_keys.has(skill_key):
+			_draw_tower_reward_material_preview(canvas, slot_rect, reward_hover_fade)
 
 	# Owned-perk hover tooltip (2026-07-09 request): mirrors the character-info perk
 	# tooltip -- left = friendly detail, right = "능력치" numeric breakdown. Drawn last
@@ -3875,6 +3917,327 @@ static func resolve_tower_reward_slot_highlight_keys(
 		if not key.is_empty() and not previous_set.has(key) and not result.has(key):
 			result.append(key)
 	return result
+
+
+func _resolve_tower_reward_hover_preview(
+	choices: Array,
+	card_rects: Array,
+	mouse_pos: Vector2,
+	snapshot: Dictionary
+) -> Dictionary:
+	var hovered_choice: Dictionary = hovered_tower_reward_preview_choice(
+		choices,
+		card_rects,
+		mouse_pos
+	)
+	# GRT-043: an idle reward board must stop before even reading the cached slot
+	# snapshot. The previous model may remain cached, but it is never drawn after
+	# the pointer leaves an eligible card.
+	if hovered_choice.is_empty():
+		return {}
+	var slot_status: Dictionary = _get_dict(snapshot.get("perk_slot_status", {}))
+	# Hash the cheap snapshot inputs first. The effective-level projection belongs
+	# strictly behind this cache gate, not on every fade-only redraw.
+	var signature := hash([
+		hovered_choice,
+		slot_status,
+		_get_dict(snapshot.get("runtime_skill_levels", {})),
+		_get_dict(snapshot.get("effective_runtime_skill_levels", {})),
+		maxi(0, int(snapshot.get("item_perk_level_bonus", 0))),
+		bool(snapshot.get("viper_ignition_aura_active", false)),
+	])
+	if (
+		not _tower_reward_hover_preview_cache_valid
+		or signature != _tower_reward_hover_preview_signature
+	):
+		var landing_level := _resolve_tower_reward_hover_landing_level(
+			hovered_choice,
+			snapshot
+		)
+		_tower_reward_hover_preview_cache_valid = true
+		_tower_reward_hover_preview_signature = signature
+		_tower_reward_hover_preview_build_count += 1
+		_tower_reward_hover_preview_model = build_tower_reward_hover_preview(
+			hovered_choice,
+			slot_status,
+			landing_level
+		)
+	return _tower_reward_hover_preview_model
+
+
+func _resolve_tower_reward_hover_landing_level(
+	hovered_choice: Dictionary,
+	snapshot: Dictionary
+) -> int:
+	var perk_id := str(hovered_choice.get("id", "")).strip_edges()
+	var current_level := int(hovered_choice.get("current_level", 0))
+	var next_level := int(hovered_choice.get("next_level", current_level + 1))
+	if perk_id.is_empty() or next_level <= current_level:
+		return next_level
+	# Reuse the same pure effective-level projection as the purchased ledger. The
+	# reward snapshot already owns every input, so hover adds no catalog/runtime
+	# lookup to the draw path.
+	var projected_base_levels: Dictionary = _get_dict(
+		snapshot.get("runtime_skill_levels", {})
+	).duplicate(true)
+	projected_base_levels[perk_id] = next_level
+	_tower_reward_hover_landing_projection_count += 1
+	return maxi(
+		0,
+		int(_tower_reward_hover_effective_query_surface.project_runtime_skill_level_from_snapshot(
+			_tower_reward_hover_effective_levels,
+			_get_dict(snapshot.get("runtime_skill_levels", {})),
+			_get_dict(snapshot.get("effective_runtime_skill_levels", {})),
+			projected_base_levels,
+			maxi(0, int(snapshot.get("item_perk_level_bonus", 0))),
+			bool(snapshot.get("viper_ignition_aura_active", false)),
+			perk_id
+		))
+	)
+
+
+static func _tower_reward_hover_slot_cost_increase(choice: Dictionary) -> int:
+	var current_level := int(choice.get("current_level", 0))
+	var next_level := int(choice.get("next_level", current_level + 1))
+	if next_level <= current_level:
+		return 0
+	return maxi(
+		0,
+		RuntimePerkCatalog.get_slot_cost_for_level(choice, next_level)
+		- RuntimePerkCatalog.get_slot_cost_for_level(choice, current_level)
+	)
+
+
+static func hovered_tower_reward_preview_choice(
+	choices: Array,
+	card_rects: Array,
+	mouse_pos: Vector2
+) -> Dictionary:
+	for index in range(mini(choices.size(), card_rects.size())):
+		var choice_value: Variant = choices[index]
+		var rect_value: Variant = card_rects[index]
+		if not (choice_value is Dictionary) or not (rect_value is Rect2):
+			continue
+		if not (rect_value as Rect2).has_point(mouse_pos):
+			continue
+		var choice := choice_value as Dictionary
+		if (
+			bool(choice.get("reward_pick_spent", false))
+			or not bool(choice.get("reward_pick_enabled", true))
+		):
+			return {}
+		var reward_kind := str(choice.get("reward_pick_kind", ""))
+		if reward_kind == "fusion":
+			return choice
+		if reward_kind != "mugong" and reward_kind != "supreme":
+			return {}
+		# Most owned upgrades reuse their cells. dash_amplification is the explicit
+		# count-per-slot exception, so the hover gate follows canonical slot-cost
+		# growth instead of assuming every current_level > 0 choice is slot-neutral.
+		if _tower_reward_hover_slot_cost_increase(choice) <= 0:
+			return {}
+		return choice
+	return {}
+
+
+static func build_tower_reward_hover_preview(
+	hovered_choice: Dictionary,
+	perk_slot_status: Dictionary,
+	landing_level: int = -1
+) -> Dictionary:
+	var material_keys: Dictionary = {}
+	var landing_key_levels: Dictionary = {}
+	var reward_kind := str(hovered_choice.get("reward_pick_kind", ""))
+	if reward_kind == "fusion":
+		var source_value: Variant = hovered_choice.get("eligible_sources", [])
+		if source_value is Array:
+			for source_id_value: Variant in source_value as Array:
+				var source_id := str(source_id_value)
+				if not source_id.is_empty():
+					material_keys[source_id] = true
+		return {
+			"material_keys": material_keys,
+			"landing_key_levels": landing_key_levels,
+			"empty_slot_requests": 0,
+			"slot_full": false,
+		}
+	if reward_kind != "mugong" and reward_kind != "supreme":
+		return {}
+	var current_level := int(hovered_choice.get("current_level", 0))
+	var next_level := int(hovered_choice.get("next_level", current_level + 1))
+	var perk_id := str(hovered_choice.get("id", ""))
+	var slot_cost_increase := _tower_reward_hover_slot_cost_increase(hovered_choice)
+	if perk_id.is_empty() or slot_cost_increase <= 0:
+		return {}
+	var slot_limit := int(perk_slot_status.get("limit", 0))
+	var slot_count := int(perk_slot_status.get("count", 0))
+	var slot_full := bool(perk_slot_status.get("is_full", false))
+	if slot_limit > 0 and slot_count + slot_cost_increase > slot_limit:
+		slot_full = true
+	if slot_limit <= 0:
+		return {}
+	if slot_full:
+		# W1 owns the disabled/full explanation. This preview deliberately adds no
+		# second warning treatment and leaves the existing ledger hint untouched.
+		return {
+			"material_keys": material_keys,
+			"landing_key_levels": landing_key_levels,
+			"empty_slot_requests": 0,
+			"slot_full": true,
+		}
+	landing_key_levels[perk_id] = next_level if landing_level < 0 else landing_level
+	return {
+		"material_keys": material_keys,
+		"landing_key_levels": landing_key_levels,
+		"empty_slot_requests": slot_cost_increase,
+		"slot_full": false,
+	}
+
+
+static func build_tower_reward_hover_slot_grid(
+	acquired: Array,
+	slot_limit: int,
+	hover_preview: Dictionary
+) -> Array:
+	var request_count := maxi(0, int(hover_preview.get("empty_slot_requests", 0)))
+	var landing_value: Variant = hover_preview.get("landing_key_levels", {})
+	if request_count <= 0 or not (landing_value is Dictionary):
+		return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(
+			acquired,
+			maxi(1, slot_limit)
+		)
+	var landing_key_levels := landing_value as Dictionary
+	# The production interpreter emits one landing identity whose request_count
+	# may span multiple cells (dash_amplification). Multiple identities have no
+	# defined allocation contract, so fail closed instead of letting the first
+	# sorted key starve every later key.
+	if landing_key_levels.size() != 1:
+		return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(
+			acquired,
+			maxi(1, slot_limit)
+		)
+	var existing_keys: Dictionary = {}
+	# This cache survives draw frames, so it must not retain aliases to the
+	# caller's live acquired-entry dictionaries. The preview also updates matching
+	# cells to their post-purchase level before canonical sorting.
+	var preview_acquired: Array = acquired.duplicate(true)
+	for entry_value: Variant in acquired:
+		if not (entry_value is Dictionary):
+			continue
+		var entry := entry_value as Dictionary
+		var entry_key := str(entry.get("_sort_id", entry.get("id", entry.get("skill_id", ""))))
+		if not entry_key.is_empty():
+			existing_keys[entry_key] = int(existing_keys.get(entry_key, 0)) + 1
+	var landing_keys: Array = landing_key_levels.keys()
+	landing_keys.sort()
+	var inserted_count := 0
+	for key_value: Variant in landing_keys:
+		if inserted_count >= request_count:
+			break
+		var landing_key := str(key_value)
+		if landing_key.is_empty():
+			continue
+		var projected_level := int(landing_key_levels.get(key_value, 1))
+		var existing_count := int(existing_keys.get(landing_key, 0))
+		var matching_cell_index := 0
+		for preview_entry_value: Variant in preview_acquired:
+			if not (preview_entry_value is Dictionary):
+				continue
+			var preview_entry := preview_entry_value as Dictionary
+			var preview_key := str(
+				preview_entry.get("_sort_id", preview_entry.get("id", preview_entry.get("skill_id", "")))
+			)
+			if preview_key != landing_key:
+				continue
+			preview_entry["level"] = projected_level
+			preview_entry["_slot_cell_index"] = matching_cell_index
+			matching_cell_index += 1
+		while inserted_count < request_count:
+			preview_acquired.append({
+				"id": landing_key,
+				"_sort_id": landing_key,
+				"level": projected_level,
+				"_slot_cell_index": existing_count + inserted_count,
+				"_empty_slot": true,
+				"_reward_hover_landing_slot": true,
+			})
+			inserted_count += 1
+	preview_acquired.sort_custom(sort_tower_reward_hover_perks)
+	return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(
+		preview_acquired,
+		maxi(1, slot_limit)
+	)
+
+
+static func sort_tower_reward_hover_perks(a: Dictionary, b: Dictionary) -> bool:
+	var a_level := int(a.get("level", 0))
+	var b_level := int(b.get("level", 0))
+	if a_level != b_level:
+		return a_level > b_level
+	# Fusion cells replace their production identity with a composite draw key
+	# after the presenter has already sorted them. Preserve and compare the
+	# pre-transform identity so hover order matches the real post-purchase order.
+	var a_id := str(a.get("_sort_id", a.get("id", "")))
+	var b_id := str(b.get("_sort_id", b.get("id", "")))
+	if a_id != b_id:
+		return a_id < b_id
+	return int(a.get("_slot_cell_index", 0)) < int(b.get("_slot_cell_index", 0))
+
+
+func get_tower_reward_hover_preview_build_count_for_tests() -> int:
+	return _tower_reward_hover_preview_build_count
+
+
+func get_tower_reward_hover_grid_build_count_for_tests() -> int:
+	return _tower_reward_hover_grid_build_count
+
+
+func get_tower_reward_hover_landing_projection_count_for_tests() -> int:
+	return _tower_reward_hover_landing_projection_count
+
+
+func get_tower_reward_landing_draw_count_for_tests() -> int:
+	return _tower_reward_landing_draw_count
+
+
+func get_tower_reward_material_draw_count_for_tests() -> int:
+	return _tower_reward_material_draw_count
+
+
+func _draw_tower_reward_landing_preview(
+	canvas: Object,
+	slot_rect: Rect2,
+	fade: float
+) -> void:
+	if fade <= 0.0:
+		return
+	# Cyan outside ring = the destination that will receive the new Mugong.
+	canvas.draw_rect(
+		slot_rect.grow(5.0),
+		Color(0.22, 0.88, 1.0, 0.92 * fade),
+		false,
+		2.5
+	)
+	_tower_reward_landing_draw_count += 1
+
+
+func _draw_tower_reward_material_preview(
+	canvas: Object,
+	slot_rect: Rect2,
+	fade: float
+) -> void:
+	if fade <= 0.0:
+		return
+	# Red inset ring = an owned source that can be consumed. It is deliberately
+	# inside the cell, unlike the destination ring, so the two meanings survive
+	# desaturation as well as color differences.
+	canvas.draw_rect(
+		slot_rect.grow(-3.0),
+		Color(1.0, 0.32, 0.46, 0.94 * fade),
+		false,
+		3.0
+	)
+	_tower_reward_material_draw_count += 1
 
 
 func _collect_perk_slot_keys(acquired: Array) -> Array[String]:
@@ -4433,8 +4796,35 @@ func _perk_stat_lines(stats: String, detail: String) -> Array:
 # 슬롯 그리드 조립(코덱스 v1 P1): 슬롯 비소모 퍽(_slot_free_cell)은 빈칸
 # 산정에서 제외하고 그리드 뒤에 별도 표시한다 — 프레젠터 공용 조립기 재사용
 # (acquired.size() 기준 빈칸 계산은 5/7+비소모 1에서 빈칸 1로 어긋난다).
-func _build_status_slot_grid(acquired: Array, slot_limit: int) -> Array:
-	return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(acquired, max(1, slot_limit))
+func _build_status_slot_grid(
+	acquired: Array,
+	slot_limit: int,
+	hover_preview: Dictionary = {}
+) -> Array:
+	var normalized_slot_limit: int = max(1, slot_limit)
+	if hover_preview.is_empty():
+		return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(
+			acquired,
+			normalized_slot_limit
+		)
+	var signature := hash([
+		hash(hover_preview),
+		hash(acquired),
+		normalized_slot_limit,
+	])
+	if (
+		not _tower_reward_hover_grid_cache_valid
+		or signature != _tower_reward_hover_grid_signature
+	):
+		_tower_reward_hover_grid_cache_valid = true
+		_tower_reward_hover_grid_signature = signature
+		_tower_reward_hover_grid_build_count += 1
+		_tower_reward_hover_grid_entries = build_tower_reward_hover_slot_grid(
+			acquired,
+			normalized_slot_limit,
+			hover_preview
+		)
+	return _tower_reward_hover_grid_entries
 
 
 # 우측 능력치 패널 엔트리(코덱스 v1 P2): 일반 퍽은 descriptions[level]
@@ -5006,6 +5396,12 @@ func _build_acquired_perks_for_snapshot(levels: Dictionary, catalog: Object, run
 		# 숨김"(equipped lookup) 계약과 다른 소비자별 규칙.
 		if str(entry.get("unlocks_skill", "")).strip_edges() != "":
 			continue
+		# The presenter has already applied the canonical level-desc/id-asc order.
+		# Keep that original identity before the status consumer swaps a fusion id
+		# for its composite icon key; hover insertion must sort against this value.
+		var sort_id := str(entry.get("_sort_id", entry.get("id", "")))
+		if not sort_id.is_empty():
+			entry["_sort_id"] = sort_id
 		var draw_id := str(entry.get("_draw_id", ""))
 		if draw_id.begins_with("perk_fusion_pair:"):
 			entry["id"] = draw_id
