@@ -87,7 +87,8 @@ class FakeLingpetRuntime:
 	func grant_and_activate_tower_spring_guardian(
 		pet_id: String,
 		_owner: Object = null,
-		_registry: Object = null
+		_registry: Object = null,
+		_rng_seed: int = 0
 	) -> bool:
 		var normalized := pet_id.strip_edges().to_lower()
 		if normalized.is_empty():
@@ -180,10 +181,12 @@ func _verify_spring_grant_reaches_next_battle_chosik_slots() -> void:
 	)
 	_expect(
 		bool(first_pick_result.get("accepted", false)) and bool(first_pick_result.get("applied", false)),
-		"guardian-spring bridge must complete the mandatory three-pick before leaving"
+		"guardian-spring bridge must complete the mandatory same-visit first pick before leaving"
 	)
-
-	flow.debug_advance_to_route_aim()
+	flow.update_selective(0.10, owner)
+	_expect(flow.get_phase_name() == "NODE_MODAL", "the success receipt must remain drawable after one update")
+	flow.update_selective(0.36, owner)
+	_expect(flow.get_phase_name() == "ROUTE_AIM", "the first-pick receipt must auto-enter route aim through the shared exit")
 	var route_targets: Array = []
 	var combat_target: Dictionary = {}
 	var traversed_noncombat_nodes := 0

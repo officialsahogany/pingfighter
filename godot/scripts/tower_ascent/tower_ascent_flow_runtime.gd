@@ -502,6 +502,9 @@ func update_selective(delta: float, owner: Object = null) -> void:
 			# lane. It never touches gameplay RNG or authoritative physics state.
 			_node_modal_state.advance_guardian_spring_presentation(maxf(0.0, delta))
 			_complete_guardian_spring_palm_ritual_if_ready()
+		if _node_modal_kind == "guardian_spring":
+			_resolve_guardian_spring_chosik_swap_if_ready()
+			_advance_guardian_spring_auto_route(maxf(0.0, delta))
 	_request_redraw(owner)
 
 

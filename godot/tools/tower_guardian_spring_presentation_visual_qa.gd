@@ -6,8 +6,35 @@ const RuntimePerkIconRenderer := preload(
 const RuntimePerkOverlayRenderer := preload(
 	"res://scripts/hud/runtime_perk_overlay_renderer.gd"
 )
+const RuntimePerkState := preload(
+	"res://scripts/characters/runtime_perk_state.gd"
+)
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
+const SmasherSkillConfig := preload(
+	"res://scripts/characters/smasher_skill_config.gd"
+)
+const GuardianCodexStore := preload(
+	"res://scripts/lingpet/guardian_codex_store.gd"
+)
+const GuardianSpringChosikSwapOverlayHost := preload(
+	"res://scripts/hud/guardian_spring_chosik_swap_overlay_host.gd"
+)
 const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+)
+const TowerAscentFlowOwner := preload(
+	"res://scripts/tower_ascent/tower_ascent_flow_owner.gd"
+)
+const TowerAscentFeatureFlags := preload(
+	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentNodeArrivalTestFixture := preload(
+	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
+)
+const GuardianSpringProductionFixtureTypes := preload(
+	"res://tests/tower_ascent_guardian_spring_node_smoke.gd"
 )
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
@@ -46,11 +73,24 @@ class CaptureFlow:
 	func get_node_modal_render_context() -> Dictionary:
 		return render_context
 
+class CaptureRegistry:
+	extends RefCounted
+	var instances: Dictionary = {}
+
+	func get_instance(key: String) -> Object:
+		return instances.get(key, null)
+
+	func get_cached_instance(key: String) -> Object:
+		return get_instance(key)
+
 
 class CaptureCanvas:
 	extends Node2D
 	var flow: Object
 	var renderer := TowerAscentFlowRenderer.new()
+	var swap_host: Object = null
+	var runtime_state: Object = null
+	var registry: Object = null
 
 	func _init(flow_value: Object) -> void:
 		flow = flow_value
@@ -61,6 +101,8 @@ class CaptureCanvas:
 			flow,
 			Rect2(Vector2.ZERO, Vector2(VIEW_SIZE))
 		)
+		if swap_host != null:
+			swap_host.draw(self, flow, runtime_state, registry, Vector2(VIEW_SIZE))
 
 
 var _viewport: SubViewport
@@ -173,11 +215,149 @@ func _run() -> void:
 		quit(1)
 		return
 
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var swap_owner := GuardianSpringProductionFixtureTypes.FakeOwner.new()
+	var swap_lingpet_runtime := GuardianSpringProductionFixtureTypes.FakeLingpetRuntime.new()
+	var runtime_state := RuntimePerkState.new()
+	var swap_skill_config := SmasherSkillConfig.new()
+	swap_skill_config.equipped_skills = [
+		"drive",
+		"power_smashing",
+		"plasma",
+		"recovery",
+		"magnum_grip",
+	]
+	var swap_codex := GuardianCodexStore.new()
+	swap_codex.set_save_path("user://tower_guardian_spring_presentation_visual_qa.cfg")
+	swap_codex.clear()
+	var swap_registry := GuardianSpringProductionFixtureTypes.FakeRegistry.new()
+	swap_registry.instances = {
+		"guardian_codex_store": swap_codex,
+		"lingpet_egg_runtime": swap_lingpet_runtime,
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+		"runtime_perk_state": runtime_state,
+		"smasher_skill_config": swap_skill_config,
+		"runtime_perk_overlay_renderer": card_renderer,
+		"runtime_perk_icon_renderer": icon_renderer,
+	}
+	var swap_flow := TowerAscentFlowOwner.new()
+	swap_registry.instances["tower_ascent_flow_owner"] = swap_flow
+	var swap_map_seed := TowerAscentNodeArrivalTestFixture.find_initial_route_seed(
+		"guardian_spring"
+	)
+	if (
+		not swap_flow.begin_vertical_slice(swap_owner, Callable(), {
+			"run_id": "guardian-spring-presentation-visual-swap",
+			"map_seed": swap_map_seed,
+			"node_modal_kind": "guardian_spring",
+			"run_state": {"muhon": 0, "gold": 0, "chance_gems": 3},
+			"registry": swap_registry,
+		})
+		or not TowerAscentNodeArrivalTestFixture.advance_to_node_modal(
+			swap_flow,
+			"guardian_spring",
+			swap_owner
+		)
+	):
+		push_error("production Chosik swap visual fixture failed to reach the Spring modal")
+		quit(1)
+		return
+	swap_flow.call("_refresh_guardian_spring_modal", "")
+	_canvas.flow = swap_flow
+	var swap_reference: Image = await _capture("chosik_swap_reference.png")
+	var palm_result: Dictionary = swap_flow.execute_node_action(
+		"guardian_spring:palm",
+		"guardian-spring-presentation-visual-swap:palm"
+	)
+	if (
+		not bool(palm_result.get("accepted", false))
+		or not runtime_state.has_pending_unlock_swap()
+		or not swap_flow.has_pending_guardian_spring_chosik_swap()
+	):
+		push_error("production Chosik swap visual fixture failed to open both pending owners")
+		quit(1)
+		return
+	runtime_state.unlock_swap_selected_index = 2
+	var swap_host := GuardianSpringChosikSwapOverlayHost.new()
+	_canvas.swap_host = swap_host
+	_canvas.runtime_state = runtime_state
+	_canvas.registry = swap_registry
+	var swap_dialog: Image = await _capture("chosik_swap_dialog.png")
+	var swap_dialog_delta_pixels := _count_changed_pixels(swap_reference, swap_dialog, 10)
+	if swap_dialog_delta_pixels < 50000:
+		push_error("standalone Chosik swap dialog is not visibly present: %d pixels" % swap_dialog_delta_pixels)
+		quit(1)
+		return
+	var dim_corner_pixels := _count_corner_changed_pixels(
+		swap_reference,
+		swap_dialog,
+		80,
+		2
+	)
+	if dim_corner_pixels <= 0:
+		push_error(
+			"standalone Chosik swap failed to dim the fullscreen Tower map: %d corner pixels"
+			% dim_corner_pixels
+		)
+		quit(1)
+		return
+	var minimum_icon_text_gap := INF
+	for rect_value in runtime_state.get_unlock_swap_option_rects(Vector2(VIEW_SIZE)):
+		var content_layout: Dictionary = card_renderer.build_unlock_swap_option_content_layout(
+			rect_value as Rect2
+		)
+		minimum_icon_text_gap = minf(
+			minimum_icon_text_gap,
+			float(content_layout.get("icon_text_gap", -1.0))
+		)
+	if minimum_icon_text_gap < 4.0:
+		push_error("five-choice icon/text geometry overlaps: %.2fpx" % minimum_icon_text_gap)
+		quit(1)
+		return
+	var escape := InputEventKey.new()
+	escape.keycode = KEY_ESCAPE
+	escape.pressed = true
+	if not swap_host.handle_input(
+		escape,
+		swap_flow,
+		runtime_state,
+		swap_owner,
+		swap_registry,
+		Vector2(VIEW_SIZE)
+	) or runtime_state.has_pending_unlock_swap():
+		push_error("standalone Chosik swap dialog failed to own Esc and clear its pending state")
+		quit(1)
+		return
+	swap_flow.update_selective(0.0, swap_owner)
+	var restored_palm := _find_action(
+		swap_flow.get_node_modal_view_model(Vector2(VIEW_SIZE)).get("actions", []),
+		"guardian_spring:palm"
+	)
+	if (
+		swap_flow.has_pending_guardian_spring_chosik_swap()
+		or not bool(restored_palm.get("enabled", false))
+	):
+		push_error("production flow update failed to cancel Spring-local pending state and restore palm")
+		quit(1)
+		return
+	var swap_restored: Image = await _capture("chosik_swap_escape_restored.png")
+	var swap_restore_delta_pixels := _count_changed_pixels(swap_reference, swap_restored, 2)
+	if swap_restore_delta_pixels != 0:
+		push_error("Esc did not restore the backing Spring modal exactly: %d pixels" % swap_restore_delta_pixels)
+		quit(1)
+		return
+
 	print("[GuardianSpringPresentationVisualQA] %s" % output_dir)
 	print("tower_guardian_spring_presentation_visual_qa: GLOW_OUTSIDE_SILHOUETTE_PIXELS=%d STRONG_INSIDE_DELTA_PIXELS=%d" % [outside_glow_delta, strong_inside_delta])
 	print("tower_guardian_spring_presentation_visual_qa: CAPSULE_EXTERIOR_STRONG_RATIO=%.4f MEAN_DELTA=%.2f" % [strong_ratio, mean_delta])
 	print("tower_guardian_spring_presentation_visual_qa: CAPSULE_FLOAT_DELTA_PIXELS=%d" % float_delta_pixels)
-	print("tower_guardian_spring_presentation_visual_qa: captures=statue_before.png,statue_hover.png,ritual_mid.png,capsules_t0.png,capsules_t1.png")
+	print("tower_guardian_spring_presentation_visual_qa: CHOSIK_SWAP_DELTA_PIXELS=%d ESC_RESTORE_DELTA_PIXELS=%d" % [swap_dialog_delta_pixels, swap_restore_delta_pixels])
+	print("tower_guardian_spring_presentation_visual_qa: DIM_CORNER_PIXELS=%d MIN_ICON_TEXT_GAP_PX=%.2f" % [dim_corner_pixels, minimum_icon_text_gap])
+	print("tower_guardian_spring_presentation_visual_qa: captures=statue_before.png,statue_hover.png,ritual_mid.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png")
+	swap_flow.call("_reset_runtime_state")
+	swap_registry.instances.clear()
+	swap_codex.clear()
+	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	print("tower_guardian_spring_presentation_visual_qa: ok")
 	quit(0)
 
@@ -278,6 +458,47 @@ func _count_changed_pixels(first: Image, second: Image, threshold: int) -> int:
 			if _pixel_delta_255(first.get_pixel(x, y), second.get_pixel(x, y)) >= threshold:
 				result += 1
 	return result
+
+
+func _count_corner_changed_pixels(
+	first: Image,
+	second: Image,
+	corner_size: int,
+	threshold: int
+) -> int:
+	first.convert(Image.FORMAT_RGBA8)
+	second.convert(Image.FORMAT_RGBA8)
+	var width := mini(first.get_width(), second.get_width())
+	var height := mini(first.get_height(), second.get_height())
+	var sample_size := mini(corner_size, mini(width, height))
+	var result := 0
+	for y in range(sample_size):
+		for x in range(sample_size):
+			for sample_x in [x, width - sample_size + x]:
+				if _pixel_delta_255(
+					first.get_pixel(sample_x, y),
+					second.get_pixel(sample_x, y)
+				) >= threshold:
+					result += 1
+	for y in range(height - sample_size, height):
+		for x in range(sample_size):
+			for sample_x in [x, width - sample_size + x]:
+				if _pixel_delta_255(
+					first.get_pixel(sample_x, y),
+					second.get_pixel(sample_x, y)
+				) >= threshold:
+					result += 1
+	return result
+
+
+func _find_action(actions: Array, action_id: String) -> Dictionary:
+	for action_value in actions:
+		if (
+			action_value is Dictionary
+			and str((action_value as Dictionary).get("id", "")) == action_id
+		):
+			return action_value as Dictionary
+	return {}
 
 
 func _pixel_delta_255(first: Color, second: Color) -> int:

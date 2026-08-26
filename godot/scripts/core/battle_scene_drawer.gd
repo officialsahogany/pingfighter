@@ -393,6 +393,18 @@ func _draw_playfield_scene(
 
 
 func _draw_hud_overlays(canvas: CanvasItem, registry: Object, _view_size: Vector2, _layout: Dictionary) -> void:
+	var tower_flow_owner: Object = _get_cached_instance(
+		registry,
+		"tower_ascent_flow_owner"
+	)
+	if (
+		tower_flow_owner != null
+		and tower_flow_owner.has_method("has_pending_guardian_spring_chosik_swap")
+		and bool(tower_flow_owner.call("has_pending_guardian_spring_chosik_swap"))
+	):
+		# The detached Spring host draws this modal after the fullscreen Tower
+		# map. Do not spend a second full overlay pass underneath that map.
+		return
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var perk_renderer: Object = _get_instance(registry, "runtime_perk_overlay_renderer")
 	if perk_renderer == null or not perk_renderer.has_method("draw"):

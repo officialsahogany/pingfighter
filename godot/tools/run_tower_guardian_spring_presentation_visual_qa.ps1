@@ -47,7 +47,11 @@ try {
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains("tower_guardian_spring_presentation_visual_qa: GLOW_OUTSIDE_SILHOUETTE_PIXELS=0") `
-        -or -not $outputText.Contains("tower_guardian_spring_presentation_visual_qa: captures=statue_before.png,statue_hover.png,ritual_mid.png,capsules_t0.png,capsules_t1.png") `
+        -or -not $outputText.Contains("tower_guardian_spring_presentation_visual_qa: CHOSIK_SWAP_DELTA_PIXELS=") `
+        -or -not $outputText.Contains("ESC_RESTORE_DELTA_PIXELS=0") `
+        -or -not $outputText.Contains("DIM_CORNER_PIXELS=") `
+        -or -not $outputText.Contains("MIN_ICON_TEXT_GAP_PX=") `
+        -or -not $outputText.Contains("tower_guardian_spring_presentation_visual_qa: captures=statue_before.png,statue_hover.png,ritual_mid.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png") `
         -or -not $outputText.Contains("tower_guardian_spring_presentation_visual_qa: ok")
     ) {
         Write-Host "Guardian spring presentation visual QA log preserved for triage: $logPath"

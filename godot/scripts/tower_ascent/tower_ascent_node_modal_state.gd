@@ -562,9 +562,16 @@ func record_action_feedback(action: Dictionary, result: Dictionary) -> void:
 	var accepted := bool(result.get("accepted", false))
 	var applied := bool(result.get("applied", false))
 	var success := accepted and applied
-	var message := str(result.get("message", result.get("reason", ""))).strip_edges()
-	if message.is_empty():
+	# Internal transaction reasons are diagnostics, not player copy. Only an
+	# explicit localized message or the action's localized unavailable copy may
+	# enter the visible receipt.
+	var message := str(result.get("message", "")).strip_edges()
+	if not success and message.is_empty():
 		message = str(action.get("unavailable_reason", "")).strip_edges()
+	if not success and message.is_empty():
+		message = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
+		)
 	_interaction_receipt = {
 		"action_id": action_id,
 		"fallback_index": int(action.get(

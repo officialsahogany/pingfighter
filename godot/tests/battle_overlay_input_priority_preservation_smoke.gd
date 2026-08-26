@@ -4,6 +4,9 @@ extends SceneTree
 const BattleLingpetPriorityInputRouter := preload(
 	"res://scripts/core/battle_lingpet_priority_input_router.gd"
 )
+const BattleSceneInputController := preload(
+	"res://scripts/core/battle_scene_input_controller.gd"
+)
 const BattleSceneOverlayInputController := preload(
 	"res://scripts/core/battle_scene_overlay_input_controller.gd"
 )
@@ -29,6 +32,7 @@ class FakeModalGate:
 	extends RefCounted
 
 	var acquire_active := false
+	var guardian_spring_swap_active := false
 	var overflow_active := false
 	var guardian_enhance_active := false
 	var grip_active := false
@@ -46,6 +50,9 @@ class FakeModalGate:
 
 	func is_lingpet_acquire_cutin_active(_module_getter: Callable) -> bool:
 		return acquire_active
+
+	func is_guardian_spring_chosik_swap_active(_module_getter: Callable) -> bool:
+		return guardian_spring_swap_active
 
 	func is_lingpet_overflow_choice_active(_module_getter: Callable) -> bool:
 		return overflow_active
@@ -159,6 +166,36 @@ class FakeOverflowHost:
 		return false
 
 
+class FakeGuardianSpringSwapHost:
+	extends RefCounted
+
+	var handle_count := 0
+	var handled_result := false
+
+	func handle_input(
+		_event: InputEvent,
+		_flow_owner: Object,
+		_runtime_perk_state: Object,
+		_owner: Object,
+		_registry: Object,
+		_view_size: Vector2
+	) -> bool:
+		handle_count += 1
+		return handled_result
+
+
+class FakeTowerFlowOwner:
+	extends RefCounted
+
+	var handle_count := 0
+
+	func is_active() -> bool:
+		return true
+
+	func handle_input(_event: InputEvent) -> void:
+		handle_count += 1
+
+
 class FakePreOverflowModalRouter:
 	extends RefCounted
 
@@ -216,6 +253,7 @@ func _init() -> void:
 	_verify_f9_remains_after_open_picker_input()
 	_verify_missing_shortcut_targets_fall_through()
 	_verify_pre_overflow_insertion_swallow_contract()
+	_verify_guardian_spring_priority_routes()
 	call_deferred("_finish")
 
 
@@ -241,6 +279,9 @@ func _verify_production_wiring_and_canonical_order() -> void:
 	)
 	var lingpet_source := FileAccess.get_file_as_string(
 		"res://scripts/core/battle_lingpet_priority_input_router.gd"
+	)
+	var guardian_spring_router_source := FileAccess.get_file_as_string(
+		"res://scripts/core/guardian_spring_chosik_swap_input_router.gd"
 	)
 	var guided_source := FileAccess.get_file_as_string(
 		"res://scripts/core/battle_guided_overlay_input_router.gd"
@@ -308,6 +349,20 @@ func _verify_production_wiring_and_canonical_order() -> void:
 		"scene input controller must dispatch into the overlay facade"
 	)
 	_expect(
+		scene_input_source.contains("is_guardian_spring_chosik_swap_active"),
+		"Tower flow whitelist must delegate active Spring swap input to the overlay facade"
+	)
+	_expect(
+		overlay_source.contains("guardian_spring_chosik_swap_input_router.gd")
+		and overlay_source.contains("_guardian_spring_chosik_swap_input_router"),
+		"overlay facade must inject the dedicated Spring swap router at the X1 seam"
+	)
+	_expect(
+		guardian_spring_router_source.contains("func is_active(module_getter: Callable) -> bool:")
+		and guardian_spring_router_source.contains("func handle_input("),
+		"dedicated Spring swap router must expose the seam adapter contract"
+	)
+	_expect(
 		catalog_source.contains(
 			'"path": "res://scripts/core/battle_scene_overlay_input_controller.gd"'
 		),
@@ -320,6 +375,7 @@ func _verify_production_wiring_and_canonical_order() -> void:
 		"battle_elixir_cinematic_input_router.gd",
 		"battle_guided_overlay_input_router.gd",
 		"battle_pause_menu_input_router.gd",
+		"guardian_spring_chosik_swap_input_router.gd",
 	]:
 		_expect(
 			overlay_source.contains(router_path),
@@ -439,6 +495,52 @@ func _verify_pre_overflow_insertion_swallow_contract() -> void:
 		inserted_router
 	)
 	_expect(overflow_host.handle_count == 1, "inactive inserted modal must yield to overflow")
+
+
+func _verify_guardian_spring_priority_routes() -> void:
+	var registry := _base_registry()
+	var gate: FakeModalGate = registry.instances["battle_scene_modal_gate_controller"]
+	var swap_host := FakeGuardianSpringSwapHost.new()
+	var overflow_host := FakeOverflowHost.new()
+	var flow_owner := FakeTowerFlowOwner.new()
+	registry.instances["guardian_spring_chosik_swap_overlay_host"] = swap_host
+	registry.instances["tower_ascent_flow_owner"] = flow_owner
+	registry.instances["runtime_perk_state"] = FakeRuntimePerkState.new()
+	registry.instances["lingpet_egg_runtime"] = FakeLingpetRuntime.new()
+	registry.instances["lingpet_overflow_choice_overlay_host"] = overflow_host
+	registry.instances["battle_scene_overlay_input_controller"] = (
+		BattleSceneOverlayInputController.new()
+	)
+	gate.guardian_spring_swap_active = true
+	gate.overflow_active = true
+
+	gate.acquire_active = true
+	var consumed := _route_overlay(InputEventMouseMotion.new(), registry)
+	_expect(consumed, "acquisition and Spring swap together must consume input")
+	_expect(swap_host.handle_count == 0, "acquisition must outrank the Spring swap")
+	_expect(overflow_host.handle_count == 0, "acquisition must also outrank overflow")
+
+	gate.acquire_active = false
+	swap_host.handled_result = true
+	consumed = _route_overlay(InputEventMouseMotion.new(), registry)
+	_expect(consumed, "Spring swap and overflow together must consume input")
+	_expect(swap_host.handle_count == 1, "Spring swap must receive input before overflow")
+	_expect(overflow_host.handle_count == 0, "Spring swap must outrank overflow")
+
+	swap_host.handled_result = false
+	BattleSceneInputController.new().handle_unhandled_input(
+		InputEventMouseMotion.new(),
+		FakeOwner.new(),
+		registry,
+		Callable(registry, "get_instance"),
+		{}
+	)
+	_expect(swap_host.handle_count == 2, "active Spring swap must receive locally ignored input")
+	_expect(
+		flow_owner.handle_count == 0,
+		"active Spring swap must swallow a false handler result before the Tower modal"
+	)
+	_expect(overflow_host.handle_count == 0, "locally ignored Spring input must not leak to overflow")
 
 
 func _base_registry() -> FakeRegistry:

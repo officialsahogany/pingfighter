@@ -57,6 +57,7 @@ func reset() -> void:
 		"browse_sequence": 0,
 		"browse_offers": [],
 		"pending_browse_offer": {},
+		"pending_chosik_swap": {},
 	}
 	_pending_rollback.clear()
 	_last_effect_result.clear()
@@ -80,6 +81,9 @@ func restore_state(value: Variant) -> void:
 	_state["browse_sequence"] = maxi(0, int(source.get("browse_sequence", 0)))
 	_state["browse_offers"] = _dictionary_array(source.get("browse_offers", []))
 	_state["pending_browse_offer"] = _dictionary(source.get("pending_browse_offer", {}))
+	# A Chosik swap is an in-session transaction. Restoring it without the matching
+	# runtime modal and rollback snapshot would create a half-restored purchase.
+	_state["pending_chosik_swap"] = {}
 
 
 func export_state() -> Dictionary:
@@ -194,7 +198,11 @@ func build_actions(
 			owner,
 			runtime
 		), _build_browse_action(runtime != null)]
-	if has_soul_summoning() and not bool(_state.get("first_pick_completed", false)):
+	var visit_action_committed := _has_committed_visit_action(node_id)
+	if (
+		has_soul_summoning()
+		and not bool(_state.get("first_pick_completed", false))
+	):
 		_ensure_first_pick_candidates(node_id, map_seed, runtime)
 		return _build_first_pick_actions(
 			_dictionary_array(_state.get("first_pick_candidates", [])),
@@ -206,9 +214,13 @@ func build_actions(
 		and _get_registry_instance(registry, "runtime_perk_catalog") != null
 		and _get_skill_config(owner, registry) != null
 	)
-	var actions: Array[Dictionary] = [_build_palm_action(palm_wiring_ready)]
+	var actions: Array[Dictionary] = [_build_palm_action(
+		palm_wiring_ready,
+		visit_action_committed,
+		_is_chosik_swap_required(owner, registry)
+	)]
 	if not _prayer_locked(run_state):
-		actions.append(_build_prayer_action(run_state, balances))
+		actions.append(_build_prayer_action(run_state, balances, visit_action_committed))
 	return actions
 
 
@@ -260,6 +272,7 @@ func execute_action(
 		"owner": owner,
 		"registry": registry,
 		"run_state": run_state,
+		"resolution_id": normalized_resolution_id,
 		"offer": _dictionary(payload.get("offer", {})),
 	}
 	var transaction_result: Dictionary = action_transaction.call(
@@ -272,6 +285,16 @@ func execute_action(
 		Callable(self, "_apply_operation").bind(effect_context),
 		Callable(self, "_rollback_operation").bind(owner, registry, run_state)
 	)
+	if operation == OP_PALM and has_pending_chosik_swap():
+		return {
+			"accepted": true,
+			"applied": false,
+			"reason": "chosik_swap_opened",
+			"node_resolution_id": normalized_resolution_id,
+			"message": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_CHOSIK_SWAP_OPENED
+			),
+		}
 	_pending_rollback.clear()
 	if not bool(transaction_result.get("accepted", false)) or not bool(transaction_result.get("applied", false)):
 		return transaction_result
@@ -290,6 +313,93 @@ func execute_action(
 	transaction_result["record"] = record.duplicate(true)
 	transaction_result["message"] = _success_message(operation, record)
 	return transaction_result
+
+
+func has_pending_chosik_swap() -> bool:
+	return not _dictionary(_state.get("pending_chosik_swap", {})).is_empty()
+
+
+func cancel_chosik_swap(
+	owner: Object,
+	registry: Object,
+	run_state: Object = null
+) -> Dictionary:
+	var pending := _dictionary(_state.get("pending_chosik_swap", {}))
+	if pending.is_empty():
+		return {"handled": false, "accepted": false, "reason": "no_pending_chosik_swap"}
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if runtime_state != null and runtime_state.has_method("cancel_pending_unlock_swap"):
+		runtime_state.call("cancel_pending_unlock_swap", owner)
+	_state["pending_chosik_swap"] = {}
+	_rollback_operation(owner, registry, run_state)
+	_pending_rollback.clear()
+	return {
+		"handled": true,
+		"accepted": true,
+		"applied": false,
+		"reason": "chosik_swap_cancelled",
+	}
+
+
+func commit_chosik_swap(
+	run_state: Object,
+	resolution_ids: Dictionary,
+	action_transaction: Object,
+	owner: Object,
+	registry: Object
+) -> Dictionary:
+	var pending := _dictionary(_state.get("pending_chosik_swap", {}))
+	if pending.is_empty():
+		return {"handled": false, "accepted": false, "reason": "no_pending_chosik_swap"}
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if (
+		runtime_state != null
+		and runtime_state.has_method("has_pending_unlock_swap")
+		and bool(runtime_state.call("has_pending_unlock_swap"))
+	):
+		return {"handled": false, "accepted": false, "reason": "chosik_swap_still_pending"}
+	var skill_config := _get_skill_config(owner, registry)
+	if not _equipped_skills(skill_config).has(CommonSkillCatalog.SOUL_SUMMON_ART_ID):
+		var cancel_result := cancel_chosik_swap(owner, registry, run_state)
+		cancel_result["reason"] = "chosik_swap_not_confirmed"
+		return cancel_result
+	if action_transaction == null or not action_transaction.has_method("apply_once"):
+		return {"handled": false, "accepted": false, "reason": "missing_action_transaction"}
+	var resolution_id := str(pending.get("resolution_id", "")).strip_edges()
+	var result: Dictionary = action_transaction.call(
+		"apply_once",
+		resolution_id,
+		{"muhon": 0},
+		{},
+		run_state,
+		resolution_ids,
+		Callable(self, "_commit_pending_soul_summoning").bind(pending, owner, registry),
+		Callable(self, "_rollback_operation").bind(owner, registry, run_state)
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_state["pending_chosik_swap"] = {}
+		_rollback_operation(owner, registry, run_state)
+		_pending_rollback.clear()
+		result["handled"] = true
+		return result
+	var record := {
+		"node_id": str(pending.get("node_id", "")),
+		"node_resolution_id": resolution_id,
+		"operation": OP_PALM,
+		"pet_id": "",
+		"cost": 0,
+		"effect_result": _last_effect_result.duplicate(true),
+	}
+	var history: Array = _state.get("history", [])
+	history.append(record)
+	_state["history"] = history
+	_state["pending_chosik_swap"] = {}
+	_capture_committed_runtime_snapshot(owner, registry)
+	_pending_rollback.clear()
+	result["handled"] = true
+	result["record"] = record.duplicate(true)
+	result["message"] = _success_message(OP_PALM, record)
+	return result
 
 
 func has_pending_browse_compare(pet_id: String = "") -> bool:
@@ -385,34 +495,51 @@ func commit_browse_purchase(
 	return result
 
 
-func _build_palm_action(wiring_ready: bool) -> Dictionary:
+func _build_palm_action(
+	wiring_ready: bool,
+	visit_action_committed: bool,
+	chosik_swap_required: bool
+) -> Dictionary:
 	var label := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_PALM_OPTION
 	)
 	var badge := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_BADGE_SOUL
 	)
+	var already_owned := has_soul_summoning()
+	var description := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_CARD_SOUL_DESCRIPTION
+	)
+	if chosik_swap_required:
+		description += "\n" + TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_CHOSIK_SWAP_REQUIRED
+		)
+	var disabled_reason := ""
+	var unavailable_reason := ""
+	if visit_action_committed:
+		disabled_reason = "guardian_spring_visit_action_committed"
+		unavailable_reason = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_VISIT_ACTION_COMPLETED
+		)
+	elif already_owned:
+		disabled_reason = "soul_summoning_already_owned"
+		unavailable_reason = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_PALM_COMPLETED
+		)
+	elif not wiring_ready:
+		disabled_reason = "missing_soul_summoning_wiring"
+		unavailable_reason = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
+		)
 	return {
 		"id": "%s%s" % [ACTION_PREFIX, OP_PALM],
 		"label": label,
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_FREE
 		),
-		"enabled": wiring_ready and not has_soul_summoning(),
-		"disabled_reason": (
-			"soul_summoning_already_owned"
-			if has_soul_summoning()
-			else "missing_soul_summoning_wiring"
-		),
-		"unavailable_reason": (
-			TowerAscentNodeModalLocalization.text(
-				TowerAscentNodeModalLocalization.KEY_SPRING_PALM_COMPLETED
-			)
-			if has_soul_summoning()
-			else TowerAscentNodeModalLocalization.text(
-				TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
-			)
-		),
+		"enabled": wiring_ready and not already_owned and not visit_action_committed,
+		"disabled_reason": disabled_reason,
+		"unavailable_reason": unavailable_reason,
 		"payload": {
 			"operation": OP_PALM,
 			"cost": 0,
@@ -420,9 +547,7 @@ func _build_palm_action(wiring_ready: bool) -> Dictionary:
 				"",
 				label,
 				badge,
-				TowerAscentNodeModalLocalization.text(
-					TowerAscentNodeModalLocalization.KEY_SPRING_CARD_SOUL_DESCRIPTION
-				)
+				description
 			),
 			"presentation": _build_guardian_presentation(
 				TowerAscentNodeModalLocalization.text(
@@ -435,7 +560,11 @@ func _build_palm_action(wiring_ready: bool) -> Dictionary:
 	}
 
 
-func _build_prayer_action(run_state: Object, balances: Dictionary) -> Dictionary:
+func _build_prayer_action(
+	run_state: Object,
+	balances: Dictionary,
+	visit_action_committed: bool
+) -> Dictionary:
 	var count := _prayer_count(run_state)
 	var cost := count * TowerAscentTuning.TEMP_SPRING_PRAYER_COST_STEP
 	var affordable := int(balances.get("muhon", 0)) >= cost
@@ -455,18 +584,24 @@ func _build_prayer_action(run_state: Object, balances: Dictionary) -> Dictionary
 				{"amount": cost}
 			)
 		),
-		"enabled": affordable,
-		"disabled_reason": "" if affordable else "insufficient_muhon",
+		"enabled": affordable and not visit_action_committed,
+		"disabled_reason": (
+			"guardian_spring_visit_action_committed"
+			if visit_action_committed
+			else ("" if affordable else "insufficient_muhon")
+		),
 		"unavailable_reason": (
-			""
-			if affordable
-			else TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_VISIT_ACTION_COMPLETED
+			)
+			if visit_action_committed
+			else ("" if affordable else TowerAscentNodeModalLocalization.text(
 				TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
 				{
 					"required": cost,
 					"shortfall": cost - int(balances.get("muhon", 0)),
 				}
-			)
+			))
 		),
 		"payload": {
 			"operation": OP_PRAYER,
@@ -812,24 +947,26 @@ func _apply_operation(context: Dictionary) -> bool:
 	var operation := str(context.get("operation", ""))
 	var accepted := false
 	if operation == OP_PALM:
-		accepted = _apply_soul_summoning_unlock(
+		var unlock_result := _apply_soul_summoning_unlock(
 			context.get("owner", null),
 			context.get("registry", null)
 		)
+		accepted = bool(unlock_result.get("accepted", false))
+		if bool(unlock_result.get("pending_swap_started", false)):
+			_state["pending_chosik_swap"] = {
+				"node_id": str(context.get("node_id", "")),
+				"map_seed": int(context.get("map_seed", 0)),
+				"resolution_id": str(context.get("resolution_id", "")),
+				"operation": OP_PALM,
+			}
+			_last_effect_result = unlock_result.duplicate(true)
 		if accepted:
-			_state["soul_summoning_owned"] = true
-			_state["soul_summoning_node_id"] = str(context.get("node_id", ""))
-			_last_effect_result = {"accepted": true, "soul_summoning_owned": true}
-			accepted = _capture_committed_soul_unlock_snapshots(
+			accepted = _commit_soul_summoning_state(
+				str(context.get("node_id", "")),
+				int(context.get("map_seed", 0)),
 				context.get("owner", null),
 				context.get("registry", null)
 			)
-			if accepted:
-				_state["first_pick_candidates"] = _offer_builder.build_first_pick_candidates(
-					int(context.get("map_seed", 0)),
-					str(context.get("node_id", "")),
-					_runtime_owned_pet_ids(context.get("registry", null))
-				)
 	elif operation == OP_FIRST_PICK:
 		accepted = _apply_first_pick(context)
 	elif operation == OP_BROWSE:
@@ -861,7 +998,8 @@ func _apply_operation(context: Dictionary) -> bool:
 			context.get("registry", null),
 			context.get("run_state", null)
 		)
-		_pending_rollback.clear()
+		if not has_pending_chosik_swap():
+			_pending_rollback.clear()
 	return accepted
 
 
@@ -952,7 +1090,7 @@ func _open_browse_compare(payload: Dictionary, owner: Object, registry: Object) 
 	}
 
 
-func _apply_soul_summoning_unlock(owner: Object, registry: Object) -> bool:
+func _apply_soul_summoning_unlock(owner: Object, registry: Object) -> Dictionary:
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
 	var catalog := _get_registry_instance(registry, "runtime_perk_catalog")
 	var skill_config := _get_skill_config(owner, registry)
@@ -963,17 +1101,58 @@ func _apply_soul_summoning_unlock(owner: Object, registry: Object) -> bool:
 		or not runtime_state.has_method("apply_choice")
 		or not catalog.has_method("get_perk_data")
 	):
-		return false
+		return {"accepted": false, "pending_swap_started": false}
 	var choice_value: Variant = catalog.call(
 		"get_perk_data",
 		CommonSkillCatalog.SOUL_SUMMON_ART_UNLOCK_ID
 	)
 	if not (choice_value is Dictionary):
-		return false
+		return {"accepted": false, "pending_swap_started": false}
 	var choice := (choice_value as Dictionary).duplicate(true)
 	if str(choice.get("unlocks_skill", "")) != CommonSkillCatalog.SOUL_SUMMON_ART_ID:
+		return {"accepted": false, "pending_swap_started": false}
+	var accepted := bool(runtime_state.call("apply_choice", choice, owner, registry))
+	var pending_swap_started := (
+		not accepted
+		and runtime_state.has_method("has_pending_unlock_swap")
+		and bool(runtime_state.call("has_pending_unlock_swap"))
+	)
+	return {
+		"accepted": accepted,
+		"pending_swap_started": pending_swap_started,
+	}
+
+
+func _commit_pending_soul_summoning(
+	pending: Dictionary,
+	owner: Object,
+	registry: Object
+) -> bool:
+	return _commit_soul_summoning_state(
+		str(pending.get("node_id", "")),
+		int(pending.get("map_seed", 0)),
+		owner,
+		registry
+	)
+
+
+func _commit_soul_summoning_state(
+	node_id: String,
+	map_seed: int,
+	owner: Object,
+	registry: Object
+) -> bool:
+	_state["soul_summoning_owned"] = true
+	_state["soul_summoning_node_id"] = node_id
+	_last_effect_result = {"accepted": true, "soul_summoning_owned": true}
+	if not _capture_committed_soul_unlock_snapshots(owner, registry):
 		return false
-	return bool(runtime_state.call("apply_choice", choice, owner, registry))
+	_state["first_pick_candidates"] = _offer_builder.build_first_pick_candidates(
+		map_seed,
+		node_id,
+		_runtime_owned_pet_ids(registry)
+	)
+	return true
 
 
 func _apply_enhance(runtime: Object, context: Dictionary) -> bool:
@@ -1019,6 +1198,8 @@ func _capture_rollback(owner: Object, registry: Object, run_state: Object = null
 		),
 		"perk_runtime_snapshot": _capture_perk_runtime_snapshot(runtime_state),
 		"equipped_skills": _equipped_skills(skill_config),
+		# Prayer count is a cast count. The visit guard makes committed casts and
+		# completed prayer visits equivalent without changing rollback semantics.
 		"prayer_count": _prayer_count(run_state),
 		"prayer_locked": _prayer_locked(run_state),
 	}
@@ -1026,6 +1207,11 @@ func _capture_rollback(owner: Object, registry: Object, run_state: Object = null
 
 func _rollback_operation(owner: Object, registry: Object, run_state: Object = null) -> void:
 	if _pending_rollback.is_empty():
+		return
+	# A full-slot unlock reports accepted=false while intentionally leaving the
+	# runtime swap modal alive. Preserve both that modal and its pre-palm rollback
+	# snapshot until the Spring-owned confirm/cancel API resolves the transaction.
+	if has_pending_chosik_swap():
 		return
 	_state = _dictionary(_pending_rollback.get("state", {}))
 	if run_state != null and run_state.has_method("restore_guardian_prayer_state"):
@@ -1133,7 +1319,12 @@ func _restore_soul_unlock_runtime(owner: Object, registry: Object) -> bool:
 	var perk_runtime_snapshot := _dictionary(_state.get("perk_runtime_snapshot", {}))
 	var skill_config_snapshot := _dictionary(_state.get("skill_config_snapshot", {}))
 	if perk_runtime_snapshot.is_empty() or skill_config_snapshot.is_empty():
-		if not _apply_soul_summoning_unlock(owner, registry):
+		var unlock_result := _apply_soul_summoning_unlock(owner, registry)
+		if bool(unlock_result.get("pending_swap_started", false)):
+			if runtime_state.has_method("cancel_pending_unlock_swap"):
+				runtime_state.call("cancel_pending_unlock_swap", owner)
+			return false
+		if not bool(unlock_result.get("accepted", false)):
 			return false
 		return _capture_committed_soul_unlock_snapshots(owner, registry)
 	if not _restore_equipped_skills(
@@ -1271,6 +1462,31 @@ func _operation_count(node_id: String, operation: String) -> int:
 	return count
 
 
+func _has_committed_visit_action(node_id: String) -> bool:
+	return (
+		_operation_count(node_id, OP_PALM) > 0
+		or _operation_count(node_id, OP_PRAYER) > 0
+	)
+
+
+func _is_chosik_swap_required(owner: Object, registry: Object) -> bool:
+	var skill_config := _get_skill_config(owner, registry)
+	if (
+		skill_config == null
+		or not skill_config.has_method("get_max_skill_slots")
+		or not skill_config.has_method("get_shared_slot_swap_candidates")
+	):
+		return false
+	var max_slots := maxi(0, int(skill_config.call("get_max_skill_slots")))
+	if max_slots <= 0 or _equipped_skills(skill_config).size() < max_slots:
+		return false
+	var candidates_value: Variant = skill_config.call(
+		"get_shared_slot_swap_candidates",
+		CommonSkillCatalog.SOUL_SUMMON_ART_ID
+	)
+	return candidates_value is Array and not (candidates_value as Array).is_empty()
+
+
 func _ensure_first_pick_candidates(node_id: String, map_seed: int, runtime: Object) -> void:
 	if not _dictionary_array(_state.get("first_pick_candidates", [])).is_empty():
 		return
@@ -1331,7 +1547,10 @@ func _success_message(operation: String, record: Dictionary) -> String:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_COMPLETED
 	if operation == OP_BROWSE:
 		key = TowerAscentNodeModalLocalization.KEY_SPRING_BROWSE_COMPLETED
-	return TowerAscentNodeModalLocalization.text(key, {"name": display_name})
+	return TowerAscentNodeModalLocalization.text(key, {
+		"name": display_name,
+		"bonus": TowerAscentTuning.TEMP_SPRING_PRAYER_STAT_BONUS_PCT,
+	})
 
 
 func _economy(run_state: Object) -> Dictionary:

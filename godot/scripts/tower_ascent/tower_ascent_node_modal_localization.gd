@@ -88,6 +88,12 @@ const KEY_SPRING_CARD_BADGE_SOUL := "tower_ascent.node_modal.guardian_spring.car
 const KEY_SPRING_CARD_BADGE_ENHANCE := "tower_ascent.node_modal.guardian_spring.card_badge.enhance"
 const KEY_SPRING_CARD_SOUL_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.soul"
 const KEY_SPRING_CARD_ENHANCE_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.enhance"
+const KEY_SPRING_CHOSIK_SWAP_REQUIRED := "tower_ascent.node_modal.guardian_spring.chosik_swap_required"
+const KEY_SPRING_CHOSIK_SWAP_OPENED := "tower_ascent.node_modal.guardian_spring.chosik_swap_opened"
+const KEY_SPRING_CHOSIK_SWAP_TITLE := "tower_ascent.node_modal.guardian_spring.chosik_swap_title"
+const KEY_SPRING_CHOSIK_SWAP_NEW_LABEL := "tower_ascent.node_modal.guardian_spring.chosik_swap_new_label"
+const KEY_SPRING_CHOSIK_SWAP_HINT := "tower_ascent.node_modal.guardian_spring.chosik_swap_hint"
+const KEY_SPRING_VISIT_ACTION_COMPLETED := "tower_ascent.node_modal.guardian_spring.visit_action_completed"
 const KEY_SPRING_STATE_ACTIVE := "tower_ascent.node_modal.guardian_spring.state.active"
 const KEY_SPRING_STATE_ENHANCED := "tower_ascent.node_modal.guardian_spring.state.enhanced"
 const KEY_REST_RESTORE_OPTION := "tower_ascent.node_modal.rest.restore_option"
@@ -180,7 +186,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_OPTION: "기도한다",
 		KEY_SPRING_BROWSE_OPTION: "수호령들을 살핀다",
 		KEY_SPRING_PALM_COMPLETED: "이미 샘터의 기운을 받아들였습니다.",
-		KEY_SPRING_PRAYER_COMPLETED: "기도가 닿아 전능력치가 상승했습니다.",
+		KEY_SPRING_PRAYER_COMPLETED: "모든 능력치가 {bonus}%p 상승했습니다.",
 		KEY_SPRING_PRAYER_RESULT: "전능력치 상승",
 		KEY_SPRING_PRAYER_COUNT: "기도 {count}회",
 		KEY_SPRING_CARD_BADGE_PRAYER: "샘터 기도",
@@ -202,6 +208,12 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_CARD_BADGE_ENHANCE: "활성 · 강화",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "영혼소환술을 익혀 첫 수호령을 맞이합니다.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "활성 수호령에 다음 강화 결과를 적용합니다.",
+		KEY_SPRING_CHOSIK_SWAP_REQUIRED: "초식 교체 필요",
+		KEY_SPRING_CHOSIK_SWAP_OPENED: "버릴 초식을 선택하세요.",
+		KEY_SPRING_CHOSIK_SWAP_TITLE: "초식 교체",
+		KEY_SPRING_CHOSIK_SWAP_NEW_LABEL: "새 초식: {name}",
+		KEY_SPRING_CHOSIK_SWAP_HINT: "Enter 선택, Esc 취소",
+		KEY_SPRING_VISIT_ACTION_COMPLETED: "이번 방문의 샘터 업무를 이미 마쳤습니다.",
 		KEY_SPRING_STATE_ACTIVE: "활성",
 		KEY_SPRING_STATE_ENHANCED: "강화",
 		KEY_REST_RESTORE_OPTION: "기회의 보석 {amount}개 회복",
@@ -231,7 +243,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_OPTION: "Offer a prayer",
 		KEY_SPRING_BROWSE_OPTION: "View the guardians",
 		KEY_SPRING_PALM_COMPLETED: "You have already received the spring's energy.",
-		KEY_SPRING_PRAYER_COMPLETED: "Your prayer raised all player stats.",
+		KEY_SPRING_PRAYER_COMPLETED: "All stats have increased by {bonus} percentage points.",
 		KEY_SPRING_PRAYER_RESULT: "All stats increased",
 		KEY_SPRING_PRAYER_COUNT: "Prayers {count}",
 		KEY_SPRING_CARD_BADGE_PRAYER: "Spring Prayer",
@@ -248,6 +260,12 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Active · Enhance",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Learn Soul Summoning and welcome your first guardian.",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "Apply the next enhancement to the active guardian.",
+		KEY_SPRING_CHOSIK_SWAP_REQUIRED: "Chosik replacement required",
+		KEY_SPRING_CHOSIK_SWAP_OPENED: "Choose a Chosik to discard.",
+		KEY_SPRING_CHOSIK_SWAP_TITLE: "Replace Chosik",
+		KEY_SPRING_CHOSIK_SWAP_NEW_LABEL: "New Chosik: {name}",
+		KEY_SPRING_CHOSIK_SWAP_HINT: "Enter: Select, Esc: Cancel",
+		KEY_SPRING_VISIT_ACTION_COMPLETED: "You have finished the spring ritual for this visit.",
 		KEY_SPRING_STATE_ACTIVE: "Active",
 		KEY_SPRING_STATE_ENHANCED: "Enhanced",
 		KEY_REST_CARD_BADGE: "Restore",
@@ -284,7 +302,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_OPTION: "祈祷",
 		KEY_SPRING_BROWSE_OPTION: "查看守护灵",
 		KEY_SPRING_PALM_COMPLETED: "你已经接受了泉水的力量。",
-		KEY_SPRING_PRAYER_COMPLETED: "祈祷使玩家全属性提升。",
+		KEY_SPRING_PRAYER_COMPLETED: "所有属性已提升{bonus}个百分点。",
 		KEY_SPRING_PRAYER_RESULT: "全属性提升",
 		KEY_SPRING_PRAYER_COUNT: "祈祷 {count} 次",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉边祈祷",
@@ -301,6 +319,12 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_CARD_BADGE_ENHANCE: "出战 · 强化",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "习得灵魂召唤术，迎接首位守护灵。",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "为当前守护灵应用下一次强化。",
+		KEY_SPRING_CHOSIK_SWAP_REQUIRED: "需要替换招式",
+		KEY_SPRING_CHOSIK_SWAP_OPENED: "请选择要舍弃的招式。",
+		KEY_SPRING_CHOSIK_SWAP_TITLE: "替换招式",
+		KEY_SPRING_CHOSIK_SWAP_NEW_LABEL: "新招式：{name}",
+		KEY_SPRING_CHOSIK_SWAP_HINT: "Enter 选择，Esc 取消",
+		KEY_SPRING_VISIT_ACTION_COMPLETED: "本次到访的泉水仪式已经完成。",
 		KEY_SPRING_STATE_ACTIVE: "出战",
 		KEY_SPRING_STATE_ENHANCED: "强化",
 		KEY_REST_CARD_BADGE: "恢复",
@@ -337,7 +361,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_OPTION: "祈る",
 		KEY_SPRING_BROWSE_OPTION: "守護霊たちを見る",
 		KEY_SPRING_PALM_COMPLETED: "すでに泉の力を受け入れました。",
-		KEY_SPRING_PRAYER_COMPLETED: "祈りによりプレイヤーの全能力値が上昇しました。",
+		KEY_SPRING_PRAYER_COMPLETED: "すべての能力値が{bonus}ポイント上昇しました。",
 		KEY_SPRING_PRAYER_RESULT: "全能力値上昇",
 		KEY_SPRING_PRAYER_COUNT: "祈り {count}回",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉の祈り",
@@ -354,6 +378,12 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_CARD_BADGE_ENHANCE: "同行 · 強化",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "魂召喚術を学び、最初の守護霊を迎えます。",
 		KEY_SPRING_CARD_ENHANCE_DESCRIPTION: "同行中の守護霊に次の強化を適用します。",
+		KEY_SPRING_CHOSIK_SWAP_REQUIRED: "招式の入れ替えが必要",
+		KEY_SPRING_CHOSIK_SWAP_OPENED: "捨てる招式を選んでください。",
+		KEY_SPRING_CHOSIK_SWAP_TITLE: "招式の入れ替え",
+		KEY_SPRING_CHOSIK_SWAP_NEW_LABEL: "新しい招式：{name}",
+		KEY_SPRING_CHOSIK_SWAP_HINT: "Enter 選択、Esc キャンセル",
+		KEY_SPRING_VISIT_ACTION_COMPLETED: "今回の泉の儀式はすでに完了しました。",
 		KEY_SPRING_STATE_ACTIVE: "同行",
 		KEY_SPRING_STATE_ENHANCED: "強化",
 		KEY_REST_CARD_BADGE: "回復",

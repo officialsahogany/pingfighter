@@ -407,6 +407,10 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	)
 	if not bool(action.get("enabled", true)):
 		var unavailable_reason := str(action.get("unavailable_reason", ""))
+		if unavailable_reason.strip_edges().is_empty():
+			unavailable_reason = TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
+			)
 		_node_modal_state.set_status_text(unavailable_reason)
 		_node_modal_state.record_action_feedback(action, {
 			"accepted": false,
@@ -425,10 +429,7 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 		var timing_result := _begin_training_timing_action(action)
 		if not bool(timing_result.get("prepared", false)):
 			_node_modal_state.record_action_feedback(action, timing_result)
-			_node_modal_state.set_status_text(str(timing_result.get(
-				"message",
-				timing_result.get("reason", "")
-			)))
+			_node_modal_state.set_status_text(_player_facing_node_status(timing_result))
 		return
 	var payload_value: Variant = action.get("payload", {})
 	var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
@@ -441,7 +442,7 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	var action_result := execute_node_action(str(action.get("id", "")))
 	_node_modal_state.record_action_feedback(action, action_result)
 	if not bool(action_result.get("accepted", false)):
-		_node_modal_state.set_status_text(str(action_result.get("message", action_result.get("reason", ""))))
+		_node_modal_state.set_status_text(_player_facing_node_status(action_result))
 
 
 func _try_enter_route_aim_from_node_modal() -> bool:
@@ -450,12 +451,19 @@ func _try_enter_route_aim_from_node_modal() -> bool:
 	# route gives ESC to the overlay, which cancels it and clears runtime state.
 	if (
 		_node_modal_kind == "guardian_spring"
-		and _guardian_spring_node.has_pending_browse_compare()
+		and (
+			_guardian_spring_node.has_pending_browse_compare()
+			or _guardian_spring_node.has_pending_chosik_swap()
+			or _guardian_spring_node.is_first_pick_pending()
+		)
 	):
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
 		))
 		return false
+	_guardian_spring_auto_route_pending = false
+	_guardian_spring_auto_route_elapsed_sec = 0.0
+	_guardian_spring_auto_route_update_count = 0
 	return _enter_route_aim(true)
 
 
@@ -579,7 +587,7 @@ func _execute_fallen_monk_action(
 	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
 		_build_state["chosik"] = _fallen_monk_node.get_history()
 		_build_state["runtime_perk_snapshot"] = _fallen_monk_node.get_runtime_snapshot()
-	_refresh_fallen_monk_modal(str(result.get("message", result.get("reason", ""))))
+	_refresh_fallen_monk_modal(_player_facing_node_status(result))
 	return result
 
 func _refresh_fallen_monk_modal(status_text: String) -> void:
@@ -616,7 +624,8 @@ func _execute_guardian_spring_action(
 	)
 	_guardian_state = _guardian_spring_node.export_state()
 	_guardian_spring_node.sync_owner_projection(_active_owner, _run_state, _active_registry)
-	_refresh_guardian_spring_modal(str(result.get("message", result.get("reason", ""))))
+	_refresh_guardian_spring_modal(_player_facing_node_status(result))
+	_arm_guardian_spring_auto_route(result)
 	return result
 
 func _refresh_guardian_spring_modal(status_text: String) -> void:
@@ -637,6 +646,99 @@ func _complete_guardian_spring_palm_ritual_if_ready() -> bool:
 	var action_result := execute_node_action(str(action.get("id", "")))
 	_node_modal_state.record_action_feedback(action, action_result)
 	return true
+
+
+func has_pending_guardian_spring_chosik_swap() -> bool:
+	return _guardian_spring_node.has_pending_chosik_swap()
+
+
+func cancel_guardian_spring_chosik_swap() -> Dictionary:
+	var result: Dictionary = _guardian_spring_node.cancel_chosik_swap(
+		_active_owner,
+		_active_registry,
+		_run_state
+	)
+	if bool(result.get("handled", false)):
+		_guardian_state = _guardian_spring_node.export_state()
+		_refresh_guardian_spring_modal("")
+	return result
+
+
+func commit_guardian_spring_chosik_swap() -> Dictionary:
+	var pending_action_id := "guardian_spring:palm"
+	var result: Dictionary = _guardian_spring_node.commit_chosik_swap(
+		_run_state,
+		_resolution_ids,
+		_node_action_transaction,
+		_active_owner,
+		_active_registry
+	)
+	if not bool(result.get("handled", false)):
+		return result
+	_guardian_state = _guardian_spring_node.export_state()
+	_guardian_spring_node.sync_owner_projection(_active_owner, _run_state, _active_registry)
+	_refresh_guardian_spring_modal(_player_facing_node_status(result))
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		var feedback_action := {
+			"id": pending_action_id,
+			"_feedback_index": _node_modal_state.get_action_index_by_id(pending_action_id),
+		}
+		_node_modal_state.record_action_feedback(feedback_action, result)
+	_arm_guardian_spring_auto_route(result)
+	return result
+
+
+func _resolve_guardian_spring_chosik_swap_if_ready() -> bool:
+	if not has_pending_guardian_spring_chosik_swap():
+		return false
+	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
+	if (
+		runtime_state != null
+		and runtime_state.has_method("has_pending_unlock_swap")
+		and bool(runtime_state.call("has_pending_unlock_swap"))
+	):
+		return false
+	var result := commit_guardian_spring_chosik_swap()
+	return bool(result.get("handled", false))
+
+
+func _arm_guardian_spring_auto_route(result: Dictionary) -> void:
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		return
+	var record := _dictionary_copy(result.get("record", {}))
+	if str(record.get("operation", "")) not in ["palm", "prayer", "first_pick"]:
+		return
+	if _guardian_spring_node.is_first_pick_pending():
+		return
+	_guardian_spring_auto_route_pending = true
+	_guardian_spring_auto_route_elapsed_sec = 0.0
+	_guardian_spring_auto_route_update_count = 0
+
+
+func _advance_guardian_spring_auto_route(delta: float) -> bool:
+	if not _guardian_spring_auto_route_pending:
+		return false
+	if (
+		_phase != PHASE_NODE_MODAL
+		or _node_modal_kind != "guardian_spring"
+		or _node_modal_state.has_active_guardian_spring_ritual()
+		or has_pending_guardian_spring_chosik_swap()
+		or _guardian_spring_node.is_first_pick_pending()
+	):
+		return false
+	_guardian_spring_auto_route_update_count += 1
+	_guardian_spring_auto_route_elapsed_sec += maxf(0.0, delta)
+	# Two selective updates guarantee at least one drawable receipt frame even if
+	# the first update carries a large wall-time delta from the completed ritual.
+	if (
+		_guardian_spring_auto_route_update_count < 2
+		or _guardian_spring_auto_route_elapsed_sec < GUARDIAN_SPRING_AUTO_ROUTE_HOLD_SEC
+	):
+		return false
+	_guardian_spring_auto_route_pending = false
+	_guardian_spring_auto_route_elapsed_sec = 0.0
+	_guardian_spring_auto_route_update_count = 0
+	return _try_enter_route_aim_from_node_modal()
 
 
 func has_pending_guardian_spring_browse_compare(pet_id: String = "") -> bool:
@@ -669,7 +771,7 @@ func commit_guardian_spring_browse_purchase(
 	if bool(result.get("handled", false)):
 		_guardian_state = _guardian_spring_node.export_state()
 		_guardian_spring_node.sync_owner_projection(commit_owner, _run_state, commit_registry)
-		_refresh_guardian_spring_modal(str(result.get("reason", "")))
+		_refresh_guardian_spring_modal(_player_facing_node_status(result))
 	return result
 
 func _build_rest_actions() -> Array[Dictionary]:
@@ -691,8 +793,22 @@ func _execute_rest_action(
 		_node_action_transaction
 	)
 	_sync_owner_chance_gems(_active_owner)
-	_refresh_rest_modal(str(result.get("message", result.get("reason", ""))))
+	_refresh_rest_modal(_player_facing_node_status(result))
 	return result
+
+
+func _player_facing_node_status(result: Dictionary, fallback: String = "") -> String:
+	var message := str(result.get("message", "")).strip_edges()
+	if not message.is_empty():
+		return message
+	var normalized_fallback := fallback.strip_edges()
+	if not normalized_fallback.is_empty():
+		return normalized_fallback
+	if bool(result.get("accepted", false)):
+		return ""
+	return TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
+	)
 
 func _refresh_rest_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_rest_actions())

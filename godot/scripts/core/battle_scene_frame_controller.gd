@@ -526,6 +526,13 @@ func draw(
 	_draw_drive_cutin_if_active(canvas, registry, module_getter, view_size, perf_logger)
 	_draw_lingpet_acquire_cutin_if_active(canvas, registry, view_size, perf_logger)
 	_draw_lingpet_overflow_choice_if_active(canvas, registry, view_size, perf_logger)
+	_draw_guardian_spring_chosik_swap_if_active(
+		canvas,
+		registry,
+		module_getter,
+		view_size,
+		perf_logger
+	)
 	_draw_lingpet_guardian_enhance_cutin_if_active(canvas, registry, view_size, perf_logger)
 
 	var defeat_continue_screen: Object = _get_defeat_chance_gems_continue_screen(module_getter)
@@ -827,6 +834,38 @@ func _draw_lingpet_overflow_choice_if_active(
 	var start: int = _perf_begin(perf_logger)
 	host.draw(canvas, runtime, view_size)
 	_perf_end(perf_logger, "draw.frame.lingpet_overflow_choice", start)
+
+
+func _draw_guardian_spring_chosik_swap_if_active(
+	canvas: CanvasItem,
+	registry: Object,
+	module_getter: Callable,
+	view_size: Vector2,
+	perf_logger: Object
+) -> void:
+	if registry == null:
+		return
+	var flow_owner := _get_module(module_getter, "tower_ascent_flow_owner")
+	var runtime_state := _get_module(module_getter, "runtime_perk_state")
+	if (
+		flow_owner == null
+		or not flow_owner.has_method("has_pending_guardian_spring_chosik_swap")
+		or not bool(flow_owner.call("has_pending_guardian_spring_chosik_swap"))
+		or runtime_state == null
+		or not runtime_state.has_method("has_pending_unlock_swap")
+		or not bool(runtime_state.call("has_pending_unlock_swap"))
+	):
+		return
+	var host: Variant = null
+	if registry.has_method("get_cached_instance"):
+		host = registry.get_cached_instance("guardian_spring_chosik_swap_overlay_host")
+	if (typeof(host) != TYPE_OBJECT or host == null) and registry.has_method("get_instance"):
+		host = registry.get_instance("guardian_spring_chosik_swap_overlay_host")
+	if typeof(host) != TYPE_OBJECT or host == null or not host.has_method("draw"):
+		return
+	var start: int = _perf_begin(perf_logger)
+	host.draw(canvas, flow_owner, runtime_state, registry, view_size)
+	_perf_end(perf_logger, "draw.frame.guardian_spring_chosik_swap", start)
 
 
 func _draw_lingpet_guardian_enhance_cutin_if_active(

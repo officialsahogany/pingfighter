@@ -201,6 +201,10 @@ var _map_overlay_registry: Object = null
 var _active_owner: Object = null
 var _active_registry: Object = null
 var _pending_runtime_perk_rollback_snapshot: Dictionary = {}
+const GUARDIAN_SPRING_AUTO_ROUTE_HOLD_SEC := 0.45
+var _guardian_spring_auto_route_pending := false
+var _guardian_spring_auto_route_elapsed_sec := 0.0
+var _guardian_spring_auto_route_update_count := 0
 var _codex_discoveries: Array[Dictionary] = []
 var _gauntlet_transition_callback := Callable()
 var _run_defeat_count := 0
@@ -277,6 +281,9 @@ func _reset_runtime_state() -> void:
 	_settlement_state.reset()
 	_gauntlet_state.reset()
 	_pending_runtime_perk_rollback_snapshot.clear()
+	_guardian_spring_auto_route_pending = false
+	_guardian_spring_auto_route_elapsed_sec = 0.0
+	_guardian_spring_auto_route_update_count = 0
 	_codex_discoveries.clear()
 	_gauntlet_transition_callback = Callable()
 	_run_defeat_count = 0

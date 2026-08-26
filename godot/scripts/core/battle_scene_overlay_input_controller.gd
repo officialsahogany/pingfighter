@@ -19,6 +19,9 @@ const BattleGuidedOverlayInputRouter := preload(
 const BattleLingpetPriorityInputRouter := preload(
 	"res://scripts/core/battle_lingpet_priority_input_router.gd"
 )
+const GuardianSpringChosikSwapInputRouter := preload(
+	"res://scripts/core/guardian_spring_chosik_swap_input_router.gd"
+)
 const BattlePauseMenuInputRouter := preload(
 	"res://scripts/core/battle_pause_menu_input_router.gd"
 )
@@ -44,6 +47,9 @@ var _debug_menu_input_router: Object = BattleDebugMenuInputRouter.new()
 var _debug_menu_shortcut_router: Object = BattleDebugMenuShortcutRouter.new()
 var _elixir_cinematic_input_router: Object = BattleElixirCinematicInputRouter.new()
 var _guided_overlay_input_router: Object = BattleGuidedOverlayInputRouter.new()
+var _guardian_spring_chosik_swap_input_router: Object = (
+	GuardianSpringChosikSwapInputRouter.new()
+)
 var _lingpet_priority_input_router: Object = BattleLingpetPriorityInputRouter.new()
 var _pause_menu_input_router: Object = BattlePauseMenuInputRouter.new()
 var _runtime_perk_input_router: Object = BattleRuntimePerkInputRouter.new()
@@ -62,7 +68,8 @@ func handle_input(
 		owner,
 		registry,
 		module_getter,
-		_get_view_size(owner)
+		_get_view_size(owner),
+		_guardian_spring_chosik_swap_input_router
 	):
 		return true
 

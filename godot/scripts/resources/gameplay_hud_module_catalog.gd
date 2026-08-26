@@ -125,6 +125,10 @@ const MODULES := {
 		"path": "res://scripts/hud/lingpet_overflow_choice_overlay_host.gd",
 		"label": "lingpet overflow choice overlay host",
 	},
+	"guardian_spring_chosik_swap_overlay_host": {
+		"path": "res://scripts/hud/guardian_spring_chosik_swap_overlay_host.gd",
+		"label": "guardian spring Chosik swap overlay host",
+	},
 	"lingpet_guardian_enhance_cutin_overlay_host": {
 		"path": "res://scripts/hud/lingpet_guardian_enhance_cutin_overlay_host.gd",
 		"label": "lingpet guardian enhance cutin overlay host",

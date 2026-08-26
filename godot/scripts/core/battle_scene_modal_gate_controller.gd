@@ -117,6 +117,17 @@ func is_lingpet_overflow_choice_active(module_getter: Callable) -> bool:
 	return _module_bool(module_getter, "lingpet_egg_runtime", "is_overflow_choice_active")
 
 
+func is_guardian_spring_chosik_swap_active(module_getter: Callable) -> bool:
+	return (
+		_module_bool(
+			module_getter,
+			"tower_ascent_flow_owner",
+			"has_pending_guardian_spring_chosik_swap"
+		)
+		and _module_bool(module_getter, "runtime_perk_state", "has_pending_unlock_swap")
+	)
+
+
 func is_lingpet_guardian_enhance_cutin_active(module_getter: Callable) -> bool:
 	return _module_bool(
 		module_getter,

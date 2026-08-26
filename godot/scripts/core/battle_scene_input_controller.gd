@@ -201,13 +201,21 @@ func _handle_tower_ascent_flow_input(
 	):
 		return false
 	# The Tower flow remains active while its NODE_MODAL is visible, but these
-	# two Lingpet overlays own input while they are on top of that modal. Route
+	# explicit fullscreen overlays own input while they are on top of that modal. Route
 	# only input-driven overlays here; timer-only welcome overlays must keep the
 	# Tower flow's ordinary input ownership.
 	var modal_gate := _get_module(module_getter, "battle_scene_modal_gate_controller")
-	var lingpet_overlay_active := (
+	var priority_overlay_active := (
 		modal_gate != null
 		and (
+			(
+				modal_gate.has_method("is_guardian_spring_chosik_swap_active")
+				and bool(modal_gate.call(
+					"is_guardian_spring_chosik_swap_active",
+					module_getter
+				))
+			)
+			or
 			(
 				modal_gate.has_method("is_lingpet_overflow_choice_active")
 				and bool(modal_gate.call("is_lingpet_overflow_choice_active", module_getter))
@@ -218,7 +226,7 @@ func _handle_tower_ascent_flow_input(
 			)
 		)
 	)
-	if lingpet_overlay_active:
+	if priority_overlay_active:
 		var overlay_input := _get_overlay_input_controller(module_getter)
 		if overlay_input != null and overlay_input.has_method("handle_input"):
 			if bool(overlay_input.call(

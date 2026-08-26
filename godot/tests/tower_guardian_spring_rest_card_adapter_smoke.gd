@@ -181,7 +181,7 @@ func _verify_live_portrait_adapter(fixture: Dictionary) -> void:
 		_expect(not str(presentation.get("result", "")).is_empty(), "spring card must expose its projected result")
 		_expect(bool(presentation.get("strict_text_budget", false)), "spring hover copy must use the strict GRT-021 budget")
 	var spring: Object = fixture.get("spring", null)
-	var soul_action_value: Variant = spring.call("_build_palm_action", true)
+	var soul_action_value: Variant = spring.call("_build_palm_action", true, false, false)
 	var soul_action: Dictionary = soul_action_value as Dictionary
 	var soul_choice: Dictionary = soul_action.get("payload", {}).get("choice", {})
 	_expect(str(soul_choice.get("card_content_kind", "")) == "guardian_egg", "soul summoning must keep the existing guardian egg art mode")
@@ -319,6 +319,18 @@ func _verify_rest_hero_adapter() -> void:
 	var hero_top_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
 	_expect(modal.select_at_position(hero_top_corner, BASE_VIEW_SIZE), "rest hero top corner must hit the same rendered rect")
 	_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentRestNode.ACTION_RESTORE, "rest hero top corner must select the recovery action")
+	var success_action := action.duplicate(true)
+	success_action["unavailable_reason"] = "현재는 선택할 수 없습니다."
+	modal.record_action_feedback(success_action, {"accepted": true, "applied": true})
+	var success_receipt: Dictionary = modal.build_view_model(BASE_VIEW_SIZE).get(
+		"interaction_receipt",
+		{}
+	)
+	_expect(
+		bool(success_receipt.get("success", false))
+		and str(success_receipt.get("message", "")).is_empty(),
+		"a successful Rest receipt with no explicit message must never borrow disabled failure copy"
+	)
 
 
 func _verify_seven_locale_append_budgets(fixture: Dictionary) -> void:

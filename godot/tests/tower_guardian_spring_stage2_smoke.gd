@@ -120,16 +120,19 @@ func _verify_menu_prayer_ramp_lock_and_enhance() -> void:
 	var resolution_ids := {}
 	var transaction := TowerAscentNodeActionTransaction.new()
 	_expect(run_state.begin("spring-s2", {"gold": 0, "muhon": 10}), "S2 run must start")
-	var actions := spring.build_actions("spring-02", 1202, run_state, owner, registry)
+	var actions := spring.build_actions("spring-02-a", 1202, run_state, owner, registry)
 	_expect(_action_ids(actions) == ["guardian_spring:palm", "guardian_spring:prayer:0"], "no guardian must expose palm then prayer")
 	for index in range(3):
+		var node_id := "spring-02-%s" % ["a", "b", "c"][index]
+		actions = spring.build_actions(node_id, 1202, run_state, owner, registry)
 		var prayer := _find_action_with_prefix(actions, "guardian_spring:prayer:")
 		var expected_cost := index * TowerAscentTuning.TEMP_SPRING_PRAYER_COST_STEP
-		_expect(int(prayer.get("payload", {}).get("cost", -1)) == expected_cost, "prayer cost must ramp 0, 2, 4 from count")
+		_expect(bool(prayer.get("enabled", false)), "each new Spring visit must allow one prayer")
+		_expect(int(prayer.get("payload", {}).get("cost", -1)) == expected_cost, "prayer cost must ramp 0, 2, 4 across visits")
 		var result := spring.execute_action(
 			str(prayer.get("id", "")),
 			"spring-s2:prayer:%d" % index,
-			"spring-02",
+			node_id,
 			1202,
 			run_state,
 			resolution_ids,
@@ -138,7 +141,13 @@ func _verify_menu_prayer_ramp_lock_and_enhance() -> void:
 			registry
 		)
 		_expect(bool(result.get("accepted", false)) and bool(result.get("applied", false)), "each affordable prayer must commit")
-		actions = spring.build_actions("spring-02", 1202, run_state, owner, registry)
+		var same_visit_actions := spring.build_actions(node_id, 1202, run_state, owner, registry)
+		var same_visit_prayer := _find_action_with_prefix(same_visit_actions, "guardian_spring:prayer:")
+		_expect(
+			not bool(same_visit_prayer.get("enabled", true))
+			and not bool(_find_action_with_prefix(same_visit_actions, "guardian_spring:palm").get("enabled", true)),
+			"prayer and palm must both stay disabled after one ritual in the same visit"
+		)
 	_expect(run_state.get_prayer_count() == 3, "three prayers must increment the run-owned count")
 	_expect(int(run_state.export_economy().get("muhon", -1)) == 4, "prayers must debit exactly 0 + 2 + 4 Muhon")
 	spring.sync_owner_projection(owner, run_state, registry)
@@ -150,7 +159,7 @@ func _verify_menu_prayer_ramp_lock_and_enhance() -> void:
 		"pet_id": "lunabi",
 		"guardian_run_state": {"pets": {"lunabi": {}}},
 	}
-	actions = spring.build_actions("spring-02", 1202, run_state, owner, registry)
+	actions = spring.build_actions("spring-02-d", 1202, run_state, owner, registry)
 	_expect(_action_ids(actions).size() == 2, "guardian menu must keep two stable action slots")
 	_expect(str(actions[0].get("id", "")).begins_with("guardian_spring:enhance:"), "guardian menu first slot must be encounter enhancement")
 	_expect(str(actions[1].get("id", "")).begins_with("guardian_spring:browse:"), "guardian menu second slot must expose S3 browse")

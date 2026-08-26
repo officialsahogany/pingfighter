@@ -2843,6 +2843,51 @@ func _normalize_joined_keycap_token(token: String) -> String:
 	return token
 
 
+func draw_standalone_unlock_swap_dialog(
+	canvas: CanvasItem,
+	runtime_state: Object,
+	snapshot: Dictionary,
+	view_size: Vector2,
+	icon_renderer: Object = null
+) -> bool:
+	if (
+		canvas == null
+		or runtime_state == null
+		or not runtime_state.has_method("has_pending_unlock_swap")
+		or not bool(runtime_state.has_pending_unlock_swap())
+	):
+		return false
+	_capture_draw_msec()
+	_prepare_text_caches()
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 20.0 / 255.0, 0.68))
+	_draw_unlock_swap_dialog(canvas, runtime_state, snapshot, view_size, icon_renderer)
+	return true
+
+
+func build_unlock_swap_option_content_layout(rect: Rect2) -> Dictionary:
+	var label_font_size := 14
+	var label_baseline := rect.position + Vector2(12.0, rect.size.y - 8.0)
+	var label_top_y := label_baseline.y - float(label_font_size)
+	var icon_max_size := minf(48.0, rect.size.x - 16.0)
+	var icon_size := clampf(
+		minf(icon_max_size, label_top_y - rect.position.y - 12.0),
+		18.0,
+		icon_max_size
+	)
+	var icon_region_height := label_top_y - rect.position.y - 4.0
+	var icon_top := rect.position.y + maxf(8.0, (icon_region_height - icon_size) * 0.5)
+	var icon_rect := Rect2(
+		Vector2(rect.get_center().x - icon_size * 0.5, icon_top),
+		Vector2(icon_size, icon_size)
+	)
+	return {
+		"icon_rect": icon_rect,
+		"label_baseline": label_baseline,
+		"label_font_size": label_font_size,
+		"icon_text_gap": label_top_y - icon_rect.end.y,
+	}
+
+
 func _draw_unlock_swap_dialog(canvas: CanvasItem, runtime_state: Object, snapshot: Dictionary, view_size: Vector2, icon_renderer: Object) -> void:
 	var swap: Dictionary = _get_dict(snapshot.get("pending_unlock_swap", {}))
 	var candidates: Array = _get_array(swap.get("candidates", []))
@@ -2855,8 +2900,10 @@ func _draw_unlock_swap_dialog(canvas: CanvasItem, runtime_state: Object, snapsho
 	canvas.draw_rect(panel_rect, Color(1.0, 190.0 / 255.0, 80.0 / 255.0, 0.86), false, 2.5)
 	canvas.draw_line(panel_rect.position + Vector2(18.0, 88.0), Vector2(panel_rect.end.x - 18.0, panel_rect.position.y + 88.0), Color(1.0, 190.0 / 255.0, 80.0 / 255.0, 0.45), 1.0)
 
-	_draw_text_centered(canvas, "화기 슬롯 교체", _get_vector2(layout.get("title_pos", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 38.0))), 24, Color(1.0, 225.0 / 255.0, 125.0 / 255.0))
-	_draw_text_centered(canvas, "새 화기: %s" % str(swap.get("new_name", swap.get("unlocks_skill", ""))), _get_vector2(layout.get("new_skill_pos", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 70.0))), 15, Color(210.0 / 255.0, 225.0 / 255.0, 240.0 / 255.0))
+	_draw_text_centered(canvas, str(swap.get("dialog_title", "화기 슬롯 교체")), _get_vector2(layout.get("title_pos", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 38.0))), 24, Color(1.0, 225.0 / 255.0, 125.0 / 255.0))
+	var new_skill_name := str(swap.get("new_name", swap.get("unlocks_skill", "")))
+	var new_skill_label := str(swap.get("dialog_new_label", "새 화기: {name}"))
+	_draw_text_centered(canvas, new_skill_label.format({"name": new_skill_name}), _get_vector2(layout.get("new_skill_pos", panel_rect.position + Vector2(panel_rect.size.x * 0.5, 70.0))), 15, Color(210.0 / 255.0, 225.0 / 255.0, 240.0 / 255.0))
 
 	var rects: Array = runtime_state.get_unlock_swap_option_rects(view_size) if runtime_state.has_method("get_unlock_swap_option_rects") else []
 	for index in range(min(candidates.size(), rects.size())):
@@ -2870,13 +2917,22 @@ func _draw_unlock_swap_dialog(canvas: CanvasItem, runtime_state: Object, snapsho
 				canvas.draw_rect(rect.grow(grow), Color(1.0, 190.0 / 255.0, 80.0 / 255.0, (0.16 + 0.12 * pulse)), false, max(1.0, 4.0 - grow * 0.25))
 		canvas.draw_rect(rect, Color(24.0 / 255.0, 31.0 / 255.0, 46.0 / 255.0, 0.94))
 		canvas.draw_rect(rect, Color(1.0, 205.0 / 255.0, 90.0 / 255.0, 0.90 if selected else 0.42), false, 2.0 if selected else 1.2)
-		var icon_rect := Rect2(rect.position + Vector2(rect.size.x * 0.5 - 24.0, 16.0), Vector2(48.0, 48.0))
+		var content_layout := build_unlock_swap_option_content_layout(rect)
+		var icon_rect: Rect2 = content_layout.get("icon_rect", Rect2())
 		canvas.draw_rect(icon_rect, Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.88))
 		if icon_renderer == null or not icon_renderer.has_method("draw_icon") or not bool(icon_renderer.draw_icon(canvas, skill_id, icon_rect.grow(-4.0), 1.0, true)):
 			canvas.draw_circle(icon_rect.get_center(), 18.0, Color(0.52, 0.62, 0.50, 0.92))
-		_draw_text_fitted(canvas, str(candidate.get("name", skill_id)), rect.position + Vector2(12.0, rect.size.y - 28.0), 14, Color(0.94, 0.97, 1.0), rect.size.x - 24.0, 10)
+		_draw_text_fitted(
+			canvas,
+			str(candidate.get("name", skill_id)),
+			content_layout.get("label_baseline", rect.end - Vector2(rect.size.x - 12.0, 8.0)),
+			int(content_layout.get("label_font_size", 14)),
+			Color(0.94, 0.97, 1.0),
+			rect.size.x - 24.0,
+			10
+		)
 
-	_draw_text_centered(canvas, "Enter 선택 / Esc 취소", _get_vector2(layout.get("hint_pos", panel_rect.end - Vector2(panel_rect.size.x * 0.5, 34.0))), 13, Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0, 0.94))
+	_draw_text_centered(canvas, str(swap.get("dialog_hint", "Enter 선택 / Esc 취소")), _get_vector2(layout.get("hint_pos", panel_rect.end - Vector2(panel_rect.size.x * 0.5, 34.0))), 13, Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0, 0.94))
 
 
 func _draw_character_edge(canvas: CanvasItem, rect: Rect2, restriction: String, alpha: float, pulse: float) -> void:
