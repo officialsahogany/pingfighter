@@ -91,10 +91,22 @@ func update(
 				mounted_dash_state.cancel_active_without_recovery()
 			if mounted_dash_state.has_method("update_key_release"):
 				mounted_dash_state.update_key_release(false)
-	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
-	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
+	# Vision-exclusive snapshots split translation from command input. Only the
+	# base player/dash movement owner opts into these fields; skill runtimes keep
+	# reading the ordinary zeroed command lanes.
+	var left_pressed: bool = bool(input_snapshot.get(
+		"movement_left_pressed",
+		input_snapshot.get("left_pressed", false)
+	))
+	var right_pressed: bool = bool(input_snapshot.get(
+		"movement_right_pressed",
+		input_snapshot.get("right_pressed", false)
+	))
 	var action_pressed: bool = bool(input_snapshot.get("action_pressed", false))
-	var direction: float = float(input_snapshot.get("direction", 0.0))
+	var direction: float = float(input_snapshot.get(
+		"movement_direction",
+		input_snapshot.get("direction", 0.0)
+	))
 	if bool(config.get("horizontal_input_locked", false)):
 		left_pressed = false
 		right_pressed = false
@@ -103,13 +115,29 @@ func update(
 
 	var drive_input_state: Object = deps.get("drive_input_state", null)
 	if drive_input_state != null:
-		drive_input_state.update_input_and_cooldowns(
-			left_pressed,
-			right_pressed,
-			action_pressed,
-			next_frame_counter,
-			fps_scale
-		)
+		if (
+			bool(config.get("vision_input_exclusive", false))
+			and drive_input_state.has_method("discard_current_inputs")
+		):
+			# GRT-050: Vision movement directions must not seed the delayed
+			# Drive command buffer. Synchronize
+			# raw levels so a held direction does not become a fresh edge when
+			# Shift is released.
+			var vision_raw_snapshot: Dictionary = deps.get("vision_exclusive_raw_snapshot", {})
+			drive_input_state.discard_current_inputs(
+				bool(vision_raw_snapshot.get("left_pressed", false)),
+				bool(vision_raw_snapshot.get("right_pressed", false)),
+				bool(vision_raw_snapshot.get("action_pressed", false))
+			)
+			drive_input_state.update_cooldowns(fps_scale)
+		else:
+			drive_input_state.update_input_and_cooldowns(
+				left_pressed,
+				right_pressed,
+				action_pressed,
+				next_frame_counter,
+				fps_scale
+			)
 
 	var recovery_activated := false
 	var recovery_state: Object = deps.get("smasher_recovery_state", null)

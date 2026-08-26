@@ -9,6 +9,7 @@ var action_press_frame: int = -1
 var last_left_pressed: bool = false
 var last_right_pressed: bool = false
 var last_action_pressed: bool = false
+var _exclusive_discard_enabled := true
 
 
 func reset() -> void:
@@ -36,6 +37,25 @@ func update_input_frames(
 	last_left_pressed = left_pressed
 	last_right_pressed = right_pressed
 	last_action_pressed = action_pressed
+
+
+func discard_current_inputs(
+	left_pressed: bool,
+	right_pressed: bool,
+	action_pressed: bool
+) -> void:
+	if not _exclusive_discard_enabled:
+		return
+	left_press_frame = -1
+	right_press_frame = -1
+	action_press_frame = -1
+	last_left_pressed = left_pressed
+	last_right_pressed = right_pressed
+	last_action_pressed = action_pressed
+
+
+func set_exclusive_discard_enabled_for_test(enabled: bool) -> void:
+	_exclusive_discard_enabled = enabled
 
 
 func consume_direction(current_frame: int) -> int:

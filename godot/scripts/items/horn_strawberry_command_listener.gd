@@ -24,6 +24,16 @@ func clear_sequence() -> void:
 
 
 func feed_input_snapshot(input_snapshot: Dictionary, delta: float, enabled: bool = true) -> bool:
+	if bool(input_snapshot.get("vision_input_exclusive", false)):
+		# Vision may pass A/D through as movement for non-Cheongringwi loadouts.
+		# Keep those levels out of this command buffer while synchronizing the
+		# physical hold state, so Shift release cannot replay a deferred edge.
+		return feed_buttons(
+			bool(input_snapshot.get("left_pressed", false)),
+			bool(input_snapshot.get("right_pressed", false)),
+			delta,
+			false
+		)
 	return feed_buttons(
 		bool(input_snapshot.get("left_pressed", false)),
 		bool(input_snapshot.get("right_pressed", false)),

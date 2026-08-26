@@ -8,6 +8,11 @@ static func build_motion_result(skill_name: String, player_pos: Vector2, special
 
 
 static func try_ready_activation(runtime: Object, input_snapshot: Dictionary, player_pos: Vector2, special_gauge: float, config: Dictionary, deps: Dictionary, now_msec: int, constants: Dictionary) -> Dictionary:
+	if (
+		bool(constants.get("vision_exclusive_guard_enabled", true))
+		and bool(input_snapshot.get("vision_input_exclusive", false))
+	):
+		return {}
 	if not runtime._is_core_flip_ready_window_active(now_msec):
 		return {}
 	var core_flip_left_press_age: int = runtime.input_sequence_frame - runtime.core_flip_left_press_frame

@@ -50,9 +50,14 @@ func handle_round_restart(registry: Object, reason: String, reset_ball_callback:
 	var deps: Dictionary = _get_match_flow_deps(registry)
 	_perf_end(perf_logger, "physics.round_restart.match_flow.build_deps", sample_start)
 	sample_start = _perf_begin(perf_logger)
-	controller.handle_round_restart(reason, deps, {
-		"reset_ball": reset_ball_callback,
-	})
+	var callbacks := {"reset_ball": reset_ball_callback}
+	var actor_driver: Object = _get_instance(registry, "battle_scene_actor_update_driver")
+	if actor_driver != null and actor_driver.has_method("reset_vision_input_state"):
+		callbacks["reset_vision_input_state"] = Callable(
+			actor_driver,
+			"reset_vision_input_state"
+		)
+	controller.handle_round_restart(reason, deps, callbacks)
 	_perf_end(perf_logger, "physics.round_restart.match_flow.controller", sample_start)
 
 

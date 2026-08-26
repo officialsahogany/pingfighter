@@ -13,12 +13,15 @@ func configure(input_reader: Object, skill_state: Object, shared_status_state: O
 
 
 func get_snapshot() -> Dictionary:
-	var snapshot := _read_source_snapshot()
+	return transform_snapshot(_read_source_snapshot())
+
+
+func transform_snapshot(source_snapshot: Dictionary) -> Dictionary:
 	if _is_player_stun_active():
-		return _lock_player_stun_input(snapshot)
+		return _lock_player_stun_input(source_snapshot)
 	if not _is_curse_reverse_active():
-		return snapshot
-	return _reverse_horizontal_input(snapshot)
+		return source_snapshot.duplicate(true)
+	return _reverse_horizontal_input(source_snapshot)
 
 
 func _read_source_snapshot() -> Dictionary:
@@ -26,7 +29,9 @@ func _read_source_snapshot() -> Dictionary:
 		return {}
 	var value: Variant = source_reader.get_snapshot()
 	if value is Dictionary:
-		return value.duplicate(true)
+		# transform_snapshot() owns the single defensive deep copy, either in its
+		# passthrough branch or inside the stun/reverse transformer.
+		return value as Dictionary
 	return {}
 
 

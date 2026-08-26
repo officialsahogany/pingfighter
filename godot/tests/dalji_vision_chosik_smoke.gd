@@ -9,6 +9,7 @@ const BallFrameMotionController := preload("res://scripts/ball/ball_frame_motion
 const WallBounceController := preload("res://scripts/ball/wall_bounce_controller.gd")
 const BallIntensity := preload("res://scripts/ball/ball_intensity.gd")
 const VisionModifierInputProxy := preload("res://scripts/characters/vision_modifier_input_proxy.gd")
+const VisionInputExclusivePolicy := preload("res://scripts/characters/vision_input_exclusive_policy.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkCharacterContext := preload("res://scripts/characters/runtime_perk_character_context.gd")
@@ -273,12 +274,21 @@ func _verify_catalog_and_all_character_equip() -> void:
 
 func _verify_strict_shift_command_and_ball_return() -> void:
 	var base_input_reader := FakeInputReader.new()
-	var modifier_proxy: Object = VisionModifierInputProxy.new().configure(base_input_reader)
+	var raw_snapshot := base_input_reader.get_snapshot()
+	var modifier_proxy: Object = VisionModifierInputProxy.new().configure_snapshot(
+		base_input_reader,
+		raw_snapshot,
+		true,
+		VisionInputExclusivePolicy.get_blocked_hold_channels(FakeSkillConfig.new())
+	)
 	var locked_snapshot: Dictionary = modifier_proxy.get_snapshot()
-	_expect(not bool(locked_snapshot.get("left_pressed", true)), "Vision modifier should consume left input before the character command pool")
-	_expect(not bool(locked_snapshot.get("right_pressed", true)), "Vision modifier should consume right input before the character command pool")
+	_expect(not bool(locked_snapshot.get("left_pressed", true)), "Dalji-only Vision should block command left")
+	_expect(not bool(locked_snapshot.get("right_pressed", true)), "Dalji-only Vision should block command right")
+	_expect(bool(locked_snapshot.get("movement_left_pressed", false)), "Dalji-only Vision should preserve movement left")
+	_expect(bool(locked_snapshot.get("movement_right_pressed", false)), "Dalji-only Vision should preserve movement right")
 	_expect(not bool(locked_snapshot.get("up_pressed", true)), "Vision modifier should consume W/Up input before the character command pool")
-	_expect_close(float(locked_snapshot.get("direction", 1.0)), 0.0, "Vision modifier should lock horizontal movement")
+	_expect_close(float(locked_snapshot.get("direction", 1.0)), 0.0, "Dalji-only Vision should block command direction")
+	_expect_close(float(locked_snapshot.get("movement_direction", 0.0)), 1.0, "Dalji-only Vision should preserve horizontal movement direction")
 	_expect_eq(int(locked_snapshot.get("power_smash_direction", 1)), 0, "Vision modifier should suppress Smasher direction commands")
 	_expect_eq(int(locked_snapshot.get("blacksmith_swing_direction", 1)), 0, "Vision modifier should suppress Blacksmith direction commands")
 	modifier_proxy.suppress_primary_pointer_until_release()

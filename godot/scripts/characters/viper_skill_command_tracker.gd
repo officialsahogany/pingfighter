@@ -1,5 +1,7 @@
 extends RefCounted
 
+const CORE_FLIP_INPUT_FRAME_UNSET := -999999
+
 
 func update_before_movement(runtime: Object, input_snapshot: Dictionary, command_skill_config: Object, deps: Dictionary, now_msec: int, constants: Dictionary) -> Dictionary:
 	runtime.input_sequence_frame += 1
@@ -9,6 +11,18 @@ func update_before_movement(runtime: Object, input_snapshot: Dictionary, command
 	var up_edge: bool = up_pressed and not runtime.previous_up_pressed
 	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
+	if bool(input_snapshot.get("vision_input_exclusive", false)):
+		_discard_command_input(runtime, down_pressed, up_pressed, left_pressed, right_pressed)
+		return {
+			"down_pressed": down_pressed,
+			"pressed_edge": false,
+			"up_pressed": up_pressed,
+			"up_edge": false,
+			"left_pressed": left_pressed,
+			"right_pressed": right_pressed,
+			"left_edge": false,
+			"right_edge": false,
+		}
 	var left_edge: bool = left_pressed and not runtime.previous_left_pressed
 	var right_edge: bool = right_pressed and not runtime.previous_right_pressed
 	runtime.previous_down_pressed = down_pressed
@@ -28,6 +42,17 @@ func update_before_movement(runtime: Object, input_snapshot: Dictionary, command
 		"left_edge": left_edge,
 		"right_edge": right_edge,
 	}
+
+
+func _discard_command_input(runtime: Object, down_pressed: bool, up_pressed: bool, left_pressed: bool, right_pressed: bool) -> void:
+	runtime.dual_glitch_cmd_buffer.clear()
+	runtime.chaos_cmd_buffer.clear()
+	runtime.core_flip_left_press_frame = CORE_FLIP_INPUT_FRAME_UNSET
+	runtime.core_flip_right_press_frame = CORE_FLIP_INPUT_FRAME_UNSET
+	runtime.previous_down_pressed = down_pressed
+	runtime.previous_up_pressed = up_pressed
+	runtime.previous_left_pressed = left_pressed
+	runtime.previous_right_pressed = right_pressed
 
 
 func _update_dual_glitch_command(runtime: Object, command_skill_config: Object, deps: Dictionary, now_msec: int, left_edge: bool, right_edge: bool, up_edge: bool, constants: Dictionary) -> void:

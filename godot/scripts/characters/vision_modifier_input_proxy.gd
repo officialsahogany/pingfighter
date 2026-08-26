@@ -24,14 +24,27 @@ const EDGE_CHANNEL_OWNERS := {
 	"firearm_reset_just_pressed": "mouse_middle_pressed",
 	"secondary_action_just_pressed": "secondary_action_pressed",
 }
+const MOVEMENT_LATCH_EXEMPT_CHANNELS := {
+	"left_pressed": true,
+	"right_pressed": true,
+}
 
 var _input_reader: Object = null
 var _snapshot: Dictionary = {}
+var _physical_snapshot: Dictionary = {}
 var _filtered_snapshot: Dictionary = {}
 var _exclusive_active := false
+var _blocked_hold_channels: Dictionary = {}
 var _suppressed_until_release := {}
 var _current_snapshot_filtered := false
 var _discard_latch_enabled := true
+var _movement_latch_exempt_channels: Dictionary = MOVEMENT_LATCH_EXEMPT_CHANNELS.duplicate()
+var _same_frame_rebuild_idempotence_enabled := true
+var _suppression_frame_key := -1
+var _suppression_frame_owner_id := 0
+var _frame_start_suppression: Dictionary = {}
+var _frame_post_suppression: Dictionary = {}
+var _frame_snapshot_configured := false
 
 
 func configure(input_reader: Object) -> Object:
@@ -44,11 +57,59 @@ func configure(input_reader: Object) -> Object:
 	return configure_snapshot(input_reader, snapshot, true)
 
 
-func configure_snapshot(input_reader: Object, snapshot: Dictionary, exclusive_active: bool) -> Object:
+func begin_snapshot_frame(frame_key: int, owner_id: int) -> void:
+	if not _same_frame_rebuild_idempotence_enabled:
+		return
+	if frame_key == _suppression_frame_key and owner_id == _suppression_frame_owner_id:
+		return
+	_suppression_frame_key = frame_key
+	_suppression_frame_owner_id = owner_id
+	_frame_start_suppression = _suppressed_until_release.duplicate()
+	_frame_post_suppression = _frame_start_suppression.duplicate()
+	_frame_snapshot_configured = false
+
+
+func configure_snapshot(
+	input_reader: Object,
+	snapshot: Dictionary,
+	exclusive_active: bool,
+	blocked_hold_channels: Dictionary = {},
+	physical_snapshot: Dictionary = {}
+) -> Object:
+	var replaying_same_frame := (
+		_same_frame_rebuild_idempotence_enabled
+		and _suppression_frame_key >= 0
+		and _frame_snapshot_configured
+	)
+	if replaying_same_frame:
+		# A mythic raw-reader request may build before player control enriches the
+		# cached snapshot with Stage 3 status movement. Rebuild from the same
+		# frame-start latch set so both views drain identical command channels.
+		_suppressed_until_release = _frame_start_suppression.duplicate()
 	_input_reader = input_reader
 	_snapshot = snapshot.duplicate(true)
+	_physical_snapshot = (
+		physical_snapshot.duplicate(true)
+		if not physical_snapshot.is_empty()
+		else _snapshot.duplicate(true)
+	)
 	_exclusive_active = exclusive_active
+	_blocked_hold_channels = blocked_hold_channels.duplicate()
+	# Legacy direct callers predate per-skill policy. Preserve their explicit
+	# exclusive=true contract by defaulting to the complete channel set.
+	if _exclusive_active and _blocked_hold_channels.is_empty():
+		for channel: String in HOLD_CHANNELS:
+			_blocked_hold_channels[channel] = true
 	_filtered_snapshot = _build_filtered_snapshot()
+	if _same_frame_rebuild_idempotence_enabled and _suppression_frame_key >= 0:
+		if not _frame_snapshot_configured:
+			_frame_post_suppression = _suppressed_until_release.duplicate()
+			_frame_snapshot_configured = true
+		elif replaying_same_frame:
+			# Only the first configure mutates cross-frame latch state. Later
+			# same-frame status rebuilds replay its drain set for their output, then
+			# restore the first configure's authoritative next-frame state.
+			_suppressed_until_release = _frame_post_suppression.duplicate()
 	return self
 
 
@@ -59,17 +120,42 @@ func get_snapshot() -> Dictionary:
 func _build_filtered_snapshot() -> Dictionary:
 	var filtered := _snapshot.duplicate(true)
 	var drained_channels := {}
-	_current_snapshot_filtered = _exclusive_active
+	_current_snapshot_filtered = false
+	var movement_left_pressed := bool(_snapshot.get("left_pressed", false))
+	var movement_right_pressed := bool(_snapshot.get("right_pressed", false))
+	var movement_direction := float(
+		_snapshot.get("direction", _horizontal_direction(_snapshot))
+	)
+	var horizontal_movement_blocked := (
+		_exclusive_active
+		and (
+			bool(_blocked_hold_channels.get("left_pressed", false))
+			or bool(_blocked_hold_channels.get("right_pressed", false))
+		)
+	)
+	if horizontal_movement_blocked:
+		movement_left_pressed = false
+		movement_right_pressed = false
+		movement_direction = 0.0
 	# GRT-050: the real reader is still sampled while Vision owns combat input.
 	# Held channels are discarded, never deferred; after Shift release they stay
 	# suppressed until their physical release, including synthesized release
 	# edges such as Commando's hold/action channels.
 	for channel: String in HOLD_CHANNELS:
-		var raw_pressed := bool(_snapshot.get(channel, false))
-		if _discard_latch_enabled and _exclusive_active and raw_pressed:
+		var raw_pressed := bool(_physical_snapshot.get(channel, false))
+		var blocked_while_exclusive := (
+			_exclusive_active
+			and bool(_blocked_hold_channels.get(channel, false))
+		)
+		if (
+			_discard_latch_enabled
+			and blocked_while_exclusive
+			and raw_pressed
+			and not bool(_movement_latch_exempt_channels.get(channel, false))
+		):
 			_suppressed_until_release[channel] = true
 		var must_suppress := (
-			_exclusive_active
+			blocked_while_exclusive
 			or (
 				_discard_latch_enabled
 				and bool(_suppressed_until_release.get(channel, false))
@@ -87,11 +173,28 @@ func _build_filtered_snapshot() -> Dictionary:
 			_suppressed_until_release.erase(channel)
 	for edge_channel: String in EDGE_CHANNEL_OWNERS:
 		var owner_channel := str(EDGE_CHANNEL_OWNERS[edge_channel])
-		if _exclusive_active or bool(drained_channels.get(owner_channel, false)):
+		if bool(drained_channels.get(owner_channel, false)):
 			filtered[edge_channel] = false
-	filtered["direction"] = 0.0 if _is_horizontal_suppressed(drained_channels) else _horizontal_direction(filtered)
-	filtered["power_smash_direction"] = _exclusive_horizontal_direction(filtered)
-	filtered["blacksmith_swing_direction"] = _exclusive_horizontal_direction(filtered)
+	# F4(b): ordinary horizontal fields are command lanes. Vision-exclusive
+	# frames expose player translation only through the dedicated movement lane,
+	# making every existing/future non-movement consumer blocked by default.
+	if _exclusive_active:
+		filtered["left_pressed"] = false
+		filtered["right_pressed"] = false
+		filtered["direction"] = 0.0
+		_current_snapshot_filtered = true
+	else:
+		filtered["direction"] = (
+			0.0
+			if _is_horizontal_suppressed(drained_channels)
+			else float(_snapshot.get("direction", _horizontal_direction(filtered)))
+		)
+	filtered["movement_left_pressed"] = movement_left_pressed
+	filtered["movement_right_pressed"] = movement_right_pressed
+	filtered["movement_direction"] = movement_direction
+	filtered["power_smash_direction"] = 0 if _exclusive_active else _exclusive_horizontal_direction(filtered)
+	filtered["blacksmith_swing_direction"] = 0 if _exclusive_active else _exclusive_horizontal_direction(filtered)
+	filtered["vision_input_exclusive"] = _exclusive_active
 	return filtered
 
 
@@ -118,10 +221,39 @@ func set_discard_latch_enabled_for_test(enabled: bool) -> void:
 		_suppressed_until_release.clear()
 
 
+func set_movement_latch_exempt_channels_for_test(channels: Array) -> void:
+	_movement_latch_exempt_channels.clear()
+	for channel_value: Variant in channels:
+		_movement_latch_exempt_channels[str(channel_value)] = true
+
+
+func set_same_frame_rebuild_idempotence_enabled_for_test(enabled: bool) -> void:
+	_same_frame_rebuild_idempotence_enabled = enabled
+	invalidate_snapshot_frame_for_test()
+
+
+func invalidate_snapshot_frame_for_test() -> void:
+	_suppression_frame_key = -1
+	_suppression_frame_owner_id = 0
+	_frame_start_suppression.clear()
+	_frame_post_suppression.clear()
+	_frame_snapshot_configured = false
+
+
+func reset() -> void:
+	_snapshot.clear()
+	_physical_snapshot.clear()
+	_filtered_snapshot.clear()
+	_blocked_hold_channels.clear()
+	_suppressed_until_release.clear()
+	_exclusive_active = false
+	_current_snapshot_filtered = false
+	invalidate_snapshot_frame_for_test()
+
+
 func _is_horizontal_suppressed(drained_channels: Dictionary) -> bool:
 	return (
-		_exclusive_active
-		or bool(drained_channels.get("left_pressed", false))
+		bool(drained_channels.get("left_pressed", false))
 		or bool(drained_channels.get("right_pressed", false))
 	)
 

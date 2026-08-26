@@ -16,6 +16,7 @@ var _vision_input_frame_key := -1
 var _vision_input_owner_id := 0
 var _vision_input_frame: Dictionary = {}
 var _vision_proxy_enabled := true
+var _vision_status_movement_transform_enabled := true
 
 
 func update_player_control(owner: Object, registry: Object, delta: float) -> void:
@@ -63,8 +64,15 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 	var vision_movement_locked := false
 	var vision_activated := false
 	var input_reader: Object = player_control_deps.get("input_reader", null)
+	var status_input_reader: Object = player_control_deps.get("status_input_reader", null)
 	var skill_config: Object = player_control_deps.get("skill_config", null)
-	var vision_input_frame := prepare_vision_input_frame(owner, registry, input_reader, skill_config)
+	var vision_input_frame := prepare_vision_input_frame(
+		owner,
+		registry,
+		input_reader,
+		skill_config,
+		status_input_reader
+	)
 	var input_snapshot: Dictionary = _get_dictionary(vision_input_frame, "raw_snapshot")
 	var modifier_pressed := bool(vision_input_frame.get("modifier_pressed", false))
 	var vision_input_exclusive := bool(vision_input_frame.get("exclusive_active", false))
@@ -95,6 +103,9 @@ func update_player_control(owner: Object, registry: Object, delta: float) -> voi
 		# must use the canonical frame snapshot instead of polling raw again.
 		player_control_deps["dash_input_reader"] = shared_vision_input_reader
 	if vision_input_exclusive:
+		player_control_deps["vision_exclusive_raw_snapshot"] = input_snapshot
+	config["vision_input_exclusive"] = vision_input_exclusive
+	if bool(vision_input_frame.get("horizontal_input_blocked", false)):
 		config["horizontal_input_locked"] = true
 	sample_start = _perf_begin(perf_logger)
 	var result: Dictionary = controller.update(
@@ -124,7 +135,8 @@ func prepare_vision_input_frame(
 	owner: Object,
 	registry: Object,
 	input_reader: Object = null,
-	skill_config: Object = null
+	skill_config: Object = null,
+	status_input_reader: Object = null
 ) -> Dictionary:
 	if owner == null or registry == null:
 		return {
@@ -135,11 +147,16 @@ func prepare_vision_input_frame(
 		}
 	var frame_key := int(Engine.get_physics_frames())
 	var owner_id := owner.get_instance_id()
+	_vision_modifier_input_proxy.begin_snapshot_frame(frame_key, owner_id)
 	if (
 		frame_key == _vision_input_frame_key
 		and owner_id == _vision_input_owner_id
 		and not _vision_input_frame.is_empty()
 	):
+		_refresh_cached_status_movement_transform(
+			status_input_reader if status_input_reader != null else input_reader,
+			skill_config if skill_config != null else _vision_input_frame.get("skill_config", null)
+		)
 		return _vision_input_frame.duplicate()
 	var canonical_input_reader: Object = _get_character_input_reader(owner, registry)
 	if canonical_input_reader == null:
@@ -159,19 +176,36 @@ func prepare_vision_input_frame(
 			input_snapshot = (snapshot_value as Dictionary).duplicate(true)
 	var modifier_pressed := Input.is_action_pressed("vision_modifier")
 	var vision_input_exclusive := VisionInputExclusivePolicy.is_active(modifier_pressed, skill_config)
+	var blocked_hold_channels := VisionInputExclusivePolicy.get_blocked_hold_channels(skill_config)
+	var movement_snapshot := _apply_status_movement_transform(
+		input_snapshot,
+		status_input_reader if status_input_reader != null else input_reader
+	)
 	_vision_modifier_input_proxy.configure_snapshot(
 		canonical_input_reader,
-		input_snapshot,
-		vision_input_exclusive
+		movement_snapshot,
+		vision_input_exclusive,
+		blocked_hold_channels,
+		input_snapshot
 	)
 	_vision_input_frame_key = frame_key
 	_vision_input_owner_id = owner_id
 	_vision_input_frame = {
 		"raw_snapshot": input_snapshot,
+		"source_reader": canonical_input_reader,
+		"skill_config": skill_config,
+		"blocked_hold_channels": blocked_hold_channels.duplicate(),
 		"input_reader": _vision_modifier_input_proxy if _vision_proxy_enabled else canonical_input_reader,
 		"modifier_pressed": modifier_pressed,
 		"exclusive_active": vision_input_exclusive,
+		"horizontal_input_blocked": (
+			vision_input_exclusive
+			and VisionInputExclusivePolicy.blocks_horizontal_movement(skill_config)
+		),
 		"combat_input_filtered": _vision_modifier_input_proxy.should_filter_current_snapshot(),
+		"status_movement_transform_applied": _can_transform_status_snapshot(
+			status_input_reader if status_input_reader != null else input_reader
+		),
 	}
 	return _vision_input_frame.duplicate()
 
@@ -179,10 +213,82 @@ func prepare_vision_input_frame(
 func set_vision_proxy_enabled_for_test(enabled: bool) -> void:
 	_vision_proxy_enabled = enabled
 	_vision_input_frame.clear()
+	_vision_modifier_input_proxy.invalidate_snapshot_frame_for_test()
+
+
+func set_vision_status_movement_transform_enabled_for_test(enabled: bool) -> void:
+	_vision_status_movement_transform_enabled = enabled
+	_vision_input_frame.clear()
+	_vision_modifier_input_proxy.invalidate_snapshot_frame_for_test()
+
+
+func set_vision_same_frame_rebuild_idempotence_enabled_for_test(enabled: bool) -> void:
+	_vision_modifier_input_proxy.set_same_frame_rebuild_idempotence_enabled_for_test(enabled)
+	_vision_input_frame.clear()
 
 
 func reset_vision_input_frame_cache_for_test() -> void:
 	_vision_input_frame.clear()
+	_vision_modifier_input_proxy.invalidate_snapshot_frame_for_test()
+
+
+func reset_vision_input_state() -> void:
+	_vision_modifier_input_proxy.reset()
+	_vision_input_frame_key = -1
+	_vision_input_owner_id = 0
+	_vision_input_frame.clear()
+
+
+func _refresh_cached_status_movement_transform(
+	status_input_reader: Object,
+	skill_config: Object
+) -> void:
+	if bool(_vision_input_frame.get("status_movement_transform_applied", false)):
+		return
+	if not _can_transform_status_snapshot(status_input_reader):
+		return
+	var raw_snapshot: Dictionary = _get_dictionary(_vision_input_frame, "raw_snapshot")
+	var movement_snapshot := _apply_status_movement_transform(
+		raw_snapshot,
+		status_input_reader
+	)
+	var exclusive_active := bool(_vision_input_frame.get("exclusive_active", false))
+	var blocked_hold_channels: Dictionary = _vision_input_frame.get(
+		"blocked_hold_channels",
+		VisionInputExclusivePolicy.get_blocked_hold_channels(skill_config)
+	)
+	_vision_modifier_input_proxy.configure_snapshot(
+		_vision_input_frame.get("source_reader", null),
+		movement_snapshot,
+		exclusive_active,
+		blocked_hold_channels,
+		raw_snapshot
+	)
+	_vision_input_frame["combat_input_filtered"] = (
+		_vision_modifier_input_proxy.should_filter_current_snapshot()
+	)
+	_vision_input_frame["status_movement_transform_applied"] = true
+
+
+func _apply_status_movement_transform(
+	raw_snapshot: Dictionary,
+	status_input_reader: Object
+) -> Dictionary:
+	if not _can_transform_status_snapshot(status_input_reader):
+		return raw_snapshot.duplicate(true)
+	var transformed_value: Variant = status_input_reader.transform_snapshot(raw_snapshot)
+	if transformed_value is Dictionary:
+		# configure_snapshot() takes its own immutable copy at the proxy boundary.
+		return transformed_value as Dictionary
+	return raw_snapshot.duplicate(true)
+
+
+func _can_transform_status_snapshot(status_input_reader: Object) -> bool:
+	return (
+		_vision_status_movement_transform_enabled
+		and status_input_reader != null
+		and status_input_reader.has_method("transform_snapshot")
+	)
 
 
 func get_vision_aware_input_reader(

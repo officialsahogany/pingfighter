@@ -24,6 +24,10 @@ func update_input_frames(
 	buffer_state.update_input_frames(left_pressed, right_pressed, action_pressed, current_frame)
 
 
+func discard_current_inputs(left_pressed: bool, right_pressed: bool, action_pressed: bool) -> void:
+	buffer_state.discard_current_inputs(left_pressed, right_pressed, action_pressed)
+
+
 func update_cooldowns(fps_scale: float) -> void:
 	cooldown_state.update(fps_scale)
 

@@ -63,6 +63,10 @@ func build_deps(registry: Object, character_type: String = PlayerCharacterRuntim
 		"ai_state": _get_instance(registry, "boss_ai_state"),
 		"impact_effects": _get_instance(registry, "impact_effects"),
 		"input_reader": routed_input_reader,
+		# The actor driver already owns the one raw sample for a physics frame.
+		# Expose the status proxy as a pure snapshot transform so Vision movement
+		# keeps stun/reverse semantics without polling the raw reader twice.
+		"status_input_reader": status_input_reader,
 		"dash_input_reader": dash_input_reader,
 		"dash_state": _get_instance(registry, character_runtime.get_dash_state_key(character_type)),
 		"drive_input_state": null if is_viper or is_commando or is_optimus or is_blacksmith else _get_instance(registry, "smasher_drive_input_state"),

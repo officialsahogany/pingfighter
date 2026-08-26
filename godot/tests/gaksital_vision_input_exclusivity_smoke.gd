@@ -158,6 +158,7 @@ class FakeController:
 	var calls := 0
 	var snapshot: Dictionary = {}
 	var dash_snapshot: Dictionary = {}
+	var config_snapshot: Dictionary = {}
 
 	func update(
 		_delta: float,
@@ -168,6 +169,7 @@ class FakeController:
 		deps: Dictionary
 	) -> Dictionary:
 		calls += 1
+		config_snapshot = config.duplicate(true)
 		var input_reader: Object = deps.get("input_reader", null)
 		snapshot = input_reader.get_snapshot()
 		var dash_input_reader: Object = deps.get("dash_input_reader", null)
@@ -326,7 +328,7 @@ func _verify_project_action_and_single_snapshot() -> void:
 	var filtered: Dictionary = proxy.get_snapshot()
 	_expect_eq(proxy.get_snapshot(), filtered, "filtered proxy snapshot must be same-frame idempotent")
 	_expect_eq(reader.calls, 1, "Vision layer and controller must share one reader snapshot")
-	_verify_all_combat_channels_blocked(filtered)
+	_verify_all_combat_channels_blocked(filtered, true)
 	_expect(bool(raw_snapshot.get("secondary_action_just_pressed", false)), "raw Vision snapshot must retain RMB edge")
 	var actor_source := FileAccess.get_file_as_string("res://scripts/core/battle_scene_actor_update_driver.gd")
 	_expect_eq(actor_source.count("canonical_input_reader.get_snapshot()"), 1, "production actor driver must sample the canonical reader once")
@@ -365,7 +367,9 @@ func _verify_actor_driver_production_path() -> void:
 	Input.action_release("vision_modifier")
 	_expect_eq(reader.calls, 1, "production actor driver must read the stateful input reader once")
 	_expect_eq(controller.calls, 1, "production character controller must run once")
-	_verify_all_combat_channels_blocked(controller.snapshot)
+	_verify_all_combat_channels_blocked(controller.snapshot, false)
+	_expect(not bool(controller.config_snapshot.get("horizontal_input_locked", false)), "Gaksital-only Vision must not engage the controller horizontal lock")
+	_expect(bool(controller.config_snapshot.get("vision_input_exclusive", false)), "Gaksital-only Vision must still own non-movement combat input")
 	_expect_eq(gaksital.fans.size(), 1, "production raw Vision layer must activate one Gaksital fan")
 	_expect_eq(owner.special_gauge, 20.0, "production actor path must apply the 80-vigor spend")
 
@@ -635,11 +639,14 @@ func _verify_paddle_and_mythic_production_consumers(bypass_shared_proxy: bool = 
 	var horn_snapshot: Dictionary = horn_reader.get_snapshot()
 	_expect(not bool(odin_snapshot.get("mouse_left_just_pressed", false)), "Shift Vision must block Odin dark-swamp LMB")
 	_expect(
-		not bool(horn_snapshot.get("left_pressed", false))
-		and not bool(horn_snapshot.get("right_pressed", false))
+		not bool(horn_snapshot.get("left_pressed", true))
+		and not bool(horn_snapshot.get("right_pressed", true))
+		and bool(horn_snapshot.get("movement_left_pressed", false))
+		and bool(horn_snapshot.get("movement_right_pressed", false))
 		and not bool(horn_snapshot.get("down_pressed", false)),
-		"Shift Vision must block horn-strawberry transform command channels"
+		"Gaksital-only Vision must split horizontal movement from blocked command lanes"
 	)
+	_expect(bool(horn_snapshot.get("vision_input_exclusive", false)), "horn command listener must receive the Vision ownership marker")
 	_expect_eq(reader.calls, 1, "paddle and mythic consumers must share one raw reader sample")
 	Input.action_release("vision_modifier")
 
@@ -815,9 +822,9 @@ func _vision_config(gauge: float) -> Dictionary:
 	}
 
 
-func _verify_all_combat_channels_blocked(filtered: Dictionary) -> void:
+func _verify_all_combat_channels_blocked(filtered: Dictionary, horizontal_blocked: bool) -> void:
 	for key in [
-		"left_pressed", "right_pressed", "up_pressed", "down_pressed", "up_just_pressed",
+		"up_pressed", "down_pressed", "up_just_pressed",
 		"action_pressed", "action_just_pressed", "action_just_released", "mouse_left_pressed",
 		"mouse_left_just_pressed", "mouse_middle_pressed", "mouse_middle_just_pressed",
 		"firearm_reset_just_pressed", "secondary_action_pressed", "secondary_action_just_pressed",
@@ -825,7 +832,19 @@ func _verify_all_combat_channels_blocked(filtered: Dictionary) -> void:
 		"gamepad_supply_hold_pressed", "jetpack_pressed",
 	]:
 		_expect(not bool(filtered.get(key, false)), "exclusive Vision proxy must block %s" % key)
-	_expect_eq(float(filtered.get("direction", 1.0)), 0.0, "exclusive Vision movement direction")
+	if horizontal_blocked:
+		_expect(not bool(filtered.get("left_pressed", false)), "horizontal-owning Vision must block left input")
+		_expect(not bool(filtered.get("right_pressed", false)), "horizontal-owning Vision must block right input")
+		_expect_eq(float(filtered.get("direction", 1.0)), 0.0, "horizontal-owning Vision movement direction")
+		_expect(not bool(filtered.get("movement_left_pressed", false)), "horizontal-owning Vision must block movement left")
+		_expect(not bool(filtered.get("movement_right_pressed", false)), "horizontal-owning Vision must block movement right")
+	else:
+		_expect(not bool(filtered.get("left_pressed", true)), "Gaksital-only Vision must block command left")
+		_expect(not bool(filtered.get("right_pressed", true)), "Gaksital-only Vision must block command right")
+		_expect_eq(float(filtered.get("direction", 1.0)), 0.0, "Gaksital-only Vision must block command direction")
+		_expect(bool(filtered.get("movement_left_pressed", false)), "Gaksital-only Vision must pass held movement left")
+		_expect(bool(filtered.get("movement_right_pressed", false)), "Gaksital-only Vision must pass held movement right")
+		_expect_eq(float(filtered.get("movement_direction", 0.0)), 1.0, "Gaksital-only Vision must preserve the authoritative movement direction")
 	_expect_eq(int(filtered.get("power_smash_direction", 1)), 0, "exclusive Smasher direction")
 	_expect_eq(int(filtered.get("blacksmith_swing_direction", 1)), 0, "exclusive Blacksmith direction")
 

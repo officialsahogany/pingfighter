@@ -6,6 +6,9 @@ const AngelBlessingRollOverlayHost := preload("res://scripts/hud/angel_blessing_
 
 func handle_round_restart(reason: String, deps: Dictionary, callbacks: Dictionary) -> void:
 	AngelBlessingRollOverlayHost.hide_all_existing_hosts()
+	# Score/serve ball resets must preserve held-input discard latches. Only this
+	# true round-restart lifecycle clears the actor-owned Vision input state.
+	_call_callback(callbacks, "reset_vision_input_state")
 	var round_state: Object = deps.get("round_state", null)
 	if not _call_callback(callbacks, "reset_ball") and round_state != null and round_state.has_method("reset_round_wait"):
 		round_state.reset_round_wait()

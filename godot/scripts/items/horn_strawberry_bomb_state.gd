@@ -48,6 +48,7 @@ var last_boss_hit_count := 0
 var suppress_paddle_hit_knockback_frames := 0.0
 var suppress_boss_vel := 0.0
 var _next_bomb_id := 1
+var _vision_exclusive_guard_enabled := true
 
 
 func reset() -> void:
@@ -89,6 +90,13 @@ func can_use(current_gauge: float) -> bool:
 
 
 func update_input(input_snapshot: Dictionary, delta: float, owner: Object, runtime: Object, blocked: bool = false, registry: Object = null) -> bool:
+	if (
+		_vision_exclusive_guard_enabled
+		and bool(input_snapshot.get("vision_input_exclusive", false))
+	):
+		holding = false
+		hold_timer_sec = 0.0
+		return false
 	var both_pressed: bool = bool(input_snapshot.get("left_pressed", false)) and bool(input_snapshot.get("right_pressed", false))
 	if blocked or not both_pressed:
 		holding = false
@@ -108,6 +116,10 @@ func update_input(input_snapshot: Dictionary, delta: float, owner: Object, runti
 	_start_throw(owner)
 	_play_audio(runtime, registry, "_play_horn_strawberry_bomb_throw_audio")
 	return true
+
+
+func set_vision_exclusive_guard_enabled_for_test(enabled: bool) -> void:
+	_vision_exclusive_guard_enabled = enabled
 
 
 func update(delta: float, owner: Object, registry: Object, transformed: bool, runtime: Object = null) -> void:

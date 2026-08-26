@@ -152,6 +152,10 @@ func update_input(
 
 	var left_pressed: bool = bool(input_snapshot.get("left_pressed", false))
 	var right_pressed: bool = bool(input_snapshot.get("right_pressed", false))
+	if bool(input_snapshot.get("vision_input_exclusive", false)):
+		both_held_start_msec = 0
+		keys_released = not (left_pressed or right_pressed)
+		return result
 	var both_pressed: bool = left_pressed and right_pressed
 	if both_pressed:
 		if both_held_start_msec == 0:

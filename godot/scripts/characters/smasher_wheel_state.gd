@@ -279,6 +279,9 @@ func update_input(
 	if bool(config.get("player_skill_input_locked", false)):
 		reset()
 		return result
+	if bool(input_snapshot.get("vision_input_exclusive", false)):
+		_discard_command_input(input_snapshot)
+		return result
 	_update_command_buffer(input_snapshot, current_msec)
 
 	if active:
@@ -889,6 +892,13 @@ func _update_command_buffer(input_snapshot: Dictionary, current_msec: int) -> vo
 			_push_command(key, current_msec)
 		previous_command_keys[key] = bool(current_keys[key])
 	_trim_expired_commands(current_msec)
+
+
+func _discard_command_input(input_snapshot: Dictionary) -> void:
+	command_buffer.clear()
+	previous_command_keys["a"] = bool(input_snapshot.get("left_pressed", false))
+	previous_command_keys["w"] = bool(input_snapshot.get("up_pressed", false))
+	previous_command_keys["d"] = bool(input_snapshot.get("right_pressed", false))
 
 
 func _consume_command_direction(current_msec: int) -> int:
