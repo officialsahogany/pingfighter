@@ -3941,9 +3941,25 @@ func _draw_guardian_spring_presentation(
 	canvas.draw_rect(view_rect, Color(0.015, 0.055, 0.050, 0.18), true)
 	_draw_guardian_spring_title(canvas, model)
 	var phase := str(presentation.get("phase", "statue"))
-	if phase == "ritual":
+	if phase in ["ascend", "reveal", "confirm", "absorb", "impact", "prayer"]:
+		if phase == "impact":
+			var impact_progress := float(presentation.get("phase_progress", 0.0))
+			var impact_elapsed := float(presentation.get("phase_elapsed_sec", 0.0))
+			var shake_strength := (1.0 - impact_progress) * 6.0
+			canvas.draw_set_transform(
+				Vector2(
+					sin(impact_elapsed * 91.0),
+					cos(impact_elapsed * 73.0)
+				) * shake_strength,
+				0.0,
+				Vector2.ONE
+			)
 		_draw_guardian_spring_statue(canvas, statue, glow, presentation, true)
 		_draw_guardian_spring_ritual(canvas, presentation, render_context)
+		if phase == "impact":
+			canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		if phase == "confirm":
+			_draw_guardian_spring_confirmation(canvas, presentation)
 		return
 	if bool(presentation.get("capsule_mode", false)):
 		_draw_guardian_spring_capsules(
@@ -4129,37 +4145,41 @@ func _draw_guardian_spring_ritual(
 		statue_rect.size.x * 0.50,
 		statue_rect.size.y * 0.47
 	)
-	var progress := float(presentation.get("ritual_progress", 0.0))
-	var pulse := sin(progress * PI)
-	# Modular piece 1: filled layered radiance. No outlined or closed ring.
-	for layer_index in range(4, 0, -1):
-		var layer_ratio := float(layer_index) / 4.0
-		canvas.draw_circle(
-			center,
-			(34.0 + 58.0 * layer_ratio) * (0.72 + 0.28 * pulse),
-			Color(0.58, 1.0, 0.84, (0.035 + 0.035 * layer_ratio) * pulse)
-		)
-	# Modular piece 2: broad filled light fans.
-	for fan_index in range(5):
-		var angle := -PI * 0.82 + float(fan_index) * PI * 0.41
-		var direction := Vector2(cos(angle), sin(angle))
-		var normal := Vector2(-direction.y, direction.x)
-		canvas.draw_colored_polygon(PackedVector2Array([
-			center + normal * 8.0,
-			center + direction * (118.0 + 24.0 * pulse),
-			center - normal * 8.0,
-		]), Color(0.64, 1.0, 0.86, 0.14 * pulse))
-	# Modular piece 3: deterministic filled light points; presentation RNG is absent.
+	var progress := float(presentation.get("phase_progress", 0.0))
+	var pulse := 0.72 + 0.28 * sin(float(presentation.get("ritual_elapsed_sec", 0.0)) * 3.4)
+	var asset_bundle: Dictionary = render_context.get("guardian_spring_presentation_assets", {})
+	var textures: Dictionary = asset_bundle.get("textures", {})
+	var backplate: Texture2D = textures.get("ritual_backplate", null) as Texture2D
+	var ring: Texture2D = textures.get("ritual_ring", null) as Texture2D
+	var shard: Texture2D = textures.get("soul_seal_shard", null) as Texture2D
+	var ritual_rect := Rect2(center - Vector2(150.0, 150.0), Vector2(300.0, 300.0))
+	if backplate != null:
+		canvas.draw_texture_rect(backplate, ritual_rect, false, Color(1.0, 1.0, 1.0, 0.42 * pulse))
+	if ring != null:
+		canvas.draw_texture_rect(ring, ritual_rect.grow(18.0), false, Color(1.0, 1.0, 1.0, 0.76 * pulse))
+	if shard != null:
+		for shard_index in range(4):
+			var shard_angle := float(shard_index) * TAU / 4.0 + 0.38
+			var shard_center := center + Vector2(cos(shard_angle), sin(shard_angle)) * 126.0
+			canvas.draw_texture_rect(
+				shard,
+				Rect2(shard_center - Vector2(24.0, 24.0), Vector2(48.0, 48.0)),
+				false,
+				Color(1.0, 1.0, 1.0, 0.58 + 0.18 * pulse)
+			)
+	# Deterministic motes keep presentation randomness out of authoritative RNG.
 	var elapsed := float(presentation.get("ritual_elapsed_sec", 0.0))
-	for point_index in range(14):
+	for point_index in range(8):
 		var phase := elapsed * (1.4 + float(point_index % 3) * 0.18) + float(point_index) * 1.91
 		var radius := 42.0 + float((point_index * 17) % 68)
 		var point := center + Vector2(cos(phase), sin(phase * 0.83)) * radius
 		canvas.draw_circle(
 			point,
 			2.2 + float(point_index % 3),
-			Color(0.76, 1.0, 0.90, 0.42 + 0.30 * pulse)
+			Color(0.76, 1.0, 0.90, 0.34 + 0.28 * pulse)
 		)
+	if str(presentation.get("operation", "")) == "prayer":
+		return
 	var icon_renderer: Object = render_context.get("icon_renderer", null)
 	if icon_renderer == null or not icon_renderer.has_method("draw_icon"):
 		return
@@ -4169,6 +4189,9 @@ func _draw_guardian_spring_ritual(
 		var effect := {
 			"progress": float(presentation.get("acquisition_progress", 0.0)),
 			"target_pos": presentation.get("acquisition_target_pos", Vector2(380.0, 690.0)),
+			# Guardian Spring uses only the head glyph: one 16-op fallback instead
+			# of the former three trail glyphs plus head (about 64 ops total).
+			"trail_count": 0,
 		}
 		# Reuse the existing Tower Chosik card-to-slot absorption geometry and trail.
 		var card_renderer: Object = render_context.get("card_renderer", null)
@@ -4203,6 +4226,65 @@ func _draw_guardian_spring_ritual(
 		1.0,
 		true
 	)
+	if str(presentation.get("phase", "")) == "impact":
+		var impact_center: Vector2 = presentation.get(
+			"acquisition_target_pos",
+			Vector2(380.0, 690.0)
+		)
+		canvas.draw_circle(
+			impact_center,
+			lerpf(18.0, 62.0, progress),
+			Color(0.76, 1.0, 0.88, (1.0 - progress) * 0.20)
+		)
+		canvas.draw_circle(
+			impact_center,
+			lerpf(10.0, 34.0, progress),
+			Color(0.94, 1.0, 0.82, (1.0 - progress) * 0.34)
+		)
+
+
+func _draw_guardian_spring_confirmation(
+	canvas: CanvasItem,
+	presentation: Dictionary
+) -> void:
+	var panel: Rect2 = presentation.get("confirmation_panel_rect", Rect2())
+	var no_rect: Rect2 = presentation.get("confirmation_no_rect", Rect2())
+	var yes_rect: Rect2 = presentation.get("confirmation_yes_rect", Rect2())
+	if not panel.has_area():
+		return
+	canvas.draw_rect(panel, Color(0.015, 0.07, 0.06, 0.96), true)
+	canvas.draw_rect(panel, Color(0.70, 0.91, 0.70, 0.88), false, 2.0)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		panel.position + Vector2(20.0, 60.0),
+		str(presentation.get("confirmation_question", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		panel.size.x - 40.0,
+		20,
+		Color(0.95, 0.96, 0.82)
+	)
+	var selection := int(presentation.get("confirmation_selection", 0))
+	for button_index in range(2):
+		var rect := no_rect if button_index == 0 else yes_rect
+		var selected := selection == button_index
+		canvas.draw_rect(
+			rect,
+			Color(0.25, 0.56, 0.43, 0.94) if selected else Color(0.06, 0.18, 0.15, 0.94),
+			true
+		)
+		canvas.draw_rect(rect, Color(0.75, 0.91, 0.68, 0.92), false, 2.0 if selected else 1.0)
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			rect.position + Vector2(0.0, rect.size.y * 0.68),
+			str(presentation.get(
+				"confirmation_no_text" if button_index == 0 else "confirmation_yes_text",
+				""
+			)),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			rect.size.x,
+			18,
+			Color(0.96, 0.95, 0.80)
+		)
 
 
 func _draw_guardian_spring_capsules(

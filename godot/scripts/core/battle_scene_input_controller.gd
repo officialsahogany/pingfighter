@@ -209,6 +209,14 @@ func _handle_tower_ascent_flow_input(
 		modal_gate != null
 		and (
 			(
+				modal_gate.has_method("is_guardian_spring_confirmation_active")
+				and bool(modal_gate.call(
+					"is_guardian_spring_confirmation_active",
+					module_getter
+				))
+			)
+			or
+			(
 				modal_gate.has_method("is_guardian_spring_chosik_swap_active")
 				and bool(modal_gate.call(
 					"is_guardian_spring_chosik_swap_active",

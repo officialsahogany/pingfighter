@@ -61,6 +61,7 @@ const KEY_MONK_OFFER_UNAVAILABLE := "tower_ascent.node_modal.fallen_monk.offer_u
 const KEY_MONK_MUGONG_SLOT_FULL := "tower_ascent.node_modal.fallen_monk.mugong_slot_full"
 const KEY_COST_FREE := "tower_ascent.node_modal.cost.free"
 const KEY_SPRING_PALM_OPTION := "tower_ascent.node_modal.guardian_spring.palm_option"
+const KEY_SPRING_PALM_CONFIRM := "tower_ascent.node_modal.guardian_spring.palm_confirm"
 const KEY_SPRING_STATUE_DIALOGUE := "tower_ascent.node_modal.guardian_spring.statue_dialogue"
 const KEY_SPRING_STATUE_PROMPT := "tower_ascent.node_modal.guardian_spring.statue_prompt"
 const KEY_SPRING_PRAYER_OPTION := "tower_ascent.node_modal.guardian_spring.prayer_option"
@@ -123,6 +124,7 @@ const NODE_DESCRIPTION_KEYS := {
 
 const TEXT_BY_LOCALE := {
 	LanguageSettings.LANGUAGE_KOREAN: {
+		KEY_SPRING_PALM_CONFIRM: "영혼소환술 초식을 배우시겠습니까?",
 		KEY_HEADER_TITLE: "승천탑 행로",
 		KEY_BALANCE_MUHON: "무혼 {amount}",
 		KEY_BALANCE_GOLD: "금화 {amount}",
@@ -186,7 +188,7 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_OPTION: "기도한다",
 		KEY_SPRING_BROWSE_OPTION: "수호령들을 살핀다",
 		KEY_SPRING_PALM_COMPLETED: "이미 샘터의 기운을 받아들였습니다.",
-		KEY_SPRING_PRAYER_COMPLETED: "모든 능력치가 {bonus}%p 상승했습니다.",
+		KEY_SPRING_PRAYER_COMPLETED: "모든 능력치가 {bonus}%p 상승했다!",
 		KEY_SPRING_PRAYER_RESULT: "전능력치 상승",
 		KEY_SPRING_PRAYER_COUNT: "기도 {count}회",
 		KEY_SPRING_CARD_BADGE_PRAYER: "샘터 기도",
@@ -237,13 +239,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_SPRING_PALM_CONFIRM: "Learn the Soul Summoning Art technique?",
 		KEY_SPRING_PALM_OPTION: "Place your palm",
 		KEY_SPRING_STATUE_DIALOGUE: "A sacred energy flows from the stone.",
 		KEY_SPRING_STATUE_PROMPT: "Touch the stone and feel its presence.",
 		KEY_SPRING_PRAYER_OPTION: "Offer a prayer",
 		KEY_SPRING_BROWSE_OPTION: "View the guardians",
 		KEY_SPRING_PALM_COMPLETED: "You have already received the spring's energy.",
-		KEY_SPRING_PRAYER_COMPLETED: "All stats have increased by {bonus} percentage points.",
+		KEY_SPRING_PRAYER_COMPLETED: "All stats increased by {bonus} percentage points!",
 		KEY_SPRING_PRAYER_RESULT: "All stats increased",
 		KEY_SPRING_PRAYER_COUNT: "Prayers {count}",
 		KEY_SPRING_CARD_BADGE_PRAYER: "Spring Prayer",
@@ -296,13 +299,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_SPRING_PALM_CONFIRM: "要学习灵魂召唤术招式吗？",
 		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
 		KEY_SPRING_STATUE_DIALOGUE: "神圣的气息正从岩石中流淌而出。",
 		KEY_SPRING_STATUE_PROMPT: "触碰岩石，感受其中的气息。",
 		KEY_SPRING_PRAYER_OPTION: "祈祷",
 		KEY_SPRING_BROWSE_OPTION: "查看守护灵",
 		KEY_SPRING_PALM_COMPLETED: "你已经接受了泉水的力量。",
-		KEY_SPRING_PRAYER_COMPLETED: "所有属性已提升{bonus}个百分点。",
+		KEY_SPRING_PRAYER_COMPLETED: "所有属性提升了{bonus}个百分点！",
 		KEY_SPRING_PRAYER_RESULT: "全属性提升",
 		KEY_SPRING_PRAYER_COUNT: "祈祷 {count} 次",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉边祈祷",
@@ -355,13 +359,14 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_SPRING_PALM_CONFIRM: "魂召喚術の初式を習得しますか？",
 		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
 		KEY_SPRING_STATUE_DIALOGUE: "岩から霊妙な気が流れ出しています。",
 		KEY_SPRING_STATUE_PROMPT: "岩に触れて、その気配を感じてください。",
 		KEY_SPRING_PRAYER_OPTION: "祈る",
 		KEY_SPRING_BROWSE_OPTION: "守護霊たちを見る",
 		KEY_SPRING_PALM_COMPLETED: "すでに泉の力を受け入れました。",
-		KEY_SPRING_PRAYER_COMPLETED: "すべての能力値が{bonus}ポイント上昇しました。",
+		KEY_SPRING_PRAYER_COMPLETED: "すべての能力値が{bonus}ポイント上昇した！",
 		KEY_SPRING_PRAYER_RESULT: "全能力値上昇",
 		KEY_SPRING_PRAYER_COUNT: "祈り {count}回",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉の祈り",

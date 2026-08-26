@@ -435,8 +435,8 @@ func _confirm_node_modal_action(pointer_action: Dictionary = {}) -> void:
 	var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
 	if (
 		_node_modal_kind == "guardian_spring"
-		and str(payload.get("operation", "")) == "palm"
-		and _node_modal_state.begin_guardian_spring_palm_ritual(action)
+		and str(payload.get("operation", "")) in ["palm", "prayer"]
+		and _node_modal_state.begin_guardian_spring_ritual(action)
 	):
 		return
 	var action_result := execute_node_action(str(action.get("id", "")))
@@ -634,10 +634,10 @@ func _refresh_guardian_spring_modal(status_text: String) -> void:
 	_node_modal_state.set_status_text(status_text)
 
 
-func _complete_guardian_spring_palm_ritual_if_ready() -> bool:
+func _complete_guardian_spring_ritual_if_ready() -> bool:
 	if _node_modal_kind != "guardian_spring" or _node_modal_state == null:
 		return false
-	var action: Dictionary = _node_modal_state.take_completed_guardian_spring_palm_action()
+	var action: Dictionary = _node_modal_state.take_completed_guardian_spring_action()
 	if action.is_empty():
 		return false
 	action["_feedback_index"] = _node_modal_state.get_action_index_by_id(
@@ -646,6 +646,23 @@ func _complete_guardian_spring_palm_ritual_if_ready() -> bool:
 	var action_result := execute_node_action(str(action.get("id", "")))
 	_node_modal_state.record_action_feedback(action, action_result)
 	return true
+
+
+func has_pending_guardian_spring_confirmation() -> bool:
+	return (
+		_node_modal_kind == "guardian_spring"
+		and _node_modal_state != null
+		and _node_modal_state.has_guardian_spring_confirmation()
+	)
+
+
+func handle_guardian_spring_confirmation_input(
+	event: InputEvent,
+	view_size: Vector2
+) -> bool:
+	if not has_pending_guardian_spring_confirmation():
+		return false
+	return _node_modal_state.handle_guardian_spring_confirmation_input(event, view_size)
 
 
 func has_pending_guardian_spring_chosik_swap() -> bool:

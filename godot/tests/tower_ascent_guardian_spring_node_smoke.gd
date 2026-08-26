@@ -523,7 +523,7 @@ func _verify_auto_route_rng_matches_the_existing_exit() -> void:
 	)
 	var auto_result := auto_flow.execute_node_action(str(auto_prayer.get("id", "")))
 	_expect(
-		str(auto_result.get("message", "")) == "모든 능력치가 3.0%p 상승했습니다.",
+		str(auto_result.get("message", "")) == "모든 능력치가 3.0%p 상승했다!",
 		"auto-route leg must publish the exact prayer receipt before leaving"
 	)
 	auto_flow.update_selective(0.10, auto_owner)

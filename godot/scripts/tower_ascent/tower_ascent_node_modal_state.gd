@@ -1,5 +1,6 @@
 extends RefCounted
 
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -198,6 +199,13 @@ func has_active_guardian_spring_ritual() -> bool:
 	)
 
 
+func has_guardian_spring_confirmation() -> bool:
+	return (
+		has_guardian_spring_presentation()
+		and bool(_guardian_spring_presentation.is_confirmation_active())
+	)
+
+
 func reveal_guardian_spring_menu() -> bool:
 	if not has_guardian_spring_statue_interaction():
 		return false
@@ -205,11 +213,11 @@ func reveal_guardian_spring_menu() -> bool:
 	return bool(_guardian_spring_presentation.reveal_menu())
 
 
-func begin_guardian_spring_palm_ritual(action: Dictionary) -> bool:
+func begin_guardian_spring_ritual(action: Dictionary) -> bool:
 	if not has_guardian_spring_presentation():
 		return false
 	cancel_pointer_press()
-	return bool(_guardian_spring_presentation.begin_palm_ritual(action))
+	return bool(_guardian_spring_presentation.begin_ritual(action))
 
 
 func advance_guardian_spring_presentation(delta: float) -> bool:
@@ -218,10 +226,49 @@ func advance_guardian_spring_presentation(delta: float) -> bool:
 	return bool(_guardian_spring_presentation.advance(delta))
 
 
-func take_completed_guardian_spring_palm_action() -> Dictionary:
+func take_completed_guardian_spring_action() -> Dictionary:
 	if not has_guardian_spring_presentation():
 		return {}
-	return _guardian_spring_presentation.take_completed_palm_action()
+	return _guardian_spring_presentation.take_completed_action()
+
+
+func handle_guardian_spring_confirmation_input(
+	event: InputEvent,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	if not has_guardian_spring_confirmation():
+		return false
+	var model: Dictionary = _guardian_spring_presentation.build_visual_model(_actions, view_size)
+	var no_rect: Rect2 = model.get("confirmation_no_rect", Rect2())
+	var yes_rect: Rect2 = model.get("confirmation_yes_rect", Rect2())
+	if event is InputEventMouseMotion:
+		if yes_rect.has_point(event.position):
+			_guardian_spring_presentation.select_confirmation(1)
+		elif no_rect.has_point(event.position):
+			_guardian_spring_presentation.select_confirmation(0)
+		return true
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed and yes_rect.has_point(event.position):
+			return bool(_guardian_spring_presentation.confirm_palm_absorption(true))
+		if event.pressed and no_rect.has_point(event.position):
+			return bool(_guardian_spring_presentation.confirm_palm_absorption(false))
+		return true
+	if event is InputEventScreenTouch and event.pressed:
+		if yes_rect.has_point(event.position):
+			return bool(_guardian_spring_presentation.confirm_palm_absorption(true))
+		if no_rect.has_point(event.position):
+			return bool(_guardian_spring_presentation.confirm_palm_absorption(false))
+		return true
+	if event.is_action_pressed("ui_cancel"):
+		return bool(_guardian_spring_presentation.confirm_palm_absorption(false))
+	if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
+		_guardian_spring_presentation.select_confirmation(
+			1 - int(model.get("confirmation_selection", 0))
+		)
+		return true
+	if event.is_action_pressed("ui_accept"):
+		return bool(_guardian_spring_presentation.activate_confirmation_selection())
+	return true
 
 
 func get_guardian_spring_presentation_debug_state() -> Dictionary:
@@ -789,11 +836,17 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"balance_receipt_texts",
 		{}
 	)
+	var node_description := TowerAscentNodeModalLocalization.node_description(_node_kind)
+	if _node_kind == "guardian_spring":
+		for action in _actions:
+			if action is Dictionary and bool((action as Dictionary).get("first_visit_spoiler_gate", false)):
+				node_description = ""
+				break
 	var result := {
 		"node_id": _node_id,
 		"node_kind": _node_kind,
 		"title": TowerAscentNodeModalLocalization.node_title(_node_kind),
-		"description": TowerAscentNodeModalLocalization.node_description(_node_kind),
+		"description": node_description,
 		"balances": _balances.duplicate(true),
 		"muhon_text": str(balance_receipt_texts.get("muhon", TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_BALANCE_MUHON,
@@ -852,9 +905,17 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"status_baseline": layout.get("status_baseline", STATUS_BASELINE),
 	}
 	if has_guardian_spring_presentation():
-		result["guardian_spring_presentation"] = (
+		var guardian_presentation: Dictionary = (
 			_guardian_spring_presentation.build_visual_model(_actions, view_size)
 		)
+		guardian_presentation["confirmation_question"] = (
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_PALM_CONFIRM
+			)
+		)
+		guardian_presentation["confirmation_no_text"] = LanguageSettings.translate("main_menu.no")
+		guardian_presentation["confirmation_yes_text"] = LanguageSettings.translate("main_menu.yes")
+		result["guardian_spring_presentation"] = guardian_presentation
 		result["guardian_spring_prompt_text"] = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_PROMPT
 		)

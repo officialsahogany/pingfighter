@@ -199,6 +199,7 @@ func build_actions(
 			runtime
 		), _build_browse_action(runtime != null)]
 	var visit_action_committed := _has_committed_visit_action(node_id)
+	var first_visit_spoiler_gate := _is_spoiler_free_first_visit(run_state)
 	if (
 		has_soul_summoning()
 		and not bool(_state.get("first_pick_completed", false))
@@ -217,10 +218,16 @@ func build_actions(
 	var actions: Array[Dictionary] = [_build_palm_action(
 		palm_wiring_ready,
 		visit_action_committed,
-		_is_chosik_swap_required(owner, registry)
+		_is_chosik_swap_required(owner, registry),
+		first_visit_spoiler_gate
 	)]
 	if not _prayer_locked(run_state):
-		actions.append(_build_prayer_action(run_state, balances, visit_action_committed))
+		actions.append(_build_prayer_action(
+			run_state,
+			balances,
+			visit_action_committed,
+			first_visit_spoiler_gate
+		))
 	return actions
 
 
@@ -498,7 +505,8 @@ func commit_browse_purchase(
 func _build_palm_action(
 	wiring_ready: bool,
 	visit_action_committed: bool,
-	chosik_swap_required: bool
+	chosik_swap_required: bool,
+	first_visit_spoiler_gate: bool = false
 ) -> Dictionary:
 	var label := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_PALM_OPTION
@@ -531,7 +539,7 @@ func _build_palm_action(
 		unavailable_reason = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_RUNTIME_UNAVAILABLE
 		)
-	return {
+	var action := {
 		"id": "%s%s" % [ACTION_PREFIX, OP_PALM],
 		"label": label,
 		"cost_text": TowerAscentNodeModalLocalization.text(
@@ -558,12 +566,14 @@ func _build_palm_action(
 			),
 		},
 	}
+	return _mask_first_visit_action(action) if first_visit_spoiler_gate else action
 
 
 func _build_prayer_action(
 	run_state: Object,
 	balances: Dictionary,
-	visit_action_committed: bool
+	visit_action_committed: bool,
+	first_visit_spoiler_gate: bool = false
 ) -> Dictionary:
 	var count := _prayer_count(run_state)
 	var cost := count * TowerAscentTuning.TEMP_SPRING_PRAYER_COST_STEP
@@ -571,7 +581,7 @@ func _build_prayer_action(
 	var label := TowerAscentNodeModalLocalization.text(
 		TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_OPTION
 	)
-	return {
+	var action := {
 		"id": "%s%s:%d" % [ACTION_PREFIX, OP_PRAYER, count],
 		"label": label,
 		"cost_text": (
@@ -629,6 +639,31 @@ func _build_prayer_action(
 			),
 		},
 	}
+	return _mask_first_visit_action(action) if first_visit_spoiler_gate else action
+
+
+func _mask_first_visit_action(source: Dictionary) -> Dictionary:
+	var action := source.duplicate(true)
+	action["label"] = "???"
+	action["cost_text"] = ""
+	action["unavailable_reason"] = ""
+	action["first_visit_spoiler_gate"] = true
+	var payload: Dictionary = _dictionary(action.get("payload", {}))
+	payload["presentation"] = {}
+	var choice: Dictionary = _dictionary(payload.get("choice", {}))
+	choice["id"] = "guardian_spring_mystery"
+	choice["icon_id"] = ""
+	choice["name"] = "???"
+	choice["description"] = ""
+	choice["level_text"] = ""
+	choice["hide_level_text"] = true
+	choice["hide_hover_detail"] = true
+	choice["card_content_kind"] = "guardian_spring_mystery"
+	choice["guardian_pet_id"] = ""
+	choice["guardian_portrait_path"] = ""
+	payload["choice"] = choice
+	action["payload"] = payload
+	return action
 
 
 func _build_browse_action(wiring_ready: bool) -> Dictionary:
@@ -1565,6 +1600,14 @@ func _prayer_count(run_state: Object) -> int:
 	if run_state != null and run_state.has_method("get_prayer_count"):
 		return maxi(0, int(run_state.call("get_prayer_count")))
 	return 0
+
+
+func _is_spoiler_free_first_visit(run_state: Object) -> bool:
+	return (
+		not has_soul_summoning()
+		and _prayer_count(run_state) == 0
+		and get_history().is_empty()
+	)
 
 
 func _prayer_locked(run_state: Object) -> bool:

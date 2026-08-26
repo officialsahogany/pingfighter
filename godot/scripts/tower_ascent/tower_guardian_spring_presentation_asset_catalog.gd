@@ -6,6 +6,9 @@ const ASSET_BACKGROUND := "background"
 const ASSET_STATUE := "statue"
 const ASSET_GLOW := "glow"
 const ASSET_CAPSULE := "capsule"
+const ASSET_RITUAL_RING := "ritual_ring"
+const ASSET_RITUAL_BACKPLATE := "ritual_backplate"
+const ASSET_SOUL_SEAL_SHARD := "soul_seal_shard"
 
 const ASSET_SPECS := {
 	ASSET_BACKGROUND: {
@@ -23,6 +26,21 @@ const ASSET_SPECS := {
 	ASSET_CAPSULE: {
 		"path": "res://assets/sprites/tower/noncombat/guardian_spring_presentation/guardian_spring_capsule_frame_jade_seed_imagegen_v1.png",
 		"expected_size": Vector2i(1086, 1448),
+	},
+	ASSET_RITUAL_RING: {
+		"path": "res://assets/sprites/tower/noncombat/guardian_spring_presentation/guardian_spring_ritual_jade_ring_imagegen_v1.png",
+		"expected_size": Vector2i(1024, 1024),
+		"source_png": true,
+	},
+	ASSET_RITUAL_BACKPLATE: {
+		"path": "res://assets/sprites/tower/noncombat/guardian_spring_presentation/guardian_spring_ritual_jade_backplate_imagegen_v1.png",
+		"expected_size": Vector2i(1024, 1024),
+		"source_png": true,
+	},
+	ASSET_SOUL_SEAL_SHARD: {
+		"path": "res://assets/sprites/tower/noncombat/guardian_spring_presentation/guardian_spring_soul_seal_shard_imagegen_v1.png",
+		"expected_size": Vector2i(512, 512),
+		"source_png": true,
 	},
 }
 
@@ -95,7 +113,7 @@ func prewarm_asset(asset_key: String) -> Dictionary:
 		"reason": "unknown_asset_key" if spec.is_empty() else "missing_asset",
 	}
 	if not spec.is_empty():
-		var texture := _load_bitmap_once(path)
+		var texture := _load_bitmap_once(path, bool(spec.get("source_png", false)))
 		resolution["texture"] = texture
 		if texture != null:
 			var actual_size := Vector2i(texture.get_size())
@@ -153,7 +171,7 @@ func clear_cache() -> void:
 	_cold_prewarm_usec = 0
 
 
-func _load_bitmap_once(path: String) -> Texture2D:
+func _load_bitmap_once(path: String, source_png: bool = false) -> Texture2D:
 	if path.is_empty():
 		return null
 	_filesystem_probe_count += 1
@@ -165,9 +183,13 @@ func _load_bitmap_once(path: String) -> Texture2D:
 	if not resource_exists:
 		return null
 	_resource_load_count += 1
-	var loaded_resource: Variant = (
-		_resource_load_override.call(path)
-		if _resource_load_override.is_valid()
-		else ProjectResourceLoader.load_texture(path)
-	)
+	var loaded_resource: Variant = null
+	if _resource_load_override.is_valid():
+		loaded_resource = _resource_load_override.call(path)
+	elif source_png:
+		var image := Image.load_from_file(ProjectSettings.globalize_path(path))
+		if image != null and not image.is_empty():
+			loaded_resource = ImageTexture.create_from_image(image)
+	else:
+		loaded_resource = ProjectResourceLoader.load_texture(path)
 	return loaded_resource as Texture2D if loaded_resource is Texture2D else null

@@ -188,12 +188,9 @@ func _verify_full_smasher_two_stage_commit() -> void:
 	var palm := _find_action(spring.build_actions("spring-full", 8101, run_state, owner, registry), "guardian_spring:palm")
 	_expect(bool(palm.get("enabled", false)), "a full-slot palm must stay enabled")
 	_expect(
-		str(palm.get("payload", {}).get("choice", {}).get("description", "")).contains(
-			TowerAscentNodeModalLocalization.text(
-				TowerAscentNodeModalLocalization.KEY_SPRING_CHOSIK_SWAP_REQUIRED
-			)
-		),
-		"a full-slot palm card must disclose that a Chosik replacement is required"
+		str(palm.get("payload", {}).get("choice", {}).get("description", "")).is_empty()
+		and bool(palm.get("first_visit_spoiler_gate", false)),
+		"the first-visit spoiler gate must hide the full-slot Chosik disclosure"
 	)
 	var discarded_skill := str(config.equipped_skills[0])
 	var result: Dictionary = spring.execute_action(
@@ -602,10 +599,10 @@ func _prepare_input_route(fixture: Dictionary) -> Dictionary:
 
 func _verify_prayer_visit_gate_and_copy() -> void:
 	var expected_prayer_copy_by_locale := {
-		LanguageSettings.LANGUAGE_KOREAN: "모든 능력치가 3.0%p 상승했습니다.",
-		LanguageSettings.LANGUAGE_ENGLISH: "All stats have increased by 3.0 percentage points.",
-		LanguageSettings.LANGUAGE_CHINESE: "所有属性已提升3.0个百分点。",
-		LanguageSettings.LANGUAGE_JAPANESE: "すべての能力値が3.0ポイント上昇しました。",
+		LanguageSettings.LANGUAGE_KOREAN: "모든 능력치가 3.0%p 상승했다!",
+		LanguageSettings.LANGUAGE_ENGLISH: "All stats increased by 3.0 percentage points!",
+		LanguageSettings.LANGUAGE_CHINESE: "所有属性提升了3.0个百分点！",
+		LanguageSettings.LANGUAGE_JAPANESE: "すべての能力値が3.0ポイント上昇した！",
 	}
 	for locale in expected_prayer_copy_by_locale:
 		var locale_text: Dictionary = TowerAscentNodeModalLocalization.TEXT_BY_LOCALE.get(
@@ -628,6 +625,35 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 		fixture.registry
 	)
 	var prayer := _find_action_with_prefix(actions, "guardian_spring:prayer:")
+	var first_palm := _find_action(actions, "guardian_spring:palm")
+	for first_action in [first_palm, prayer]:
+		var first_payload: Dictionary = first_action.get("payload", {})
+		var first_choice: Dictionary = first_payload.get("choice", {})
+		_expect(bool(first_action.get("first_visit_spoiler_gate", false)), "empty-run first visit owns the spoiler gate")
+		_expect(str(first_action.get("label", "")) == "???", "first visit hides action names")
+		_expect(str(first_action.get("cost_text", "")).is_empty(), "first visit hides costs")
+		_expect(str(first_choice.get("name", "")) == "???", "first visit uses a neutral card name")
+		_expect(str(first_choice.get("description", "")).is_empty(), "first visit hides card descriptions")
+		_expect(bool(first_choice.get("hide_level_text", false)), "first visit suppresses level fallback copy")
+		_expect(bool(first_choice.get("hide_hover_detail", false)), "first visit suppresses hover detail")
+		_expect(str(first_choice.get("card_content_kind", "")) == "guardian_spring_mystery", "first visit uses the neutral mystery symbol")
+		_expect((first_payload.get("presentation", {}) as Dictionary).is_empty(), "first visit hides presentation tooltip fields")
+	_expect(str(prayer.get("payload", {}).get("operation", "")) == "prayer", "spoiler masking preserves transaction operation")
+	_expect(int(prayer.get("payload", {}).get("cost", -1)) == 0, "spoiler masking preserves actual first-prayer cost")
+	_expect(bool(prayer.get("enabled", false)), "spoiler masking preserves enabled state")
+	var spoiler_renderer := RuntimePerkOverlayRenderer.new()
+	var spoiler_text_layout: Dictionary = spoiler_renderer.build_tower_node_card_text_layout(
+		first_palm,
+		Rect2(0.0, 0.0, 315.0, 114.0)
+	)
+	var spoiler_hover_layout: Dictionary = spoiler_renderer.build_tower_node_hover_detail_layout(
+		first_palm,
+		Rect2(0.0, 0.0, 315.0, 114.0)
+	)
+	_expect(bool(spoiler_text_layout.get("description_hidden_by_spoiler_gate", false)), "spoiler telemetry stays distinct from text-budget hiding")
+	_expect(not bool(spoiler_text_layout.get("description_hidden_by_budget", true)), "empty spoiler copy is not misreported as budget overflow")
+	_expect(bool(spoiler_hover_layout.get("hidden_by_spoiler_gate", false)), "hover telemetry identifies the spoiler gate")
+	_expect((spoiler_hover_layout.get("rows", []) as Array).is_empty(), "first-visit hover produces zero rows")
 	var result: Dictionary = fixture.spring.execute_action(
 		str(prayer.get("id", "")),
 		"spring-prayer-a:prayer",
@@ -640,7 +666,7 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 		fixture.registry
 	)
 	_expect(
-		str(result.get("message", "")) == "모든 능력치가 3.0%p 상승했습니다.",
+		str(result.get("message", "")) == "모든 능력치가 3.0%p 상승했다!",
 		"the committed prayer receipt must use the exact percentage-point copy"
 	)
 	var same_visit: Array = fixture.spring.build_actions(
@@ -665,6 +691,19 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 		),
 		"guardian_spring:prayer:"
 	)
+	var next_palm := _find_action(
+		fixture.spring.build_actions(
+			"spring-prayer-b",
+			8106,
+			fixture.run_state,
+			fixture.owner,
+			fixture.registry
+		),
+		"guardian_spring:palm"
+	)
+	_expect(not bool(next_prayer.get("first_visit_spoiler_gate", false)), "one prayer immediately releases the run-scoped spoiler gate")
+	_expect(not str(next_prayer.get("cost_text", "")).is_empty(), "post-prayer visit reveals the next cost")
+	_expect(not str(next_palm.get("payload", {}).get("choice", {}).get("description", "")).is_empty(), "post-prayer visit reveals Palm details")
 	_expect(
 		bool(next_prayer.get("enabled", false))
 		and int(next_prayer.get("payload", {}).get("cost", -1)) == 2,

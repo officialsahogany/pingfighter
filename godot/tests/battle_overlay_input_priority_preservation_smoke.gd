@@ -33,6 +33,7 @@ class FakeModalGate:
 
 	var acquire_active := false
 	var guardian_spring_swap_active := false
+	var guardian_spring_confirmation_active := false
 	var overflow_active := false
 	var guardian_enhance_active := false
 	var grip_active := false
@@ -53,6 +54,9 @@ class FakeModalGate:
 
 	func is_guardian_spring_chosik_swap_active(_module_getter: Callable) -> bool:
 		return guardian_spring_swap_active
+
+	func is_guardian_spring_confirmation_active(_module_getter: Callable) -> bool:
+		return guardian_spring_confirmation_active
 
 	func is_lingpet_overflow_choice_active(_module_getter: Callable) -> bool:
 		return overflow_active
@@ -188,12 +192,24 @@ class FakeTowerFlowOwner:
 	extends RefCounted
 
 	var handle_count := 0
+	var confirmation_handle_count := 0
+	var confirmation_active := false
 
 	func is_active() -> bool:
 		return true
 
 	func handle_input(_event: InputEvent) -> void:
 		handle_count += 1
+
+	func has_pending_guardian_spring_confirmation() -> bool:
+		return confirmation_active
+
+	func handle_guardian_spring_confirmation_input(
+		_event: InputEvent,
+		_view_size: Vector2
+	) -> bool:
+		confirmation_handle_count += 1
+		return true
 
 
 class FakePreOverflowModalRouter:
@@ -351,6 +367,11 @@ func _verify_production_wiring_and_canonical_order() -> void:
 	_expect(
 		scene_input_source.contains("is_guardian_spring_chosik_swap_active"),
 		"Tower flow whitelist must delegate active Spring swap input to the overlay facade"
+	)
+	_expect(
+		scene_input_source.contains("is_guardian_spring_confirmation_active")
+		and guardian_spring_router_source.contains("handle_guardian_spring_confirmation_input"),
+		"Tower flow whitelist and X1 adapter must delegate the Spring confirmation"
 	)
 	_expect(
 		overlay_source.contains("guardian_spring_chosik_swap_input_router.gd")
@@ -541,6 +562,15 @@ func _verify_guardian_spring_priority_routes() -> void:
 		"active Spring swap must swallow a false handler result before the Tower modal"
 	)
 	_expect(overflow_host.handle_count == 0, "locally ignored Spring input must not leak to overflow")
+
+	gate.guardian_spring_swap_active = false
+	gate.guardian_spring_confirmation_active = true
+	flow_owner.confirmation_active = true
+	consumed = _route_overlay(InputEventMouseMotion.new(), registry)
+	_expect(consumed, "Spring confirmation and overflow together must consume input")
+	_expect(flow_owner.confirmation_handle_count == 1, "Spring confirmation must receive input at the injected X1 adapter")
+	_expect(swap_host.handle_count == 2, "confirmation must not enter the Chosik swap host")
+	_expect(overflow_host.handle_count == 0, "Spring confirmation must outrank overflow")
 
 
 func _base_registry() -> FakeRegistry:

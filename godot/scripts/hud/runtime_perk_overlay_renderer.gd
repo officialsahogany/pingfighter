@@ -757,6 +757,9 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 			or unavailable_reason_row_reserved
 		)
 	)
+	var description_hidden_by_spoiler_gate := bool(
+		action.get("first_visit_spoiler_gate", false)
+	)
 	if description_hidden_by_budget:
 		# GRT-021: Spring/Rest presentation sentences are semantic contracts.
 		# When the entire sentence cannot fit, omit it instead of drawing a clipped
@@ -804,6 +807,7 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		"appended_description_row_count": description_rows.size(),
 		"source_description_row_count": int(description_wrap.get("source_line_count", 0)),
 		"description_hidden_by_budget": description_hidden_by_budget,
+		"description_hidden_by_spoiler_gate": description_hidden_by_spoiler_gate,
 		"bonus_badge_text": bonus_badge_text,
 		"bonus_badge_font_size": bonus_badge_font_size,
 		"bonus_badge_rows": bonus_badge_rows,
@@ -828,6 +832,15 @@ func build_tower_node_hover_detail_layout(
 		else {}
 	)
 	var choice := _tower_node_card_choice(action)
+	if bool(choice.get("hide_hover_detail", false)):
+		return {
+			"rows": [],
+			"font_size": 10,
+			"appended_hover_row_count": 0,
+			"source_hover_semantic_row_count": 0,
+			"hidden_by_budget": false,
+			"hidden_by_spoiler_gate": true,
+		}
 	var layout_signature := hash([
 		action,
 		rect.size,
@@ -1716,6 +1729,29 @@ func _draw_tower_node_card_icon(
 ) -> void:
 	var content_kind := str(choice.get("card_content_kind", ""))
 	var item_data_value: Variant = choice.get("item_data", {})
+	if content_kind == "guardian_spring_mystery":
+		var mystery_center := rect.get_center()
+		var mystery_radius := minf(rect.size.x, rect.size.y) * 0.34
+		canvas.draw_circle(mystery_center, mystery_radius, Color(0.07, 0.16, 0.14, 0.90))
+		canvas.draw_arc(
+			mystery_center,
+			mystery_radius,
+			0.0,
+			TAU,
+			24,
+			Color(0.58, 0.90, 0.75, 0.82),
+			2.0
+		)
+		_draw_text_centered_fitted(
+			canvas,
+			"?",
+			mystery_center + Vector2(0.0, mystery_radius * 0.18),
+			maxi(18, int(round(mystery_radius * 1.15))),
+			Color(0.82, 1.0, 0.91),
+			mystery_radius * 1.2,
+			14
+		)
+		return
 	if content_kind == "guardian_portrait":
 		if (
 			icon_renderer != null
@@ -2319,7 +2355,8 @@ func _tower_reward_absorption_position(source_rect: Rect2, effect: Dictionary, p
 func _draw_tower_reward_absorption(canvas: CanvasItem, source_rect: Rect2, effect: Dictionary) -> void:
 	var progress: float = clampf(float(effect.get("progress", 0.0)), 0.0, 1.0)
 	var head_pos: Vector2 = _tower_reward_absorption_position(source_rect, effect, progress)
-	for trail_index in range(3, 0, -1):
+	var trail_count := clampi(int(effect.get("trail_count", 3)), 0, 3)
+	for trail_index in range(trail_count, 0, -1):
 		var trail_progress: float = maxf(0.0, progress - float(trail_index) * 0.045)
 		var trail_pos: Vector2 = _tower_reward_absorption_position(source_rect, effect, trail_progress)
 		var trail_alpha: float = (1.0 - float(trail_index) * 0.20) * (1.0 - progress * 0.58)
@@ -5479,6 +5516,8 @@ func _build_acquired_perks(levels: Dictionary, catalog: Object, runtime_state: O
 
 
 func _level_text(choice: Dictionary) -> String:
+	if bool(choice.get("hide_level_text", false)):
+		return ""
 	var override := str(choice.get("level_text", ""))
 	if override != "":
 		return override

@@ -91,18 +91,41 @@ class CaptureCanvas:
 	var swap_host: Object = null
 	var runtime_state: Object = null
 	var registry: Object = null
+	var draw_sample_label := ""
+	var draw_samples_by_label: Dictionary = {}
 
 	func _init(flow_value: Object) -> void:
 		flow = flow_value
 
 	func _draw() -> void:
+		var draw_started_usec := Time.get_ticks_usec()
 		renderer.draw_fullscreen_node_modal(
 			self,
 			flow,
 			Rect2(Vector2.ZERO, Vector2(VIEW_SIZE))
 		)
+		if not draw_sample_label.is_empty():
+			var samples: Array = draw_samples_by_label.get(draw_sample_label, [])
+			samples.append(maxi(0, Time.get_ticks_usec() - draw_started_usec))
+			draw_samples_by_label[draw_sample_label] = samples
 		if swap_host != null:
 			swap_host.draw(self, flow, runtime_state, registry, Vector2(VIEW_SIZE))
+
+	func get_draw_sample_stats(label: String) -> Dictionary:
+		var samples: Array = draw_samples_by_label.get(label, [])
+		if samples.is_empty():
+			return {"average_usec": 0.0, "max_usec": 0, "sample_count": 0}
+		var total_usec := 0
+		var max_usec := 0
+		for sample_value in samples:
+			var sample_usec := int(sample_value)
+			total_usec += sample_usec
+			max_usec = maxi(max_usec, sample_usec)
+		return {
+			"average_usec": float(total_usec) / float(samples.size()),
+			"max_usec": max_usec,
+			"sample_count": samples.size(),
+		}
 
 
 var _viewport: SubViewport
@@ -175,9 +198,35 @@ func _run() -> void:
 
 	modal.reveal_guardian_spring_menu()
 	modal.set_status_text(str(TowerAscentNodeModalLocalization.TEXT_BY_LOCALE["ko"][TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_DIALOGUE]))
-	modal.begin_guardian_spring_palm_ritual(_menu_actions()[0])
+	modal.set_actions(_spoiler_actions())
+	await _capture("first_visit_hidden_cards.png")
+	modal.set_actions(_menu_actions())
+	modal.begin_guardian_spring_ritual(_menu_actions()[0])
+	modal.advance_guardian_spring_presentation(1.7)
+	await _capture("palm_ascend_mid.png")
+	modal.advance_guardian_spring_presentation(1.71)
+	await _capture("palm_reveal.png")
+	modal.advance_guardian_spring_presentation(0.41)
+	await _capture("palm_confirmation.png")
+	modal.handle_guardian_spring_confirmation_input(_pressed_action("ui_right"), Vector2(VIEW_SIZE))
+	modal.handle_guardian_spring_confirmation_input(_pressed_action("ui_accept"), Vector2(VIEW_SIZE))
+	modal.advance_guardian_spring_presentation(1.5)
+	await _capture("palm_absorb_mid.png")
+	modal.advance_guardian_spring_presentation(1.51)
+	await _capture("palm_impact.png")
+
+	modal.configure_guardian_spring_presentation(true, Vector2(640.0, 690.0))
+	modal.reveal_guardian_spring_menu()
+	modal.begin_guardian_spring_ritual(_menu_actions()[1])
 	modal.advance_guardian_spring_presentation(1.0)
-	await _capture("ritual_mid.png")
+	await _capture("prayer_glow_mid.png")
+	modal.advance_guardian_spring_presentation(1.01)
+	modal.take_completed_guardian_spring_action()
+	modal.set_status_text(TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SPRING_PRAYER_COMPLETED,
+		{"bonus": "3.0"}
+	))
+	await _capture("prayer_result.png")
 
 	modal.open("spring-capsule-qa", "guardian_spring", {"gold": 2400, "muhon": 20}, _capsule_actions())
 	modal.configure_guardian_spring_presentation(true)
@@ -353,7 +402,16 @@ func _run() -> void:
 	print("tower_guardian_spring_presentation_visual_qa: CAPSULE_FLOAT_DELTA_PIXELS=%d" % float_delta_pixels)
 	print("tower_guardian_spring_presentation_visual_qa: CHOSIK_SWAP_DELTA_PIXELS=%d ESC_RESTORE_DELTA_PIXELS=%d" % [swap_dialog_delta_pixels, swap_restore_delta_pixels])
 	print("tower_guardian_spring_presentation_visual_qa: DIM_CORNER_PIXELS=%d MIN_ICON_TEXT_GAP_PX=%.2f" % [dim_corner_pixels, minimum_icon_text_gap])
-	print("tower_guardian_spring_presentation_visual_qa: captures=statue_before.png,statue_hover.png,ritual_mid.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png")
+	var ritual_draw_stats := _canvas.get_draw_sample_stats("palm_absorb_mid.png")
+	print(
+		"tower_guardian_spring_presentation_visual_qa: DRAW_TOWER_FULLSCREEN_MAP_ABSORB_MID_AVG_USEC=%.2f MAX_USEC=%d N=%d"
+		% [
+			float(ritual_draw_stats.get("average_usec", 0.0)),
+			int(ritual_draw_stats.get("max_usec", 0)),
+			int(ritual_draw_stats.get("sample_count", 0)),
+		]
+	)
+	print("tower_guardian_spring_presentation_visual_qa: captures=first_visit_hidden_cards.png,palm_ascend_mid.png,palm_reveal.png,palm_confirmation.png,palm_absorb_mid.png,palm_impact.png,prayer_glow_mid.png,prayer_result.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png")
 	swap_flow.call("_reset_runtime_state")
 	swap_registry.instances.clear()
 	swap_codex.clear()
@@ -363,9 +421,11 @@ func _run() -> void:
 
 
 func _capture(file_name: String) -> Image:
-	_canvas.queue_redraw()
+	_canvas.draw_sample_label = file_name
 	for _frame_index in range(4):
+		_canvas.queue_redraw()
 		await process_frame
+	_canvas.draw_sample_label = ""
 	var image := _viewport.get_texture().get_image()
 	if image == null or image.is_empty():
 		push_error("guardian spring presentation frame capture failed: %s" % file_name)
@@ -558,6 +618,36 @@ func _menu_actions() -> Array[Dictionary]:
 		},
 		{"id": "end_work", "label": "업무 종료", "enabled": true, "payload": {}},
 	]
+
+
+func _spoiler_actions() -> Array[Dictionary]:
+	var actions := _menu_actions()
+	for index in range(2):
+		var action: Dictionary = actions[index]
+		action["label"] = "???"
+		action["cost_text"] = ""
+		action["first_visit_spoiler_gate"] = true
+		var payload: Dictionary = action.get("payload", {})
+		payload["presentation"] = {}
+		payload["choice"] = {
+			"id": "guardian_spring_mystery",
+			"name": "???",
+			"description": "",
+			"level_text": "",
+			"hide_level_text": true,
+			"hide_hover_detail": true,
+			"card_content_kind": "guardian_spring_mystery",
+		}
+		action["payload"] = payload
+		actions[index] = action
+	return actions
+
+
+func _pressed_action(action_name: StringName) -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = action_name
+	event.pressed = true
+	return event
 
 
 func _capsule_actions() -> Array[Dictionary]:

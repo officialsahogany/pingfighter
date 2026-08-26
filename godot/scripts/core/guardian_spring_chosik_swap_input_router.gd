@@ -7,11 +7,22 @@ func is_active(module_getter: Callable) -> bool:
 	var modal_gate := _get_module(module_getter, "battle_scene_modal_gate_controller")
 	return (
 		modal_gate != null
-		and modal_gate.has_method("is_guardian_spring_chosik_swap_active")
-		and bool(modal_gate.call(
-			"is_guardian_spring_chosik_swap_active",
-			module_getter
-		))
+		and (
+			(
+				modal_gate.has_method("is_guardian_spring_confirmation_active")
+				and bool(modal_gate.call(
+					"is_guardian_spring_confirmation_active",
+					module_getter
+				))
+			)
+			or (
+				modal_gate.has_method("is_guardian_spring_chosik_swap_active")
+				and bool(modal_gate.call(
+					"is_guardian_spring_chosik_swap_active",
+					module_getter
+				))
+			)
+		)
 	)
 
 
@@ -23,6 +34,20 @@ func handle_input(
 	view_size: Vector2
 ) -> bool:
 	var flow_owner := _get_module(module_getter, "tower_ascent_flow_owner")
+	if (
+		flow_owner != null
+		and flow_owner.has_method("has_pending_guardian_spring_confirmation")
+		and bool(flow_owner.call("has_pending_guardian_spring_confirmation"))
+	):
+		var confirmation_handled := bool(flow_owner.call(
+			"handle_guardian_spring_confirmation_input",
+			event,
+			view_size
+		))
+		if confirmation_handled:
+			_queue_redraw(owner)
+			_mark_handled(owner)
+		return confirmation_handled
 	var runtime_perk_state := _get_module(module_getter, "runtime_perk_state")
 	var overlay_host := _get_registry_instance(registry, HOST_KEY)
 	if overlay_host == null or not overlay_host.has_method("handle_input"):
