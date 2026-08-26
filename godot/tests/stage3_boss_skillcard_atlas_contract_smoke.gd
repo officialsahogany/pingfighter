@@ -184,7 +184,17 @@ func _verify_fallback_counterproof(runtime_ids: Array[String]) -> void:
 
 func _verify_stage2_sibling_unchanged() -> void:
 	_expect(
-		Stage2BossSkillHudAssets.SKILLCARD_PREWARM_IDS == ["jungle_quake", "speed_defense", "water_cannon"],
+		Stage2BossSkillHudAssets.SKILLCARD_PREWARM_IDS == [
+			"jungle_quake",
+			"speed_defense",
+			"water_cannon",
+			"tunnel_raid",
+			"spinning_claw",
+			"friend_moles",
+			"web_trap",
+			"web_rescue",
+			"spider_rage",
+		],
 		"Stage 3 atlas wiring must not alter the Stage 2 sibling skillcard owner"
 	)
 

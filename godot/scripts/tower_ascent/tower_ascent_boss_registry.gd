@@ -33,8 +33,7 @@ const NPC_FILL_LABELS := {
 	"training": "수련장",
 }
 const TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN := 2
-const TEMP_OPTIONAL_EXTRA_BOSS_SPAWN_CHANCE_PER_FLOOR := 0.45
-const TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR := 1
+const TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR := 2
 const OPTIONAL_EXTRA_BOSS_SEED_SALT := 0x58425234
 const OPTIONAL_EXTRA_BOSS_DISTRIBUTION_KEY := "optional_extra_boss_distribution"
 
@@ -623,10 +622,13 @@ func analyze_optional_extra_boss_bypass(
 	)
 	var issues: Array[String] = []
 	var optional_node_count := 0
+	var simultaneous_floor_count := 0
 	for phase_variant in graph.get("phases", []):
 		if not (phase_variant is Dictionary):
 			continue
 		var phase := phase_variant as Dictionary
+		var optional_node_ids_by_floor: Dictionary = {}
+		var optional_node_count_by_row: Dictionary = {}
 		for node_variant in phase.get("nodes", []):
 			if not (node_variant is Dictionary):
 				continue
@@ -635,16 +637,55 @@ func analyze_optional_extra_boss_bypass(
 				continue
 			optional_node_count += 1
 			var node_id := str(node.get("id", ""))
+			var floor_number := int(
+				node.get("segment_floor", node.get("floor", 0))
+			)
+			var floor_node_ids: Array = optional_node_ids_by_floor.get(
+				floor_number,
+				[]
+			)
+			floor_node_ids.append(node_id)
+			optional_node_ids_by_floor[floor_number] = floor_node_ids
+			var row_key := "%d:%d" % [
+				floor_number,
+				int(node.get("global_row", -1)),
+			]
+			optional_node_count_by_row[row_key] = int(
+				optional_node_count_by_row.get(row_key, 0)
+			) + 1
 			if not _has_entry_to_terminal_path_avoiding_node(
 				phase,
 				node_id,
 				resolved_clear_floor
 			):
 				issues.append("forced_optional_extra_boss=%s" % node_id)
+		for row_key_variant in optional_node_count_by_row.keys():
+			var row_key := str(row_key_variant)
+			if int(optional_node_count_by_row.get(row_key, 0)) > 1:
+				issues.append("optional_extra_boss_row_cap=%s" % row_key)
+		for floor_variant in optional_node_ids_by_floor.keys():
+			var floor_number := int(floor_variant)
+			var floor_node_ids: Array = optional_node_ids_by_floor.get(
+				floor_number,
+				[]
+			)
+			if floor_node_ids.size() < 2:
+				continue
+			simultaneous_floor_count += 1
+			if not _has_entry_to_terminal_path_avoiding_nodes(
+				phase,
+				floor_node_ids,
+				resolved_clear_floor
+			):
+				issues.append(
+					"forced_optional_extra_boss_set=%d:%s"
+					% [floor_number, ",".join(floor_node_ids)]
+				)
 	return {
 		"valid": issues.is_empty(),
 		"issues": issues,
 		"optional_node_count": optional_node_count,
+		"simultaneous_floor_count": simultaneous_floor_count,
 	}
 
 
@@ -657,8 +698,21 @@ func _assign_optional_extra_bosses(
 	used_generated_encounter_keys: Dictionary
 ) -> Dictionary:
 	var maximum_floor := active_clear_floor - 1
+	if TowerAuditionBuildConfig.is_enabled():
+		var audition_report := {
+			"assignment_mode": "pool_driven",
+			"scope_status": "audition_topology_excluded",
+			"floor_min": TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN,
+			"floor_max": maximum_floor,
+			"max_per_floor": TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR,
+			"spawned_count": 0,
+			"unique_pool_exhausted_skip_count": 0,
+			"no_bypass_candidate_skip_count": 0,
+			"floor_reports": {},
+		}
+		result[OPTIONAL_EXTRA_BOSS_DISTRIBUTION_KEY] = audition_report
+		return {"valid": true, "spawned_count": 0}
 	var floor_reports: Dictionary = {}
-	var roll_hit_count := 0
 	var spawned_count := 0
 	var unique_pool_exhausted_skip_count := 0
 	var no_bypass_candidate_skip_count := 0
@@ -669,19 +723,6 @@ func _assign_optional_extra_bosses(
 	):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = _optional_extra_boss_floor_seed(map_seed, floor_number)
-		var spawn_roll := rng.randf()
-		var floor_report := {
-			"roll": spawn_roll,
-			"roll_hit": spawn_roll < TEMP_OPTIONAL_EXTRA_BOSS_SPAWN_CHANCE_PER_FLOOR,
-			"spawned_count": 0,
-			"skip_reason": "chance_miss",
-			"node_id": "",
-			"boss_slot_id": "",
-		}
-		if not bool(floor_report.get("roll_hit", false)):
-			floor_reports[floor_number] = floor_report
-			continue
-		roll_hit_count += 1
 		var available_slots: Array[Dictionary] = []
 		for slot in _get_shuffled_generation_slots(floor_number, map_seed):
 			var slot_id := str(slot.get("slot_id", ""))
@@ -692,67 +733,106 @@ func _assign_optional_extra_bosses(
 				"slot": slot,
 				"encounter_key": encounter_key,
 			})
-		if available_slots.is_empty():
-			floor_report["skip_reason"] = "unique_pool_exhausted"
-			unique_pool_exhausted_skip_count += 1
-			floor_reports[floor_number] = floor_report
-			continue
 		var candidate_indexes := _optional_extra_boss_candidate_indexes(
 			nodes,
 			floor_number,
 			row_width_by_node_id
 		)
-		var selected_index := -1
-		if not candidate_indexes.is_empty():
-			var start_index := rng.randi_range(0, candidate_indexes.size() - 1)
-			for candidate_offset in range(candidate_indexes.size()):
-				var candidate_index := int(candidate_indexes[
-					(start_index + candidate_offset) % candidate_indexes.size()
-				])
-				var candidate_node := nodes[candidate_index] as Dictionary
-				if _has_entry_to_terminal_path_avoiding_node(
-					phase,
-					str(candidate_node.get("id", "")),
-					active_clear_floor
-				):
-					selected_index = candidate_index
-					break
-		if selected_index < 0:
-			floor_report["skip_reason"] = "no_bypass_candidate"
-			no_bypass_candidate_skip_count += 1
+		var candidate_global_rows: Dictionary = {}
+		for candidate_index in candidate_indexes:
+			var candidate_node := nodes[candidate_index] as Dictionary
+			candidate_global_rows[int(candidate_node.get("global_row", -1))] = true
+		var target_count := mini(
+			TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR,
+			mini(available_slots.size(), candidate_global_rows.size())
+		)
+		var floor_report := {
+			"pool_size": available_slots.size(),
+			"candidate_row_count": candidate_global_rows.size(),
+			"target_count": target_count,
+			"spawned_count": 0,
+			"skip_reason": "",
+			"node_ids": [],
+			"boss_slot_ids": [],
+		}
+		if available_slots.is_empty():
+			floor_report["skip_reason"] = "unique_pool_exhausted"
+			unique_pool_exhausted_skip_count += 1
 			floor_reports[floor_number] = floor_report
 			continue
-		var selected_node := nodes[selected_index] as Dictionary
-		var selected_slot_report := available_slots[0]
-		var selected_slot := selected_slot_report.get("slot", {}) as Dictionary
-		var selected_key := str(selected_slot_report.get("encounter_key", ""))
-		selected_node["optional_extra_boss"] = true
-		selected_node["optional_extra_boss_source_kind"] = str(
-			selected_node.get("kind", "")
-		)
-		selected_node["optional_extra_boss_source_label"] = str(
-			selected_node.get("label", "")
-		)
-		selected_node["kind"] = "boss"
-		_assign_boss_slot(
-			selected_node,
-			selected_slot,
-			_get_shuffled_generation_slots(floor_number, map_seed),
-			selected_key
-		)
-		used_generated_encounter_keys[selected_key] = true
-		spawned_count += 1
-		floor_report["spawned_count"] = TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR
-		floor_report["skip_reason"] = ""
-		floor_report["node_id"] = str(selected_node.get("id", ""))
-		floor_report["boss_slot_id"] = str(selected_node.get("boss_slot_id", ""))
+		var selected_node_ids: Array[String] = []
+		var selected_global_rows: Dictionary = {}
+		for spawn_index in range(target_count):
+			var viable_candidate_indexes: Array[int] = []
+			for candidate_index in candidate_indexes:
+				var candidate_node := nodes[candidate_index] as Dictionary
+				var candidate_node_id := str(candidate_node.get("id", ""))
+				var candidate_global_row := int(candidate_node.get("global_row", -1))
+				if selected_global_rows.has(candidate_global_row):
+					continue
+				var blocked_node_ids: Array = selected_node_ids.duplicate()
+				blocked_node_ids.append(candidate_node_id)
+				if _has_entry_to_terminal_path_avoiding_nodes(
+					phase,
+					blocked_node_ids,
+					active_clear_floor
+				):
+					viable_candidate_indexes.append(candidate_index)
+			if viable_candidate_indexes.is_empty():
+				floor_report["skip_reason"] = "no_bypass_candidate"
+				no_bypass_candidate_skip_count += 1
+				floor_reports[floor_number] = floor_report
+				result[OPTIONAL_EXTRA_BOSS_DISTRIBUTION_KEY] = {
+					"assignment_mode": "pool_driven",
+					"floor_min": TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN,
+					"floor_max": maximum_floor,
+					"max_per_floor": TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR,
+					"spawned_count": spawned_count,
+					"unique_pool_exhausted_skip_count": unique_pool_exhausted_skip_count,
+					"no_bypass_candidate_skip_count": no_bypass_candidate_skip_count,
+					"floor_reports": floor_reports,
+				}
+				return {"valid": false, "spawned_count": spawned_count}
+			var selected_candidate_offset := rng.randi_range(
+				0,
+				viable_candidate_indexes.size() - 1
+			)
+			var selected_index := viable_candidate_indexes[selected_candidate_offset]
+			var selected_node := nodes[selected_index] as Dictionary
+			var selected_slot_report := available_slots[spawn_index]
+			var selected_slot := selected_slot_report.get("slot", {}) as Dictionary
+			var selected_key := str(selected_slot_report.get("encounter_key", ""))
+			selected_node["optional_extra_boss"] = true
+			selected_node["optional_extra_boss_source_kind"] = str(
+				selected_node.get("kind", "")
+			)
+			selected_node["optional_extra_boss_source_label"] = str(
+				selected_node.get("label", "")
+			)
+			selected_node["kind"] = "boss"
+			_assign_boss_slot(
+				selected_node,
+				selected_slot,
+				_get_shuffled_generation_slots(floor_number, map_seed),
+				selected_key
+			)
+			used_generated_encounter_keys[selected_key] = true
+			spawned_count += 1
+			selected_node_ids.append(str(selected_node.get("id", "")))
+			selected_global_rows[int(selected_node.get("global_row", -1))] = true
+			var report_node_ids: Array = floor_report.get("node_ids", [])
+			report_node_ids.append(str(selected_node.get("id", "")))
+			floor_report["node_ids"] = report_node_ids
+			var report_slot_ids: Array = floor_report.get("boss_slot_ids", [])
+			report_slot_ids.append(str(selected_node.get("boss_slot_id", "")))
+			floor_report["boss_slot_ids"] = report_slot_ids
+			floor_report["spawned_count"] = spawn_index + 1
 		floor_reports[floor_number] = floor_report
 	var report := {
+		"assignment_mode": "pool_driven",
 		"floor_min": TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN,
 		"floor_max": maximum_floor,
-		"spawn_chance_per_floor": TEMP_OPTIONAL_EXTRA_BOSS_SPAWN_CHANCE_PER_FLOOR,
 		"max_per_floor": TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR,
-		"roll_hit_count": roll_hit_count,
 		"spawned_count": spawned_count,
 		"unique_pool_exhausted_skip_count": unique_pool_exhausted_skip_count,
 		"no_bypass_candidate_skip_count": no_bypass_candidate_skip_count,
@@ -810,6 +890,18 @@ func _has_entry_to_terminal_path_avoiding_node(
 	blocked_node_id: String,
 	active_clear_floor: int
 ) -> bool:
+	return _has_entry_to_terminal_path_avoiding_nodes(
+		phase,
+		[blocked_node_id],
+		active_clear_floor
+	)
+
+
+func _has_entry_to_terminal_path_avoiding_nodes(
+	phase: Dictionary,
+	blocked_node_ids: Array,
+	active_clear_floor: int
+) -> bool:
 	var entry_id := str(phase.get("entry_node_id", ""))
 	var terminal_id := ""
 	for node_variant in phase.get("nodes", []):
@@ -824,11 +916,14 @@ func _has_entry_to_terminal_path_avoiding_node(
 		):
 			terminal_id = str(node.get("id", ""))
 			break
+	var blocked_node_id_set: Dictionary = {}
+	for blocked_node_id_variant in blocked_node_ids:
+		blocked_node_id_set[str(blocked_node_id_variant)] = true
 	if (
 		entry_id.is_empty()
 		or terminal_id.is_empty()
-		or blocked_node_id == entry_id
-		or blocked_node_id == terminal_id
+		or blocked_node_id_set.has(entry_id)
+		or blocked_node_id_set.has(terminal_id)
 	):
 		return false
 	var adjacency: Dictionary = {}
@@ -838,7 +933,7 @@ func _has_entry_to_terminal_path_avoiding_node(
 		var edge := edge_variant as Dictionary
 		var from_id := str(edge.get("from", ""))
 		var to_id := str(edge.get("to", ""))
-		if from_id == blocked_node_id or to_id == blocked_node_id:
+		if blocked_node_id_set.has(from_id) or blocked_node_id_set.has(to_id):
 			continue
 		var targets: Array = adjacency.get(from_id, [])
 		targets.append(to_id)

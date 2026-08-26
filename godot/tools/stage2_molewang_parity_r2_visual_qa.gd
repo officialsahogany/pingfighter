@@ -2,6 +2,7 @@ extends SceneTree
 
 const Stage2MolewangBossState := preload("res://scripts/stages/stage2/stage2_molewang_boss_state.gd")
 const Stage2VariantBossRenderer := preload("res://scripts/stages/stage2/stage2_variant_boss_renderer.gd")
+const Stage2BossSkillHudRenderer := preload("res://scripts/stages/stage2/stage2_boss_skill_hud_renderer.gd")
 
 const VIEW_SIZE := Vector2i(2020, 1246)
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
@@ -25,6 +26,7 @@ class CaptureCanvas:
 
 
 var _variant_renderer: Object
+var _hud_renderer: Object
 var _viewport: SubViewport
 var _canvas: CaptureCanvas
 var _draw_context: Dictionary = {}
@@ -47,6 +49,8 @@ func _run() -> void:
 		_fail("could not create the Molewang parity capture directory")
 		return
 	_variant_renderer = Stage2VariantBossRenderer.new()
+	_hud_renderer = Stage2BossSkillHudRenderer.new()
+	_hud_renderer.prewarm_assets()
 	_viewport = SubViewport.new()
 	_viewport.size = VIEW_SIZE
 	_viewport.transparent_bg = false
@@ -101,6 +105,8 @@ func _draw_capture(canvas: CanvasItem) -> void:
 	canvas.draw_set_transform(GAME_OFFSET, 0.0, Vector2.ONE * PLAYFIELD_SCALE)
 	canvas.draw_rect(Rect2(Vector2.ZERO, PLAYFIELD_SIZE), PLAYFIELD_BACKGROUND, true)
 	_variant_renderer.draw(canvas, _draw_context)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	_hud_renderer.draw(canvas, _draw_context)
 
 
 func _build_base_context() -> Dictionary:
@@ -119,6 +125,10 @@ func _build_base_context() -> Dictionary:
 		"ball_size": 32.0,
 		"player_pos": Vector2(302.5, 690.0),
 		"player_paddle_size": Vector2(155.0, 50.0),
+		"view_size": Vector2(VIEW_SIZE),
+		"game_offset": GAME_OFFSET,
+		"game_size": SCALED_GAME_SIZE,
+		"commando_firearm_panel_rect": Rect2(),
 	}
 
 
@@ -133,6 +143,7 @@ func _build_claw_context(ball_is_left_of_boss: bool) -> Dictionary:
 		return context
 	state.update(0.05, context, {})
 	context.merge(state.get_actor_draw_context(), true)
+	context.merge(state.get_hud_context(null, context), true)
 	state = null
 	return context
 
@@ -153,6 +164,7 @@ func _build_friend_mole_contexts() -> Dictionary:
 		return {}
 	var active_context := context.duplicate(true)
 	active_context.merge(state.get_actor_draw_context(), true)
+	active_context.merge(state.get_hud_context(null, context), true)
 	var guard := 0
 	while state.friend_moles_active and guard < 720:
 		state.update(0.0, context, {})
@@ -162,6 +174,7 @@ func _build_friend_mole_contexts() -> Dictionary:
 		return {}
 	var ended_context := context.duplicate(true)
 	ended_context.merge(state.get_actor_draw_context(), true)
+	ended_context.merge(state.get_hud_context(null, context), true)
 	state = null
 	return {"active": active_context, "ended": ended_context}
 

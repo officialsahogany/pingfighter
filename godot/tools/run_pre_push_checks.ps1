@@ -136,6 +136,7 @@ $focusedSmoke = @(
     "res://tests/tower_ascent_training_node_smoke.gd",
     "res://tests/tower_route_screen_cleanup_smoke.gd",
     "res://tests/variant_boss_skill_name_rebrand_smoke.gd",
+    "res://tests/stage2_variant_skillcard_art_smoke.gd",
     "res://tests/stage3_boss_skillcard_atlas_contract_smoke.gd",
     "res://tests/tower_route_wind_and_pickup_smoke.gd",
     "res://tests/stage2_variant_crisis_rockfall_smoke.gd",

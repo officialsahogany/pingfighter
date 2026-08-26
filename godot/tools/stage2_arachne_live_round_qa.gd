@@ -53,6 +53,7 @@ func _run() -> void:
 	_state = Stage2BossVariantSkillState.new()
 	_variant_renderer = Stage2VariantBossRenderer.new()
 	_hud_renderer = Stage2BossSkillHudRenderer.new()
+	_hud_renderer.prewarm_assets()
 	_context = {
 		"current_stage": 2,
 		"stage_boss_variant": "arachne",
