@@ -2,17 +2,40 @@
 
 - **발행**: 관제탑 2026-08-26. 대상: 본 트리 `d:\main\bosspong` 기준
   **격리 워크트리 + 격리 브랜치**. 본 트리 편집·통합·푸시 금지.
-- **★선행 차단 조건**
-  1. ✔**W5 해소됨.** `efaf3ffc9`로 착지했고 게이트 GREEN이다.
-     W5가 바꾼 `tower_ascent_flow_renderer.gd`(+223),
-     `tower_ascent_node_modal_state.gd`(+194),
-     `tower_ascent_flow_node_progress.gd`(+35),
-     `runtime_perk_overlay_renderer.gd`(+122)는 **이 지시문이 편집할 4개 파일
-     전부**다. 그 변경 위에서 작업하고 되돌리지 마라.
-  2. ⚠**X1(샘터 기능 결함) 착지가 아직 선행 조건이다.**
-     X1이 교체 UI와 자동 진행 골격을 세우고 이 지시문은 그 위에 연출을 얹는다.
-     순서를 뒤집으면 재작업이다. 관제탑이 X1을 통합하면 기준선 해시를 알린다.
-- 현재 본 트리 기준선 = `0bd1ee89c`.
+- **★선행 차단 조건 — 전부 해소됐다. 바로 착수하라.**
+  1. ✔**W5 착지** `efaf3ffc9`. 그것이 바꾼
+     `tower_ascent_flow_renderer.gd` · `tower_ascent_node_modal_state.gd` ·
+     `tower_ascent_flow_node_progress.gd` · `runtime_perk_overlay_renderer.gd`
+     는 **이 지시문이 편집할 4개 파일 전부**다. 그 위에서 작업하고 되돌리지 마라.
+  2. ✔**X1 착지** `9713a91ec`. 교체 UI(자립 오버레이 호스트)와 자동 진행
+     골격이 이미 있다. **이 지시문은 그 위에 연출을 얹는 것이다.**
+- **기준선 = 본 트리 현재 HEAD.** 착수 직전
+  `git -C d:\main\bosspong rev-parse HEAD` 로 확인하라(작성 시점 `9713a91ec`).
+
+## ⚠X1 착지로 달라진 전제 (원문보다 이것이 우선한다)
+
+이 문서는 X1 착지 **전에** 작성됐다. 아래는 이미 존재하니 새로 만들지 마라.
+
+- `guardian_spring_chosik_swap_overlay_host.gd` — 5지선다 교체창 자립 호스트
+- `guardian_spring_chosik_swap_input_router.gd` — 전용 입력 라우터.
+  `battle_lingpet_priority_input_router` 의 `pre_overflow_modal_router` 로
+  주입돼 있고 **모달 활성 시 입력을 항상 삼킨다.**
+  ⚠**그 이음매 파일을 건드리지 마라.** 연출용 입력이 필요하면 이 라우터
+  안에서 처리하거나 관제탑에 판정을 요청하라.
+- 자동 진행 — 기존 종료구 `_try_enter_route_aim_from_node_modal` 만 통과한다.
+  ⚠**복제하지 마라.** RNG 파리티가 깨진다.
+- 방문당 1행동 + **첫 수호령 선택은 같은 방문 유지**.
+  ⚠아래 5항 시나리오의 "수호령 선택 후 경로선택" 은 **이미 그렇게 동작한다.**
+  연출만 얹으면 된다.
+- 결과 문구 `"모든 능력치가 3.0%p 상승했습니다."` KO/EN/ZH/JA 등재됨.
+
+**씰**: `tower_guardian_spring_slot_and_prayer_smoke`(신규 등재),
+`battle_overlay_input_priority_preservation_smoke`(우선순위 3레그),
+`tower_ascent_guardian_spring_node_smoke`, `tower_guardian_spring_stage2_smoke`
+가 전부 GREEN 이다. **연출 개편이 이것들을 깨면 안 된다.**
+
+⚠**CI/pre-push 는 249/249 다.** 신규 씰을 등재할 때 통째 교체하지 말고
+필요한 줄만 추가하라. 최근 통째 교체로 형제 씰이 소실된 사고가 있었다.
 
 ---
 
