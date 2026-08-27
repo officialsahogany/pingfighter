@@ -26,6 +26,9 @@ const TowerAscentNodeActionTransaction := preload(
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerAscentNodeModalState := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
 const TowerAscentRunState := preload(
 	"res://scripts/tower_ascent/tower_ascent_run_state.gd"
 )
@@ -186,11 +189,14 @@ func _verify_full_smasher_two_stage_commit() -> void:
 	var transaction: Object = fixture.transaction
 	_expect(config.equipped_skills.size() == config.get_max_skill_slots(), "Smasher production fixture must be truly full")
 	var palm := _find_action(spring.build_actions("spring-full", 8101, run_state, owner, registry), "guardian_spring:palm")
+	var first_palm_choice: Dictionary = palm.get("payload", {}).get("choice", {})
 	_expect(bool(palm.get("enabled", false)), "a full-slot palm must stay enabled")
 	_expect(
-		str(palm.get("payload", {}).get("choice", {}).get("description", "")).is_empty()
+		str(first_palm_choice.get("description", ""))
+		== "바위가 무엇을 내어줄지는 알 수 없습니다."
+		and bool(first_palm_choice.get("hide_hover_detail", false))
 		and bool(palm.get("first_visit_spoiler_gate", false)),
-		"the first-visit spoiler gate must hide the full-slot Chosik disclosure"
+		"the first-visit spoiler gate must replace the full-slot Chosik disclosure with safe copy"
 	)
 	var discarded_skill := str(config.equipped_skills[0])
 	var result: Dictionary = spring.execute_action(
@@ -616,6 +622,55 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 			)).format({"bonus": "3.0"}) == str(expected_prayer_copy_by_locale[locale]),
 			"prayer success copy must stay synchronized and respectful for locale %s" % locale
 		)
+	var first_visit_copy_by_locale := {
+		LanguageSettings.LANGUAGE_KOREAN: [
+			"바위가 무엇을 내어줄지는 알 수 없습니다.",
+			"정성을 들이면 기운이 오릅니다.",
+			"샘터를 떠난다",
+		],
+		LanguageSettings.LANGUAGE_ENGLISH: [
+			"What the stone will offer remains unknown.",
+			"Devotion causes the energy to rise.",
+			"Leave the spring",
+		],
+		LanguageSettings.LANGUAGE_CHINESE: [
+			"无法得知岩石会赐予什么。",
+			"虔诚祈祷会提升气息。",
+			"离开泉边",
+		],
+		LanguageSettings.LANGUAGE_JAPANESE: [
+			"岩が何を授けるかは分かりません。",
+			"祈りを捧げると気が高まります。",
+			"泉を離れる",
+		],
+		LanguageSettings.LANGUAGE_SPANISH: [
+			"No se sabe qué concederá la roca.",
+			"La devoción eleva la energía.",
+			"Abandonar el manantial",
+		],
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: [
+			"Não se sabe o que a rocha concederá.",
+			"A devoção eleva a energia.",
+			"Deixar a fonte",
+		],
+		LanguageSettings.LANGUAGE_RUSSIAN: [
+			"Неизвестно, что дарует камень.",
+			"Искренняя молитва усиливает энергию.",
+			"Покинуть источник",
+		],
+	}
+	for locale in first_visit_copy_by_locale:
+		var locale_text: Dictionary = TowerAscentNodeModalLocalization.TEXT_BY_LOCALE.get(
+			locale,
+			{}
+		)
+		var expected_copy: Array = first_visit_copy_by_locale[locale]
+		_expect(
+			str(locale_text.get(TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION, "")) == str(expected_copy[0])
+			and str(locale_text.get(TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION, "")) == str(expected_copy[1])
+			and str(locale_text.get(TowerAscentNodeModalLocalization.KEY_SPRING_EXIT, "")) == str(expected_copy[2]),
+			"first-visit safe copy and Spring exit must be translated directly for locale %s" % locale
+		)
 	var fixture := _build_smasher_fixture(["drive", "power_smashing"])
 	var actions: Array = fixture.spring.build_actions(
 		"spring-prayer-a",
@@ -626,17 +681,33 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 	)
 	var prayer := _find_action_with_prefix(actions, "guardian_spring:prayer:")
 	var first_palm := _find_action(actions, "guardian_spring:palm")
-	for first_action in [first_palm, prayer]:
+	var first_action_contracts := [
+		{
+			"action": first_palm,
+			"label": "손바닥을 대본다",
+			"description": "바위가 무엇을 내어줄지는 알 수 없습니다.",
+		},
+		{
+			"action": prayer,
+			"label": "기도한다",
+			"description": "정성을 들이면 기운이 오릅니다.",
+		},
+	]
+	for contract in first_action_contracts:
+		var first_action: Dictionary = contract.action
 		var first_payload: Dictionary = first_action.get("payload", {})
 		var first_choice: Dictionary = first_payload.get("choice", {})
 		_expect(bool(first_action.get("first_visit_spoiler_gate", false)), "empty-run first visit owns the spoiler gate")
-		_expect(str(first_action.get("label", "")) == "???", "first visit hides action names")
-		_expect(str(first_action.get("cost_text", "")).is_empty(), "first visit hides costs")
-		_expect(str(first_choice.get("name", "")) == "???", "first visit uses a neutral card name")
-		_expect(str(first_choice.get("description", "")).is_empty(), "first visit hides card descriptions")
+		_expect(str(first_action.get("label", "")) == str(contract.label), "first visit reveals the action name")
+		_expect(str(first_action.get("cost_text", "")) == "무료", "first visit reveals the actionable cost")
+		_expect(str(first_choice.get("name", "")) == str(contract.label), "first visit card title mirrors the safe action name")
+		_expect(str(first_choice.get("description", "")) == str(contract.description), "first visit card shows one spoiler-safe explanation")
 		_expect(bool(first_choice.get("hide_level_text", false)), "first visit suppresses level fallback copy")
 		_expect(bool(first_choice.get("hide_hover_detail", false)), "first visit suppresses hover detail")
 		_expect(str(first_choice.get("card_content_kind", "")) == "guardian_spring_mystery", "first visit uses the neutral mystery symbol")
+		_expect(str(first_choice.get("guardian_pet_id", "")).is_empty(), "first visit exposes no guardian identity")
+		_expect(str(first_choice.get("guardian_portrait_path", "")).is_empty(), "first visit exposes no guardian portrait")
+		_expect(str(first_choice.get("icon_id", "")).is_empty(), "first visit exposes no guardian icon")
 		_expect((first_payload.get("presentation", {}) as Dictionary).is_empty(), "first visit hides presentation tooltip fields")
 	_expect(str(prayer.get("payload", {}).get("operation", "")) == "prayer", "spoiler masking preserves transaction operation")
 	_expect(int(prayer.get("payload", {}).get("cost", -1)) == 0, "spoiler masking preserves actual first-prayer cost")
@@ -650,8 +721,9 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 		first_palm,
 		Rect2(0.0, 0.0, 315.0, 114.0)
 	)
-	_expect(bool(spoiler_text_layout.get("description_hidden_by_spoiler_gate", false)), "spoiler telemetry stays distinct from text-budget hiding")
+	_expect(not spoiler_text_layout.has("description_hidden_by_spoiler_gate"), "the relaxed gate must not publish dead hidden-description telemetry")
 	_expect(not bool(spoiler_text_layout.get("description_hidden_by_budget", true)), "empty spoiler copy is not misreported as budget overflow")
+	_expect((spoiler_text_layout.get("description_rows", []) as Array).has("바위가 무엇을 내어줄지는 알 수 없습니다."), "the card layout must consume the safe first-visit explanation")
 	_expect(bool(spoiler_hover_layout.get("hidden_by_spoiler_gate", false)), "hover telemetry identifies the spoiler gate")
 	_expect((spoiler_hover_layout.get("rows", []) as Array).is_empty(), "first-visit hover produces zero rows")
 	var result: Dictionary = fixture.spring.execute_action(
@@ -704,11 +776,24 @@ func _verify_prayer_visit_gate_and_copy() -> void:
 	_expect(not bool(next_prayer.get("first_visit_spoiler_gate", false)), "one prayer immediately releases the run-scoped spoiler gate")
 	_expect(not str(next_prayer.get("cost_text", "")).is_empty(), "post-prayer visit reveals the next cost")
 	_expect(not str(next_palm.get("payload", {}).get("choice", {}).get("description", "")).is_empty(), "post-prayer visit reveals Palm details")
+	_expect(str(next_palm.get("label", "")) == "손바닥을 대본다" and str(next_prayer.get("label", "")) == "기도한다", "later visits retain unmasked action labels")
 	_expect(
 		bool(next_prayer.get("enabled", false))
 		and int(next_prayer.get("payload", {}).get("cost", -1)) == 2,
 		"the next Spring node must reopen prayer at the cumulative two-Muhon cost"
 	)
+	var modal := TowerAscentNodeModalState.new()
+	modal.open("spring-prayer-a", "guardian_spring", {"gold": 0, "muhon": 20}, actions)
+	var modal_model: Dictionary = modal.build_view_model()
+	var modal_actions: Array = modal_model.get("actions", [])
+	_expect(bool((modal_actions[0] as Dictionary).get("first_visit_spoiler_gate", false)), "modal normalization preserves the live first-visit gate")
+	_expect(str((modal_actions[0] as Dictionary).get("label", "")) == "손바닥을 대본다", "production modal keeps the restored first action label")
+	_expect(str((modal_actions[-1] as Dictionary).get("label", "")) == "샘터를 떠난다", "Guardian Spring owns its node-specific exit copy")
+	_expect(str(modal_model.get("description", "")).is_empty(), "the first-visit gate still hides the reward-oriented node description")
+	modal.open("shop-copy", "shop", {"gold": 0, "muhon": 0}, [])
+	_expect(str((modal.build_view_model().get("actions", []) as Array)[-1].get("label", "")) == "상점 나가기", "Spring exit copy cannot change the shop exit")
+	modal.open("training-copy", "training", {"gold": 0, "muhon": 0}, [])
+	_expect(str((modal.build_view_model().get("actions", []) as Array)[-1].get("label", "")) == "업무 종료", "Spring exit copy cannot change other node exits")
 
 
 func _build_smasher_fixture(equipped: Array) -> Dictionary:

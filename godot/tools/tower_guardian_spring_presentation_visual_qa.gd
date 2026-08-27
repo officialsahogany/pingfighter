@@ -33,6 +33,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentNodeArrivalTestFixture := preload(
 	"res://tests/tower_ascent_node_arrival_test_fixture.gd"
 )
+const TowerAscentGuardianSpringNode := preload(
+	"res://scripts/tower_ascent/tower_ascent_guardian_spring_node.gd"
+)
 const GuardianSpringProductionFixtureTypes := preload(
 	"res://tests/tower_ascent_guardian_spring_node_smoke.gd"
 )
@@ -41,6 +44,9 @@ const TowerAscentNodeModalLocalization := preload(
 )
 const TowerAscentNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
+const TowerAscentRunState := preload(
+	"res://scripts/tower_ascent/tower_ascent_run_state.gd"
 )
 const TowerGuardianSpringPresentationAssetCatalog := preload(
 	"res://scripts/tower_ascent/tower_guardian_spring_presentation_asset_catalog.gd"
@@ -198,8 +204,13 @@ func _run() -> void:
 
 	modal.reveal_guardian_spring_menu()
 	modal.set_status_text(str(TowerAscentNodeModalLocalization.TEXT_BY_LOCALE["ko"][TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_DIALOGUE]))
-	modal.set_actions(_spoiler_actions())
-	await _capture("first_visit_hidden_cards.png")
+	var first_visit_actions := _production_first_visit_actions()
+	if not _first_visit_contract_is_safe(first_visit_actions):
+		push_error("production first-visit actions failed the spoiler-safe visual contract")
+		quit(1)
+		return
+	modal.set_actions(first_visit_actions)
+	await _capture("first_visit_safe_actions.png")
 	modal.set_actions(_menu_actions())
 	modal.begin_guardian_spring_ritual(_menu_actions()[0])
 	modal.advance_guardian_spring_presentation(1.7)
@@ -411,7 +422,8 @@ func _run() -> void:
 			int(ritual_draw_stats.get("sample_count", 0)),
 		]
 	)
-	print("tower_guardian_spring_presentation_visual_qa: captures=first_visit_hidden_cards.png,palm_ascend_mid.png,palm_reveal.png,palm_confirmation.png,palm_absorb_mid.png,palm_impact.png,prayer_glow_mid.png,prayer_result.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png")
+	print("tower_guardian_spring_presentation_visual_qa: FIRST_VISIT_SAFE_ACTIONS=2 REWARD_IDENTITIES=0")
+	print("tower_guardian_spring_presentation_visual_qa: captures=first_visit_safe_actions.png,palm_ascend_mid.png,palm_reveal.png,palm_confirmation.png,palm_absorb_mid.png,palm_impact.png,prayer_glow_mid.png,prayer_result.png,capsules_t0.png,capsules_t1.png,chosik_swap_dialog.png,chosik_swap_escape_restored.png")
 	swap_flow.call("_reset_runtime_state")
 	swap_registry.instances.clear()
 	swap_codex.clear()
@@ -620,27 +632,47 @@ func _menu_actions() -> Array[Dictionary]:
 	]
 
 
-func _spoiler_actions() -> Array[Dictionary]:
-	var actions := _menu_actions()
-	for index in range(2):
+func _production_first_visit_actions() -> Array[Dictionary]:
+	var run_state := TowerAscentRunState.new()
+	if not run_state.begin("guardian-spring-presentation-first-visit", {"gold": 0, "muhon": 20}):
+		return []
+	var registry := GuardianSpringProductionFixtureTypes.FakeRegistry.new()
+	registry.instances = {
+		"lingpet_egg_runtime": GuardianSpringProductionFixtureTypes.FakeLingpetRuntime.new(),
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+		"runtime_perk_state": RuntimePerkState.new(),
+		"smasher_skill_config": SmasherSkillConfig.new(),
+	}
+	return TowerAscentGuardianSpringNode.new().build_actions(
+		"guardian-spring-presentation-first-visit",
+		8107,
+		run_state,
+		GuardianSpringProductionFixtureTypes.FakeOwner.new(),
+		registry
+	)
+
+
+func _first_visit_contract_is_safe(actions: Array[Dictionary]) -> bool:
+	if actions.size() != 2:
+		return false
+	var expected_labels := ["손바닥을 대본다", "기도한다"]
+	var expected_descriptions := [
+		"바위가 무엇을 내어줄지는 알 수 없습니다.",
+		"정성을 들이면 기운이 오릅니다.",
+	]
+	for index in range(actions.size()):
 		var action: Dictionary = actions[index]
-		action["label"] = "???"
-		action["cost_text"] = ""
-		action["first_visit_spoiler_gate"] = true
-		var payload: Dictionary = action.get("payload", {})
-		payload["presentation"] = {}
-		payload["choice"] = {
-			"id": "guardian_spring_mystery",
-			"name": "???",
-			"description": "",
-			"level_text": "",
-			"hide_level_text": true,
-			"hide_hover_detail": true,
-			"card_content_kind": "guardian_spring_mystery",
-		}
-		action["payload"] = payload
-		actions[index] = action
-	return actions
+		var choice: Dictionary = action.get("payload", {}).get("choice", {})
+		if (
+			str(action.get("label", "")) != expected_labels[index]
+			or str(choice.get("name", "")) != expected_labels[index]
+			or str(choice.get("description", "")) != expected_descriptions[index]
+			or not str(choice.get("guardian_pet_id", "")).is_empty()
+			or not str(choice.get("guardian_portrait_path", "")).is_empty()
+			or not bool(choice.get("hide_hover_detail", false))
+		):
+			return false
+	return true
 
 
 func _pressed_action(action_name: StringName) -> InputEventAction:

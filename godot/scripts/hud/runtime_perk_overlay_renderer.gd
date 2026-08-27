@@ -757,9 +757,6 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 			or unavailable_reason_row_reserved
 		)
 	)
-	var description_hidden_by_spoiler_gate := bool(
-		action.get("first_visit_spoiler_gate", false)
-	)
 	if description_hidden_by_budget:
 		# GRT-021: Spring/Rest presentation sentences are semantic contracts.
 		# When the entire sentence cannot fit, omit it instead of drawing a clipped
@@ -807,7 +804,6 @@ func build_tower_node_card_text_layout(action: Dictionary, rect: Rect2) -> Dicti
 		"appended_description_row_count": description_rows.size(),
 		"source_description_row_count": int(description_wrap.get("source_line_count", 0)),
 		"description_hidden_by_budget": description_hidden_by_budget,
-		"description_hidden_by_spoiler_gate": description_hidden_by_spoiler_gate,
 		"bonus_badge_text": bonus_badge_text,
 		"bonus_badge_font_size": bonus_badge_font_size,
 		"bonus_badge_rows": bonus_badge_rows,

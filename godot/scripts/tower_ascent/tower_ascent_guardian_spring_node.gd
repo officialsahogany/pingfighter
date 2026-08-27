@@ -30,6 +30,7 @@ const OP_FIRST_PICK := "first_pick"
 const OP_BROWSE := "browse"
 const OP_BROWSE_CANDIDATE := "browse_candidate"
 const RNG_VERSION := "tower_guardian_spring_v1"
+const FIRST_VISIT_COST_VISIBLE := true
 
 var _state: Dictionary = {}
 var _pending_rollback: Dictionary = {}
@@ -644,17 +645,24 @@ func _build_prayer_action(
 
 func _mask_first_visit_action(source: Dictionary) -> Dictionary:
 	var action := source.duplicate(true)
-	action["label"] = "???"
-	action["cost_text"] = ""
+	if not FIRST_VISIT_COST_VISIBLE:
+		action["cost_text"] = ""
 	action["unavailable_reason"] = ""
 	action["first_visit_spoiler_gate"] = true
 	var payload: Dictionary = _dictionary(action.get("payload", {}))
+	var operation := str(payload.get("operation", ""))
 	payload["presentation"] = {}
 	var choice: Dictionary = _dictionary(payload.get("choice", {}))
 	choice["id"] = "guardian_spring_mystery"
 	choice["icon_id"] = ""
-	choice["name"] = "???"
-	choice["description"] = ""
+	choice["name"] = str(action.get("label", ""))
+	choice["description"] = TowerAscentNodeModalLocalization.text(
+		(
+			TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION
+			if operation == OP_PRAYER
+			else TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION
+		)
+	)
 	choice["level_text"] = ""
 	choice["hide_level_text"] = true
 	choice["hide_hover_detail"] = true

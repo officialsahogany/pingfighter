@@ -1445,6 +1445,8 @@ func _replace_actions(actions: Array) -> void:
 			(
 				TowerAscentNodeModalLocalization.KEY_SHOP_EXIT
 				if _node_kind == "shop"
+				else TowerAscentNodeModalLocalization.KEY_SPRING_EXIT
+				if _node_kind == "guardian_spring"
 				else TowerAscentNodeModalLocalization.KEY_END_WORK
 			)
 		),
@@ -1621,6 +1623,7 @@ func _normalize_action(source: Dictionary) -> Dictionary:
 				TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
 			)
 		)).strip_edges(),
+		"first_visit_spoiler_gate": bool(source.get("first_visit_spoiler_gate", false)),
 		"payload": (
 			(source.get("payload", {}) as Dictionary).duplicate(true)
 			if source.get("payload", {}) is Dictionary

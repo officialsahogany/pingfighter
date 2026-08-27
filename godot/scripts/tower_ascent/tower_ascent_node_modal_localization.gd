@@ -15,6 +15,7 @@ const KEY_STATE_OWNED := "tower_ascent.node_modal.state.owned"
 const KEY_STATE_EMPTY := "tower_ascent.node_modal.state.empty"
 const KEY_END_WORK := "tower_ascent.node_modal.action.end_work"
 const KEY_SHOP_EXIT := "tower_ascent.node_modal.action.shop_exit"
+const KEY_SPRING_EXIT := "tower_ascent.node_modal.action.guardian_spring_exit"
 const KEY_STATUS_READY := "tower_ascent.node_modal.status.ready"
 const KEY_STATUS_DISABLED := "tower_ascent.node_modal.status.disabled"
 const KEY_COST_GOLD := "tower_ascent.node_modal.cost.gold"
@@ -73,6 +74,8 @@ const KEY_SPRING_PRAYER_RESULT := "tower_ascent.node_modal.guardian_spring.praye
 const KEY_SPRING_PRAYER_COUNT := "tower_ascent.node_modal.guardian_spring.prayer_count"
 const KEY_SPRING_CARD_BADGE_PRAYER := "tower_ascent.node_modal.guardian_spring.card_badge.prayer"
 const KEY_SPRING_CARD_PRAYER_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.prayer"
+const KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.first_visit_description.palm"
+const KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.first_visit_description.prayer"
 const KEY_SPRING_CARD_BADGE_BROWSE := "tower_ascent.node_modal.guardian_spring.card_badge.browse"
 const KEY_SPRING_CARD_BROWSE_DESCRIPTION := "tower_ascent.node_modal.guardian_spring.card_description.browse"
 const KEY_SPRING_CARD_BADGE_FIRST_PICK := "tower_ascent.node_modal.guardian_spring.card_badge.first_pick"
@@ -139,6 +142,7 @@ const TEXT_BY_LOCALE := {
 		KEY_STATE_EMPTY: "빈 자리",
 		KEY_END_WORK: "업무 종료",
 		KEY_SHOP_EXIT: "상점 나가기",
+		KEY_SPRING_EXIT: "샘터를 떠난다",
 		KEY_STATUS_READY: "할 일을 고르거나 업무를 마치세요.",
 		KEY_STATUS_DISABLED: "지금은 선택할 수 없습니다.",
 		KEY_COST_GOLD: "{amount} 금화",
@@ -195,6 +199,8 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "기도 {count}회",
 		KEY_SPRING_CARD_BADGE_PRAYER: "샘터 기도",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "이번 런 동안 플레이어 전능력치가 {bonus}%p 상승합니다.",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "바위가 무엇을 내어줄지는 알 수 없습니다.",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "정성을 들이면 기운이 오릅니다.",
 		KEY_SPRING_CARD_BADGE_BROWSE: "정예 수호령",
 		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "현재 층에 맞게 강화된 정예 수호령 셋을 불러봅니다.",
 		KEY_SPRING_CARD_BADGE_FIRST_PICK: "첫 인연",
@@ -242,6 +248,7 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
 		KEY_SPRING_PALM_CONFIRM: "Learn the Soul Summoning Art technique?",
+		KEY_SPRING_EXIT: "Leave the spring",
 		KEY_SPRING_PALM_OPTION: "Place your palm",
 		KEY_SPRING_STATUE_DIALOGUE: "A sacred energy flows from the stone.",
 		KEY_SPRING_STATUE_PROMPT: "Touch the stone and feel its presence.",
@@ -253,6 +260,8 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "Prayers {count}",
 		KEY_SPRING_CARD_BADGE_PRAYER: "Spring Prayer",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "Raises all player stats by {bonus} percentage points for this run.",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "What the stone will offer remains unknown.",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "Devotion causes the energy to rise.",
 		KEY_SPRING_CARD_BADGE_BROWSE: "Elite Guardians",
 		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "Call three elite guardians enhanced for the current floor.",
 		KEY_SPRING_CARD_BADGE_FIRST_PICK: "First Bond",
@@ -302,6 +311,7 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
 		KEY_SPRING_PALM_CONFIRM: "要学习灵魂召唤术招式吗？",
+		KEY_SPRING_EXIT: "离开泉边",
 		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
 		KEY_SPRING_STATUE_DIALOGUE: "神圣的气息正从岩石中流淌而出。",
 		KEY_SPRING_STATUE_PROMPT: "触碰岩石，感受其中的气息。",
@@ -313,6 +323,8 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "祈祷 {count} 次",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉边祈祷",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "本次挑战中玩家全属性提升 {bonus} 个百分点。",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "无法得知岩石会赐予什么。",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "虔诚祈祷会提升气息。",
 		KEY_SPRING_CARD_BADGE_BROWSE: "精英守护灵",
 		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "召来三位按当前楼层强化的精英守护灵。",
 		KEY_SPRING_CARD_BADGE_FIRST_PICK: "初次结缘",
@@ -362,6 +374,7 @@ const TEXT_BY_LOCALE := {
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
 		KEY_SPRING_PALM_CONFIRM: "魂召喚術の初式を習得しますか？",
+		KEY_SPRING_EXIT: "泉を離れる",
 		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
 		KEY_SPRING_STATUE_DIALOGUE: "岩から霊妙な気が流れ出しています。",
 		KEY_SPRING_STATUE_PROMPT: "岩に触れて、その気配を感じてください。",
@@ -373,6 +386,8 @@ const TEXT_BY_LOCALE := {
 		KEY_SPRING_PRAYER_COUNT: "祈り {count}回",
 		KEY_SPRING_CARD_BADGE_PRAYER: "泉の祈り",
 		KEY_SPRING_CARD_PRAYER_DESCRIPTION: "この挑戦中、プレイヤーの全能力値が{bonus}ポイント上昇します。",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "岩が何を授けるかは分かりません。",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "祈りを捧げると気が高まります。",
 		KEY_SPRING_CARD_BADGE_BROWSE: "精鋭守護霊",
 		KEY_SPRING_CARD_BROWSE_DESCRIPTION: "現在の階層に合わせて強化された精鋭守護霊を3体呼びます。",
 		KEY_SPRING_CARD_BADGE_FIRST_PICK: "最初の縁",
@@ -421,6 +436,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_SPRING_EXIT: "Abandonar el manantial",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "No se sabe qué concederá la roca.",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "La devoción eleva la energía.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Invocación",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Activo · Mejora",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprende Invocación y recibe a tu primer guardián.",
@@ -455,6 +473,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_SPRING_EXIT: "Deixar a fonte",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "Não se sabe o que a rocha concederá.",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "A devoção eleva a energia.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Invocação",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Ativo · Reforço",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Aprenda Invocação e receba seu primeiro guardião.",
@@ -489,6 +510,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_SPRING_EXIT: "Покинуть источник",
+		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "Неизвестно, что дарует камень.",
+		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "Искренняя молитва усиливает энергию.",
 		KEY_SPRING_CARD_BADGE_SOUL: "Призыв духа",
 		KEY_SPRING_CARD_BADGE_ENHANCE: "Активный · Усиление",
 		KEY_SPRING_CARD_SOUL_DESCRIPTION: "Изучите призыв и встретьте первого хранителя.",
