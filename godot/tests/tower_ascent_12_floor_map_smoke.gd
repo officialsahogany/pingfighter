@@ -35,7 +35,7 @@ func _init() -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print(
-			"tower_ascent_12_floor_map_smoke: density_seeds=%d failures=0 total_rows=34 total_nodes=71 floor_1=6x13 floors_2_8=3x7 lanes_2_8=[1, 2, 4] floor_9=1x1 attempts=%s"
+			"tower_ascent_12_floor_map_smoke: density_seeds=%d failures=0 total_rows=32 total_nodes=67 floor_1=4x9 floors_2_8=3x7 lanes_2_8=[1, 2, 4] floor_9=1x1 attempts=%s"
 			% [DENSITY_SAMPLE_SEED_COUNT, str(_generation_attempt_histogram)]
 		)
 		print("tower_ascent_12_floor_map_smoke: ok")
@@ -128,11 +128,11 @@ func _verify_upper_floor_density_for_many_seeds() -> void:
 		var profile := _density_profile(graph)
 		_expect(
 			profile.get(1, {}) == {
-				"rows": 6,
-				"nodes": 13,
-				"lanes": [1, 2, 2, 3, 2, 3],
+				"rows": 4,
+				"nodes": 9,
+				"lanes": [1, 2, 3, 3],
 			},
-			"seed %d must preserve the 6-row 13-node first-floor profile" % map_seed
+			"seed %d must preserve the 4-row 9-node first-floor profile" % map_seed
 		)
 		for floor_number in range(2, 9):
 			_expect(
@@ -156,9 +156,9 @@ func _verify_upper_floor_density_for_many_seeds() -> void:
 			% map_seed
 		)
 		_expect(
-			_count_profile_value(profile, "rows") == 34
-			and _count_profile_value(profile, "nodes") == 71,
-			"seed %d must produce exactly 34 rows and 71 nodes" % map_seed
+			_count_profile_value(profile, "rows") == 32
+			and _count_profile_value(profile, "nodes") == 67,
+			"seed %d must produce exactly 32 rows and 67 nodes" % map_seed
 		)
 		_expect(
 			_count_first_floor_choice_bosses(graph) == 2,

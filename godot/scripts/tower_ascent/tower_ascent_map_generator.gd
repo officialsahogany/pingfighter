@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
+const GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -37,11 +37,8 @@ const NONCOMBAT_NODE_KINDS := [
 const FLOOR_ONE_EXPANSION_ROW_ROLES: Array[String] = [
 	"npc_separator",
 	"boss_encounter",
-	"npc_separator",
-	"optional_boss_encounter",
 ]
-const FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT := 1
-const FLOOR_ONE_OPTIONAL_ENCOUNTER_SEED_SALT := 0x31464C52
+const FLOOR_ONE_EXPANSION_SEED_SALT := 0x31464C52
 const TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MIN := 1
 const TEMP_EARLY_GUARDIAN_SPRING_FLOOR_MAX := 2
 const TEMP_EARLY_GUARDIAN_SPRING_GUARANTEE_COUNT := 1
@@ -65,17 +62,12 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 			)
 	if not audition_enabled:
 		# The existing floor-2 optional row is already the final full-NPC
-		# separator before the 2F gate. These four rows extend segment_floor 1
+		# separator before the 2F gate. These two rows extend segment_floor 1
 		# without moving the floor gate out of the final-row boundary slot.
 		total_rows += FLOOR_ONE_EXPANSION_ROW_ROLES.size()
 	var floor_one_rng := RandomNumberGenerator.new()
 	floor_one_rng.seed = int(
-		(map_seed ^ FLOOR_ONE_OPTIONAL_ENCOUNTER_SEED_SALT) & 0x7fffffff
-	)
-	var floor_one_optional_encounter := (
-		_floor_one_optional_encounter_enabled(floor_one_rng)
-		if not audition_enabled
-		else false
+		(map_seed ^ FLOOR_ONE_EXPANSION_SEED_SALT) & 0x7fffffff
 	)
 	var global_row_index := 0
 	var floor_specs: Array[Dictionary] = []
@@ -95,33 +87,27 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 			global_row_index += 1
 		if floor_number > 1 or floor_one_audition_route:
 			if floor_number == 2 and not audition_enabled:
-				var floor_one_encounter_index := 0
 				for expansion_index in range(FLOOR_ONE_EXPANSION_ROW_ROLES.size()):
 					var expansion_role := FLOOR_ONE_EXPANSION_ROW_ROLES[expansion_index]
-					var creates_boss_choice := (
-						expansion_role == "boss_encounter"
-						or (
-							expansion_role == "optional_boss_encounter"
-							and floor_one_optional_encounter
-						)
-					)
+					var creates_boss_choice := expansion_role == "boss_encounter"
 					var lane_count := ROUTE_CANDIDATE_COUNT
-					if expansion_role == "npc_separator" and expansion_index > 0:
-						# A 2 -> 3 -> 2 alternation lets both boss-choice
-						# lanes branch while keeping every separator a full NPC
-						# row. It also avoids introducing two consecutive
-						# single-choice transitions into the existing S3 graph.
+					if creates_boss_choice:
+						# The combined row exposes both unused stage-1 bosses plus
+						# one structural bypass after the complete NPC separator.
 						lane_count = MAP_LANE_COUNT_MIN
 					var node_kinds: Array[String] = []
 					var labels: Array[String] = []
 					if creates_boss_choice:
-						floor_one_encounter_index += 1
 						var npc_kind := _draw_unique_noncombat_kinds(
 							floor_one_rng,
 							1
 						)[0]
-						node_kinds.assign(["boss", npc_kind])
-						labels.assign(["1층 선택 보스", _label_for_kind(npc_kind)])
+						node_kinds.assign(["boss", "boss", npc_kind])
+						labels.assign([
+							"1층 선택 보스",
+							"1층 선택 보스",
+							_label_for_kind(npc_kind),
+						])
 					else:
 						for node_kind in _draw_unique_noncombat_kinds(
 							floor_one_rng,
@@ -144,9 +130,6 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 						"content_state": "generated",
 						"floor_one_expansion_row": true,
 						"floor_one_boss_choice_row": creates_boss_choice,
-						"floor_one_encounter_index": (
-							floor_one_encounter_index if creates_boss_choice else 0
-						),
 					})
 					global_row_index += 1
 			var optional_row_count := _optional_row_count_for_floor(
@@ -231,7 +214,6 @@ func generate_tower(map_seed: int, skipped_boss_ids: Array = []) -> Dictionary:
 	generated["floor_one_expansion_row_count"] = (
 		0 if audition_enabled else FLOOR_ONE_EXPANSION_ROW_ROLES.size()
 	)
-	generated["floor_one_optional_boss_encounter"] = floor_one_optional_encounter
 	var boss_decorated := TowerAscentBossRegistry.new().decorate_graph(generated, map_seed)
 	var decorated := TowerAscentEnragedPolicy.new().decorate_graph(
 		boss_decorated,
@@ -1405,10 +1387,6 @@ func _build_row_nodes(
 				bool(row_spec.get("floor_one_boss_choice_row", false))
 				and node_kind in COMBAT_NODE_KINDS
 			),
-			"floor_one_encounter_index": int(row_spec.get(
-				"floor_one_encounter_index",
-				0
-			)),
 			"floor_one_expansion_added_node": (
 				bool(row_spec.get("floor_one_expansion_row", false))
 				or (
@@ -1563,22 +1541,6 @@ func _draw_unique_noncombat_kinds(
 		result.append(available[chosen_index])
 		available.remove_at(chosen_index)
 	return result
-
-
-func _floor_one_optional_encounter_enabled(
-	_rng: RandomNumberGenerator
-) -> bool:
-	var stage_one_pool_size := TowerAscentBossRegistry.new().get_floor_slots(1).size()
-	var remaining_after_required := maxi(
-		0,
-		stage_one_pool_size - 1 - FLOOR_ONE_GUARANTEED_ENCOUNTER_COUNT
-	)
-	# 피드백2 4항: the S8 derived 50% skip made whole runs where one roster
-	# boss never appeared on the map. The second encounter now spawns whenever
-	# a unique slot remains, so the full first-floor roster (start + both
-	# choice rows) is visible on every seed. Still pool-derived: a larger
-	# future pool keeps exactly one optional row here (row roles are fixed).
-	return remaining_after_required > 0
 
 
 func _shuffle_ints(values: Array[int], rng: RandomNumberGenerator) -> void:

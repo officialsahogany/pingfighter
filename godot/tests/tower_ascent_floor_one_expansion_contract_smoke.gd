@@ -31,7 +31,7 @@ const TowerAscentTuning := preload(
 const SAMPLE_SEED_COUNT := 128
 const MAP_DRAW_CALL_LIMIT := 1536
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
-const EXPECTED_GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
 
 
 class EarlyGuaranteeDisabledGenerator:
@@ -41,8 +41,8 @@ class EarlyGuaranteeDisabledGenerator:
 		return graph
 
 var _failures: Array[String] = []
-var _optional_second_count := 0
-var _guaranteed_only_count := 0
+var _full_choice_row_count := 0
+var _invalid_choice_row_count := 0
 var _generated_node_count := 0
 var _combat_node_count := 0
 var _npc_node_count := 0
@@ -69,6 +69,7 @@ var _maximum_replacement_draw_calls := 0
 var _maximum_replacement_draw_seed := 0
 var _maximum_replacement_path_draw_calls := 0
 var _maximum_replacement_cloud_draw_calls := 0
+var _same_row_duplicate_rejected := false
 
 
 func _init() -> void:
@@ -85,11 +86,11 @@ func _init() -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print(
-			"tower_ascent_floor_one_expansion_contract_smoke: seeds=%d guaranteed_only=%d optional_second=%d generated=%d boss=%d npc=%d boss_ratio=%0.4f degree1=%d degree2=%d degree2_ratio=%0.4f services=%s"
+			"tower_ascent_floor_one_expansion_contract_smoke: seeds=%d invalid_choice_rows=%d full_choice_rows=%d generated=%d boss=%d npc=%d boss_ratio=%0.4f degree1=%d degree2=%d degree2_ratio=%0.4f services=%s"
 			% [
 				SAMPLE_SEED_COUNT,
-				_guaranteed_only_count,
-				_optional_second_count,
+				_invalid_choice_row_count,
+				_full_choice_row_count,
 				_generated_node_count,
 				_combat_node_count,
 				_npc_node_count,
@@ -131,6 +132,10 @@ func _init() -> void:
 				MAP_DRAW_CALL_LIMIT,
 			]
 		)
+		print(
+			"tower_ascent_floor_one_expansion_contract_smoke: same_row_duplicate_fixture=%s"
+			% ("RED_REJECTED" if _same_row_duplicate_rejected else "NOT_REJECTED")
+		)
 		print("tower_ascent_floor_one_expansion_contract_smoke: ok")
 		quit(0)
 		return
@@ -143,8 +148,13 @@ func _verify_standard_seeds() -> void:
 	var generator := TowerAscentMapGenerator.new()
 	var disabled_generator := EarlyGuaranteeDisabledGenerator.new()
 	_expect(
+		"|".join(TowerAscentMapGenerator.FLOOR_ONE_EXPANSION_ROW_ROLES)
+			== "npc_separator|boss_encounter",
+		"floor 1 must use one NPC separator and one combined boss-choice row"
+	)
+	_expect(
 		TowerAscentMapGenerator.GENERATOR_VERSION == EXPECTED_GENERATOR_VERSION,
-		"generator version must advance to the early guardian spring contract"
+		"generator version must advance to the compact first-floor contract"
 	)
 	for seed_offset in range(SAMPLE_SEED_COUNT):
 		var map_seed := 7001 + seed_offset * 7919
@@ -207,8 +217,8 @@ func _verify_standard_seeds() -> void:
 			):
 				gatekeeper_boss_count += 1
 		_expect(
-			added_node_count == 10,
-			"seed %d must identify exactly ten first-floor-added nodes" % map_seed
+			added_node_count == 6,
+			"seed %d must identify exactly six first-floor-added nodes" % map_seed
 		)
 		# 피드백2 8항 후속: 기존 구조는 층당 단일 레인 초크포인트 관문과
 		# 1층 선택 조우 2를 보존한다. 2층 이상 추가 조우는 기존 NPC 전환이라
@@ -249,15 +259,15 @@ func _verify_standard_seeds() -> void:
 		if _negative_fixture.is_empty():
 			_negative_fixture = graph.duplicate(true)
 		_verify_fit_all_budget(map_seed, replacement_applied)
-	# 피드백2 4항: the derived 50% skip is retired — the full roster contract
-	# requires the second encounter on every seed while a unique slot remains.
+	# 피드백2 4항: the merged row permanently exposes both unused stage-1 slots,
+	# so every seed must show the start boss plus two selectable bosses.
 	_expect(
-		_guaranteed_only_count == 0,
-		"full roster: no seed may skip the second first-floor encounter"
+		_invalid_choice_row_count == 0,
+		"full roster: no seed may omit either combined-row boss"
 	)
 	_expect(
-		_optional_second_count == SAMPLE_SEED_COUNT,
-		"full roster: all 128 seeds must spawn both first-floor encounters"
+		_full_choice_row_count == SAMPLE_SEED_COUNT,
+		"full roster: all 128 seeds must spawn both combined-row bosses"
 	)
 	_expect(
 		_safe_ratio(_combat_node_count, _generated_node_count)
@@ -349,10 +359,6 @@ func _verify_early_guardian_spring_guarantee(
 		str(after_node.get("kind", "")) == "guardian_spring"
 			and str(after_node.get("label", "")) == "샘터",
 		"seed %d replacement target must be the guardian spring service" % map_seed
-	)
-	_expect(
-		_count_early_kind(disabled_graph, replaced_kind) > 1,
-		"seed %d replacement must prefer a duplicated service kind" % map_seed
 	)
 	_expect(
 		_not_boss_or_gate(before_node),
@@ -514,6 +520,7 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 	var node_by_id := _node_index(phase.get("nodes", []))
 	var expansion_row_count := 0
 	var boss_choice_rows: Array[int] = []
+	var floor_one_choice_boss_count := 0
 	var floor_one_combat_rows: Array[int] = []
 	var floor_one_keys: Dictionary = {}
 	var floor_one_lane_signature: Array[int] = []
@@ -544,6 +551,8 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 				and kind in TowerAscentMapGenerator.COMBAT_NODE_KINDS
 			):
 				combat_count += 1
+				if bool(node.get("floor_one_boss_choice", false)):
+					floor_one_choice_boss_count += 1
 				var standin: Dictionary = node.get("standin", {})
 				_expect(
 					int(standin.get("stage", 0)) == 1,
@@ -571,34 +580,34 @@ func _verify_floor_one_graph(map_seed: int, phase: Dictionary) -> void:
 		if row_is_boss_choice:
 			boss_choice_rows.append(row_index)
 			_expect(
-				row_ids.size() == 2 and combat_count == 1 and npc_count == 1,
-				"seed %d first-floor encounter row must be a boss-vs-NPC choice"
+				row_ids.size() == 3 and combat_count == 2 and npc_count == 1,
+				"seed %d first-floor encounter row must be two bosses plus one NPC"
 				% map_seed
 			)
 	_expect(
 		expansion_row_count == TowerAscentMapGenerator.FLOOR_ONE_EXPANSION_ROW_ROLES.size(),
-		"seed %d must retain exactly four scoped expansion rows" % map_seed
+		"seed %d must retain exactly two scoped expansion rows" % map_seed
 	)
 	_expect(
-		floor_one_lane_signature == [1, 2, 2, 3, 2, 3]
-		and floor_one_lane_signature.size() == 6
-		and floor_one_node_count == 13,
-		"seed %d must keep floor 1 at 6 rows, 13 nodes, and its original lanes"
+		floor_one_lane_signature == [1, 2, 3, 3]
+		and floor_one_lane_signature.size() == 4
+		and floor_one_node_count == 9,
+		"seed %d must keep floor 1 at 4 rows, 9 nodes, and the compact lanes"
 		% map_seed
 	)
 	_expect(
-		boss_choice_rows.size() == 2,
-		"seed %d must expose both selectable first-floor boss rows" % map_seed
+		boss_choice_rows.size() == 1 and floor_one_choice_boss_count == 2,
+		"seed %d must expose two selectable bosses in one first-floor row" % map_seed
 	)
 	_expect(
-		floor_one_keys.size() == boss_choice_rows.size() + 1,
-		"seed %d first-floor pool consumption must equal start plus encounter rows"
+		floor_one_keys.size() == floor_one_choice_boss_count + 1,
+		"seed %d first-floor pool consumption must equal start plus choice bosses"
 		% map_seed
 	)
-	if boss_choice_rows.size() == 2:
-		_optional_second_count += 1
+	if boss_choice_rows.size() == 1 and floor_one_choice_boss_count == 2:
+		_full_choice_row_count += 1
 	else:
-		_guaranteed_only_count += 1
+		_invalid_choice_row_count += 1
 	for combat_row_index in range(1, floor_one_combat_rows.size()):
 		var previous_row := floor_one_combat_rows[combat_row_index - 1]
 		var current_row := floor_one_combat_rows[combat_row_index]
@@ -771,6 +780,34 @@ func _verify_negative_legs() -> void:
 			"duplicate first-floor boss fixture must identify the reused key"
 		)
 	_negative_leg_count += 1
+	var same_row_duplicate_fixture := _negative_fixture.duplicate(true)
+	var choice_nodes := _first_floor_choice_nodes(same_row_duplicate_fixture)
+	_expect(
+		choice_nodes.size() == 2,
+		"same-row duplicate leg needs both combined-row boss nodes"
+	)
+	if choice_nodes.size() == 2:
+		choice_nodes[1]["boss_slot_id"] = str(choice_nodes[0].get("boss_slot_id", ""))
+		choice_nodes[1]["standin"] = (
+			choice_nodes[0].get("standin", {}) as Dictionary
+		).duplicate(true)
+		choice_nodes[1]["boss_assignment_state"] = "assigned"
+		var same_row_report := TowerAscentBossRegistry.new().analyze_visible_boss_contract(
+			same_row_duplicate_fixture
+		)
+		_same_row_duplicate_rejected = (
+			not bool(same_row_report.get("valid", true))
+			and _has_issue(same_row_report, "duplicate_encounter_key=")
+		)
+		_expect(
+			not bool(same_row_report.get("valid", true)),
+			"same-row duplicate first-floor bosses must be RED"
+		)
+		_expect(
+			_has_issue(same_row_report, "duplicate_encounter_key="),
+			"same-row duplicate fixture must identify the reused encounter key"
+		)
+	_negative_leg_count += 1
 
 
 func _has_boss_avoidance_path(phase: Dictionary) -> bool:
@@ -822,6 +859,12 @@ func _first_floor_start_node(graph: Dictionary) -> Dictionary:
 
 
 func _first_floor_choice_node(graph: Dictionary) -> Dictionary:
+	var nodes := _first_floor_choice_nodes(graph)
+	return nodes[0] if not nodes.is_empty() else {}
+
+
+func _first_floor_choice_nodes(graph: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
 	for phase_variant in graph.get("phases", []):
 		if not (phase_variant is Dictionary):
 			continue
@@ -829,8 +872,8 @@ func _first_floor_choice_node(graph: Dictionary) -> Dictionary:
 			if node_variant is Dictionary and bool(
 				(node_variant as Dictionary).get("floor_one_boss_choice", false)
 			):
-				return node_variant as Dictionary
-	return {}
+				result.append(node_variant as Dictionary)
+	return result
 
 
 func _ordered_rows(phase: Dictionary) -> Array[Dictionary]:

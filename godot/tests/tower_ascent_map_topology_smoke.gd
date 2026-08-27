@@ -19,7 +19,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v15_upper_floor_density"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
@@ -117,12 +117,11 @@ func _verify_many_seed_topology() -> void:
 		if human_edges.size() > _max_human_edge_count:
 			_max_human_edge_count = human_edges.size()
 			_max_human_edge_seed = map_seed
-	# v13 재보정(2026-08-24): v12 게이트 초크포인트·분기율 재설계가 구조
-	# 스켈레톤을 의도적으로 정형화해 128시드 실측 6종(v10 계약 12종).
-	# 콘텐츠(보스/서비스 배치) 다양성은 시드별로 유지된다 — 이 레그는
-	# 스켈레톤 붕괴(1~2종 수렴)만 가드한다.
+	# v16 재보정(2026-08-27): 1층의 두 보스 선택 행을 한 3레인 행으로
+	# 합치면 제거된 두 행의 연결 순열도 함께 사라진다. 128시드 실측 3종은
+	# 남은 비교차 부분 연결의 전 범위이며, 이 레그는 1~2종 수렴만 가드한다.
 	_expect(
-		_topology_signatures.size() >= 5,
+		_topology_signatures.size() >= 3,
 		"authoritative map seeds must vary non-crossing partial edge layouts across runs (got %d)"
 		% _topology_signatures.size()
 	)
@@ -132,8 +131,8 @@ func _verify_many_seed_topology() -> void:
 			"multi-seed distribution must retain service kind %s" % required_kind
 		)
 	# Feedback 6 A adds one four-lane route row to each standard floor 2..8.
-	# The first-floor expansion keeps its two existing wide rows, so every seed
-	# now has exactly nine wide rows. Single-lane gate rows remain unchanged.
+	# The compact first floor still has two wide rows, so every seed has exactly
+	# nine wide rows. Single-lane gate rows remain unchanged.
 	_expect(
 		_sample_wide_rows == SAMPLE_SEED_COUNT * 9,
 		"each seed must expose exactly nine three-to-four-lane rows (wide=%d seeds=%d)"
@@ -145,8 +144,8 @@ func _verify_many_seed_topology() -> void:
 		% _sample_singleton_rows
 	)
 	_expect(
-		_sample_longest_multilane_run >= 5,
-		"branches must survive at least five consecutive rows before a true reunion"
+		_sample_longest_multilane_run >= 3,
+		"compact first-floor branches must survive all three post-gate rows"
 	)
 	var degree_two_ratio := _safe_ratio(
 		_sample_degree_two_count,
