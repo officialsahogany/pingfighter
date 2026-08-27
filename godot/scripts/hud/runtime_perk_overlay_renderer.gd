@@ -993,35 +993,206 @@ func draw_tower_shop_item_cell(
 	icon_renderer: Object = null,
 	active_item_hud_visuals: Object = null
 ) -> void:
-	if canvas == null or not rect.has_area():
-		return
-	var rarity := str(choice.get("rarity", "common"))
-	var premium := rarity in ["legendary", "mythic"] or bool(choice.get("is_unique", false))
-	var fill := Color(0.12, 0.095, 0.075, 0.96)
-	var border := Color(0.48, 0.38, 0.24, 0.94)
-	if premium:
-		fill = Color(0.18, 0.105, 0.055, 0.97)
-		border = Color(0.88, 0.61, 0.21, 0.98)
-	if hovered:
-		fill = fill.lightened(0.18)
-		border = Color(1.0, 0.82, 0.40, 1.0)
-	canvas.draw_rect(rect, fill, true)
-	canvas.draw_rect(rect, border, false, 2.0 if hovered or selected else 1.0)
-	_draw_tower_node_card_icon(
+	draw_tower_shop_product_card(
 		canvas,
-		choice,
-		rect.grow(-4.0),
+		{"payload": {"choice": choice}, "cost_gold": int(choice.get("price", 0))},
+		rect,
+		selected,
+		hovered,
+		enabled,
 		icon_renderer,
 		active_item_hud_visuals
 	)
+
+
+static func build_tower_shop_product_card_layout(
+	action: Dictionary,
+	rect: Rect2
+) -> Dictionary:
+	var payload_value: Variant = action.get("payload", {})
+	var payload: Dictionary = payload_value as Dictionary if payload_value is Dictionary else {}
+	var choice_value: Variant = payload.get("choice", {})
+	var choice: Dictionary = choice_value as Dictionary if choice_value is Dictionary else {}
+	var inner_rect := rect.grow(-7.0)
+	var icon_rect := Rect2(
+		Vector2(inner_rect.position.x, inner_rect.position.y + 10.0),
+		Vector2(inner_rect.size.x, minf(112.0, rect.size.y * 0.42))
+	)
+	var name_rect := Rect2(
+		Vector2(inner_rect.position.x, icon_rect.end.y + 7.0),
+		Vector2(inner_rect.size.x, 34.0)
+	)
+	var footer_rect := Rect2(
+		Vector2(inner_rect.position.x, rect.end.y - 39.0),
+		Vector2(inner_rect.size.x, 30.0)
+	)
+	var description_rect := Rect2(
+		Vector2(inner_rect.position.x, name_rect.end.y + 5.0),
+		Vector2(inner_rect.size.x, maxf(0.0, footer_rect.position.y - name_rect.end.y - 10.0))
+	)
+	var description := LanguageSettings.translate_text(str(choice.get("description", ""))).strip_edges()
+	var description_font_size := 11
+	var description_visible := not description.is_empty() and description_rect.size.y >= 16.0
+	var font := ThemeDB.fallback_font
+	while description_visible and description_font_size > 9:
+		if font.get_string_size(
+			description,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			description_font_size
+		).x <= description_rect.size.x:
+			break
+		description_font_size -= 1
+	if description_visible:
+		description_visible = font.get_string_size(
+			description,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			description_font_size
+		).x <= description_rect.size.x
+	return {
+		"choice": choice,
+		"inner_rect": inner_rect,
+		"icon_rect": icon_rect,
+		"name_rect": name_rect,
+		"description_rect": description_rect,
+		"description": description,
+		"description_font_size": description_font_size,
+		"description_visible": description_visible,
+		"footer_rect": footer_rect,
+		"price": maxi(0, int(action.get("cost_gold", choice.get("price", 0)))),
+	}
+
+
+func draw_tower_shop_product_card(
+	canvas: CanvasItem,
+	action: Dictionary,
+	rect: Rect2,
+	selected: bool,
+	hovered: bool,
+	enabled: bool,
+	icon_renderer: Object = null,
+	active_item_hud_visuals: Object = null
+) -> Dictionary:
+	if canvas == null or not rect.has_area():
+		return {"draw_ops": 0, "description_drawn": false}
+	var layout := build_tower_shop_product_card_layout(action, rect)
+	var choice: Dictionary = layout.get("choice", {})
+	var rarity := str(choice.get("rarity", "common"))
+	var premium := rarity in ["legendary", "mythic"] or bool(choice.get("is_unique", false))
+	var fill := Color(0.075, 0.052, 0.038, 0.97)
+	var border := Color(0.53, 0.39, 0.19, 0.90)
+	if premium:
+		fill = Color(0.13, 0.065, 0.025, 0.98)
+		border = Color(0.94, 0.64, 0.20, 0.98)
+	if hovered:
+		fill = fill.lightened(0.13)
+		border = Color(1.0, 0.84, 0.40, 1.0)
+	var draw_ops := 0
+	canvas.draw_rect(rect, fill, true)
+	canvas.draw_rect(rect, border, false, 2.0 if hovered or selected else 1.0)
+	draw_ops += 2
+	if premium:
+		canvas.draw_rect(Rect2(rect.position, Vector2(rect.size.x, 5.0)), Color(0.96, 0.56, 0.14, 0.84), true)
+		draw_ops += 1
+	if selected:
+		canvas.draw_rect(Rect2(rect.position, Vector2(4.0, rect.size.y)), Color(1.0, 0.77, 0.25, 0.96), true)
+		draw_ops += 1
+	var icon_rect: Rect2 = layout.get("icon_rect", Rect2())
+	_draw_tower_node_card_icon(canvas, choice, icon_rect, icon_renderer, active_item_hud_visuals)
+	draw_ops += 1
+	var name_rect: Rect2 = layout.get("name_rect", Rect2())
+	_draw_text_centered_fitted(
+		canvas,
+		str(choice.get("name", action.get("label", ""))),
+		name_rect.get_center() + Vector2(0.0, 1.0),
+		13,
+		Color(0.96, 0.89, 0.72, 1.0),
+		name_rect.size.x,
+		10
+	)
+	draw_ops += 1
+	var description_drawn := bool(layout.get("description_visible", false))
+	if description_drawn:
+		var description_rect: Rect2 = layout.get("description_rect", Rect2())
+		_draw_text_centered_fitted(
+			canvas,
+			str(layout.get("description", "")),
+			description_rect.get_center(),
+			int(layout.get("description_font_size", 9)),
+			Color(0.73, 0.68, 0.59, 0.94),
+			description_rect.size.x,
+			int(layout.get("description_font_size", 9))
+		)
+		draw_ops += 1
+	var footer_rect: Rect2 = layout.get("footer_rect", Rect2())
+	canvas.draw_line(
+		Vector2(footer_rect.position.x, footer_rect.position.y),
+		Vector2(footer_rect.end.x, footer_rect.position.y),
+		Color(0.65, 0.48, 0.24, 0.72),
+		1.0
+	)
+	var coin_center := Vector2(footer_rect.position.x + 12.0, footer_rect.get_center().y + 1.0)
+	canvas.draw_circle(coin_center, 7.0, Color(0.74, 0.48, 0.08, 1.0))
+	canvas.draw_circle(coin_center, 4.8, Color(1.0, 0.78, 0.18, 1.0))
+	draw_ops += 3
+	_draw_text_right(
+		canvas,
+		str(int(layout.get("price", 0))),
+		Vector2(footer_rect.end.x - 1.0, footer_rect.get_center().y + 5.0),
+		13,
+		Color(1.0, 0.83, 0.34, 1.0)
+	)
+	draw_ops += 1
 	if not enabled:
-		canvas.draw_rect(rect.grow(-1.0), Color(0.12, 0.10, 0.09, 0.48), true)
+		canvas.draw_rect(rect.grow(-1.0), Color(0.04, 0.03, 0.025, 0.62), true)
 		canvas.draw_line(
-			rect.position + Vector2(6.0, 6.0),
-			rect.end - Vector2(6.0, 6.0),
-			Color(0.72, 0.28, 0.23, 0.92),
+			rect.position + Vector2(7.0, 7.0),
+			rect.end - Vector2(7.0, 7.0),
+			Color(0.72, 0.24, 0.20, 0.90),
 			2.0
 		)
+		draw_ops += 2
+	return {"draw_ops": draw_ops, "description_drawn": description_drawn}
+
+
+func draw_tower_shop_owned_slot(
+	canvas: CanvasItem,
+	choice: Dictionary,
+	rect: Rect2,
+	hovered: bool,
+	icon_renderer: Object = null,
+	active_item_hud_visuals: Object = null
+) -> Dictionary:
+	if canvas == null or not rect.has_area():
+		return {"draw_ops": 0, "filled": false}
+	var filled := not choice.is_empty() and not bool(choice.get("empty_slot", false))
+	var fill := Color(0.055, 0.042, 0.034, 0.88) if not filled else Color(0.10, 0.068, 0.042, 0.96)
+	var border := Color(0.37, 0.29, 0.20, 0.82) if not hovered else Color(0.91, 0.68, 0.30, 1.0)
+	canvas.draw_rect(rect, fill, true)
+	canvas.draw_rect(rect, border, false, 2.0 if hovered else 1.0)
+	var draw_ops := 2
+	if filled:
+		_draw_tower_node_card_icon(
+			canvas,
+			choice,
+			rect.grow(-6.0),
+			icon_renderer,
+			active_item_hud_visuals
+		)
+		draw_ops += 1
+	else:
+		canvas.draw_string(
+			ThemeDB.fallback_font,
+			rect.get_center() + Vector2(-5.0, 5.0),
+			"·",
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			16,
+			Color(0.52, 0.43, 0.33, 0.66)
+		)
+		draw_ops += 1
+	return {"draw_ops": draw_ops, "filled": filled}
 
 
 func prewarm_tower_shop_cells(
@@ -1032,29 +1203,19 @@ func prewarm_tower_shop_cells(
 ) -> Dictionary:
 	var player_rects: Array[Rect2] = []
 	var stock_rects: Array[Rect2] = []
-	var player_panel: Rect2 = layout.get("shop_player_panel_rect", Rect2())
-	var stock_panel: Rect2 = layout.get("shop_stock_panel_rect", Rect2())
-	var cell_size := float(layout.get("shop_cell_size", 0.0))
-	var cell_gap := float(layout.get("shop_cell_gap", 0.0))
-	var start_offset: Vector2 = layout.get("shop_cell_start_offset", Vector2.ZERO)
-	var player_columns := int(layout.get("shop_player_columns", 0))
-	var stock_columns := int(layout.get("shop_stock_columns", 0))
-	var player_visible_count := mini(
-		owned_items.size(),
-		int(layout.get("shop_player_visible_count", 0))
-	)
+	var exact_player_rects: Array = layout.get("shop_owned_slot_rects", [])
+	var exact_stock_rects: Array = layout.get("shop_stock_card_rects", [])
+	var player_visible_count := mini(owned_items.size(), exact_player_rects.size())
 	for visible_index in range(player_visible_count):
-		var choice_value: Variant = owned_items[visible_index]
-		if not (choice_value is Dictionary):
+		if not (exact_player_rects[visible_index] is Rect2):
 			continue
-		player_rects.append(TowerShopNodeModalState.get_shop_cell_rect(
-			player_panel,
-			visible_index,
-			player_columns,
-			cell_size,
-			cell_gap,
-			start_offset
-		))
+		player_rects.append(exact_player_rects[visible_index] as Rect2)
+		var choice_value: Variant = owned_items[visible_index]
+		if (
+			not (choice_value is Dictionary)
+			or bool((choice_value as Dictionary).get("empty_slot", false))
+		):
+			continue
 		_prewarm_tower_shop_choice(choice_value as Dictionary, active_item_hud_visuals)
 	var stock_visible_index := 0
 	for action_value in actions:
@@ -1063,16 +1224,10 @@ func prewarm_tower_shop_cells(
 		var action := action_value as Dictionary
 		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
 			continue
-		if stock_visible_index >= int(layout.get("shop_stock_visible_count", 0)):
+		if stock_visible_index >= exact_stock_rects.size():
 			break
-		stock_rects.append(TowerShopNodeModalState.get_shop_cell_rect(
-			stock_panel,
-			stock_visible_index,
-			stock_columns,
-			cell_size,
-			cell_gap,
-			start_offset
-		))
+		if exact_stock_rects[stock_visible_index] is Rect2:
+			stock_rects.append(exact_stock_rects[stock_visible_index] as Rect2)
 		var payload_value: Variant = action.get("payload", {})
 		if payload_value is Dictionary:
 			var choice_value: Variant = (payload_value as Dictionary).get("choice", {})

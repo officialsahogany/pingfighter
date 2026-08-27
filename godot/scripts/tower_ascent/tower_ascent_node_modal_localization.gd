@@ -14,6 +14,7 @@ const KEY_STATE_LISTED := "tower_ascent.node_modal.state.listed"
 const KEY_STATE_OWNED := "tower_ascent.node_modal.state.owned"
 const KEY_STATE_EMPTY := "tower_ascent.node_modal.state.empty"
 const KEY_END_WORK := "tower_ascent.node_modal.action.end_work"
+const KEY_SHOP_EXIT := "tower_ascent.node_modal.action.shop_exit"
 const KEY_STATUS_READY := "tower_ascent.node_modal.status.ready"
 const KEY_STATUS_DISABLED := "tower_ascent.node_modal.status.disabled"
 const KEY_COST_GOLD := "tower_ascent.node_modal.cost.gold"
@@ -137,6 +138,7 @@ const TEXT_BY_LOCALE := {
 		KEY_STATE_OWNED: "획득",
 		KEY_STATE_EMPTY: "빈 자리",
 		KEY_END_WORK: "업무 종료",
+		KEY_SHOP_EXIT: "상점 나가기",
 		KEY_STATUS_READY: "할 일을 고르거나 업무를 마치세요.",
 		KEY_STATUS_DISABLED: "지금은 선택할 수 없습니다.",
 		KEY_COST_GOLD: "{amount} 금화",

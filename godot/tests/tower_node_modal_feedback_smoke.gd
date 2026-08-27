@@ -228,7 +228,7 @@ func _verify_shop_tooltip_lookup_gate() -> void:
 	flow.set("_node_modal_kind", "shop")
 	var modal: Object = flow.get("_node_modal_state")
 	var actions: Array[Dictionary] = []
-	for index in range(6):
+	for index in range(8):
 		actions.append({
 			"id": "shop_purchase:probe-%d" % index,
 			"label": "shop probe %d" % index,
@@ -252,6 +252,31 @@ func _verify_shop_tooltip_lookup_gate() -> void:
 	var exited_context := flow.get_node_modal_render_context()
 	_expect(registry.tooltip_requests == 1, "leaving shop cells must not perform another tooltip lookup")
 	_expect(not exited_context.has("shop_item_tooltip_overlay"), "non-hover shop context must remove the tooltip overlay")
+	modal.set_shop_owned_items([
+		{"empty_slot": true, "slot_index": 0},
+		{"empty_slot": true, "slot_index": 1},
+		{"empty_slot": true, "slot_index": 2},
+	])
+	var empty_owned_rect := (modal.build_view_model().get("shop_owned_slot_rects", []) as Array)[0] as Rect2
+	modal.update_hover_at_position(empty_owned_rect.get_center())
+	var empty_owned_context := flow.get_node_modal_render_context()
+	_expect(registry.tooltip_requests == 1, "empty capacity-slot hover must perform zero tooltip lookups")
+	_expect(not empty_owned_context.has("shop_item_tooltip_overlay"), "empty capacity slot must inject no tooltip overlay")
+	modal.set_shop_owned_items([
+		{
+			"id": "owned-probe",
+			"name": "owned probe",
+			"description": "owned tooltip probe",
+			"item_data": {"name": "owned-probe"},
+		},
+		{"empty_slot": true, "slot_index": 1},
+		{"empty_slot": true, "slot_index": 2},
+	])
+	var filled_owned_rect := (modal.build_view_model().get("shop_owned_slot_rects", []) as Array)[0] as Rect2
+	modal.update_hover_at_position(filled_owned_rect.get_center())
+	var filled_owned_context := flow.get_node_modal_render_context()
+	_expect(registry.tooltip_requests == 2, "filled owned-slot hover must request the canonical tooltip exactly once")
+	_expect(filled_owned_context.has("shop_item_tooltip_overlay"), "filled owned slot must inject the tooltip overlay")
 
 
 func _verify_shop_presentation_adapter() -> void:

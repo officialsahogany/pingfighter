@@ -5,9 +5,6 @@ const TowerTrainingTimingJudgmentPolicy := preload(
 )
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TowerShopActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
-const TowerShopOwnedItemPresenter := preload(
-	"res://scripts/hud/character_info_overlay_passive_item_presenter.gd"
-)
 const TowerShopOwnerState := preload(
 	"res://scripts/hud/character_info_overlay_owner_state.gd"
 )
@@ -270,6 +267,7 @@ func _build_shop_actions() -> Array[Dictionary]:
 		result.append({
 			"id": "shop_purchase:%s" % str(stock.get("stock_id", "")),
 			"label": _shop_stock_label(stock),
+			"cost_gold": price,
 			"cost_text": (
 				TowerAscentNodeModalLocalization.text(
 					TowerAscentNodeModalLocalization.KEY_SHOP_SOLD_OUT
@@ -378,77 +376,56 @@ func _shop_stock_label(stock: Dictionary) -> String:
 
 func _build_shop_owned_items() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var source_items: Array[Dictionary] = []
 	var active_slots_value: Variant = TowerShopOwnerState.owner_value(
 		_active_owner,
 		"active_item_slots",
 		[]
 	)
-	if active_slots_value is Array:
-		for item_value in active_slots_value as Array:
-			if not (item_value is Dictionary) or (item_value as Dictionary).is_empty():
-				continue
-			var item_data := (item_value as Dictionary).duplicate(true)
-			var item_name := str(item_data.get("name", "")).strip_edges()
-			if not item_name.is_empty():
-				var catalog_item: Dictionary = _tower_shop_active_item_catalog.build_item_by_name(
-					item_name
-				)
-				if not catalog_item.is_empty():
-					catalog_item.merge(item_data, true)
-					item_data = catalog_item
-			_append_shop_owned_choice(result, source_items, item_data, "active")
-	var passive_items: Array = TowerShopOwnedItemPresenter.passive_inventory_items(
-		_active_owner,
-		_active_registry,
-		_get_registry_instance(_active_registry, "mythic_item_runtime")
+	var active_slots: Array = (
+		active_slots_value as Array
+		if active_slots_value is Array
+		else []
 	)
-	for item_value in passive_items:
-		if item_value is Dictionary:
-			_append_shop_owned_choice(
-				result,
-				source_items,
-				item_value as Dictionary,
-				"passive"
+	var slot_capacity := TowerShopOwnerState.active_item_slot_capacity_from_registry(
+		_active_registry,
+		3
+	)
+	for slot_index in range(slot_capacity):
+		var item_data: Dictionary = {}
+		if slot_index < active_slots.size() and active_slots[slot_index] is Dictionary:
+			item_data = (active_slots[slot_index] as Dictionary).duplicate(true)
+		var item_name := str(item_data.get("name", "")).strip_edges()
+		if not item_name.is_empty():
+			var catalog_item: Dictionary = _tower_shop_active_item_catalog.build_item_by_name(
+				item_name
 			)
-	var equipment := TowerShopOwnerState.equipment_state_from_owner(_active_owner)
-	for slot_value in equipment.values():
-		if slot_value is Dictionary:
-			_append_shop_owned_choice(
-				result,
-				source_items,
-				slot_value as Dictionary,
-				"equipment"
-			)
-		elif slot_value is Array:
-			for item_value in slot_value as Array:
-				if item_value is Dictionary:
-					_append_shop_owned_choice(
-						result,
-						source_items,
-						item_value as Dictionary,
-						"equipment"
-					)
+			if not catalog_item.is_empty():
+				catalog_item.merge(item_data, true)
+				item_data = catalog_item
+		var choice := _shop_owned_slot_choice(item_data, slot_index)
+		result.append(
+			choice
+			if not choice.is_empty()
+			else {
+				"empty_slot": true,
+				"slot_index": slot_index,
+				"owned_kind": "active",
+			}
+		)
 	return result
 
 
-func _append_shop_owned_choice(
-	result: Array[Dictionary],
-	source_items: Array[Dictionary],
-	item_data: Dictionary,
-	owned_kind: String
-) -> void:
-	if item_data.is_empty() or _shop_owned_contains_item(source_items, item_data):
-		return
-	source_items.append(item_data)
+func _shop_owned_slot_choice(item_data: Dictionary, slot_index: int) -> Dictionary:
+	if item_data.is_empty():
+		return {}
 	var rarity := str(item_data.get("rarity", item_data.get("quality", "common")))
 	var display_name := str(item_data.get(
 		"display_name",
 		item_data.get("name", "")
 	)).strip_edges()
 	if display_name.is_empty():
-		return
-	result.append({
+		return {}
+	return {
 		"id": str(item_data.get("_inventory_id", item_data.get("name", display_name))),
 		"name": display_name,
 		"description": str(item_data.get("description", "")),
@@ -457,25 +434,9 @@ func _append_shop_owned_choice(
 		"icon_color": item_data.get("color", Color(0.78, 0.78, 0.78)),
 		"card_content_kind": "active_item",
 		"item_data": item_data.duplicate(true),
-		"owned_kind": owned_kind,
-	})
-
-
-func _shop_owned_contains_item(
-	source_items: Array[Dictionary],
-	candidate: Dictionary
-) -> bool:
-	var candidate_inventory_id := str(candidate.get("_inventory_id", "")).strip_edges()
-	for source in source_items:
-		var source_inventory_id := str(source.get("_inventory_id", "")).strip_edges()
-		if (
-			not candidate_inventory_id.is_empty()
-			and source_inventory_id == candidate_inventory_id
-		):
-			return true
-		if is_same(source, candidate):
-			return true
-	return false
+		"owned_kind": "active",
+		"slot_index": slot_index,
+	}
 
 func _execute_shop_purchase(stock_id: String, requested_resolution_id: String = "") -> Dictionary:
 	var stock := _find_shop_stock(stock_id)

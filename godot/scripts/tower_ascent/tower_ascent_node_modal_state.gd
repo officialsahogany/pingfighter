@@ -38,6 +38,7 @@ const STATUS_BASELINE := Vector2(126.0, 680.0)
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
 const LAYOUT_FLAG_SHOP_COMPACT := "shop_compact"
 const LAYOUT_FLAG_SHOP_TRADE_PANELS := "shop_trade_panels"
+const LAYOUT_FLAG_SHOP_STACKED := "shop_stacked"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
 const SHOP_CARD_GRID_RECT := Rect2(43.0, 150.0, 674.0, 226.0)
@@ -56,6 +57,20 @@ const SHOP_TRADE_CELL_START_OFFSET := Vector2(14.0, 38.0)
 const SHOP_TRADE_MAX_COLUMNS := 5
 const SHOP_TRADE_MAX_ROWS := 6
 const SHOP_TRADE_MAX_VISIBLE_CELLS := SHOP_TRADE_MAX_COLUMNS * SHOP_TRADE_MAX_ROWS
+const SHOP_STACKED_MODAL_RECT := Rect2(10.0, 10.0, 740.0, 730.0)
+const SHOP_STACKED_STOCK_PANEL_RECT := Rect2(18.0, 130.0, 724.0, 336.0)
+const SHOP_STACKED_STOCK_COLUMNS := 8
+const SHOP_STACKED_STOCK_INSET_X := 14.0
+const SHOP_STACKED_STOCK_TOP_INSET := 42.0
+const SHOP_STACKED_STOCK_CARD_GAP := 6.0
+const SHOP_STACKED_STOCK_CARD_HEIGHT := 276.0
+const SHOP_STACKED_OWNED_PANEL_RECT := Rect2(58.0, 494.0, 644.0, 142.0)
+const SHOP_STACKED_OWNED_SLOT_AREA_RECT := Rect2(86.0, 544.0, 588.0, 72.0)
+const SHOP_STACKED_OWNED_SLOT_MAX_SIZE := 68.0
+const SHOP_STACKED_OWNED_SLOT_MIN_GAP := 8.0
+const SHOP_STACKED_OWNED_SLOT_MAX_GAP := 16.0
+const SHOP_STACKED_END_WORK_RECT := Rect2(566.0, 668.0, 166.0, 42.0)
+const SHOP_STACKED_STATUS_BASELINE := Vector2(58.0, 704.0)
 const TRAINING_CARD_GRID_RECT := Rect2(52.0, 150.0, 245.0, 476.0)
 const TRAINING_CARD_GRID_COLUMNS := 1
 const TRAINING_CARD_GRID_ROWS := 6
@@ -447,7 +462,7 @@ func set_actions(actions: Array) -> void:
 func set_shop_owned_items(items: Array) -> void:
 	_shop_owned_items.clear()
 	for item_value in items:
-		if item_value is Dictionary and not (item_value as Dictionary).is_empty():
+		if item_value is Dictionary:
 			_shop_owned_items.append((item_value as Dictionary).duplicate(true))
 	_hovered_owned_index = -1
 	_invalidate_layout_cache()
@@ -462,9 +477,15 @@ func get_hovered_owned_index() -> int:
 
 
 func has_shop_item_hover() -> bool:
-	return _node_kind == "shop" and (
+	if _node_kind != "shop":
+		return false
+	if _hovered_index >= 0 and _action_id_at_index(_hovered_index) != ACTION_END_WORK:
+		return true
+	return (
 		_hovered_owned_index >= 0
-		or (_hovered_index >= 0 and _action_id_at_index(_hovered_index) != ACTION_END_WORK)
+		and _hovered_owned_index < _shop_owned_items.size()
+		and not bool(_shop_owned_items[_hovered_owned_index].get("empty_slot", false))
+		and not _shop_owned_items[_hovered_owned_index].is_empty()
 	)
 
 
@@ -739,6 +760,23 @@ func get_action_rects(
 	var result: Array[Rect2] = []
 	var layout := build_screen_layout(view_size, layout_flags)
 	if _node_kind in CARD_NODE_KINDS:
+		var uses_shop_stacked := bool(layout.get("layout_flags", {}).get(
+			LAYOUT_FLAG_SHOP_STACKED,
+			false
+		))
+		if uses_shop_stacked:
+			var stock_card_rects: Array = layout.get("shop_stock_card_rects", [])
+			var stock_visible_index := 0
+			for action in _actions:
+				if str(action.get("id", "")) == ACTION_END_WORK:
+					result.append(layout.get("end_work_rect", SHOP_STACKED_END_WORK_RECT))
+				elif stock_visible_index >= stock_card_rects.size():
+					result.append(Rect2())
+					stock_visible_index += 1
+				else:
+					result.append(stock_card_rects[stock_visible_index] as Rect2)
+					stock_visible_index += 1
+			return result
 		var uses_shop_trade_panels := bool(layout.get("layout_flags", {}).get(
 			LAYOUT_FLAG_SHOP_TRADE_PANELS,
 			false
@@ -878,6 +916,10 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"layout_flags": layout.get("layout_flags", {}).duplicate(true),
 		"card_grid_rect": layout.get("card_grid_rect", Rect2()),
 		"shop_owned_items": _shop_owned_items.duplicate(true),
+		"shop_stock_card_rects": (layout.get("shop_stock_card_rects", []) as Array).duplicate(),
+		"shop_owned_slot_rects": (layout.get("shop_owned_slot_rects", []) as Array).duplicate(),
+		"shop_owned_slot_capacity": _shop_owned_items.size(),
+		"shop_owned_panel_rect": layout.get("shop_owned_panel_rect", Rect2()),
 		"shop_player_panel_rect": layout.get("shop_player_panel_rect", Rect2()),
 		"shop_stock_panel_rect": layout.get("shop_stock_panel_rect", Rect2()),
 		"shop_player_columns": int(layout.get("shop_player_columns", 0)),
@@ -889,9 +931,9 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		"shop_cell_size": float(layout.get("shop_cell_size", 0.0)),
 		"shop_cell_gap": float(layout.get("shop_cell_gap", 0.0)),
 		"shop_cell_start_offset": layout.get("shop_cell_start_offset", Vector2.ZERO),
-		"shop_player_label": "보유 중",
-		"shop_stock_label": "판매 목록",
-		"shop_owned_read_only_text": "보유 중 · 판매 불가",
+		"shop_player_label": "소지 아이템",
+		"shop_stock_label": "상점 상품",
+		"shop_owned_read_only_text": "소지 중 · 판매 불가",
 		"shop_purchase_available_text": "구매 가능",
 		"hero_card_rect": layout.get("hero_card_rect", Rect2()),
 		"page_previous_rect": layout.get("page_previous_rect", Rect2()),
@@ -950,6 +992,10 @@ func build_screen_layout(
 		LAYOUT_FLAG_SHOP_TRADE_PANELS,
 		false
 	))
+	var uses_shop_stacked := bool(resolved_flags.get(
+		LAYOUT_FLAG_SHOP_STACKED,
+		false
+	))
 	var uses_hero_card := bool(resolved_flags.get(LAYOUT_FLAG_HERO_CARD, false))
 	var uses_page_controls := bool(resolved_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false))
 	var card_grid_source := CARD_GRID_RECT
@@ -969,15 +1015,51 @@ func build_screen_layout(
 		card_grid_rows = SHOP_CARD_GRID_ROWS
 		grid_column_gap = SHOP_GRID_COLUMN_GAP
 		grid_row_gap = SHOP_GRID_ROW_GAP
-	var end_work_source := TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
+	var end_work_source := (
+		SHOP_STACKED_END_WORK_RECT
+		if uses_shop_stacked
+		else TRAINING_END_WORK_RECT if uses_training_stage else END_WORK_RECT
+	)
 	var player_grid := _shop_grid_dimensions(owned_count) if uses_shop_trade_panels else Vector2i.ZERO
 	var stock_grid := _shop_grid_dimensions(stock_count) if uses_shop_trade_panels else Vector2i.ZERO
+	var stacked_stock_panel := (
+		_scale_rect(SHOP_STACKED_STOCK_PANEL_RECT, content_scale, content_offset)
+		if uses_shop_stacked
+		else Rect2()
+	)
+	var stacked_owned_panel := (
+		_scale_rect(SHOP_STACKED_OWNED_PANEL_RECT, content_scale, content_offset)
+		if uses_shop_stacked
+		else Rect2()
+	)
+	var stacked_owned_slot_area := (
+		_scale_rect(SHOP_STACKED_OWNED_SLOT_AREA_RECT, content_scale, content_offset)
+		if uses_shop_stacked
+		else Rect2()
+	)
+	var stacked_stock_card_rects: Array[Rect2] = []
+	var stacked_owned_slot_rects: Array[Rect2] = []
+	if uses_shop_stacked:
+		stacked_stock_card_rects = build_shop_stock_card_rects(
+			stacked_stock_panel,
+			stock_count,
+			content_scale
+		)
+		stacked_owned_slot_rects = build_shop_owned_slot_rects(
+			stacked_owned_slot_area,
+			owned_count,
+			content_scale
+		)
 	_layout_cache_signature = layout_signature
 	_layout_build_count += 1
 	_layout_cache = {
 		"content_scale": content_scale,
 		"content_offset": content_offset,
-		"modal_rect": _scale_rect(MODAL_RECT, content_scale, content_offset),
+		"modal_rect": _scale_rect(
+			SHOP_STACKED_MODAL_RECT if uses_shop_stacked else MODAL_RECT,
+			content_scale,
+			content_offset
+		),
 		"layout_flags": resolved_flags,
 		"card_grid_rect": _scale_rect(card_grid_source, content_scale, content_offset),
 		"hero_card_rect": (
@@ -990,22 +1072,29 @@ func build_screen_layout(
 		"grid_column_gap": grid_column_gap * content_scale,
 		"grid_row_gap": grid_row_gap * content_scale,
 		"end_work_rect": _scale_rect(end_work_source, content_scale, content_offset),
+		"shop_stock_card_rects": stacked_stock_card_rects,
+		"shop_owned_slot_rects": stacked_owned_slot_rects,
+		"shop_owned_panel_rect": stacked_owned_panel,
 		"shop_player_panel_rect": (
-			_scale_rect(SHOP_TRADE_PLAYER_PANEL_RECT, content_scale, content_offset)
+			stacked_owned_panel
+			if uses_shop_stacked
+			else _scale_rect(SHOP_TRADE_PLAYER_PANEL_RECT, content_scale, content_offset)
 			if uses_shop_trade_panels
 			else Rect2()
 		),
 		"shop_stock_panel_rect": (
-			_scale_rect(SHOP_TRADE_STOCK_PANEL_RECT, content_scale, content_offset)
+			stacked_stock_panel
+			if uses_shop_stacked
+			else _scale_rect(SHOP_TRADE_STOCK_PANEL_RECT, content_scale, content_offset)
 			if uses_shop_trade_panels
 			else Rect2()
 		),
-		"shop_player_columns": player_grid.x,
-		"shop_player_rows": player_grid.y,
-		"shop_stock_columns": stock_grid.x,
-		"shop_stock_rows": stock_grid.y,
-		"shop_player_visible_count": mini(owned_count, SHOP_TRADE_MAX_VISIBLE_CELLS),
-		"shop_stock_visible_count": mini(stock_count, SHOP_TRADE_MAX_VISIBLE_CELLS),
+		"shop_player_columns": owned_count if uses_shop_stacked else player_grid.x,
+		"shop_player_rows": 1 if uses_shop_stacked and owned_count > 0 else player_grid.y,
+		"shop_stock_columns": SHOP_STACKED_STOCK_COLUMNS if uses_shop_stacked else stock_grid.x,
+		"shop_stock_rows": 1 if uses_shop_stacked and stock_count > 0 else stock_grid.y,
+		"shop_player_visible_count": owned_count if uses_shop_stacked else mini(owned_count, SHOP_TRADE_MAX_VISIBLE_CELLS),
+		"shop_stock_visible_count": stacked_stock_card_rects.size() if uses_shop_stacked else mini(stock_count, SHOP_TRADE_MAX_VISIBLE_CELLS),
 		"shop_cell_size": SHOP_TRADE_CELL_SIZE * content_scale,
 		"shop_cell_gap": SHOP_TRADE_CELL_GAP * content_scale,
 		"shop_cell_start_offset": SHOP_TRADE_CELL_START_OFFSET * content_scale,
@@ -1045,7 +1134,9 @@ func build_screen_layout(
 			else Rect2()
 		),
 		"status_baseline": _scale_point(
-			TRAINING_STATUS_BASELINE if uses_training_stage else STATUS_BASELINE,
+			SHOP_STACKED_STATUS_BASELINE
+			if uses_shop_stacked
+			else TRAINING_STATUS_BASELINE if uses_training_stage else STATUS_BASELINE,
 			content_scale,
 			content_offset
 		),
@@ -1059,6 +1150,83 @@ func _scale_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:
 
 func _scale_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector2:
 	return offset + point * scale_value
+
+
+static func build_shop_stock_card_rects(
+	panel_rect: Rect2,
+	stock_count: int,
+	content_scale: float = 1.0
+) -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	var visible_count := mini(maxi(0, stock_count), SHOP_STACKED_STOCK_COLUMNS)
+	if not panel_rect.has_area() or visible_count <= 0:
+		return result
+	var safe_scale := maxf(0.001, content_scale)
+	var gap := SHOP_STACKED_STOCK_CARD_GAP * safe_scale
+	var inset_x := SHOP_STACKED_STOCK_INSET_X * safe_scale
+	var inner_width := maxf(0.0, panel_rect.size.x - inset_x * 2.0)
+	var card_width := (
+		inner_width - gap * float(SHOP_STACKED_STOCK_COLUMNS - 1)
+	) / float(SHOP_STACKED_STOCK_COLUMNS)
+	var card_height := minf(
+		SHOP_STACKED_STOCK_CARD_HEIGHT * safe_scale,
+		panel_rect.size.y - SHOP_STACKED_STOCK_TOP_INSET * safe_scale
+	)
+	if card_width <= 0.0 or card_height <= 0.0:
+		return result
+	for visible_index in range(visible_count):
+		result.append(Rect2(
+			panel_rect.position + Vector2(
+				inset_x + float(visible_index) * (card_width + gap),
+				SHOP_STACKED_STOCK_TOP_INSET * safe_scale
+			),
+			Vector2(card_width, card_height)
+		))
+	return result
+
+
+static func build_shop_owned_slot_rects(
+	area_rect: Rect2,
+	slot_capacity: int,
+	content_scale: float = 1.0
+) -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	var safe_capacity := maxi(0, slot_capacity)
+	if not area_rect.has_area() or safe_capacity <= 0:
+		return result
+	var safe_scale := maxf(0.001, content_scale)
+	var minimum_gap := SHOP_STACKED_OWNED_SLOT_MIN_GAP * safe_scale
+	var maximum_gap := SHOP_STACKED_OWNED_SLOT_MAX_GAP * safe_scale
+	var slot_size := minf(
+		SHOP_STACKED_OWNED_SLOT_MAX_SIZE * safe_scale,
+		(
+			area_rect.size.x - minimum_gap * float(maxi(0, safe_capacity - 1))
+		) / float(safe_capacity)
+	)
+	if slot_size <= 0.0:
+		return result
+	var gap := 0.0
+	if safe_capacity > 1:
+		gap = clampf(
+			(area_rect.size.x - slot_size * float(safe_capacity))
+			/ float(safe_capacity - 1),
+			minimum_gap,
+			maximum_gap
+		)
+	var row_width := (
+		slot_size * float(safe_capacity)
+		+ gap * float(maxi(0, safe_capacity - 1))
+	)
+	var row_start := area_rect.position + Vector2(
+		maxf(0.0, (area_rect.size.x - row_width) * 0.5),
+		maxf(0.0, (area_rect.size.y - slot_size) * 0.5)
+	)
+	for slot_index in range(safe_capacity):
+		result.append(Rect2(
+			row_start + Vector2(float(slot_index) * (slot_size + gap), 0.0),
+			Vector2.ONE * slot_size
+		))
+	return result
 
 
 static func get_shop_cell_rect(
@@ -1089,6 +1257,13 @@ func get_owned_cell_index_at(
 	if _node_kind != "shop" or _shop_owned_items.is_empty():
 		return -1
 	var layout := build_screen_layout(view_size, _build_layout_flags())
+	var stacked_slot_rects: Array = layout.get("shop_owned_slot_rects", [])
+	if not stacked_slot_rects.is_empty():
+		for visible_index in range(stacked_slot_rects.size() - 1, -1, -1):
+			var slot_rect := stacked_slot_rects[visible_index] as Rect2
+			if slot_rect.has_point(position):
+				return visible_index
+		return -1
 	var panel_rect: Rect2 = layout.get("shop_player_panel_rect", Rect2())
 	var columns := int(layout.get("shop_player_columns", 0))
 	var visible_count := int(layout.get("shop_player_visible_count", 0))
@@ -1129,8 +1304,9 @@ func _invalidate_layout_cache() -> void:
 func _build_layout_flags() -> Dictionary:
 	return {
 		LAYOUT_FLAG_TRAINING_STAGE: _node_kind == "training",
-		LAYOUT_FLAG_SHOP_COMPACT: _node_kind == "shop",
-		LAYOUT_FLAG_SHOP_TRADE_PANELS: _node_kind == "shop",
+		LAYOUT_FLAG_SHOP_COMPACT: false,
+		LAYOUT_FLAG_SHOP_TRADE_PANELS: false,
+		LAYOUT_FLAG_SHOP_STACKED: _node_kind == "shop",
 		LAYOUT_FLAG_HERO_CARD: _node_kind in HERO_CARD_NODE_KINDS,
 		LAYOUT_FLAG_PAGE_CONTROLS: _uses_paged_cards() and get_page_count() > 1,
 	}
@@ -1142,6 +1318,7 @@ func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
 		LAYOUT_FLAG_TRAINING_STAGE,
 		LAYOUT_FLAG_SHOP_COMPACT,
 		LAYOUT_FLAG_SHOP_TRADE_PANELS,
+		LAYOUT_FLAG_SHOP_STACKED,
 		LAYOUT_FLAG_HERO_CARD,
 		LAYOUT_FLAG_PAGE_CONTROLS,
 	]:
@@ -1152,7 +1329,7 @@ func _resolve_layout_flags(layout_flags: Dictionary) -> Dictionary:
 
 func _action_index_at_position(position: Vector2, view_size: Vector2) -> int:
 	# GRT-022: rendering and hit testing resolve and pass the same layout flag.
-	# In particular, compact training/shop grids must never be hit-tested with
+	# In particular, compact training and stacked-shop cards must never be hit-tested with
 	# legacy six-card rects after their node-specific layout is exposed.
 	var layout_flags := _build_layout_flags()
 	var rects := get_action_rects(view_size, layout_flags)
@@ -1265,7 +1442,11 @@ func _replace_actions(actions: Array) -> void:
 	_actions.append(_normalize_action({
 		"id": ACTION_END_WORK,
 		"label": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_END_WORK
+			(
+				TowerAscentNodeModalLocalization.KEY_SHOP_EXIT
+				if _node_kind == "shop"
+				else TowerAscentNodeModalLocalization.KEY_END_WORK
+			)
 		),
 		"enabled": not force_choice,
 		"disabled_reason": "forced_node_choice" if force_choice else "",
@@ -1431,6 +1612,7 @@ func _normalize_action(source: Dictionary) -> Dictionary:
 		"id": str(source.get("id", "")).strip_edges(),
 		"label": str(source.get("label", "")).strip_edges(),
 		"cost_text": str(source.get("cost_text", "")).strip_edges(),
+		"cost_gold": maxi(0, int(source.get("cost_gold", 0))),
 		"enabled": enabled,
 		"disabled_reason": str(source.get("disabled_reason", "")).strip_edges(),
 		"unavailable_reason": str(source.get(

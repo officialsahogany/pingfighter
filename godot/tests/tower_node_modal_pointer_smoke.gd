@@ -510,33 +510,28 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 	for node_kind in ["shop", "training", "fallen_monk"]:
 		var modal := TowerAscentNodeModalState.new()
 		var actions: Array[Dictionary] = []
-		for index in range(6):
+		var card_count := 8 if node_kind == "shop" else 6
+		for index in range(card_count):
 			actions.append({"id": "%s-card-%d" % [node_kind, index], "label": "card %d" % index})
 		modal.open("six-card-node", node_kind, {"muhon": 20}, actions)
 		var model: Dictionary = modal.build_view_model()
 		var layout_flags: Dictionary = model.get("layout_flags", {})
 		var layout: Dictionary = modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
 		var rects: Array = model.get("action_rects", [])
-		_expect(rects.size() == 7, "%s must expose six cards plus the end-work action" % node_kind)
+		_expect(rects.size() == card_count + 1, "%s must expose every card plus the end-work action" % node_kind)
 		if node_kind == "shop":
-			# Feedback 7 replaces only the shop's compact card surface. GRT-022
-			# still requires the right-stock drawer and hit test to consume the
-			# exact same top-corner geometry source.
 			var stock_panel: Rect2 = layout.get("shop_stock_panel_rect", Rect2())
-			var stock_columns := int(layout.get("shop_stock_columns", 0))
-			for index in range(6):
-				var expected_rect := TowerAscentNodeModalState.get_shop_cell_rect(
-					stock_panel,
-					index,
-					stock_columns,
-					float(layout.get("shop_cell_size", 0.0)),
-					float(layout.get("shop_cell_gap", 0.0)),
-					layout.get("shop_cell_start_offset", Vector2.ZERO)
-				)
+			var exact_stock_rects: Array = model.get("shop_stock_card_rects", [])
+			_expect(exact_stock_rects.size() == 8, "stacked shop must publish exactly eight stock rects")
+			_expect(not modal.select_at_position(stock_panel.position + Vector2(2.0, 2.0)), "stock-panel label corner must not purchase the first product")
+			for index in range(8):
 				var rect := rects[index] as Rect2
-				_expect(rect.is_equal_approx(expected_rect), "shop stock %d must use the shared cell rect" % index)
+				_expect(rect.is_equal_approx(exact_stock_rects[index] as Rect2), "shop stock %d must use the exact published card rect" % index)
 				_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "shop stock %d top corner must be selectable" % index)
 				_expect(str(modal.get_selected_action().get("id", "")) == "shop-card-%d" % index, "shop stock %d hit test must select its drawn cell" % index)
+			var eighth_rect := rects[7] as Rect2
+			_expect(modal.select_at_position(Vector2(eighth_rect.end.x - 0.5, eighth_rect.get_center().y)), "eighth card right edge must remain selectable")
+			_expect(str(modal.get_selected_action().get("id", "")) == "shop-card-7", "eighth-card edge hit must select the eighth product")
 			var prewarm_probe := RuntimePerkOverlayRenderer.new().prewarm_tower_shop_cells(
 				model.get("actions", []),
 				[],
@@ -544,31 +539,47 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 				null
 			)
 			var prewarm_stock_rects: Array = prewarm_probe.get("stock_rects", [])
-			_expect(prewarm_stock_rects.size() == 6, "shop prewarm must visit exactly six occupied stock cells")
+			_expect(prewarm_stock_rects.size() == 8, "shop prewarm must visit exactly eight occupied stock cards")
 			for index in range(prewarm_stock_rects.size()):
 				_expect((prewarm_stock_rects[index] as Rect2).is_equal_approx(rects[index] as Rect2), "shop prewarm cell %d must match draw/hit geometry" % index)
-			modal.set_shop_owned_items([{
-				"id": "owned-probe",
-				"name": "owned probe",
-				"item_data": {"name": "owned-probe"},
-			}])
-			var owned_layout := modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
-			var owned_rect := TowerAscentNodeModalState.get_shop_cell_rect(
-				owned_layout.get("shop_player_panel_rect", Rect2()),
-				0,
-				int(owned_layout.get("shop_player_columns", 0)),
-				float(owned_layout.get("shop_cell_size", 0.0)),
-				float(owned_layout.get("shop_cell_gap", 0.0)),
-				owned_layout.get("shop_cell_start_offset", Vector2.ZERO)
-			)
-			var owned_corner := owned_rect.position + Vector2(2.0, 2.0)
-			_expect(not stock_panel.intersects(owned_layout.get("shop_player_panel_rect", Rect2())), "shop player and stock panels must not overlap")
-			_expect(modal.get_owned_cell_index_at(owned_corner) == 0, "owned top corner must resolve through the shared cell rect")
-			_expect(not modal.select_at_position(owned_corner), "owned read-only cell must not enter the action selection route")
-			_expect(not modal.begin_pointer_press(owned_corner), "owned read-only click must never arm a purchase")
+			for slot_capacity in [3, 5, 8]:
+				var owned_items: Array[Dictionary] = []
+				for slot_index in range(slot_capacity):
+					owned_items.append(
+						{
+							"id": "owned-probe",
+							"name": "owned probe",
+							"item_data": {"name": "owned-probe"},
+						}
+						if slot_index == 0
+						else {"empty_slot": true, "slot_index": slot_index}
+					)
+				modal.set_shop_owned_items(owned_items)
+				var owned_model: Dictionary = modal.build_view_model()
+				var owned_rects: Array = owned_model.get("shop_owned_slot_rects", [])
+				_expect(owned_rects.size() == slot_capacity, "shop must publish %d capacity-owned slot rects" % slot_capacity)
+				var owned_panel: Rect2 = owned_model.get("shop_owned_panel_rect", Rect2())
+				for slot_index in range(owned_rects.size()):
+					var owned_rect := owned_rects[slot_index] as Rect2
+					_expect(owned_panel.encloses(owned_rect), "owned slot %d/%d must stay inside its panel" % [slot_index, slot_capacity])
+					if slot_index > 0:
+						_expect(not owned_rect.intersects(owned_rects[slot_index - 1] as Rect2), "owned slots must never overlap")
+				var last_owned_rect := owned_rects[slot_capacity - 1] as Rect2
+				var owned_corner := last_owned_rect.position + Vector2(2.0, 2.0)
+				_expect(modal.get_owned_cell_index_at(owned_corner) == slot_capacity - 1, "final owned slot must resolve through the shared slot rect")
+				_expect(not modal.select_at_position(owned_corner), "owned read-only slot must not enter the action selection route")
+				_expect(not modal.begin_pointer_press(owned_corner), "owned read-only click must never arm a purchase")
+				var owned_prewarm := RuntimePerkOverlayRenderer.new().prewarm_tower_shop_cells(
+					owned_model.get("actions", []),
+					owned_model.get("shop_owned_items", []),
+					owned_model,
+					null
+				)
+				var prewarm_owned_rects: Array = owned_prewarm.get("player_rects", [])
+				_expect(prewarm_owned_rects == owned_rects, "owned prewarm must consume the exact %d-slot draw/hit rect array" % slot_capacity)
 			_expect(not modal.select_at_position(TowerAscentNodeModalState.SHOP_CARD_GRID_RECT.position + Vector2(2.0, 2.0)), "retired compact-card top corner must not purchase stock")
-			var end_work_rect := rects[6] as Rect2
-			_expect(end_work_rect.is_equal_approx(owned_layout.get("end_work_rect", Rect2())), "shop end-work action must use its flagged footer rect")
+			var end_work_rect := rects[8] as Rect2
+			_expect(end_work_rect.is_equal_approx(TowerAscentNodeModalState.SHOP_STACKED_END_WORK_RECT), "shop end-work action must use its flagged footer rect")
 			_expect(modal.select_at_position(end_work_rect.position + Vector2(2.0, 2.0)), "shop end-work top corner must be selectable")
 			_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "shop footer hit test must select end-work")
 			continue
@@ -612,7 +623,7 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 			_expect(card_grid_rect.encloses(rect), "%s card %d must remain inside the flagged card grid" % [node_kind, index])
 			_expect(modal.select_at_position(rect.position + Vector2(2.0, 2.0)), "%s action %d top corner must be selectable" % [node_kind, index])
 			_expect(str(modal.get_selected_action().get("id", "")) == str((modal.build_view_model().get("actions", []) as Array)[index].get("id", "")), "%s action %d hit test must select its drawn card" % [node_kind, index])
-		var end_work_rect := rects[6] as Rect2
+		var end_work_rect := rects[card_count] as Rect2
 		_expect(end_work_rect.is_equal_approx(layout.get("end_work_rect", Rect2())), "%s end-work action must use its flagged footer rect" % node_kind)
 		_expect(modal.select_at_position(end_work_rect.position + Vector2(2.0, 2.0)), "%s end-work top corner must be selectable" % node_kind)
 		_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentNodeModalState.ACTION_END_WORK, "%s footer hit test must select end-work" % node_kind)

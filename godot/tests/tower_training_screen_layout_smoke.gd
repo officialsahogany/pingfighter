@@ -119,44 +119,42 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 
 
 func _verify_service_card_layout_profiles() -> void:
-	var shop_modal := _build_six_card_modal("shop")
+	var shop_modal := _build_shop_modal()
 	var shop_model: Dictionary = shop_modal.build_view_model(BASE_VIEW_SIZE)
 	var shop_flags: Dictionary = shop_model.get("layout_flags", {})
 	_expect(
-		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_COMPACT, false)),
-		"shop view model must preserve its compatibility compact-layout flag"
+		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_STACKED, false)),
+		"shop view model must carry the full-screen stacked-layout flag"
 	)
 	_expect(
-		bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_TRADE_PANELS, false)),
-		"shop view model must carry its split trade-panel layout flag"
+		not bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_COMPACT, true))
+		and not bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_TRADE_PANELS, true)),
+		"shop view model must retire both compact and split trade-panel layouts"
 	)
 	var shop_layout: Dictionary = shop_modal.build_screen_layout(BASE_VIEW_SIZE, shop_flags)
 	_expect(
-		(shop_layout.get("shop_player_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_TRADE_PLAYER_PANEL_RECT),
-		"shop must resolve the Tower-owned player panel geometry"
+		(shop_layout.get("shop_owned_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_STACKED_OWNED_PANEL_RECT),
+		"shop must resolve the Tower-owned stacked inventory panel geometry"
 	)
 	_expect(
-		(shop_layout.get("shop_stock_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_TRADE_STOCK_PANEL_RECT),
-		"shop must resolve the Tower-owned stock panel geometry"
+		(shop_layout.get("shop_stock_panel_rect", Rect2()) as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_STACKED_STOCK_PANEL_RECT),
+		"shop must resolve the Tower-owned stacked stock panel geometry"
 	)
 	var shop_rects: Array = shop_model.get("action_rects", [])
 	var shop_card := shop_rects[0] as Rect2
-	# Feedback 7 keeps the old compact flag for compatibility, while the visible
-	# surface now uses occupied 42px cells instead of the 106px card renderer.
-	_expect(shop_card.size.is_equal_approx(Vector2.ONE * TowerAscentNodeModalState.SHOP_TRADE_CELL_SIZE), "shop stock must use 42px cells")
+	_expect(shop_card.size.y > shop_card.size.x * 3.0, "shop stock must use tall product cards rather than square cells")
 	_expect(
-		int(shop_layout.get("shop_stock_columns", 0)) == 3
-		and int(shop_layout.get("shop_stock_rows", 0)) == 2,
-		"six stock items must derive a 3x2 occupied grid"
+		int(shop_layout.get("shop_stock_columns", 0)) == 8
+		and int(shop_layout.get("shop_stock_rows", 0)) == 1,
+		"eight stock items must derive one horizontal product row"
 	)
 	_expect(
-		int(shop_layout.get("shop_player_columns", -1)) == 0
-		and int(shop_layout.get("shop_player_rows", -1)) == 0,
-		"empty owned inventory must derive a 0x0 grid without placeholder cells"
+		(shop_model.get("shop_stock_card_rects", []) as Array) == shop_rects.slice(0, 8),
+		"shop model and action hit rects must share the exact eight-card geometry array"
 	)
 	_expect(
-		(shop_rects[6] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT),
-		"shop must retain the established end-work footer"
+		(shop_rects[8] as Rect2).is_equal_approx(TowerAscentNodeModalState.SHOP_STACKED_END_WORK_RECT),
+		"shop must use the stacked-screen exit footer"
 	)
 
 	var fallen_monk_modal := _build_six_card_modal("fallen_monk")
@@ -271,49 +269,31 @@ func _verify_compact_description_three_row_budget() -> void:
 
 
 func _verify_shop_cells_bypass_compact_card_text_layout() -> void:
-	var shop_modal := _build_six_card_modal("shop")
+	var shop_modal := _build_shop_modal()
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var disabled_action := _chance_gem_shop_action(false, "insufficient gold")
 	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
-		var cell_rect := shop_modal.get_action_rects(view_size)[5] as Rect2
-		var content_scale := minf(
-			view_size.x / BASE_VIEW_SIZE.x,
-			view_size.y / BASE_VIEW_SIZE.y
-		)
-		var retired_card_layout := renderer.build_tower_node_card_text_layout(
+		var card_rect := shop_modal.get_action_rects(view_size)[5] as Rect2
+		var product_layout := renderer.build_tower_shop_product_card_layout(
 			disabled_action,
-			cell_rect
+			card_rect
 		)
 		_expect(
-			cell_rect.size.is_equal_approx(
-				Vector2.ONE * TowerAscentNodeModalState.SHOP_TRADE_CELL_SIZE * content_scale
-			),
-			"production shop stock must retain a scaled square cell at %s" % view_size
+			(product_layout.get("choice", {}) as Dictionary).get("id", "") == "chance_gem",
+			"product layout must project the production choice at %s" % view_size
 		)
 		_expect(
-			not bool(retired_card_layout.get("compact_card", true)),
-			"42px square shop cells must not activate the retired compact-card profile at %s" % view_size
+			not bool(product_layout.get("description_visible", true)),
+			"a description that cannot fit one whole line must be omitted at %s" % view_size
 		)
+		var short_action := disabled_action.duplicate(true)
+		(short_action.get("payload", {}).get("choice", {}) as Dictionary)["description"] = "회복"
+		var short_layout := renderer.build_tower_shop_product_card_layout(short_action, card_rect)
 		_expect(
-			not bool(retired_card_layout.get("unavailable_reason_row_reserved", true)),
-			"shop-cell unavailable copy must bypass card description reservation at %s" % view_size
+			bool(short_layout.get("description_visible", false))
+			and str(short_layout.get("description", "")) == "회복",
+			"a whole one-line description must remain visible without clipping at %s" % view_size
 		)
-	var renderer_source := FileAccess.get_file_as_string(
-		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
-	)
-	var shop_draw_start := renderer_source.find("func _draw_shop_trade_panels(")
-	var shop_draw_end := renderer_source.find("func _draw_shop_trade_tooltip(")
-	var shop_draw_source := renderer_source.substr(
-		shop_draw_start,
-		shop_draw_end - shop_draw_start
-	)
-	_expect(
-		shop_draw_start >= 0
-		and shop_draw_end > shop_draw_start
-		and shop_draw_source.find("draw_tower_shop_item_cell") >= 0
-		and shop_draw_source.find("build_tower_node_hover_detail_layout") < 0,
-		"production shop cells must bypass per-card hover-detail layout"
-	)
 
 
 func _verify_compact_unavailable_reason_reserves_description_row() -> void:
@@ -582,6 +562,15 @@ func _build_six_card_modal(node_kind: String) -> Object:
 	return modal
 
 
+func _build_shop_modal() -> Object:
+	var modal := TowerAscentNodeModalState.new()
+	var actions: Array[Dictionary] = []
+	for index in range(8):
+		actions.append(_training_card_action(index, "shop"))
+	modal.open("layout-shop", "shop", {"muhon": 20, "gold": 120}, actions)
+	return modal
+
+
 func _training_card_action(index: int, node_kind: String = "training") -> Dictionary:
 	return {
 		"id": "%s-card-%d" % [node_kind, index],
@@ -604,6 +593,7 @@ func _chance_gem_shop_action(enabled: bool, unavailable_reason: String) -> Dicti
 		"id": "shop_purchase:chance_gem_1",
 		"label": "기회의 보석",
 		"cost_text": "150 금화",
+		"cost_gold": 150,
 		"enabled": enabled,
 		"unavailable_reason": unavailable_reason,
 		"payload": {

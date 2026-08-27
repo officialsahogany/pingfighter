@@ -210,9 +210,9 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	_expect(inventories.size() == 1, "opening one shop must generate exactly one node-owned inventory")
 	var inventory: Dictionary = inventories[0]
 	var stock: Array = inventory.get("stock", [])
-	_expect(stock.size() == 6, "shop stock must contain regular 3, premium 1, capsule 1, and chance gem 1")
+	_expect(stock.size() == 8, "shop stock must contain regular 5, premium 1, capsule 1, and chance gem 1")
 	var kind_counts := _count_stock_kinds(stock)
-	_expect(int(kind_counts.get("regular", 0)) == 3, "shop must expose exactly three regular active items")
+	_expect(int(kind_counts.get("regular", 0)) == 5, "shop must expose exactly five regular active items")
 	_expect(int(kind_counts.get("premium", 0)) == 1, "shop must expose exactly one premium active item")
 	_expect(int(kind_counts.get("capsule", 0)) == 1, "shop must expose exactly one capsule pull")
 	_expect(int(kind_counts.get("chance_gem", 0)) == 1, "shop must expose exactly one chance gem")
@@ -231,18 +231,23 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 			_expect(int(entry.get("price", -1)) == TowerAscentTuning.TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE, "chance-gem price must use the high-price contract")
 	var model := flow.get_node_modal_view_model()
 	var actions: Array = model.get("actions", [])
-	_expect(actions.size() == 7, "shop modal must render six stock actions plus the shared end-work action")
+	_expect(actions.size() == 9, "shop modal must render eight stock actions plus the shared exit action")
 	var shop_flags: Dictionary = model.get("layout_flags", {})
-	_expect(bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_TRADE_PANELS, false)), "shop must expose split trade panels")
-	_expect(int(model.get("shop_stock_columns", 0)) == 3 and int(model.get("shop_stock_rows", 0)) == 2, "six stock cells must derive a 3x2 grid")
-	_expect(int(model.get("shop_player_columns", -1)) == 0 and int(model.get("shop_player_rows", -1)) == 0, "empty owned inventory must draw zero placeholder cells")
-	_expect((model.get("shop_owned_items", []) as Array).is_empty(), "empty owner must project zero owned items")
+	_expect(bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_STACKED, false)), "shop must expose the full-screen stacked layout")
+	_expect(not bool(shop_flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_SHOP_TRADE_PANELS, true)), "shop must retire the split trade-panel layout")
+	_expect(int(model.get("shop_stock_columns", 0)) == 8 and int(model.get("shop_stock_rows", 0)) == 1, "eight stock cards must derive one horizontal row")
+	_expect(int(model.get("shop_player_columns", -1)) == 3 and int(model.get("shop_player_rows", -1)) == 1, "empty owner must still expose its three active-item capacity slots")
+	_expect((model.get("shop_owned_items", []) as Array).size() == 3, "empty owner must project three explicit empty active-item slots")
+	for owned_value in model.get("shop_owned_items", []) as Array:
+		_expect(bool((owned_value as Dictionary).get("empty_slot", false)), "an unfilled active-item capacity slot must be explicit")
 	_expect(not (model.get("shop_player_panel_rect", Rect2()) as Rect2).intersects(model.get("shop_stock_panel_rect", Rect2())), "owned and stock panels must not overlap")
+	_expect(str((actions[8] as Dictionary).get("label", "")) == "상점 나가기", "shop footer must use the explicit shop-exit copy")
 	_expect(_has_action_label(actions, "액티브 캡슐"), "capsule stock must stay concealed until purchase")
 	var card_kind_counts: Dictionary = {}
 	for action_value in actions:
 		if not (action_value is Dictionary) or str((action_value as Dictionary).get("id", "")) == "end_work":
 			continue
+		_expect(int((action_value as Dictionary).get("cost_gold", -1)) > 0, "every shop product card must retain its positive gold price")
 		var choice: Dictionary = (action_value as Dictionary).get("payload", {}).get("choice", {})
 		var card_kind := str(choice.get("card_content_kind", ""))
 		card_kind_counts[card_kind] = int(card_kind_counts.get(card_kind, 0)) + 1
@@ -251,7 +256,7 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 		_expect(not str(choice.get("level_text", "")).is_empty(), "every shop card must project an item-kind rank line")
 		if card_kind == "active_item":
 			_expect(not str(choice.get("item_data", {}).get("icon_path", "")).is_empty(), "active-item cards must project their canonical icon path")
-	_expect(int(card_kind_counts.get("active_item", 0)) == 4, "three regular and one premium stock must use active-item card icons")
+	_expect(int(card_kind_counts.get("active_item", 0)) == 6, "five regular and one premium stock must use active-item card icons")
 	_expect(int(card_kind_counts.get("capsule", 0)) == 1, "capsule stock must use the concealed supply-card symbol")
 	_expect(int(card_kind_counts.get("chance_gem", 0)) == 1, "chance gem stock must use the run-supply card symbol")
 
@@ -267,8 +272,10 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	_expect(int(flow.get_run_state_snapshot().get("gold", -1)) == 1000 - TowerAscentTuning.TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE, "successful purchase must debit run-state gold immediately")
 	_expect(active_runtime.grant_calls == 1 and owner.active_item_slots.size() == 1, "purchase must call the existing active-item grant path exactly once")
 	var purchased_model := flow.get_node_modal_view_model()
-	_expect((purchased_model.get("shop_owned_items", []) as Array).size() == 1, "purchased active item must refresh into the read-only owned panel")
-	_expect(str(purchased_model.get("shop_player_label", "")) == "보유 중", "owned panel must carry the explicit read-only label")
+	var purchased_owned: Array = purchased_model.get("shop_owned_items", [])
+	_expect(purchased_owned.size() == 3, "purchase must preserve all three capacity-owned slot positions")
+	_expect(not bool((purchased_owned[0] as Dictionary).get("empty_slot", false)), "purchased active item must refresh into its read-only owned slot")
+	_expect(str(purchased_model.get("shop_player_label", "")) == "소지 아이템", "owned panel must carry the explicit read-only label")
 	_expect(flow.get_purchase_history().size() == 1, "successful purchase must persist one node_resolution_id history entry")
 	var after_first_gold := int(flow.get_run_state_snapshot().get("gold", -1))
 	var duplicate_result := flow.execute_node_action("shop_purchase:%s" % stock_id, "shop-contract:purchase:regular")
@@ -399,9 +406,9 @@ func _verify_source_contract() -> void:
 	for node_kind in ["training", "fallen_monk", "guardian_spring", "rest"]:
 		_expect(renderer_source.find('"%s"' % node_kind) >= 0, "%s must remain in the shared tower card dispatcher" % node_kind)
 	_expect(renderer_source.find('"draw_tower_node_card"') >= 0, "non-shop service nodes must retain the shared tower card drawer")
-	_expect(renderer_source.find("get_shop_cell_rect") >= 0, "shop draw must consume the modal-owned shared cell geometry")
-	_expect(card_source.find("func draw_tower_shop_item_cell(") >= 0, "shop must use the compact item-cell renderer")
-	_expect(card_source.find("func prewarm_tower_shop_cells(") >= 0 and card_source.find("get_shop_cell_rect") >= 0, "shop prewarm must consume the same cell geometry as draw and hit test")
+	_expect(renderer_source.find("draw_tower_shop_product_card") >= 0, "shop draw must delegate product cards to the shared overlay renderer")
+	_expect(card_source.find("func draw_tower_shop_product_card(") >= 0, "shop must use the shared stacked product-card renderer")
+	_expect(card_source.find("func prewarm_tower_shop_cells(") >= 0, "shop prewarm must remain owned by the shared card renderer")
 	_expect(card_source.find("func _draw_shop_card(") < 0, "shop must not fork a private card drawer")
 
 

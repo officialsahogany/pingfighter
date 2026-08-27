@@ -45,6 +45,9 @@ const ProjectResourceLoader := preload(
 const WeatherEventRenderer := preload(
 	"res://scripts/stages/common/weather_event_renderer.gd"
 )
+const TowerShopNodeModalState := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
 
 const ROUTE_AIM_GAUGE_FAN_PATH := (
 	"res://assets/sprites/tower/route_aim_gauge_fan_imagegen_v1.png"
@@ -152,8 +155,10 @@ const BALANCE_TEXT_GAP := 10.0
 const BALANCE_FONT_SIZE := 18.0
 const BALANCE_TEXT_OUTLINE_SIZE := 2.0
 const LAYOUT_FLAG_TRAINING_STAGE := "training_stage"
+const LAYOUT_FLAG_SHOP_STACKED := "shop_stacked"
 const LAYOUT_FLAG_HERO_CARD := "hero_card"
 const LAYOUT_FLAG_PAGE_CONTROLS := "page_controls"
+const TOWER_SHOP_FRAME_DRAW_OP_CEILING := 180
 
 const INK := Color("30271f")
 const INK_SOFT := Color("665343")
@@ -177,6 +182,7 @@ var _last_fullscreen_model: Dictionary = {}
 var _graph_cache_build_count := 0
 var _fullscreen_cache_build_count := 0
 var _path_cache_build_count := 0
+var _tower_shop_draw_debug_state: Dictionary = {}
 var _path_cached_dot_count := 0
 var _path_cached_dot_gap := 0.0
 var _path_cached_brush_segment_count := 0
@@ -3739,7 +3745,14 @@ func _draw_node_modal(
 		and _training_hanji_surface_texture != null
 		and _training_ledger_frame_texture != null
 	)
-	if training_hanji_chrome:
+	var uses_shop_stacked := bool(layout_flags.get(LAYOUT_FLAG_SHOP_STACKED, false))
+	if uses_shop_stacked:
+		_tower_shop_draw_debug_state = _draw_shop_stacked_screen(
+			canvas,
+			model,
+			render_context
+		)
+	elif training_hanji_chrome:
 		# 피드백2 10항: 수련장은 캐릭터 정보창과 같은 한지 표면 + 족자 액자
 		# 크롬을 쓴다. 채움은 액자 실루엣 안쪽에만 깔린다(GRT-057).
 		canvas.draw_rect(modal_rect, Color("f2e6c6"), true)
@@ -3759,45 +3772,46 @@ func _draw_node_modal(
 		canvas.draw_rect(modal_rect, CINNABAR_DARK, false, 5.0 * content_scale)
 		canvas.draw_rect(modal_rect.grow(-13.0 * content_scale), GOLD, false, 2.0 * content_scale)
 	var font := ThemeDB.fallback_font
-	canvas.draw_string(
-		font,
-		_screen_point(Vector2(126.0, 64.0), content_scale, content_offset),
-		str(model.get("title", "행로 정비")),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0 * content_scale,
-		maxi(12, int(round(30.0 * content_scale))),
-		INK
-	)
-	canvas.draw_line(
-		_screen_point(Vector2(126.0, 78.0), content_scale, content_offset),
-		_screen_point(Vector2(634.0, 78.0), content_scale, content_offset),
-		GOLD,
-		2.0 * content_scale
-	)
-	canvas.draw_string(
-		font,
-		_screen_point(Vector2(126.0, 100.0), content_scale, content_offset),
-		str(model.get("description", "")),
-		HORIZONTAL_ALIGNMENT_CENTER,
-		508.0 * content_scale,
-		maxi(10, int(round(16.0 * content_scale))),
-		INK_SOFT
-	)
-	var balance_layout := build_balance_row_layout(content_scale, content_offset)
-	var balance_entries: Array = balance_layout.get("entries", [])
-	if balance_entries.size() == 2:
-		_draw_balance_entry(
-			canvas,
-			balance_entries[0] as Dictionary,
-			str(model.get("muhon_text", "")),
-			content_scale
+	if not uses_shop_stacked:
+		canvas.draw_string(
+			font,
+			_screen_point(Vector2(126.0, 64.0), content_scale, content_offset),
+			str(model.get("title", "행로 정비")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			508.0 * content_scale,
+			maxi(12, int(round(30.0 * content_scale))),
+			INK
 		)
-		_draw_balance_entry(
-			canvas,
-			balance_entries[1] as Dictionary,
-			str(model.get("gold_text", "")),
-			content_scale
+		canvas.draw_line(
+			_screen_point(Vector2(126.0, 78.0), content_scale, content_offset),
+			_screen_point(Vector2(634.0, 78.0), content_scale, content_offset),
+			GOLD,
+			2.0 * content_scale
 		)
+		canvas.draw_string(
+			font,
+			_screen_point(Vector2(126.0, 100.0), content_scale, content_offset),
+			str(model.get("description", "")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			508.0 * content_scale,
+			maxi(10, int(round(16.0 * content_scale))),
+			INK_SOFT
+		)
+		var balance_layout := build_balance_row_layout(content_scale, content_offset)
+		var balance_entries: Array = balance_layout.get("entries", [])
+		if balance_entries.size() == 2:
+			_draw_balance_entry(
+				canvas,
+				balance_entries[0] as Dictionary,
+				str(model.get("muhon_text", "")),
+				content_scale
+			)
+			_draw_balance_entry(
+				canvas,
+				balance_entries[1] as Dictionary,
+				str(model.get("gold_text", "")),
+				content_scale
+			)
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
 		_draw_training_stage_layout(canvas, model, content_scale, render_context)
 	var actions: Array = model.get("actions", [])
@@ -3825,6 +3839,8 @@ func _draw_node_modal(
 			)
 		)
 		var action := actions[index] as Dictionary
+		if uses_shop_stacked and str(action.get("id", "")) != "end_work":
+			continue
 		if (
 			bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false))
 			and str(action.get("id", "")) != "end_work"
@@ -3891,6 +3907,10 @@ func _draw_node_modal(
 				index == selected_index,
 				content_scale
 			)
+			if uses_shop_stacked:
+				_tower_shop_draw_debug_state["draw_ops"] = int(
+					_tower_shop_draw_debug_state.get("draw_ops", 0)
+				) + 4
 	if bool(layout_flags.get(LAYOUT_FLAG_TRAINING_STAGE, false)):
 		_draw_training_stats_panel(canvas, model, render_context)
 	if bool(layout_flags.get(LAYOUT_FLAG_PAGE_CONTROLS, false)):
@@ -3907,6 +3927,310 @@ func _draw_node_modal(
 		508.0 * content_scale,
 		maxi(10, int(round(14.0 * content_scale))),
 		INK_SOFT
+	)
+	if uses_shop_stacked:
+		_tower_shop_draw_debug_state["draw_ops"] = int(
+			_tower_shop_draw_debug_state.get("draw_ops", 0)
+		) + 1
+		_tower_shop_draw_debug_state["within_ceiling"] = (
+			int(_tower_shop_draw_debug_state.get("draw_ops", 0))
+			<= TOWER_SHOP_FRAME_DRAW_OP_CEILING
+		)
+		_draw_shop_item_tooltip(canvas, model, render_context)
+
+
+func get_tower_shop_draw_debug_state_for_tests() -> Dictionary:
+	return _tower_shop_draw_debug_state.duplicate(true)
+
+
+func build_tower_shop_header_layout(
+	content_scale: float = 1.0,
+	content_offset: Vector2 = Vector2.ZERO
+) -> Dictionary:
+	var safe_scale := maxf(0.001, content_scale)
+	var entry_sources := [
+		{"currency": "gold", "rect": Rect2(430.0, 30.0, 132.0, 34.0)},
+		{"currency": "muhon", "rect": Rect2(578.0, 30.0, 132.0, 34.0)},
+	]
+	var entries: Array[Dictionary] = []
+	for entry_source in entry_sources:
+		var entry_rect := _screen_rect(
+			entry_source.get("rect", Rect2()),
+			safe_scale,
+			content_offset
+		)
+		var icon_size := 18.0 * safe_scale
+		var icon_center := Vector2(
+			entry_rect.position.x + 10.0 * safe_scale + icon_size * 0.5,
+			entry_rect.get_center().y
+		)
+		var text_left := icon_center.x + icon_size * 0.5 + 7.0 * safe_scale
+		entries.append({
+			"currency": str(entry_source.get("currency", "")),
+			"rect": entry_rect,
+			"icon_center": icon_center,
+			"icon_size": icon_size,
+			"text_rect": Rect2(
+				Vector2(text_left, entry_rect.position.y),
+				Vector2(maxf(0.0, entry_rect.end.x - text_left), entry_rect.size.y)
+			),
+		})
+	return {
+		"title_baseline": _screen_point(Vector2(36.0, 59.0), safe_scale, content_offset),
+		"entries": entries,
+	}
+
+
+func _draw_shop_stacked_screen(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> Dictionary:
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var modal_rect: Rect2 = model.get("modal_rect", MODAL_RECT)
+	var stock_panel: Rect2 = model.get("shop_stock_panel_rect", Rect2())
+	var owned_panel: Rect2 = model.get("shop_owned_panel_rect", Rect2())
+	var font := ThemeDB.fallback_font
+	var draw_ops := 0
+	# The retained noncombat arena bitmap remains visible through one dark ink wash.
+	# Large horizontal bands carry the hierarchy; tiny closed ornamental outlines do not.
+	canvas.draw_rect(modal_rect, Color(0.015, 0.011, 0.010, 0.88), true)
+	canvas.draw_rect(modal_rect, Color(0.64, 0.43, 0.18, 0.72), false, 2.0 * content_scale)
+	draw_ops += 2
+	var header := build_tower_shop_header_layout(content_scale, content_offset)
+	canvas.draw_string(
+		font,
+		header.get("title_baseline", modal_rect.position),
+		"←  %s" % str(model.get("title", "상점")),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		330.0 * content_scale,
+		maxi(16, int(round(27.0 * content_scale))),
+		Color(0.97, 0.88, 0.68, 1.0)
+	)
+	canvas.draw_line(
+		_screen_point(Vector2(30.0, 82.0), content_scale, content_offset),
+		_screen_point(Vector2(730.0, 82.0), content_scale, content_offset),
+		Color(0.82, 0.58, 0.24, 0.72),
+		2.0 * content_scale
+	)
+	draw_ops += 2
+	var balance_entries: Array = header.get("entries", [])
+	if balance_entries.size() == 2:
+		_draw_balance_entry(
+			canvas,
+			balance_entries[0] as Dictionary,
+			str(model.get("gold_text", "")),
+			content_scale
+		)
+		_draw_balance_entry(
+			canvas,
+			balance_entries[1] as Dictionary,
+			str(model.get("muhon_text", "")),
+			content_scale
+		)
+		draw_ops += 8
+	for panel_rect in [stock_panel, owned_panel]:
+		if not panel_rect.has_area():
+			continue
+		canvas.draw_rect(panel_rect, Color(0.035, 0.025, 0.020, 0.84), true)
+		canvas.draw_rect(panel_rect, Color(0.52, 0.36, 0.18, 0.78), false, 1.0 * content_scale)
+		draw_ops += 2
+	canvas.draw_line(
+		_screen_point(Vector2(76.0, 480.0), content_scale, content_offset),
+		_screen_point(Vector2(684.0, 480.0), content_scale, content_offset),
+		Color(0.82, 0.58, 0.24, 0.46),
+		1.0 * content_scale
+	)
+	draw_ops += 1
+	canvas.draw_string(
+		font,
+		stock_panel.position + Vector2(14.0, 27.0) * content_scale,
+		str(model.get("shop_stock_label", "상점 상품")),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		stock_panel.size.x - 28.0 * content_scale,
+		maxi(11, int(round(17.0 * content_scale))),
+		Color(0.94, 0.82, 0.59, 1.0)
+	)
+	canvas.draw_string(
+		font,
+		owned_panel.position + Vector2(14.0, 27.0) * content_scale,
+		str(model.get("shop_player_label", "소지 아이템")),
+		HORIZONTAL_ALIGNMENT_LEFT,
+		owned_panel.size.x * 0.48,
+		maxi(11, int(round(17.0 * content_scale))),
+		Color(0.94, 0.82, 0.59, 1.0)
+	)
+	canvas.draw_string(
+		font,
+		owned_panel.position + Vector2(owned_panel.size.x * 0.50, 27.0 * content_scale),
+		str(model.get("shop_owned_read_only_text", "소지 중 · 판매 불가")),
+		HORIZONTAL_ALIGNMENT_RIGHT,
+		owned_panel.size.x * 0.46,
+		maxi(9, int(round(12.0 * content_scale))),
+		Color(0.63, 0.58, 0.51, 0.94)
+	)
+	draw_ops += 3
+	var card_renderer: Object = render_context.get("card_renderer", null)
+	var icon_renderer: Object = render_context.get("icon_renderer", null)
+	var active_visuals: Object = render_context.get("active_item_hud_visuals", null)
+	var actions: Array = model.get("actions", [])
+	var stock_rects: Array = model.get("shop_stock_card_rects", [])
+	var selected_index := int(model.get("selected_index", -1))
+	var hovered_index := int(model.get("hovered_index", -1))
+	var stock_visible_index := 0
+	var drawn_product_count := 0
+	if card_renderer != null and card_renderer.has_method("draw_tower_shop_product_card"):
+		for action_index in range(actions.size()):
+			if not (actions[action_index] is Dictionary):
+				continue
+			var action := actions[action_index] as Dictionary
+			if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
+				continue
+			if stock_visible_index >= stock_rects.size():
+				break
+			if not (stock_rects[stock_visible_index] is Rect2):
+				stock_visible_index += 1
+				continue
+			var draw_result_value: Variant = card_renderer.call(
+				"draw_tower_shop_product_card",
+				canvas,
+				action,
+				stock_rects[stock_visible_index] as Rect2,
+				action_index == selected_index,
+				action_index == hovered_index,
+				bool(action.get("enabled", true)),
+				icon_renderer,
+				active_visuals
+			)
+			if draw_result_value is Dictionary:
+				draw_ops += int((draw_result_value as Dictionary).get("draw_ops", 0))
+			drawn_product_count += 1
+			stock_visible_index += 1
+	var owned_items: Array = model.get("shop_owned_items", [])
+	var owned_rects: Array = model.get("shop_owned_slot_rects", [])
+	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
+	var drawn_owned_slot_count := 0
+	if card_renderer != null and card_renderer.has_method("draw_tower_shop_owned_slot"):
+		for slot_index in range(mini(owned_items.size(), owned_rects.size())):
+			if not (owned_items[slot_index] is Dictionary) or not (owned_rects[slot_index] is Rect2):
+				continue
+			var draw_result_value: Variant = card_renderer.call(
+				"draw_tower_shop_owned_slot",
+				canvas,
+				owned_items[slot_index] as Dictionary,
+				owned_rects[slot_index] as Rect2,
+				slot_index == hovered_owned_index,
+				icon_renderer,
+				active_visuals
+			)
+			if draw_result_value is Dictionary:
+				draw_ops += int((draw_result_value as Dictionary).get("draw_ops", 0))
+			drawn_owned_slot_count += 1
+	return {
+		"draw_ops": draw_ops,
+		"draw_op_ceiling": TOWER_SHOP_FRAME_DRAW_OP_CEILING,
+		"product_count": drawn_product_count,
+		"owned_slot_count": drawn_owned_slot_count,
+		"currency_entry_count": balance_entries.size(),
+		"used_stacked_layout": true,
+		"within_ceiling": draw_ops <= TOWER_SHOP_FRAME_DRAW_OP_CEILING,
+	}
+
+
+func _draw_shop_item_tooltip(
+	canvas: CanvasItem,
+	model: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var tooltip_overlay: Object = render_context.get("shop_item_tooltip_overlay", null)
+	if (
+		tooltip_overlay == null
+		or not tooltip_overlay.has_method("_set_hover_data")
+		or not tooltip_overlay.has_method("_draw_dual_item_tooltip")
+	):
+		return
+	var choice: Dictionary = {}
+	var action: Dictionary = {}
+	var anchor_rect := Rect2()
+	var entries: Array = []
+	var right_header := ""
+	var hovered_owned_index := int(model.get("hovered_owned_index", -1))
+	if hovered_owned_index >= 0:
+		var owned_items: Array = model.get("shop_owned_items", [])
+		var owned_rects: Array = model.get("shop_owned_slot_rects", [])
+		if hovered_owned_index >= owned_items.size() or hovered_owned_index >= owned_rects.size():
+			return
+		if not (owned_items[hovered_owned_index] is Dictionary):
+			return
+		choice = owned_items[hovered_owned_index] as Dictionary
+		if choice.is_empty() or bool(choice.get("empty_slot", false)):
+			return
+		anchor_rect = owned_rects[hovered_owned_index] as Rect2
+		entries = [{"text": str(model.get("shop_owned_read_only_text", "소지 중 · 판매 불가"))}]
+		right_header = str(model.get("shop_player_label", "소지 아이템"))
+	else:
+		var hovered_index := int(model.get("hovered_index", -1))
+		var actions: Array = model.get("actions", [])
+		var action_rects: Array = model.get("action_rects", [])
+		if hovered_index < 0 or hovered_index >= actions.size() or hovered_index >= action_rects.size():
+			return
+		if not (actions[hovered_index] is Dictionary) or not (action_rects[hovered_index] is Rect2):
+			return
+		action = actions[hovered_index] as Dictionary
+		if str(action.get("id", "")) == TowerShopNodeModalState.ACTION_END_WORK:
+			return
+		var payload_value: Variant = action.get("payload", {})
+		if not (payload_value is Dictionary):
+			return
+		var choice_value: Variant = (payload_value as Dictionary).get("choice", {})
+		if not (choice_value is Dictionary):
+			return
+		choice = choice_value as Dictionary
+		anchor_rect = action_rects[hovered_index] as Rect2
+		entries.append({"text": str(action.get("cost_text", ""))})
+		var reason := str(action.get("unavailable_reason", "")).strip_edges()
+		entries.append({
+			"text": reason if not reason.is_empty() else str(model.get(
+				"shop_purchase_available_text",
+				"구매 가능"
+			))
+		})
+		right_header = str(model.get("shop_stock_label", "상점 상품"))
+	if choice.is_empty() or not anchor_rect.has_area():
+		return
+	var body := str(choice.get("description", "")).strip_edges()
+	if body.is_empty():
+		body = "설명이 없습니다."
+	var color_value: Variant = choice.get("icon_color", Color(0.78, 0.65, 0.42))
+	var color: Color = color_value if color_value is Color else Color(0.78, 0.65, 0.42)
+	var data_value: Variant = tooltip_overlay.call(
+		"_set_hover_data",
+		{},
+		str(choice.get("name", action.get("label", ""))),
+		str(choice.get("level_text", choice.get("rarity", ""))),
+		body,
+		color,
+		Color.WHITE,
+		anchor_rect,
+		entries,
+		right_header
+	)
+	if not (data_value is Dictionary):
+		return
+	tooltip_overlay.call(
+		"_draw_dual_item_tooltip",
+		canvas,
+		data_value as Dictionary,
+		model.get("pointer_position", anchor_rect.get_center()),
+		model.get("view_size", Vector2(760.0, 750.0)),
+		ThemeDB.fallback_font,
+		color,
+		str(choice.get("name", action.get("label", ""))),
+		str(choice.get("level_text", choice.get("rarity", ""))),
+		body,
+		entries,
+		render_context.get("icon_renderer", null)
 	)
 
 
