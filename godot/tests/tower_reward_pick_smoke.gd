@@ -1436,6 +1436,129 @@ func _verify_reward_hover_highlight_contract() -> void:
 		{"id": "zeta_same_rank", "level": 4},
 		{"id": "omega_low", "level": 1},
 	]
+	var stable_choices := [
+		{
+			"id": "zeta_new",
+			"reward_pick_kind": "mugong",
+			"current_level": 0,
+			"next_level": 1,
+			"max_level": 5,
+			"reward_pick_enabled": true,
+		},
+		{
+			# Alphabetically precedes mugong_mid so the retired hover sort moves
+			# the owned card and makes this behavioral seal RED.
+			"id": "alpha_new",
+			"reward_pick_kind": "mugong",
+			"current_level": 0,
+			"next_level": 1,
+			"max_level": 5,
+			"reward_pick_enabled": true,
+		},
+		{
+			"id": "beta_new",
+			"reward_pick_kind": "mugong",
+			"current_level": 0,
+			"next_level": 1,
+			"max_level": 5,
+			"reward_pick_enabled": true,
+		},
+	]
+	var stable_card_rects := [
+		Rect2(20.0, 20.0, 100.0, 160.0),
+		Rect2(140.0, 20.0, 100.0, 160.0),
+		Rect2(260.0, 20.0, 100.0, 160.0),
+	]
+	var stable_snapshot := {
+		"perk_slot_status": {"count": 1, "limit": 6, "is_full": false},
+		"perk_slot_status_cached": true,
+		"runtime_skill_levels": {"mugong_mid": 1},
+		"effective_runtime_skill_levels": {"mugong_mid": 1},
+	}
+	var stable_owned := [{"id": "mugong_mid", "level": 1}]
+	var stable_existing_indices: Array[int] = []
+	var stable_landing_indices: Array[int] = []
+	var stable_previews: Array[Dictionary] = []
+	for card_index in range(stable_choices.size()):
+		var stable_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+			stable_choices,
+			stable_card_rects,
+			(stable_card_rects[card_index] as Rect2).get_center(),
+			stable_snapshot
+		)
+		stable_previews.append(stable_preview)
+		var stable_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+			stable_owned,
+			6,
+			stable_preview
+		)
+		stable_existing_indices.append(_find_entry_index_by_id(stable_grid, "mugong_mid"))
+		stable_landing_indices.append(
+			_find_entry_index_by_flag(stable_grid, "_reward_hover_landing_slot")
+		)
+	_expect(
+		stable_existing_indices == [0, 0, 0]
+		and stable_landing_indices == [1, 1, 1],
+		"card 1/2/3 hover must keep the owned Mugong at cell 0 and land at its immediate right"
+	)
+	print(
+		"tower_reward_hover_stable_slot_order: existing=%s landing=%s ids=zeta_new,alpha_new,beta_new"
+		% [stable_existing_indices, stable_landing_indices]
+	)
+
+	var zero_owned_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		[],
+		6,
+		stable_previews[0]
+	)
+	_expect(
+		_find_entry_index_by_flag(zero_owned_grid, "_reward_hover_landing_slot") == 0,
+		"zero-owned hover must land in the first slot"
+	)
+
+	var multi_landing_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		[{"id": "mugong_mid", "level": 1}],
+		6,
+		{
+			"empty_slot_requests": 3,
+			"landing_key_levels": {"dash_amplification": 3},
+		}
+	)
+	_expect(
+		_find_entry_indices_by_flag(
+			multi_landing_grid,
+			"_reward_hover_landing_slot"
+		) == [1, 2, 3]
+		and _find_entry_index_by_id(multi_landing_grid, "mugong_mid") == 0,
+		"multi-cell hover landings must remain contiguous after every owned cell"
+	)
+
+	var same_skill_acquired := [
+		{"id": "alpha_anchor", "level": 1},
+		{"id": "dash_amplification", "level": 1, "_slot_cell_index": 0},
+	]
+	var same_skill_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		same_skill_acquired,
+		6,
+		{
+			"empty_slot_requests": 1,
+			"landing_key_levels": {"dash_amplification": 2},
+		}
+	)
+	var upgraded_same_skill: Dictionary = same_skill_grid[1]
+	_expect(
+		_find_entry_index_by_id(same_skill_grid, "alpha_anchor") == 0
+		and _find_entry_index_by_id(same_skill_grid, "dash_amplification") == 1
+		and int(upgraded_same_skill.get("level", 0)) == 2
+		and int(upgraded_same_skill.get("_slot_cell_index", -1)) == 0
+		and _find_entry_index_by_flag(same_skill_grid, "_reward_hover_landing_slot") == 2,
+		"same-skill upgrade projection must update the owned cell in place and append only its new cell"
+	)
+	print(
+		"tower_reward_hover_edge_slots: zero=0 multi=%s same_skill_existing=1 same_skill_landing=2"
+		% [_find_entry_indices_by_flag(multi_landing_grid, "_reward_hover_landing_slot")]
+	)
+
 	var baseline_grid: Array = renderer._build_status_slot_grid(
 		acquired,
 		6,
@@ -1461,12 +1584,22 @@ func _verify_reward_hover_highlight_contract() -> void:
 			break
 	_expect(first_empty_index == 3, "counterproof fixture must expose the naive first empty cell")
 	_expect(
-		landing_index == 1,
-		"virtual add plus canonical re-sort must place the Lv.4 Mugong at its real landing index"
+		landing_index == first_empty_index,
+		"hover destination must occupy the first empty cell after all owned Mugong"
 	)
 	_expect(
-		landing_index != first_empty_index,
-		"the sorted fixture must turn RED under a first-empty implementation"
+		_find_entry_index_by_id(landing_grid, "alpha_high") == 0
+		and _find_entry_index_by_id(landing_grid, "zeta_same_rank") == 1
+		and _find_entry_index_by_id(landing_grid, "omega_low") == 2,
+		"hover projection must preserve the non-hover order for two or more owned Mugong"
+	)
+	_expect(
+		baseline_grid == renderer._build_status_slot_grid(acquired, 6, {}),
+		"non-hover perk-selection grid output must remain unchanged"
+	)
+	print(
+		"tower_reward_hover_owned_order: baseline=alpha_high,zeta_same_rank,omega_low landing=%d non_hover=unchanged"
+		% landing_index
 	)
 	_expect(
 		renderer.get_tower_reward_hover_grid_build_count_for_tests() == grid_build_count + 1,
@@ -1539,19 +1672,24 @@ func _verify_reward_hover_highlight_contract() -> void:
 		bonus_landing_grid,
 		"_reward_hover_landing_slot"
 	)
-	var purchased_acquired: Array = bonus_acquired.duplicate(true)
-	purchased_acquired.append({"id": "item_luck", "level": 3})
-	purchased_acquired.sort_custom(RuntimePerkOverlayRenderer.sort_tower_reward_hover_perks)
+	var purchased_levels := {"alpha_high": 7, "omega_low": 3}
+	purchased_levels["item_luck"] = 3
+	var purchased_acquired: Array = renderer._build_acquired_perks_for_snapshot(
+		purchased_levels,
+		null,
+		null,
+		{}
+	)
 	var purchased_index := _find_entry_index_by_id(purchased_acquired, "item_luck")
 	_expect(
 		int((bonus_preview.get("landing_key_levels", {}) as Dictionary).get("item_luck", 0)) == 3
-		and bonus_landing_index == purchased_index
+		and bonus_landing_index == 2
 		and purchased_index == 1,
-		"item level bonus hover landing must match the canonical post-purchase index"
+		"stable hover must append after owned cells even when purchase-time sorting later reorders them"
 	)
 	print(
-		"tower_reward_hover_effective_level_landing: bonus=2 landing_index=%d purchased_index=%d"
-		% [bonus_landing_index, purchased_index]
+		"tower_reward_hover_effective_level_landing: bonus=2 state_order=%s hover_index=%d purchased_index=%d post_purchase_reorders=true"
+		% [purchased_levels.keys(), bonus_landing_index, purchased_index]
 	)
 
 	var fusion_limit_break_snapshot := open_snapshot.duplicate(true)
@@ -1755,6 +1893,26 @@ func _verify_reward_hover_highlight_contract() -> void:
 		and (full_preview.get("landing_key_levels", {}) as Dictionary).is_empty(),
 		"full-slot hover must not draw a false destination or duplicate W1's disabled treatment"
 	)
+	var full_acquired := [
+		{"id": "slot_0", "level": 6},
+		{"id": "slot_1", "level": 5},
+		{"id": "slot_2", "level": 4},
+		{"id": "slot_3", "level": 3},
+		{"id": "slot_4", "level": 2},
+		{"id": "slot_5", "level": 1},
+	]
+	var full_grid: Array = RuntimePerkOverlayRenderer.build_tower_reward_hover_slot_grid(
+		full_acquired,
+		6,
+		full_preview
+	)
+	_expect(
+		_find_entry_index_by_flag(full_grid, "_reward_hover_landing_slot") == -1
+		and _find_entry_index_by_id(full_grid, "slot_0") == 0
+		and _find_entry_index_by_id(full_grid, "slot_5") == 5,
+		"full-slot hover must keep all six owned positions and draw no destination"
+	)
+	print("tower_reward_hover_full_slot: landing=-1 owned_positions=0..5")
 
 
 func _verify_reward_hover_draw_wiring_behavior() -> void:
@@ -2406,6 +2564,15 @@ func _find_entry_index_by_flag(entries: Array, flag: String) -> int:
 		if entry_value is Dictionary and bool((entry_value as Dictionary).get(flag, false)):
 			return index
 	return -1
+
+
+func _find_entry_indices_by_flag(entries: Array, flag: String) -> Array[int]:
+	var result: Array[int] = []
+	for index in range(entries.size()):
+		var entry_value: Variant = entries[index]
+		if entry_value is Dictionary and bool((entry_value as Dictionary).get(flag, false)):
+			result.append(index)
+	return result
 
 
 func _find_entry_index_by_id(entries: Array, entry_id: String) -> int:

@@ -4211,8 +4211,10 @@ static func build_tower_reward_hover_slot_grid(
 		)
 	var existing_keys: Dictionary = {}
 	# This cache survives draw frames, so it must not retain aliases to the
-	# caller's live acquired-entry dictionaries. The preview also updates matching
-	# cells to their post-purchase level before canonical sorting.
+	# caller's live acquired-entry dictionaries. The preview updates matching
+	# cells to their projected level in place, but it must preserve the non-hover
+	# display order. New destination cells follow the owned slot-consuming cells
+	# so hovering another reward card never moves the player's current Mugong.
 	var preview_acquired: Array = acquired.duplicate(true)
 	for entry_value: Variant in acquired:
 		if not (entry_value is Dictionary):
@@ -4255,26 +4257,10 @@ static func build_tower_reward_hover_slot_grid(
 				"_reward_hover_landing_slot": true,
 			})
 			inserted_count += 1
-	preview_acquired.sort_custom(sort_tower_reward_hover_perks)
 	return CharacterInfoOverlayPerkPresenter.build_slot_grid_entries(
 		preview_acquired,
 		maxi(1, slot_limit)
 	)
-
-
-static func sort_tower_reward_hover_perks(a: Dictionary, b: Dictionary) -> bool:
-	var a_level := int(a.get("level", 0))
-	var b_level := int(b.get("level", 0))
-	if a_level != b_level:
-		return a_level > b_level
-	# Fusion cells replace their production identity with a composite draw key
-	# after the presenter has already sorted them. Preserve and compare the
-	# pre-transform identity so hover order matches the real post-purchase order.
-	var a_id := str(a.get("_sort_id", a.get("id", "")))
-	var b_id := str(b.get("_sort_id", b.get("id", "")))
-	if a_id != b_id:
-		return a_id < b_id
-	return int(a.get("_slot_cell_index", 0)) < int(b.get("_slot_cell_index", 0))
 
 
 func get_tower_reward_hover_preview_build_count_for_tests() -> int:
@@ -5491,7 +5477,8 @@ func _build_acquired_perks_for_snapshot(levels: Dictionary, catalog: Object, run
 			continue
 		# The presenter has already applied the canonical level-desc/id-asc order.
 		# Keep that original identity before the status consumer swaps a fusion id
-		# for its composite icon key; hover insertion must sort against this value.
+		# for its composite icon key; hover projection uses it to match and update
+		# the same owned cell without changing that cell's display position.
 		var sort_id := str(entry.get("_sort_id", entry.get("id", "")))
 		if not sort_id.is_empty():
 			entry["_sort_id"] = sort_id

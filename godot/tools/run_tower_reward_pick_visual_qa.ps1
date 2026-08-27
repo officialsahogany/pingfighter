@@ -43,11 +43,13 @@ try {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
     $okMarker = "tower_reward_pick_visual_qa: ok"
-    $captureMarker = "tower_reward_pick_visual_qa: captures=6"
+    $stableSlotMarker = "tower_reward_pick_visual_qa: stable_slot_captures=3"
+    $captureMarker = "tower_reward_pick_visual_qa: captures=9"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains($okMarker) `
+        -or -not $outputText.Contains($stableSlotMarker) `
         -or -not $outputText.Contains($captureMarker)
     ) {
         Write-Host "Tower reward-pick visual QA log preserved for triage: $logPath"
@@ -57,7 +59,7 @@ try {
         if ($seriousErrors.Count -gt 0) {
             throw "$qaPath emitted a Godot error despite exit code 0"
         }
-        throw "$qaPath did not emit its six-capture terminal markers"
+        throw "$qaPath did not emit its nine-capture terminal markers"
     }
     Remove-Item -LiteralPath $logPath -Force
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
