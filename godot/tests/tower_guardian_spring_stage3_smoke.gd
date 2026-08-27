@@ -68,7 +68,8 @@ class FakeLingpetRuntime:
 	func grant_and_activate_tower_spring_guardian(
 		pet_id: String,
 		_owner: Object = null,
-		_registry: Object = null
+		_registry: Object = null,
+		_rng_seed: int = 0
 	) -> bool:
 		if str(snapshot.get("state", "")) == "companion":
 			return false

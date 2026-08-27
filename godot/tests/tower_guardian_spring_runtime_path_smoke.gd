@@ -10,6 +10,10 @@ const BattleSceneOverlayInputController := preload(
 	"res://scripts/core/battle_scene_overlay_input_controller.gd"
 )
 const LingpetEggRuntime := preload("res://scripts/lingpet/lingpet_egg_runtime.gd")
+const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetUnlockLoadoutReconciler := preload(
+	"res://scripts/lingpet/lingpet_unlock_loadout_reconciler.gd"
+)
 const LingpetMainEggOverflowSmoke := preload(
 	"res://tests/lingpet_main_egg_overflow_smoke.gd"
 )
@@ -128,6 +132,7 @@ class TowerFlowBridge:
 func _initialize() -> void:
 	_verify_actual_runtime_and_input_route()
 	_verify_first_pick_cutin_input_route()
+	_verify_single_candidate_level_one_rolls()
 	call_deferred("_finish_after_resource_release")
 
 
@@ -138,6 +143,11 @@ func _finish_after_resource_release() -> void:
 		print("tower_guardian_spring_runtime_path_smoke: INPUT_DELEGATION_CONFIRM_CANCEL_OK")
 		print("tower_guardian_spring_runtime_path_smoke: ACTUAL_RUNTIME_REPLACE_ROLLBACK_OK")
 		print("tower_guardian_spring_runtime_path_smoke: ACQUIRE_CUTIN_DISMISS_OK")
+		print("tower_guardian_spring_runtime_path_smoke: FIRST_PICK_LOADOUT_OK")
+		print("tower_guardian_spring_runtime_path_smoke: FIRST_PICK_SINGLE_CANDIDATE_OK")
+		print("tower_guardian_spring_runtime_path_smoke: FIRST_PICK_LEVEL_ONE_OK")
+		print("tower_guardian_spring_runtime_path_smoke: FIRST_PICK_RNG_ISOLATION_OK")
+		print("tower_guardian_spring_runtime_path_smoke: BROWSE_LOADOUT_CONTROL_OK")
 		print("tower_guardian_spring_runtime_path_smoke: ok")
 		quit(0)
 		return
@@ -172,11 +182,19 @@ func _verify_first_pick_cutin_input_route() -> void:
 	flow.transaction = transaction
 	flow.owner = owner
 	flow.registry = registry
+	var duration_rng := RandomNumberGenerator.new()
+	duration_rng.seed = 7301
+	runtime.set_duration_roll_rng_for_tests(duration_rng)
 	_expect(run_state.begin("spring-first-pick-path", {"gold": 0, "muhon": 0}), "first-pick run must start")
 	spring.restore_state({"soul_summoning_owned": true})
 	var actions := spring.build_actions("spring-first-pick", 91281, run_state, owner, registry)
 	var first_pick := _find_operation(actions, "first_pick")
 	var selected_pet_id := str(first_pick.get("payload", {}).get("pet_id", ""))
+	seed(92041)
+	var expected_global_first := randi()
+	var expected_global_second := randi()
+	seed(92041)
+	var observed_global_first := randi()
 	var result := spring.execute_action(
 		str(first_pick.get("id", "")),
 		"spring-first-pick:commit",
@@ -188,7 +206,26 @@ func _verify_first_pick_cutin_input_route() -> void:
 		owner,
 		registry
 	)
+	var observed_global_second := randi()
 	_expect(bool(result.get("applied", false)), "first pick must commit through real Lingpet runtime")
+	var first_pick_loadout := _runtime_loadout(runtime, selected_pet_id)
+	_expect_first_pick_loadout_contract(first_pick_loadout, "first-pick real runtime")
+	var active_candidates: Array[String] = (
+		LingpetUnlockLoadoutReconciler.new().get_active_unlock_candidate_ids(selected_pet_id)
+	)
+	_expect(
+		active_candidates.has(str(first_pick_loadout.get("active_skill_id", ""))),
+		"first pick must choose its active skill from the reconciler's first raw candidates"
+	)
+	_expect(
+		_passive_pool_ids(selected_pet_id).has(str(first_pick_loadout.get("passive_skill_id", ""))),
+		"first pick must choose its passive skill from the shared catalog pool"
+	)
+	_expect(
+		observed_global_first == expected_global_first
+		and observed_global_second == expected_global_second,
+		"first-pick loadout roll must not advance the global gameplay RNG stream"
+	)
 	_expect(
 		str(runtime.get_snapshot().get("cutin_pet_id", "")) == selected_pet_id,
 		"first-pick cut-in must display the selected guardian"
@@ -317,6 +354,10 @@ func _verify_actual_runtime_and_input_route() -> void:
 	var new_pet_id := str(offer.get("pet_id", ""))
 	var committed_snapshot: Dictionary = runtime.build_save_snapshot()
 	_expect(str(committed_snapshot.get("pet_id", "")) == new_pet_id, "actual replacement must activate offered guardian")
+	_expect_nonempty_loadout_contract(
+		_loadout_from_snapshot(committed_snapshot, new_pet_id),
+		"paid browse replacement control"
+	)
 	_expect(
 		_loadout_contract(committed_snapshot, new_pet_id) == _loadout_contract_from_offer(offer),
 		"committed real runtime loadout must equal the deterministic offer"
@@ -384,6 +425,38 @@ func _verify_actual_runtime_and_input_route() -> void:
 	flow.registry = null
 
 
+func _verify_single_candidate_level_one_rolls() -> void:
+	const PET_ID := "lunabi"
+	var active_candidates: Array[String] = (
+		LingpetUnlockLoadoutReconciler.new().get_active_unlock_candidate_ids(PET_ID)
+	)
+	_expect(active_candidates.size() == 1, "Lunabi fixture must expose exactly one active candidate")
+	var seen_passive_ids: Dictionary = {}
+	for roll_index in range(24):
+		var owner := LingpetMainEggOverflowSmoke.FakeOwner.new()
+		var runtime := LingpetEggRuntime.new()
+		var registry := Registry.new()
+		var duration_rng := RandomNumberGenerator.new()
+		duration_rng.seed = 8100 + roll_index
+		runtime.set_duration_roll_rng_for_tests(duration_rng)
+		var accepted := runtime.grant_and_activate_tower_spring_guardian(
+			PET_ID,
+			owner,
+			registry,
+			30000 + roll_index
+		)
+		_expect(accepted, "single-candidate first-pick fixture must grant through real runtime")
+		var loadout := _runtime_loadout(runtime, PET_ID)
+		_expect_first_pick_loadout_contract(loadout, "single-candidate seed %d" % roll_index)
+		_expect(
+			str(loadout.get("active_skill_id", "")) == str(active_candidates[0]),
+			"single active candidate must be selected without assuming a two-entry pool"
+		)
+		seen_passive_ids[str(loadout.get("passive_skill_id", ""))] = true
+		runtime.reset_for_tests()
+	_expect(seen_passive_ids.size() > 1, "repeated private seeds must vary the random shared passive pick")
+
+
 func _seed_old_companion_skill_state(
 	runtime: Object,
 	owner: Object,
@@ -425,6 +498,49 @@ func _loadout_contract(snapshot: Dictionary, pet_id: String) -> Dictionary:
 
 func _loadout_contract_from_offer(offer: Dictionary) -> Dictionary:
 	return _normalize_loadout(offer.get("loadout", {}) as Dictionary)
+
+
+func _runtime_loadout(runtime: Object, pet_id: String) -> Dictionary:
+	return _loadout_from_snapshot(runtime.get_snapshot(), pet_id)
+
+
+func _loadout_from_snapshot(snapshot: Dictionary, pet_id: String) -> Dictionary:
+	var loadouts: Dictionary = snapshot.get("lingpet_loadouts", {}) as Dictionary
+	var loadout_value: Variant = loadouts.get(pet_id, {})
+	return (loadout_value as Dictionary).duplicate(true) if loadout_value is Dictionary else {}
+
+
+func _expect_first_pick_loadout_contract(loadout: Dictionary, label: String) -> void:
+	var active_ids: Array = loadout.get("active_skill_ids", []) as Array
+	var passive_ids: Array = loadout.get("passive_skill_ids", []) as Array
+	var active_slot_count := int(loadout.get("active_slot_count", 0))
+	var passive_slot_count := int(loadout.get("passive_slot_count", 0))
+	var active_level := int(loadout.get("active_skill_level", 0))
+	var passive_level := int(loadout.get("passive_skill_level", 0))
+	_expect(active_ids.size() == 1, "%s must store exactly one active skill; actual=%d" % [label, active_ids.size()])
+	_expect(passive_ids.size() == 1, "%s must store exactly one passive skill; actual=%d" % [label, passive_ids.size()])
+	_expect(active_slot_count == 1, "%s must open one active slot; actual=%d" % [label, active_slot_count])
+	_expect(passive_slot_count == 1, "%s must open one passive slot; actual=%d" % [label, passive_slot_count])
+	_expect(active_level == 1, "%s active skill must always start at Lv.1; actual=%d" % [label, active_level])
+	_expect(passive_level == 1, "%s passive skill must always start at Lv.1; actual=%d" % [label, passive_level])
+
+
+func _expect_nonempty_loadout_contract(loadout: Dictionary, label: String) -> void:
+	var active_ids: Array = loadout.get("active_skill_ids", []) as Array
+	var passive_ids: Array = loadout.get("passive_skill_ids", []) as Array
+	_expect(not active_ids.is_empty(), "%s must retain at least one active skill" % label)
+	_expect(not passive_ids.is_empty(), "%s must retain at least one passive skill" % label)
+	_expect(int(loadout.get("active_slot_count", 0)) > 0, "%s must retain an active slot" % label)
+	_expect(int(loadout.get("passive_slot_count", 0)) > 0, "%s must retain a passive slot" % label)
+
+
+func _passive_pool_ids(pet_id: String) -> Array[String]:
+	var result: Array[String] = []
+	for passive in LingpetCatalog.get_passive_skill_pool(pet_id):
+		var passive_id := str(passive.get("id", "")).strip_edges()
+		if not passive_id.is_empty():
+			result.append(passive_id)
+	return result
 
 
 func _normalize_loadout(loadout: Dictionary) -> Dictionary:

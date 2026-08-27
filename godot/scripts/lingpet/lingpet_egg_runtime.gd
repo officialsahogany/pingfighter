@@ -1652,14 +1652,53 @@ func is_companion_active(pet_id: String = "") -> bool:
 func grant_and_activate_tower_spring_guardian(
 	pet_id: String,
 	owner: Object = null,
-	registry: Object = null
+	registry: Object = null,
+	rng_seed: int = 0
 ) -> bool:
 	if _state == STATE_COMPANION or _overflow_choice_state.has_pending_or_active():
 		return false
-	if not _grant_and_activate_pet(pet_id, owner, true, "", "", registry):
+	var first_pick_loadout := _roll_tower_spring_first_pick_loadout(pet_id, rng_seed)
+	if first_pick_loadout.is_empty():
+		return false
+	if not _grant_and_activate_pet(
+		pet_id,
+		owner,
+		true,
+		str(first_pick_loadout.get("active_skill_id", "")),
+		str(first_pick_loadout.get("passive_skill_id", "")),
+		registry,
+		1,
+		1
+	):
 		return false
 	_record_guardian_discovery_at_reveal(pet_id, registry)
 	return true
+
+
+func _roll_tower_spring_first_pick_loadout(pet_id: String, rng_seed: int) -> Dictionary:
+	var normalized_pet_id: String = _current_profile.normalize_pet_id(pet_id)
+	if normalized_pet_id.is_empty():
+		return {}
+	var active_candidates: Array[String] = (
+		LingpetUnlockLoadoutReconciler.new().get_active_unlock_candidate_ids(normalized_pet_id)
+	)
+	var passive_pool: Array[Dictionary] = LingpetCatalog.get_passive_skill_pool(normalized_pet_id)
+	if active_candidates.is_empty() or passive_pool.is_empty():
+		return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = rng_seed
+	var active_index := 0
+	if active_candidates.size() > 1:
+		active_index = rng.randi_range(0, active_candidates.size() - 1)
+	var passive_index := rng.randi_range(0, passive_pool.size() - 1)
+	var active_skill_id := str(active_candidates[active_index]).strip_edges()
+	var passive_skill_id := str(passive_pool[passive_index].get("id", "")).strip_edges()
+	if active_skill_id.is_empty() or passive_skill_id.is_empty():
+		return {}
+	return {
+		"active_skill_id": active_skill_id,
+		"passive_skill_id": passive_skill_id,
+	}
 
 
 func debug_grant_and_activate_pet(

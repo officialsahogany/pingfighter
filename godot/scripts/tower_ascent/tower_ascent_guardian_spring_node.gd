@@ -1051,7 +1051,8 @@ func _apply_first_pick(context: Dictionary) -> bool:
 		"grant_and_activate_tower_spring_guardian",
 		pet_id,
 		context.get("owner", null),
-		context.get("registry", null)
+		context.get("registry", null),
+		absi(hash("%s:%d:%s:%d" % [RNG_VERSION, int(context.get("map_seed", 0)), str(context.get("node_id", "")), _operation_count(str(context.get("node_id", "")), OP_FIRST_PICK)]))
 	)):
 		return false
 	var run_state: Object = context.get("run_state", null)
