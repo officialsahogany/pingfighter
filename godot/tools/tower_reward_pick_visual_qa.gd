@@ -220,6 +220,21 @@ func _run() -> void:
 		0
 	):
 		return
+	if not await _capture_offer(
+		"chosik_reward_hover_no_mugong_landing.png",
+		_build_chosik_choices(),
+		0,
+		output_dir,
+		false,
+		{
+			"common_swiftness": 2,
+			"megingjord": 1,
+		},
+		-1,
+		0
+	):
+		return
+	print("tower_reward_pick_visual_qa: chosik_hover_target=five_orb_hud mugong_ledger_landing=-1")
 	var stable_hover_choices := _build_stable_slot_hover_choices()
 	for card_index in range(3):
 		if not await _capture_offer(
@@ -251,7 +266,7 @@ func _run() -> void:
 	LanguageSettings.set_test_locale_override("")
 	print("tower_reward_pick_visual_qa: evidence=%s" % output_dir)
 	print("tower_reward_pick_visual_qa: stable_slot_captures=3")
-	print("tower_reward_pick_visual_qa: captures=9")
+	print("tower_reward_pick_visual_qa: captures=10")
 	print("tower_reward_pick_visual_qa: ok")
 	quit(0)
 
@@ -427,6 +442,16 @@ func _build_vision_choices() -> Array[Dictionary]:
 	]
 	return [
 		_finalize_choice(vision, "vision", 3),
+		_finalize_choice(catalog.get_perk_data("common_bulk_up"), "mugong", 2),
+		_finalize_choice(catalog.get_perk_data("common_swiftness"), "mugong", 2),
+		_finalize_choice(catalog.get_perk_data("megingjord"), "supreme", 5),
+	]
+
+
+func _build_chosik_choices() -> Array[Dictionary]:
+	var catalog := RuntimePerkCatalog.new()
+	return [
+		_finalize_choice(catalog.get_perk_data("unlock_ghost_shot"), "chosik", 3),
 		_finalize_choice(catalog.get_perk_data("common_bulk_up"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("common_swiftness"), "mugong", 2),
 		_finalize_choice(catalog.get_perk_data("megingjord"), "supreme", 5),

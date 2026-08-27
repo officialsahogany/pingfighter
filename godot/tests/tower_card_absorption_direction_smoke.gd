@@ -96,6 +96,23 @@ func _verify_kind_specific_target_resolution() -> void:
 	)
 	_expect((reward_chosik_target.get("target_pos", Vector2.ZERO) as Vector2).is_equal_approx(CHOSIK_SLOT_TARGET), "reward Vision Chosik must retain the Chosik-slot destination")
 	_expect(not (reward_chosik_target.get("target_pos", Vector2.ZERO) as Vector2).is_equal_approx(expected_bottom), "Chosik reverse leg must reject the Mugong bottom-centre target")
+	var reward_manual_target: Dictionary = resolver.resolve_target(
+		{"id": "unlock_ghost_shot", "reward_pick_kind": "chosik", "unlocks_skill": "ghost_shot"},
+		null,
+		null,
+		VIEW_SIZE
+	)
+	_expect(
+		str(reward_manual_target.get("destination_kind", ""))
+			== TowerCardAbsorptionTargetResolver.DESTINATION_CHOSIK_SLOT,
+		"ordinary reward Chosik must use the same five-orb destination as Vision"
+	)
+	_expect(
+		(reward_manual_target.get("target_pos", Vector2.ZERO) as Vector2).is_equal_approx(
+			CHOSIK_SLOT_TARGET
+		),
+		"ordinary reward Chosik must land on the existing Chosik slot resolver target"
+	)
 	_expect(gameplay_rng.state == gameplay_rng_state, "absorption target resolution must not advance gameplay RNG state")
 
 
@@ -121,10 +138,10 @@ func _verify_start_and_reward_view_models_share_targets() -> void:
 	var reward_resolver: Object = _resolver_with_fake_chosik_target()
 	var reward_state := TowerRewardPickState.new()
 	reward_state.choices.assign([{
-		"id": "reward_vision",
-		"reward_pick_kind": "vision",
+		"id": "unlock_ghost_shot",
+		"reward_pick_kind": "chosik",
 		"reward_pick_cost": 3,
-		"unlocks_skill": "vision_chosik",
+		"unlocks_skill": "ghost_shot",
 	}])
 	reward_state.spent_flags.assign([true])
 	reward_state.purchase_absorption_effects.assign([{

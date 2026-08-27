@@ -44,13 +44,15 @@ try {
     })
     $okMarker = "tower_reward_pick_visual_qa: ok"
     $stableSlotMarker = "tower_reward_pick_visual_qa: stable_slot_captures=3"
-    $captureMarker = "tower_reward_pick_visual_qa: captures=9"
+    $captureMarker = "tower_reward_pick_visual_qa: captures=10"
+    $chosikHoverMarker = "tower_reward_pick_visual_qa: chosik_hover_target=five_orb_hud mugong_ledger_landing=-1"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains($okMarker) `
         -or -not $outputText.Contains($stableSlotMarker) `
-        -or -not $outputText.Contains($captureMarker)
+        -or -not $outputText.Contains($captureMarker) `
+        -or -not $outputText.Contains($chosikHoverMarker)
     ) {
         Write-Host "Tower reward-pick visual QA log preserved for triage: $logPath"
         if ($exitCode -ne 0) {
@@ -59,7 +61,7 @@ try {
         if ($seriousErrors.Count -gt 0) {
             throw "$qaPath emitted a Godot error despite exit code 0"
         }
-        throw "$qaPath did not emit its nine-capture terminal markers"
+        throw "$qaPath did not emit its ten-capture Chosik-hover terminal markers"
     }
     Remove-Item -LiteralPath $logPath -Force
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {

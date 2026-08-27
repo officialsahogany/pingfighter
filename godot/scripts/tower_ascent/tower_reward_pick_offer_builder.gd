@@ -22,13 +22,16 @@ const TowerRewardPickLocalization := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_localization.gd"
 )
 
-const OFFER_VERSION := "tower_reward_pick_v1"
+const OFFER_VERSION := "tower_reward_pick_v2"
 const CARD_COUNT := 4
 const TEMP_MUGONG_COST := 2
+const TEMP_CHOSIK_COST := 3
 const TEMP_DASH_AMPLIFICATION_COST := 3
 const TEMP_FUSION_COST := 3
 const TEMP_VISION_COST := 3
 const TEMP_SUPREME_COST := 5
+const TEMP_VISION_DROP_CHANCE := 0.20
+const TEMP_REWARD_CHOSIK_CHANCE := 0.25
 const TEMP_SUPREME_BASE_CHANCE := 0.05
 const TEMP_SUPREME_FLOOR_BONUS_PER_FLOOR := 0.005
 const TEMP_SUPREME_ELITE_BONUS := 0.03
@@ -66,7 +69,15 @@ func build_offer(
 		registry,
 		runtime_levels
 	)
-	if not vision_choice.is_empty():
+	var vision_roll_performed := not vision_choice.is_empty()
+	var vision_roll := 1.0
+	if vision_roll_performed:
+		vision_roll = (
+			float(roll_overrides.get("vision", 1.0))
+			if roll_overrides.has("vision")
+			else rng.randf()
+		)
+	if vision_roll_performed and vision_roll < TEMP_VISION_DROP_CHANCE:
 		_append_choice(choices, seen, vision_choice, TEMP_VISION_COST, "vision")
 
 	var supreme_chance := _supreme_chance(context, runtime_state)
@@ -81,8 +92,48 @@ func build_offer(
 		if not supreme.is_empty():
 			_append_choice(choices, seen, supreme, TEMP_SUPREME_COST, "supreme")
 
-	var basic_pool := _build_basic_pool(context, owner, registry, runtime_state, catalog, rng)
+	var basic_pools := _build_basic_pools(context, owner, registry, runtime_state, catalog, rng)
+	var basic_pool: Array[Dictionary] = basic_pools.get("basic", [])
+	var chosik_pool: Array[Dictionary] = basic_pools.get("chosik", [])
+	var has_mugong_candidate := false
+	for basic_candidate: Dictionary in basic_pool:
+		if str(basic_candidate.get("reward_pick_kind", "mugong")) == "mugong":
+			has_mugong_candidate = true
+			break
+	var chosik_roll_performed := (
+		not chosik_pool.is_empty()
+		and has_mugong_candidate
+		and choices.size() <= CARD_COUNT - 2
+	)
+	var chosik_roll := 1.0
+	var chosik_appended := false
+	if chosik_roll_performed:
+		chosik_roll = (
+			float(roll_overrides.get("chosik", 1.0))
+			if roll_overrides.has("chosik")
+			else rng.randf()
+		)
+	if chosik_roll_performed and chosik_roll < TEMP_REWARD_CHOSIK_CHANCE:
+		_shuffle_with_rng(chosik_pool, rng)
+		_append_choice(choices, seen, chosik_pool[0], TEMP_CHOSIK_COST, "chosik")
+		chosik_appended = true
 	_shuffle_with_rng(basic_pool, rng)
+	# A Chosik may reserve at most one card and must never erase the ordinary
+	# Mugong route. Pick one shuffled Mugong before the remaining mixed pool.
+	if chosik_appended:
+		for basic_index in range(basic_pool.size()):
+			var required_mugong := basic_pool[basic_index]
+			if str(required_mugong.get("reward_pick_kind", "mugong")) != "mugong":
+				continue
+			_append_choice(
+				choices,
+				seen,
+				required_mugong,
+				resolve_basic_reward_pick_cost(required_mugong),
+				"mugong"
+			)
+			basic_pool.remove_at(basic_index)
+			break
 	for basic in basic_pool:
 		if choices.size() >= CARD_COUNT:
 			break
@@ -107,10 +158,20 @@ func build_offer(
 		"offer_version": OFFER_VERSION,
 		"node_resolution_id": resolution_id,
 		"boss_slot_id": boss_slot_id,
-		"vision_unlock_id": str(vision_choice.get("id", "")),
+		"vision_unlock_id": (
+			str(vision_choice.get("id", ""))
+			if _count_kind(choices, "vision") > 0
+			else ""
+		),
+		"vision_roll_performed": vision_roll_performed,
+		"vision_roll": vision_roll,
+		"vision_chance": TEMP_VISION_DROP_CHANCE,
 		"supreme_roll_performed": supreme_rolled,
 		"supreme_roll": supreme_roll,
 		"supreme_chance": supreme_chance,
+		"chosik_roll_performed": chosik_roll_performed,
+		"chosik_roll": chosik_roll,
+		"chosik_chance": TEMP_REWARD_CHOSIK_CHANCE,
 		"requested_card_count": CARD_COUNT,
 		"actual_card_count": choices.size(),
 		"card_count_policy": "fixed" if choices.size() == CARD_COUNT else "available_stock",
@@ -122,6 +183,8 @@ static func resolve_basic_reward_pick_cost(choice: Dictionary) -> int:
 	var kind := str(choice.get("reward_pick_kind", "mugong"))
 	if kind == "fusion":
 		return TEMP_FUSION_COST
+	if kind == "chosik":
+		return TEMP_CHOSIK_COST
 	if str(choice.get("id", choice.get("perk_id", ""))) == "dash_amplification":
 		return TEMP_DASH_AMPLIFICATION_COST
 	return TEMP_MUGONG_COST
@@ -231,14 +294,14 @@ func _build_supreme_choice(
 	return choice
 
 
-func _build_basic_pool(
+func _build_basic_pools(
 	context: Dictionary,
 	owner: Object,
 	registry: Object,
 	runtime_state: Object,
 	catalog: Object,
 	rng: RandomNumberGenerator
-) -> Array[Dictionary]:
+) -> Dictionary:
 	var generated: Dictionary = _training_builder.build_offer(
 		"reward_pick:%s" % str(context.get("node_resolution_id", "")),
 		int(context.get("map_seed", 0)),
@@ -247,12 +310,16 @@ func _build_basic_pool(
 		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
 	)
 	var result: Array[Dictionary] = []
+	var chosik_result: Array[Dictionary] = []
 	if bool(generated.get("accepted", false)):
 		for value in generated.get("mugong_choices", []):
 			if value is Dictionary:
 				var mugong := (value as Dictionary).duplicate(true)
 				mugong["reward_pick_kind"] = "mugong"
 				result.append(mugong)
+		for value in generated.get("chosik_choices", []):
+			if value is Dictionary:
+				chosik_result.append((value as Dictionary).duplicate(true))
 	var fusion_candidates: Array = []
 	if runtime_state.has_method("get_perk_fusion_candidate_ids"):
 		var candidate_value: Variant = runtime_state.call("get_perk_fusion_candidate_ids", catalog)
@@ -269,7 +336,10 @@ func _build_basic_pool(
 			if not fusion.is_empty():
 				fusion["reward_pick_kind"] = "fusion"
 				result.append(fusion)
-	return result
+	return {
+		"basic": result,
+		"chosik": chosik_result,
+	}
 
 
 func _supreme_chance(context: Dictionary, runtime_state: Object) -> float:
@@ -312,6 +382,14 @@ func _append_choice(
 		{"amount": maxi(0, cost)}
 	)
 	choices.append(choice)
+
+
+static func _count_kind(choices: Array[Dictionary], kind: String) -> int:
+	var count := 0
+	for choice: Dictionary in choices:
+		if str(choice.get("reward_pick_kind", "")) == kind:
+			count += 1
+	return count
 
 
 func _runtime_levels(runtime_state: Object) -> Dictionary:

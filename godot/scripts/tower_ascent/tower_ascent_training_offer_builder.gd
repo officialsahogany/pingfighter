@@ -12,6 +12,9 @@ const TowerAscentUnlockFilter := preload(
 const TowerAscentPerkCandidatePolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
 )
+const RuntimePerkCharacterContext := preload(
+	"res://scripts/characters/runtime_perk_character_context.gd"
+)
 
 const OFFER_VERSION := "tower_training_offer_v2"
 const OFFER_KIND_TRAINING := "training"
@@ -23,6 +26,7 @@ const MIXED_REWARD_MUGONG_CHOICE_COUNT := 6
 
 var _physique_catalog: Object = PhysiqueTrainingCatalog.new()
 var _perk_candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
+var _character_context: Object = RuntimePerkCharacterContext.new()
 
 
 func build_offer(
@@ -57,6 +61,7 @@ func build_offer(
 			"candidate_count": stat_choices.size(),
 		}
 	var mugong_choices: Array[Dictionary] = []
+	var chosik_choices: Array[Dictionary] = []
 	if not training_only:
 		var perk_catalog := _get_registry_instance(registry, "runtime_perk_catalog")
 		if perk_catalog == null:
@@ -68,9 +73,15 @@ func build_offer(
 			perk_catalog,
 			MIXED_REWARD_MUGONG_CHOICE_COUNT
 		)
-	if stat_choices.is_empty() and mugong_choices.is_empty():
+		chosik_choices = _build_chosik_choices(
+			owner,
+			registry,
+			runtime_state,
+			perk_catalog
+		)
+	if stat_choices.is_empty() and mugong_choices.is_empty() and chosik_choices.is_empty():
 		return {"accepted": false, "reason": "empty_training_offer"}
-	return {
+	var result := {
 		"accepted": true,
 		"reason": "generated",
 		"offer_version": OFFER_VERSION,
@@ -79,6 +90,9 @@ func build_offer(
 		"stat_choices": stat_choices,
 		"mugong_choices": mugong_choices,
 	}
+	if not training_only:
+		result["chosik_choices"] = chosik_choices
+	return result
 
 
 func is_current_training_offer(offer: Dictionary) -> bool:
@@ -337,6 +351,65 @@ func _build_mugong_choices(
 			)
 		):
 			result.append(choice.duplicate(true))
+	return result
+
+
+func _build_chosik_choices(
+	owner: Object,
+	registry: Object,
+	runtime_state: Object,
+	perk_catalog: Object
+) -> Array[Dictionary]:
+	if not perk_catalog.has_method("get_all_perk_data"):
+		return []
+	var character_type: String = str(
+		_character_context.get_normalized_owner_character_type(owner)
+	)
+	var skill_config_key: String = str(
+		_character_context.get_skill_config_key(character_type)
+	)
+	var skill_config := _get_registry_instance(registry, skill_config_key)
+	# Reward-pick owns no Chosik replacement modal. Offering a manual while all
+	# five combat orbs are occupied would start the generic swap and then roll it
+	# back with the reward transaction, so fail closed until that flow is owned.
+	if (
+		skill_config == null
+		or not skill_config.has_method("is_shared_slot_full")
+		or bool(skill_config.call("is_shared_slot_full"))
+	):
+		return []
+	var levels_value: Variant = runtime_state.get("runtime_skill_levels")
+	var runtime_levels: Dictionary = (
+		(levels_value as Dictionary).duplicate(true)
+		if levels_value is Dictionary
+		else {}
+	)
+	var all_data_value: Variant = perk_catalog.call("get_all_perk_data")
+	if not (all_data_value is Dictionary):
+		return []
+	var all_data := all_data_value as Dictionary
+	var sorted_ids: Array[String] = []
+	for id_value: Variant in all_data.keys():
+		sorted_ids.append(str(id_value))
+	sorted_ids.sort()
+	var result: Array[Dictionary] = []
+	for perk_id: String in sorted_ids:
+		var data_value: Variant = all_data.get(perk_id, {})
+		if not (data_value is Dictionary):
+			continue
+		var choice := (data_value as Dictionary).duplicate(true)
+		choice["id"] = perk_id
+		if not _perk_candidate_policy.is_chosik_candidate(
+			choice,
+			runtime_levels,
+			character_type,
+			registry,
+			skill_config
+		):
+			continue
+		choice["current_level"] = maxi(0, int(runtime_levels.get(perk_id, 0)))
+		choice["next_level"] = int(choice.get("current_level", 0)) + 1
+		result.append(choice)
 	return result
 
 

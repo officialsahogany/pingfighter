@@ -116,6 +116,11 @@ class FakeSkillConfig:
 	func get_shared_slot_swap_candidates(_skill_id: String) -> Array:
 		return ["drive"] if full else []
 
+	func get_skill_data(skill_id: String) -> Dictionary:
+		if skill_id == "ghost_shot":
+			return {"id": skill_id, "name": "Ghost Shot"}
+		return {}
+
 
 class FakeRuntimeState:
 	extends RefCounted
@@ -266,6 +271,17 @@ class FakeCatalog:
 			"id": perk_id,
 			"name": "Peerless %s" % perk_id,
 			"max_level": 1,
+		}
+
+	func get_all_perk_data() -> Dictionary:
+		return {
+			"unlock_ghost_shot": {
+				"name": "Ghost Shot Manual",
+				"max_level": 1,
+				"rarity": "rare",
+				"character_restriction": "smasher",
+				"unlocks_skill": "ghost_shot",
+			},
 		}
 
 	func get_perk_slot_status(runtime_levels: Dictionary, _slot_context: Object = null) -> Dictionary:
@@ -550,6 +566,7 @@ func _run() -> void:
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_shell_owner_preserves_character_specific_training_candidate()
 	_verify_offer_order_eligibility_and_prices()
+	_verify_vision_and_chosik_probability_contracts()
 	_verify_vision_identity_fail_closed_and_legacy_parity()
 	_verify_no_training_seed_sweep_and_saturated_fallback()
 	_verify_stable_four_card_multi_buy_and_fusion_return()
@@ -679,11 +696,15 @@ func _verify_shell_owner_preserves_character_specific_training_candidate() -> vo
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:
+	_expect(TowerRewardPickOfferBuilder.OFFER_VERSION == "tower_reward_pick_v2", "reward offer version must advance after RNG consumption changes")
 	_expect(TowerRewardPickOfferBuilder.TEMP_MUGONG_COST == 2, "Mugong reward card must cost two Muhon")
+	_expect(TowerRewardPickOfferBuilder.TEMP_CHOSIK_COST == 3, "Chosik reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_DASH_AMPLIFICATION_COST == 3, "Glide Orb reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_FUSION_COST == 3, "fusion reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_VISION_COST == 3, "Vision reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_SUPREME_COST == 5, "Peerless reward card must cost five Muhon")
+	_expect(is_equal_approx(TowerRewardPickOfferBuilder.TEMP_VISION_DROP_CHANCE, 0.20), "Vision reward chance must remain 20 percent")
+	_expect(is_equal_approx(TowerRewardPickOfferBuilder.TEMP_REWARD_CHOSIK_CHANCE, 0.25), "provisional Chosik reward chance must remain 25 percent")
 	_expect(
 		TowerRewardPickOfferBuilder.resolve_basic_reward_pick_cost({
 			"id": "dash_amplification",
@@ -711,15 +732,27 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 		"skipped_boss_ids": [],
 		"burned_vision_boss_ids": [],
 	}
-	var offer: Dictionary = builder.build_offer(context, FakeOwner.new(), registry, {"supreme": 0.0})
+	var offer: Dictionary = builder.build_offer(
+		context,
+		FakeOwner.new(),
+		registry,
+		{"vision": 0.19, "supreme": 0.0, "chosik": 1.0}
+	)
 	_expect(bool(offer.get("accepted", false)), "eligible reward pick must generate")
 	var choices: Array = offer.get("choices", [])
 	_expect(choices.size() == 4, "reward pick must materialize exactly four cards")
 	_expect(str((choices[0] as Dictionary).get("reward_pick_kind", "")) == "vision", "eligible Vision must reserve slot one")
 	_expect(str((choices[1] as Dictionary).get("reward_pick_kind", "")) == "supreme", "forced Peerless roll must use the remaining probability lane")
+	_expect(bool(offer.get("vision_roll_performed", false)), "eligible Vision must perform exactly one screen-level roll")
+	_expect(is_equal_approx(float(offer.get("vision_roll", -1.0)), 0.19), "Vision boundary fixture must expose its deterministic override")
 	_expect(_unique_choice_count(choices) == 4, "one reward pick must not duplicate card ids")
 	_expect(_count_kind(choices, "active") == 0, "active items must never enter the reward-card pool")
-	var repeated: Dictionary = builder.build_offer(context, FakeOwner.new(), registry, {"supreme": 0.0})
+	var repeated: Dictionary = builder.build_offer(
+		context,
+		FakeOwner.new(),
+		registry,
+		{"vision": 0.19, "supreme": 0.0, "chosik": 1.0}
+	)
 	_expect(var_to_bytes(repeated.get("choices", [])) == var_to_bytes(choices), "the same entry context must reuse deterministic four-card content")
 
 	var skipped_context := context.duplicate(true)
@@ -741,10 +774,124 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 	skill_config.full = true
 	var full_context := context.duplicate(true)
 	full_context["node_resolution_id"] = "offer-full"
-	var full_offer: Dictionary = builder.build_offer(full_context, FakeOwner.new(), registry, {"supreme": 1.0})
+	var full_offer: Dictionary = builder.build_offer(
+		full_context,
+		FakeOwner.new(),
+		registry,
+		{"vision": 0.19, "supreme": 1.0, "chosik": 0.0}
+	)
 	var full_choice: Dictionary = (full_offer.get("choices", []) as Array)[0]
 	_expect(bool(full_choice.get("vision_swap_required", false)), "full Chosik slots must keep Vision eligible through a swap route")
 	_expect(not (full_choice.get("vision_swap_candidates", []) as Array).is_empty(), "full-slot Vision card must carry explicit swap candidates")
+	_expect(_count_kind(full_offer.get("choices", []), "chosik") == 0, "full Chosik orbs must fail closed until reward-pick owns a replacement flow")
+
+
+func _verify_vision_and_chosik_probability_contracts() -> void:
+	var runtime := FakeRuntimeState.new()
+	var skill_config := FakeSkillConfig.new()
+	var registry := _build_registry(runtime, skill_config, null)
+	var builder := TowerRewardPickOfferBuilder.new()
+	var vision_context := {
+		"node_resolution_id": "vision-boundary",
+		"boss_slot_id": "floor_01_dalji",
+		"floor": 1,
+		"map_seed": 812,
+		"skipped_boss_ids": [],
+		"burned_vision_boss_ids": [],
+	}
+	var vision_hit: Dictionary = builder.build_offer(
+		vision_context,
+		FakeOwner.new(),
+		registry,
+		{"vision": 0.19, "supreme": 1.0, "chosik": 1.0}
+	)
+	var vision_miss: Dictionary = builder.build_offer(
+		vision_context,
+		FakeOwner.new(),
+		registry,
+		{"vision": 0.21, "supreme": 1.0, "chosik": 1.0}
+	)
+	_expect(_count_kind(vision_hit.get("choices", []), "vision") == 1, "Vision roll 0.19 must pass the 20 percent boundary")
+	_expect(_count_kind(vision_miss.get("choices", []), "vision") == 0, "Vision roll 0.21 must miss the 20 percent boundary")
+	_expect(str(vision_miss.get("vision_unlock_id", "")).is_empty(), "a missed Vision roll must not be recorded as an offered or burned Vision")
+
+	var deterministic_a: Dictionary = builder.build_offer(vision_context, FakeOwner.new(), registry)
+	var deterministic_b: Dictionary = builder.build_offer(vision_context, FakeOwner.new(), registry)
+	_expect(
+		var_to_bytes(deterministic_a.get("choices", []))
+			== var_to_bytes(deterministic_b.get("choices", [])),
+		"same resolution and boss ids must not reroll reward content"
+	)
+	_expect(
+		is_equal_approx(
+			float(deterministic_a.get("vision_roll", -1.0)),
+			float(deterministic_b.get("vision_roll", -2.0))
+		),
+		"same resolution and boss ids must reuse the Vision roll"
+	)
+
+	var chosik_context := vision_context.duplicate(true)
+	chosik_context["node_resolution_id"] = "chosik-boundary"
+	chosik_context["skipped_boss_ids"] = ["floor_01_dalji"]
+	var chosik_hit: Dictionary = builder.build_offer(
+		chosik_context,
+		FakeOwner.new(),
+		registry,
+		{"supreme": 1.0, "chosik": 0.249999}
+	)
+	var chosik_miss: Dictionary = builder.build_offer(
+		chosik_context,
+		FakeOwner.new(),
+		registry,
+		{"supreme": 1.0, "chosik": 0.25}
+	)
+	var chosik_choices: Array = chosik_hit.get("choices", [])
+	_expect(_count_kind(chosik_choices, "chosik") == 1, "Chosik roll below 0.25 must reserve exactly one reward card")
+	_expect(_count_kind(chosik_choices, "mugong") > 0, "a Chosik reward must preserve at least one Mugong card")
+	_expect(_count_kind(chosik_miss.get("choices", []), "chosik") == 0, "Chosik roll exactly 0.25 must miss the strict boundary")
+	for choice_value: Variant in chosik_choices:
+		if (
+			choice_value is Dictionary
+			and str((choice_value as Dictionary).get("reward_pick_kind", "")) == "chosik"
+		):
+			_expect(
+				int((choice_value as Dictionary).get("reward_pick_cost", -1))
+					== TowerRewardPickOfferBuilder.TEMP_CHOSIK_COST,
+				"Chosik reward cards must use the three-Muhon unlock price"
+			)
+
+	const SAMPLE_COUNT := 1024
+	var old_compositions: Dictionary = {}
+	var new_compositions: Dictionary = {}
+	var new_vision_count := 0
+	var new_chosik_count := 0
+	for seed in range(SAMPLE_COUNT):
+		var sample_context := vision_context.duplicate(true)
+		sample_context["node_resolution_id"] = "reward-distribution-%04d" % seed
+		sample_context["map_seed"] = seed
+		var old_offer: Dictionary = builder.build_offer(
+			sample_context,
+			FakeOwner.new(),
+			registry,
+			{"vision": 0.0, "chosik": 1.0}
+		)
+		var new_offer: Dictionary = builder.build_offer(
+			sample_context,
+			FakeOwner.new(),
+			registry
+		)
+		_increment_composition(old_compositions, old_offer.get("choices", []))
+		_increment_composition(new_compositions, new_offer.get("choices", []))
+		new_vision_count += _count_kind(new_offer.get("choices", []), "vision")
+		new_chosik_count += _count_kind(new_offer.get("choices", []), "chosik")
+	var vision_rate := float(new_vision_count) / float(SAMPLE_COUNT)
+	var chosik_rate := float(new_chosik_count) / float(SAMPLE_COUNT)
+	_expect(vision_rate >= 0.16 and vision_rate <= 0.24, "multi-seed Vision rate must converge around 20 percent, got %.4f" % vision_rate)
+	_expect(chosik_rate >= 0.20 and chosik_rate <= 0.30, "multi-seed Chosik rate must converge around 25 percent, got %.4f" % chosik_rate)
+	print(
+		"tower_reward_pick_distribution: samples=%d old=%s new=%s vision_rate=%.4f chosik_rate=%.4f"
+		% [SAMPLE_COUNT, old_compositions, new_compositions, vision_rate, chosik_rate]
+	)
 
 
 func _verify_vision_identity_fail_closed_and_legacy_parity() -> void:
@@ -1327,6 +1474,28 @@ func _verify_reward_hover_highlight_contract() -> void:
 		renderer.get_tower_reward_hover_preview_build_count_for_tests() == idle_build_count,
 		"GRT-043: no reward-card hover must not invoke the preview interpreter"
 	)
+	var chosik_preview: Dictionary = renderer._resolve_tower_reward_hover_preview(
+		[{
+			"id": "unlock_ghost_shot",
+			"reward_pick_kind": "chosik",
+			"unlocks_skill": "ghost_shot",
+			"current_level": 0,
+			"next_level": 1,
+			"reward_pick_enabled": true,
+		}],
+		[card_rect],
+		card_rect.get_center(),
+		open_snapshot
+	)
+	_expect(
+		chosik_preview.is_empty(),
+		"Chosik hover must not project its five-orb landing into the Mugong ledger"
+	)
+	_expect(
+		renderer.get_tower_reward_hover_preview_build_count_for_tests() == idle_build_count,
+		"Chosik hover must stop before the Mugong landing-preview interpreter"
+	)
+	print("tower_reward_hover_chosik_target: target=five_orb_hud mugong_ledger_landing=-1")
 	var bypass_gate_counterproof := RuntimePerkOverlayRenderer.build_tower_reward_hover_preview(
 		new_mugong,
 		open_snapshot.perk_slot_status
@@ -2366,11 +2535,23 @@ func _verify_production_flow_transactions_and_burn_snapshot() -> void:
 		Callable(self, "_accept_effect")
 	)
 	_expect(bool(second.get("applied", false)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 3, "a second stable slot must remain independently purchasable")
-	_expect(flow.get_reward_pick_history().size() == 2, "production flow must journal only committed reward cards")
+	var chosik := flow.apply_reward_pick_purchase(
+		2,
+		_card("chosik", "unlock_ghost_shot", 3),
+		3,
+		Callable(self, "_accept_effect")
+	)
+	var reward_history: Array = flow.get_reward_pick_history()
+	_expect(bool(chosik.get("applied", false)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 0, "production transaction must accept an open-slot Chosik reward")
+	_expect(
+		reward_history.size() == 3
+		and str((reward_history[2] as Dictionary).get("choice_kind", "")) == "chosik",
+		"production flow must journal a committed reward Chosik with its own kind"
+	)
 	_expect(flow.mark_reward_pick_vision_burned("floor_01_dalji"), "production flow must burn an eligible boss Vision")
 	var snapshot: Dictionary = flow.export_snapshot()
 	_expect((snapshot.get("run_progress", {}) as Dictionary).get("burned_vision_boss_ids", []) == ["floor_01_dalji"], "flow snapshot must carry the burned boss-Vision set")
-	_expect((snapshot.get("reward_pick_history", []) as Array).size() == 2, "flow snapshot must carry committed reward-pick history")
+	_expect((snapshot.get("reward_pick_history", []) as Array).size() == 3, "flow snapshot must carry committed reward-pick history")
 
 	var run_state := TowerAscentRunState.new()
 	_expect(run_state.restore_snapshot(snapshot), "current reward-pick snapshot schema must restore")
@@ -2512,6 +2693,16 @@ func _count_kind(choices: Array, kind: String) -> int:
 		if value is Dictionary and str((value as Dictionary).get("reward_pick_kind", "")) == kind:
 			count += 1
 	return count
+
+
+func _increment_composition(counts: Dictionary, choices: Array) -> void:
+	var kinds: Array[String] = []
+	for value: Variant in choices:
+		if value is Dictionary:
+			kinds.append(str((value as Dictionary).get("reward_pick_kind", "unknown")))
+	kinds.sort()
+	var key := "+".join(kinds)
+	counts[key] = int(counts.get(key, 0)) + 1
 
 
 func _on_finish() -> void:
