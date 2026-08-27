@@ -167,6 +167,7 @@ $focusedSmoke = @(
     "res://tests/battle_scene_overlay_frame_perf_smoke.gd",
     "res://tests/lingpet_duration_field_gauge_smoke.gd",
     "res://tests/weather_event_render_budget_smoke.gd",
+    "res://tests/player_rain_wetness_lifecycle_smoke.gd",
     "res://tests/limit_league_tier_smoke.gd",
     "res://tests/stage1_boss_card_reencounter_prewarm_smoke.gd",
     "res://tests/stage1_han_miryang_prologue_smoke.gd",

@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
+const PlayerRainWetnessLifecycle := preload("res://scripts/effects/player_rain_wetness_lifecycle.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 const TowerAscentBossRegistry := preload(
@@ -491,11 +492,17 @@ func _try_start_tower_ascent_vertical_slice(
 		owner,
 		reset_game_callback
 	)
-	return bool(flow_owner.begin_vertical_slice(
+	var started: bool = bool(flow_owner.begin_vertical_slice(
 		owner,
 		finish_callback,
 		_build_tower_flow_context(registry, owner)
 	))
+	if started:
+		# Tower clear enters the node map without leaving the battle scene, so
+		# BattleSceneTeardownLifecycle is not reached. Retire the visible layer and
+		# accumulated envelope here, but retain the warmed host for the next fight.
+		PlayerRainWetnessLifecycle.tear_down_from_canvas(owner, false)
+	return started
 
 
 func _build_tower_flow_context(registry: Object, owner: Object) -> Dictionary:

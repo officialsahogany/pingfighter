@@ -4,9 +4,15 @@ const ProjectResourceLoader := preload("res://scripts/resources/project_resource
 const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_texture_normalizer.gd")
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
+const PlayerRainWetnessLifecycle := preload("res://scripts/effects/player_rain_wetness_lifecycle.gd")
 
 
-func exit_tree(_owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
+func exit_tree(owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
+	# Final scene retirement is the one boundary where the canvas-owned wetness
+	# host cannot be reused. Free it before module/cache teardown drops the
+	# renderer reference; otherwise the detached child can survive until the
+	# outgoing battle canvas itself is finally destroyed.
+	PlayerRainWetnessLifecycle.tear_down_from_canvas(owner, true)
 	if registry != null and registry.has_method("get_cached_instance"):
 		var online_runtime: Variant = registry.get_cached_instance("online_match_runtime")
 		if typeof(online_runtime) == TYPE_OBJECT and online_runtime != null and online_runtime.has_method("stop"):
