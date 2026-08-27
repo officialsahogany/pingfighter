@@ -157,6 +157,8 @@ func _run() -> void:
 	var capture_phase := OS.get_environment("TOWER_ASCENT_MAP_QA_PHASE").strip_edges().to_lower()
 	if capture_phase not in ["phase1", "phase2"]:
 		capture_phase = "phase1"
+	var map_seed_text := OS.get_environment("TOWER_ASCENT_MAP_QA_SEED").strip_edges()
+	var map_seed := 83521 if map_seed_text.is_empty() else int(map_seed_text)
 	var missing_icon_probe := OS.get_environment("TOWER_ASCENT_MAP_QA_MISSING_ICON") == "1"
 	var progress_text := OS.get_environment("TOWER_ASCENT_MAP_QA_PROGRESS").strip_edges()
 	var injected_progress := -1.0 if progress_text.is_empty() else clampf(float(progress_text), 0.0, 1.0)
@@ -183,9 +185,9 @@ func _run() -> void:
 	var canvas := ProductionScreenCanvas.new(registry)
 	viewport.add_child(canvas)
 	if not flow_owner.open_map_overlay(canvas, registry, {
-		"run_id": "map-overlay-visual-qa",
+		"run_id": "map-overlay-visual-qa-%d" % map_seed,
 		"current_stage": 4,
-		"map_seed": 83521,
+		"map_seed": map_seed,
 	}):
 		_fail("combat map overlay fixture could not open")
 		return
@@ -226,6 +228,8 @@ func _run() -> void:
 		if capture_phase == "phase2"
 		else OUTPUT_NAME_PHASE_1
 	)
+	if capture_phase == "phase1" and not missing_icon_probe and not map_seed_text.is_empty():
+		output_name = "map_overlay_human_realm_seed_%d.png" % map_seed
 	if capture_phase == "phase2" and injected_progress >= 0.0:
 		output_name = "map_transition_progress_%03d.png" % int(round(injected_progress * 100.0))
 	var output_path := output_dir.path_join(output_name)
@@ -250,8 +254,9 @@ func _run() -> void:
 			return
 		capture_count += 1
 	print("[TowerMapOverlayVisualQA] %s" % output_path)
-	print("tower_ascent_map_overlay_visual_qa: phase=%s captures=%d" % [
+	print("tower_ascent_map_overlay_visual_qa: phase=%s seed=%d captures=%d" % [
 		capture_phase,
+		map_seed,
 		capture_count,
 	])
 	print("tower_ascent_map_overlay_visual_qa: ok")

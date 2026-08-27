@@ -30,8 +30,10 @@ const TowerAscentTuning := preload(
 
 const SAMPLE_SEED_COUNT := 128
 const MAP_DRAW_CALL_LIMIT := 1536
+const FINAL_DOT_GAP_UPPER_BOUND := 44.378
+const FLOAT_EPSILON := 0.001
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
-const EXPECTED_GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
 
 
 class EarlyGuaranteeDisabledGenerator:
@@ -59,6 +61,8 @@ var _maximum_draw_final_dot_gap := 0.0
 var _maximum_final_dot_gap := 0.0
 var _minimum_fit_all_zoom := INF
 var _maximum_world_height := 0.0
+var _fit_all_budget_seed_count := 0
+var _final_dot_gap_overflow_count := 0
 var _negative_leg_count := 0
 var _negative_fixture: Dictionary = {}
 var _early_replacement_seed_count := 0
@@ -102,8 +106,9 @@ func _init() -> void:
 			]
 		)
 		print(
-			"tower_ascent_floor_one_expansion_contract_smoke: fit_all_budget seed=%d path=%d clouds=%d total=%d limit=%d margin=%d base_dot_gap=%0.3f final_dot_gap=%0.3f max_final_dot_gap=%0.3f min_fit_all=%0.4f world_height=%0.1f negative_legs=%d"
+			"tower_ascent_floor_one_expansion_contract_smoke: fit_all_budget seeds=%d seed=%d path=%d clouds=%d total=%d limit=%d margin=%d base_dot_gap=%0.3f final_dot_gap=%0.3f max_final_dot_gap=%0.3f upper=%0.3f overflow_seeds=%d min_fit_all=%0.4f world_height=%0.1f negative_legs=%d"
 			% [
+				_fit_all_budget_seed_count,
 				_maximum_draw_seed,
 				_maximum_path_draw_calls,
 				_maximum_cloud_draw_calls,
@@ -113,6 +118,8 @@ func _init() -> void:
 				_maximum_draw_base_dot_gap,
 				_maximum_draw_final_dot_gap,
 				_maximum_final_dot_gap,
+				FINAL_DOT_GAP_UPPER_BOUND,
+				_final_dot_gap_overflow_count,
 				_minimum_fit_all_zoom,
 				_maximum_world_height,
 				_negative_leg_count,
@@ -259,6 +266,10 @@ func _verify_standard_seeds() -> void:
 		if _negative_fixture.is_empty():
 			_negative_fixture = graph.duplicate(true)
 		_verify_fit_all_budget(map_seed, replacement_applied)
+	_expect(
+		_fit_all_budget_seed_count == SAMPLE_SEED_COUNT,
+		"every standard seed must exercise the production fit-all budget"
+	)
 	# 피드백2 4항: the merged row permanently exposes both unused stage-1 slots,
 	# so every seed must show the start boss plus two selectable bosses.
 	_expect(
@@ -649,8 +660,8 @@ func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 	var total_draw_calls := int(cache.get("total_map_draw_call_budget", 0))
 	_expect(not model.is_empty(), "seed %d must build the fit-all map model" % map_seed)
 	_expect(
-		total_draw_calls <= MAP_DRAW_CALL_LIMIT,
-		"seed %d fit-all dotted paths plus clouds exceed %d (%d)"
+		total_draw_calls < MAP_DRAW_CALL_LIMIT,
+		"seed %d fit-all dotted paths plus clouds must keep positive margin under %d (%d)"
 		% [map_seed, MAP_DRAW_CALL_LIMIT, total_draw_calls]
 	)
 	# registry_only realm nodes are layout-only previews and intentionally hide
@@ -684,6 +695,9 @@ func _verify_fit_all_budget(map_seed: int, replacement_applied: bool) -> void:
 		% map_seed
 	)
 	var final_dot_gap := float(cache.get("path_dot_gap", 0.0))
+	_fit_all_budget_seed_count += 1
+	if final_dot_gap > FINAL_DOT_GAP_UPPER_BOUND + FLOAT_EPSILON:
+		_final_dot_gap_overflow_count += 1
 	var base_dot_gap := (
 		float(model.get("art_size", 0.0))
 		* TowerAscentTuning.TEMP_MAP_PATH_DOT_GAP_ART_RATIO

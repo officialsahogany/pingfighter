@@ -35,7 +35,7 @@ func _init() -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
 		print(
-			"tower_ascent_12_floor_map_smoke: density_seeds=%d failures=0 total_rows=32 total_nodes=67 floor_1=4x9 floors_2_8=3x7 lanes_2_8=[1, 2, 4] floor_9=1x1 attempts=%s"
+			"tower_ascent_12_floor_map_smoke: density_seeds=%d failures=0 total_rows=32 total_nodes=60..67 floor_1=4x9 floors_2_8=3x6..7 lanes_2_8=[1, 2, 3|4] floor_9=1x1 attempts=%s"
 			% [DENSITY_SAMPLE_SEED_COUNT, str(_generation_attempt_histogram)]
 		)
 		print("tower_ascent_12_floor_map_smoke: ok")
@@ -135,13 +135,13 @@ func _verify_upper_floor_density_for_many_seeds() -> void:
 			"seed %d must preserve the 4-row 9-node first-floor profile" % map_seed
 		)
 		for floor_number in range(2, 9):
+			var floor_profile: Dictionary = profile.get(floor_number, {})
+			var floor_lanes: Array = floor_profile.get("lanes", [])
 			_expect(
-				profile.get(floor_number, {}) == {
-					"rows": 3,
-					"nodes": 7,
-					"lanes": [1, 2, 4],
-				},
-				"seed %d floor %d must expose the 1-to-2-to-4 density profile"
+				int(floor_profile.get("rows", 0)) == 3
+				and int(floor_profile.get("nodes", 0)) in [6, 7]
+				and floor_lanes in [[1, 2, 3], [1, 2, 4]],
+				"seed %d floor %d must expose a 1-to-2-to-3/4 density profile"
 				% [map_seed, floor_number]
 			)
 		_expect(
@@ -157,8 +157,9 @@ func _verify_upper_floor_density_for_many_seeds() -> void:
 		)
 		_expect(
 			_count_profile_value(profile, "rows") == 32
-			and _count_profile_value(profile, "nodes") == 67,
-			"seed %d must produce exactly 32 rows and 67 nodes" % map_seed
+			and _count_profile_value(profile, "nodes") >= 60
+			and _count_profile_value(profile, "nodes") <= 67,
+			"seed %d must produce 32 rows and 60 to 67 nodes" % map_seed
 		)
 		_expect(
 			_count_first_floor_choice_bosses(graph) == 2,

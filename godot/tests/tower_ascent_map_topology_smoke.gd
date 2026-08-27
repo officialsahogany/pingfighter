@@ -19,10 +19,12 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
+const STANDARD_SEQUENCE_FLOOR_MIN := 2
+const STANDARD_SEQUENCE_FLOOR_MAX := 8
 
 var _failures: Array[String] = []
 var _topology_signatures: Dictionary = {}
@@ -39,6 +41,10 @@ var _sample_generated_node_count := 0
 var _sample_combat_node_count := 0
 var _max_human_edge_seed := 1
 var _max_human_edge_count := 0
+var _deterministic_seed_count := 0
+var _standard_lane_sequence_counts: Dictionary = {}
+var _standard_lane_sequence_sample_count := 0
+var _standard_varied_run_count := 0
 
 
 func _init() -> void:
@@ -59,10 +65,13 @@ func _init() -> void:
 			_sample_generated_node_count
 		)
 		print(
-			"tower_ascent_map_topology_smoke: seeds=%d topologies=%d nodes=%d edges=%d singleton_rows=%d wide_rows=%d longest_multilane=%d degree1=%d degree2=%d boss_ratio=%0.4f degree2_ratio=%0.4f raw_degree2_ratio=%0.4f services=%s"
+			"tower_ascent_map_topology_smoke: seeds=%d deterministic=%d topologies=%d lane_sequences=%s varied_runs=%d nodes=%d edges=%d singleton_rows=%d wide_rows=%d longest_multilane=%d degree1=%d degree2=%d boss_ratio=%0.4f degree2_ratio=%0.4f raw_degree2_ratio=%0.4f services=%s"
 			% [
 				SAMPLE_SEED_COUNT,
+				_deterministic_seed_count,
 				_topology_signatures.size(),
+				str(_standard_lane_sequence_counts),
+				_standard_varied_run_count,
 				_sample_node_count,
 				_sample_edge_count,
 				_sample_singleton_rows,
@@ -97,14 +106,20 @@ func _verify_many_seed_topology() -> void:
 		_expect(not first.is_empty(), "seed %d must generate a tower" % map_seed)
 		if first.is_empty():
 			continue
+		var byte_identical := (
+			generator.encode_graph(first) == generator.encode_graph(repeated)
+		)
+		if byte_identical:
+			_deterministic_seed_count += 1
 		_expect(
-			generator.encode_graph(first) == generator.encode_graph(repeated),
+			byte_identical,
 			"seed %d must reproduce byte-identical graph bytes" % map_seed
 		)
 		var phases: Array = first.get("phases", [])
 		_expect(phases.size() == 2, "seed %d must retain both realm phases" % map_seed)
 		if phases.size() != 2:
 			continue
+		_record_standard_lane_sequences(map_seed, first)
 		var signature_parts: Array[String] = []
 		for phase_variant in phases:
 			if not (phase_variant is Dictionary):
@@ -125,12 +140,30 @@ func _verify_many_seed_topology() -> void:
 		"authoritative map seeds must vary non-crossing partial edge layouts across runs (got %d)"
 		% _topology_signatures.size()
 	)
+	_expect(
+		_deterministic_seed_count == SAMPLE_SEED_COUNT,
+		"every sampled map seed must reproduce byte-identical graph bytes"
+	)
+	_expect(
+		_standard_lane_sequence_sample_count
+			== SAMPLE_SEED_COUNT * (STANDARD_SEQUENCE_FLOOR_MAX - STANDARD_SEQUENCE_FLOOR_MIN + 1),
+		"every sampled standard floor must publish a lane sequence"
+	)
+	_expect(
+		_standard_lane_sequence_counts.size() >= 2,
+		"authoritative map seeds must expose at least two standard-floor lane sequences (got %s)"
+		% str(_standard_lane_sequence_counts)
+	)
+	_expect(
+		_standard_varied_run_count > 0,
+		"at least one sampled run must vary standard-floor lane sequences within the run"
+	)
 	for required_kind in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS:
 		_expect(
 			int(_service_kind_counts.get(required_kind, 0)) > 0,
 			"multi-seed distribution must retain service kind %s" % required_kind
 		)
-	# Feedback 6 A adds one four-lane route row to each standard floor 2..8.
+	# Feedback 9 keeps one three-to-four-lane route row on each standard floor 2..8.
 	# The compact first floor still has two wide rows, so every seed has exactly
 	# nine wide rows. Single-lane gate rows remain unchanged.
 	_expect(
@@ -155,6 +188,65 @@ func _verify_many_seed_topology() -> void:
 		degree_two_ratio + 0.000001 >= TowerAscentTuning.TEMP_MAP_DEGREE_TWO_MIN_RATIO,
 		"at least seventy percent of choice-capable nodes must expose two outgoing choices"
 	)
+
+
+func _record_standard_lane_sequences(map_seed: int, graph: Dictionary) -> void:
+	var profile := _lane_profile_by_segment_floor(graph)
+	var run_sequences: Dictionary = {}
+	for floor_number in range(
+		STANDARD_SEQUENCE_FLOOR_MIN,
+		STANDARD_SEQUENCE_FLOOR_MAX + 1
+	):
+		var lanes: Array[int] = profile.get(floor_number, [])
+		var signature := _lane_signature(lanes)
+		_expect(
+			signature in ["1-2-3", "1-2-4"],
+			"seed %d floor %d must keep the 1-to-2-to-3/4 silhouette (%s)"
+			% [map_seed, floor_number, signature]
+		)
+		if signature.is_empty():
+			continue
+		_standard_lane_sequence_sample_count += 1
+		_standard_lane_sequence_counts[signature] = int(
+			_standard_lane_sequence_counts.get(signature, 0)
+		) + 1
+		run_sequences[signature] = true
+	if run_sequences.size() > 1:
+		_standard_varied_run_count += 1
+
+
+func _lane_profile_by_segment_floor(graph: Dictionary) -> Dictionary:
+	var rows_by_floor: Dictionary = {}
+	for phase_variant in graph.get("phases", []):
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var node := node_variant as Dictionary
+			var floor_number := int(node.get("segment_floor", 0))
+			var global_row := int(node.get("global_row", -1))
+			var floor_rows: Dictionary = rows_by_floor.get(floor_number, {})
+			floor_rows[global_row] = int(floor_rows.get(global_row, 0)) + 1
+			rows_by_floor[floor_number] = floor_rows
+	var result: Dictionary = {}
+	for floor_variant in rows_by_floor.keys():
+		var floor_number := int(floor_variant)
+		var floor_rows: Dictionary = rows_by_floor.get(floor_number, {})
+		var row_numbers: Array = floor_rows.keys()
+		row_numbers.sort()
+		var lanes: Array[int] = []
+		for row_variant in row_numbers:
+			lanes.append(int(floor_rows.get(row_variant, 0)))
+		result[floor_number] = lanes
+	return result
+
+
+func _lane_signature(lanes: Array[int]) -> String:
+	var parts: Array[String] = []
+	for lane_count in lanes:
+		parts.append(str(lane_count))
+	return "-".join(parts)
 
 
 func _verify_phase(map_seed: int, phase: Dictionary, signature_parts: Array[String]) -> void:

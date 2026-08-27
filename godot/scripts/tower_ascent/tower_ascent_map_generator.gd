@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v16_floor_one_three_steps"
+const GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -1435,7 +1435,7 @@ func _last_row_lane_count(
 
 
 func _choose_route_lane_count(
-	_rng: RandomNumberGenerator,
+	rng: RandomNumberGenerator,
 	floor_number: int,
 	previous_lane_count: int,
 	active_clear_floor: int
@@ -1444,7 +1444,17 @@ func _choose_route_lane_count(
 		return 1
 	if previous_lane_count <= 1:
 		return ROUTE_CANDIDATE_COUNT
-	return mini(MAP_LANE_COUNT_MAX, previous_lane_count * MAX_NODE_OUTGOING_EDGES)
+	var maximum_lane_count := mini(
+		MAP_LANE_COUNT_MAX,
+		previous_lane_count * MAX_NODE_OUTGOING_EDGES
+	)
+	# Feedback 9: keep the row budget fixed while varying only the standard-floor
+	# silhouette. Choosing three or four lanes can only reduce the former four-lane
+	# maximum, preserves the two-edge expansion cap, and consumes the authoritative
+	# map-generation RNG so the same map seed remains byte deterministic.
+	if maximum_lane_count <= MAP_LANE_COUNT_MIN:
+		return maximum_lane_count
+	return rng.randi_range(MAP_LANE_COUNT_MIN, maximum_lane_count)
 
 
 func _choose_gatekeeper_lane_count(
