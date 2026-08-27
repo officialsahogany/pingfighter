@@ -198,6 +198,7 @@ func _run() -> void:
 	_verify_tracked_camera_boundaries()
 	_verify_seeded_curve_geometry_preserves_connections()
 	_verify_map_cache_and_six_beat_transition_contract()
+	_verify_zooming_scroll_background_stays_on_pixel_grid()
 	_verify_live_viewport_owns_fullscreen_rect()
 	_verify_localization_catalog()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -759,6 +760,98 @@ func _verify_map_cache_and_six_beat_transition_contract() -> void:
 	_expect(is_zero_approx(timeline.get_node_modal_fade_progress()), "noncombat arrival surface must begin fully covered")
 	timeline.update_node_modal_fade(TowerAscentTuning.TEMP_NODE_MODAL_FADE_IN_SEC)
 	_expect(is_equal_approx(timeline.get_node_modal_fade_progress(), 1.0), "noncombat node fade must complete on its tuning duration")
+
+
+func _verify_zooming_scroll_background_stays_on_pixel_grid() -> void:
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(null, Callable(), {
+		"run_id": "map-overlay-pixel-grid",
+		"map_seed": 83521,
+	}), "pixel-grid fixture must begin")
+	var target_ids: Array[String] = flow.get_route_target_ids()
+	_expect(not target_ids.is_empty(), "pixel-grid fixture must expose a route target")
+	if target_ids.is_empty():
+		return
+	flow.call("_resolve_route_target", target_ids[0])
+	var renderer := preload(
+		"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
+	).new()
+	var viewport_rect := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
+	var travel_start_sec := (
+		TowerAscentTuning.TEMP_MAP_TRANSITION_BATTLE_FADE_OUT_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_IN_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_CAMERA_ZOOM_IN_SEC
+	)
+	var transition_duration_sec := (
+		travel_start_sec
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_TRAVEL_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_ARRIVE_VANISH_SEC
+		+ TowerAscentTuning.TEMP_MAP_TRANSITION_MAP_FADE_OUT_SEC
+	)
+	var previous_zoom := -INF
+	for frame_index in range(10):
+		var elapsed_sec := travel_start_sec + float(24 + frame_index) / 72.0
+		flow.set_transition_progress_for_qa(elapsed_sec / transition_duration_sec)
+		var model: Dictionary = renderer.build_fullscreen_map_model(flow, viewport_rect)
+		var camera: Dictionary = model.get("camera", {})
+		var zoom := float(camera.get("render_zoom_multiplier", 0.0))
+		_expect(zoom > previous_zoom, "pixel-grid fixture zoom must advance every frame")
+		previous_zoom = zoom
+		var sample_count := 0
+		var scroll: Dictionary = model.get("scroll_background", {})
+		for chunk_variant in scroll.get("draw_chunks", scroll.get("tiles", [])):
+			if not (chunk_variant is Dictionary):
+				continue
+			var chunk := chunk_variant as Dictionary
+			var texture := chunk.get("paper_texture", null) as Texture2D
+			var world_target: Rect2 = chunk.get("paper_rect", chunk.get("rect", Rect2()))
+			if texture == null or not world_target.has_area():
+				continue
+			var offset: Vector2 = camera.get("offset", Vector2.ZERO)
+			var projected := Rect2(
+				world_target.position * zoom + offset,
+				world_target.size * zoom
+			)
+			var visible := projected.intersection(viewport_rect)
+			if not visible.has_area():
+				continue
+			var normalized_source: Rect2 = chunk.get(
+				"paper_source_rect",
+				Rect2(0.0, 0.0, 1.0, 1.0)
+			)
+			var texture_size := texture.get_size()
+			var relative_position := (visible.position - projected.position) / projected.size
+			var relative_size := visible.size / projected.size
+			var source_rect := Rect2(
+				texture_size * (
+					normalized_source.position
+						+ normalized_source.size * relative_position
+				),
+				texture_size * normalized_source.size * relative_size
+			)
+			var snapped_target: Rect2 = renderer.snap_scroll_background_rect(visible)
+			var snapped_source: Rect2 = renderer.snap_scroll_background_rect(source_rect)
+			_expect(
+				_rect_has_integer_edges(snapped_target),
+				"frame %d background target rect must stay on integer pixel edges"
+				% frame_index
+			)
+			_expect(
+				_rect_has_integer_edges(snapped_source),
+				"frame %d background source rect must stay on integer texel edges"
+				% frame_index
+			)
+			sample_count += 1
+		_expect(sample_count > 0, "pixel-grid fixture must sample a visible scroll background")
+
+
+func _rect_has_integer_edges(rect: Rect2) -> bool:
+	return (
+		is_equal_approx(rect.position.x, roundf(rect.position.x))
+		and is_equal_approx(rect.position.y, roundf(rect.position.y))
+		and is_equal_approx(rect.end.x, roundf(rect.end.x))
+		and is_equal_approx(rect.end.y, roundf(rect.end.y))
+	)
 
 
 func _topmost_node_id_for_floor(flow: Object, floor_number: int) -> String:

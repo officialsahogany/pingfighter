@@ -3015,6 +3015,10 @@ func _draw_scroll_texture_region(
 		),
 		texture_size * normalized_source_size * relative_size
 	)
+	visible_target = snap_scroll_background_rect(visible_target)
+	source_rect = snap_scroll_background_rect(source_rect)
+	if not visible_target.has_area() or not source_rect.has_area():
+		return
 	canvas.draw_texture_rect_region(
 		texture,
 		visible_target,
@@ -3054,13 +3058,23 @@ func _draw_scroll_texture_phase(
 		)
 		return
 	var world_target := entry_rect.merge(body_rect).merge(tail_rect)
-	var projected_target := _camera_world_rect_to_screen(camera_model, world_target)
-	var visible_target := projected_target.intersection(clip_rect)
+	var projected_target := snap_scroll_background_rect(
+		_camera_world_rect_to_screen(camera_model, world_target)
+	)
+	var visible_target := snap_scroll_background_rect(
+		projected_target.intersection(clip_rect)
+	)
 	if visible_target.size.x <= 0.0 or visible_target.size.y <= 0.0:
 		return
-	var projected_entry := _camera_world_rect_to_screen(camera_model, entry_rect)
-	var projected_body := _camera_world_rect_to_screen(camera_model, body_rect)
-	var projected_tail := _camera_world_rect_to_screen(camera_model, tail_rect)
+	var projected_entry := snap_scroll_background_rect(
+		_camera_world_rect_to_screen(camera_model, entry_rect)
+	)
+	var projected_body := snap_scroll_background_rect(
+		_camera_world_rect_to_screen(camera_model, body_rect)
+	)
+	var projected_tail := snap_scroll_background_rect(
+		_camera_world_rect_to_screen(camera_model, tail_rect)
+	)
 	var row_y: Array[float] = [visible_target.position.y]
 	if projected_entry.end.y > visible_target.position.y + 0.001 and projected_entry.end.y < visible_target.end.y - 0.001:
 		row_y.append(projected_entry.end.y)
@@ -3666,6 +3680,17 @@ func _draw_common_node_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) 
 
 func _screen_point(point: Vector2, scale_value: float, offset: Vector2) -> Vector2:
 	return offset + point * scale_value
+
+
+func snap_scroll_background_rect(rect: Rect2) -> Rect2:
+	if not rect.has_area():
+		return Rect2()
+	# Keep the bitmap sampling grid stable while the non-integer camera zoom
+	# advances. Nodes, route strokes, and the walker stay on the unsnapped camera
+	# transform so their shared geometry and smooth motion are not quantized.
+	var snapped_position := rect.position.round()
+	var snapped_end := rect.end.round()
+	return Rect2(snapped_position, snapped_end - snapped_position)
 
 
 func _screen_rect(rect: Rect2, scale_value: float, offset: Vector2) -> Rect2:

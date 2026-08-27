@@ -40,6 +40,8 @@ const FRONT_CLOUD_SCALE_MAXIMUMS: Array[float] = [
 static var _textured_quad_points := PackedVector2Array([
 	Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO,
 ])
+static var _last_vertical_alpha_rect_draw_count := 0
+static var _last_vertical_alpha_polygon_draw_count := 0
 static var _textured_quad_colors := PackedColorArray([
 	Color.WHITE, Color.WHITE, Color.WHITE, Color.WHITE,
 ])
@@ -194,6 +196,8 @@ func draw(
 	camera_model: Dictionary,
 	reveal_visual: Dictionary
 ) -> void:
+	_last_vertical_alpha_rect_draw_count = 0
+	_last_vertical_alpha_polygon_draw_count = 0
 	if canvas == null or not (model_value is Dictionary):
 		return
 	var model := model_value as Dictionary
@@ -713,6 +717,7 @@ static func _draw_texture_rect_region_vertical_alpha(
 	var safe_top_alpha := clampf(top_alpha, 0.0, 1.0)
 	var safe_bottom_alpha := clampf(bottom_alpha, 0.0, 1.0)
 	if is_equal_approx(safe_top_alpha, safe_bottom_alpha):
+		_last_vertical_alpha_rect_draw_count += 1
 		canvas.draw_texture_rect_region(
 			texture,
 			target_rect,
@@ -720,6 +725,7 @@ static func _draw_texture_rect_region_vertical_alpha(
 			Color(modulate, modulate.a * safe_top_alpha)
 		)
 		return
+	_last_vertical_alpha_polygon_draw_count += 1
 	_textured_quad_points[0] = target_rect.position
 	_textured_quad_points[1] = Vector2(target_rect.end.x, target_rect.position.y)
 	_textured_quad_points[2] = target_rect.end
@@ -738,6 +744,13 @@ static func _draw_texture_rect_region_vertical_alpha(
 		_textured_quad_uvs,
 		texture
 	)
+
+
+static func get_last_vertical_alpha_primitive_debug_state() -> Dictionary:
+	return {
+		"rect_path_a": _last_vertical_alpha_rect_draw_count,
+		"polygon_path_b": _last_vertical_alpha_polygon_draw_count,
+	}
 
 
 static func _draw_texture_clipped_with_vertical_fade(

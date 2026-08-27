@@ -36,6 +36,7 @@ func _run() -> void:
 	_verify_reveal_sequence_persistence_and_rng()
 	_verify_bitmap_density_wrap_parallax_and_fallback()
 	_verify_skip_reset_and_hot_path_contracts()
+	_verify_vertical_reveal_fade_gradient()
 	_verify_floor_reveal_title_catalog_and_wiring()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -196,6 +197,44 @@ func _verify_skip_reset_and_hot_path_contracts() -> void:
 	_expect(
 		bitmap_draw_body.find("sin(") < 0 and bitmap_draw_body.find("fposmod(") >= 0,
 		"bitmap clouds must flow continuously through wrap coordinates instead of oscillating"
+	)
+
+
+func _verify_vertical_reveal_fade_gradient() -> void:
+	var fade_start_y := 320.0
+	var fade_end_y := 520.0
+	var tail_alpha := 0.2
+	var top_alpha := TowerAscentMapCloudLayer._reveal_fade_alpha_at_y(
+		fade_start_y,
+		fade_start_y,
+		fade_end_y,
+		tail_alpha
+	)
+	var quarter_alpha := TowerAscentMapCloudLayer._reveal_fade_alpha_at_y(
+		lerpf(fade_start_y, fade_end_y, 0.25),
+		fade_start_y,
+		fade_end_y,
+		tail_alpha
+	)
+	var middle_alpha := TowerAscentMapCloudLayer._reveal_fade_alpha_at_y(
+		lerpf(fade_start_y, fade_end_y, 0.5),
+		fade_start_y,
+		fade_end_y,
+		tail_alpha
+	)
+	var bottom_alpha := TowerAscentMapCloudLayer._reveal_fade_alpha_at_y(
+		fade_end_y,
+		fade_start_y,
+		fade_end_y,
+		tail_alpha
+	)
+	_expect(
+		is_equal_approx(top_alpha, 1.0)
+			and top_alpha > quarter_alpha
+			and quarter_alpha > middle_alpha
+			and middle_alpha > bottom_alpha
+			and is_equal_approx(bottom_alpha, tail_alpha),
+		"floor reveal must retain its smooth monotonic vertical alpha gradient"
 	)
 
 
