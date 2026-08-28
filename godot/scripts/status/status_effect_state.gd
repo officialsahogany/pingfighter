@@ -66,6 +66,9 @@ func update(fps_scale: float, context: Dictionary = {}, deps: Dictionary = {}) -
 			var sources: Dictionary = _get_status_source_map(str(target), str(status_id))
 			for source_key in sources.keys():
 				var entry: Dictionary = _as_dictionary(sources.get(source_key, {}))
+				if _should_clear_entry(entry, context):
+					sources.erase(source_key)
+					continue
 				if bool(entry.get("persistent", false)):
 					sources[source_key] = entry
 					continue
@@ -480,6 +483,12 @@ func _should_pause_entry_timer(entry: Dictionary, context: Dictionary) -> bool:
 	if not bool(entry.get("pause_while_ball_inactive", false)):
 		return false
 	return not bool(context.get("ball_active", false))
+
+
+func _should_clear_entry(entry: Dictionary, context: Dictionary) -> bool:
+	if not bool(entry.get("clear_when_serve_ends", false)):
+		return false
+	return not bool(context.get("waiting_for_serve", false))
 
 
 func _clear_stage2_boss_disable_statuses(context: Dictionary, deps: Dictionary) -> void:

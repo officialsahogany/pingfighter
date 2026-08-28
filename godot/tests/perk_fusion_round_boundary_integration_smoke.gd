@@ -44,7 +44,7 @@ class RuntimePerkStateStub:
 		pending = {
 			"static_field": {
 				"boss_slow_multiplier": BossSlowTiers.WEAK,
-				"duration_sec": 4.0,
+				"duration_sec": 10.0,
 			},
 			"restore_dash_tokens": true,
 		}
@@ -123,7 +123,7 @@ class RegistryStub:
 
 func _init() -> void:
 	_verify_score_commit_queues_once_and_new_round_applies_once()
-	_verify_static_field_preserves_four_seconds_of_live_rally_slow()
+	_verify_static_field_is_serve_only_and_clears_when_serve_ends()
 	_verify_match_finishing_score_carries_no_pending_into_next_stage()
 	_verify_real_reset_ball_applies_pending_after_ball_cleanup()
 	if _failures.is_empty():
@@ -180,10 +180,11 @@ func _verify_score_commit_queues_once_and_new_round_applies_once() -> void:
 	if status_state.applications.size() == 1:
 		var application: Dictionary = status_state.applications[0]
 		_expect(str(application.get("target", "")) == "boss" and str(application.get("status_id", "")) == "slow", "static field should target the boss slow channel")
-		_expect(is_equal_approx(float(application.get("duration_frames", 0.0)), 240.0), "four-second static field should enter the 60-fps status owner as 240 frames")
+		_expect(is_equal_approx(float(application.get("duration_frames", 0.0)), 600.0), "ten-second static field should enter the 60-fps status owner as 600 frames")
 		var data: Dictionary = application.get("data", {}) as Dictionary
 		_expect(is_equal_approx(float(data.get("multiplier", 0.0)), BossSlowTiers.WEAK), "static field should use the shared WEAK slow multiplier")
-		_expect(bool(data.get("pause_while_ball_inactive", false)), "static field should preserve its timer until the ball is served")
+		_expect(bool(data.get("clear_when_serve_ends", false)), "static field should declare the serve-end cleanup boundary")
+		_expect(not bool(data.get("pause_while_ball_inactive", false)), "static field should spend its ten-second lifetime during the serve wait")
 	_expect(game_audio.mini_spark_calls == 1, "static field should play one electric activation cue")
 	_expect(dash_state.refill_calls == 1, "successful recycle protocol should refill the full dash token state")
 	_expect(orb_hud_state.reset_values == [3], "recycle protocol should synchronize the HUD to the refilled token count")
@@ -192,15 +193,14 @@ func _verify_score_commit_queues_once_and_new_round_applies_once() -> void:
 	_expect(game_audio.mini_spark_calls == 1, "consumed static field should not replay its activation cue")
 
 
-func _verify_static_field_preserves_four_seconds_of_live_rally_slow() -> void:
+func _verify_static_field_is_serve_only_and_clears_when_serve_ends() -> void:
 	var status_state := StatusEffectState.new()
-	status_state.apply_status("boss", "slow", 240.0, {
+	status_state.apply_status("boss", "slow", 600.0, {
 		"multiplier": BossSlowTiers.WEAK,
-		"pause_while_ball_inactive": true,
+		"clear_when_serve_ends": true,
 	}, StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD)
 	var effects_controller := BattleEffectsUpdateController.new()
-	# Worst-case boss serve delay can exceed the entire old four-second timer.
-	effects_controller.update(5.0, _effects_context(false, true), {
+	effects_controller.update(4.0, _effects_context(false, true), {
 		"status_effect_state": status_state,
 	})
 	var waiting_source: Dictionary = status_state.get_status_source(
@@ -209,8 +209,8 @@ func _verify_static_field_preserves_four_seconds_of_live_rally_slow() -> void:
 		StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD
 	)
 	_expect(
-		is_equal_approx(float(waiting_source.get("remaining_frames", 0.0)), 240.0),
-		"five seconds of serve waiting must not consume static field"
+		is_equal_approx(float(waiting_source.get("remaining_frames", 0.0)), 360.0),
+		"four seconds of serve waiting should consume four seconds of the ten-second field"
 	)
 	var boss_context: Dictionary = status_state.get_boss_ai_context()
 	_expect(
@@ -218,16 +218,39 @@ func _verify_static_field_preserves_four_seconds_of_live_rally_slow() -> void:
 			BossAiTurnInertiaResolver.get_movement_slow_multiplier(boss_context),
 			BossSlowTiers.WEAK
 		),
-		"live boss AI movement should receive the static-field weak slow multiplier"
+		"serve-wait boss AI context should receive the static-field weak slow multiplier"
 	)
-	effects_controller.update(239.0 / 60.0, _effects_context(true, false), {
-		"status_effect_state": status_state,
-	})
-	_expect(status_state.has_status("boss", "slow"), "static field should remain for the first 239 live-rally frames")
 	effects_controller.update(1.0 / 60.0, _effects_context(true, false), {
 		"status_effect_state": status_state,
 	})
-	_expect(not status_state.has_status("boss", "slow"), "static field should expire after exactly 240 live-rally frames")
+	_expect(
+		status_state.get_status_source(
+			"boss",
+			"slow",
+			StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD
+		).is_empty(),
+		"static field should disappear on the first update after serve wait ends"
+	)
+	_expect(
+		is_equal_approx(
+			BossAiTurnInertiaResolver.get_movement_slow_multiplier(status_state.get_boss_ai_context()),
+			1.0
+		),
+		"live-rally boss AI must not retain the serve-only static-field slow"
+	)
+
+	status_state.apply_status("boss", "slow", 600.0, {
+		"multiplier": BossSlowTiers.WEAK,
+		"clear_when_serve_ends": true,
+	}, StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD)
+	effects_controller.update(599.0 / 60.0, _effects_context(false, true), {
+		"status_effect_state": status_state,
+	})
+	_expect(status_state.has_status("boss", "slow"), "static field should remain for the first 599 serve-wait frames")
+	effects_controller.update(1.0 / 60.0, _effects_context(false, true), {
+		"status_effect_state": status_state,
+	})
+	_expect(not status_state.has_status("boss", "slow"), "static field should expire after exactly 600 serve-wait frames")
 
 
 func _effects_context(ball_active: bool, waiting_for_serve: bool) -> Dictionary:

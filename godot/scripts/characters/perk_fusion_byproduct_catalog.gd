@@ -36,7 +36,7 @@ const DATA := {
 	"overload_circuit": {"name": "벽력추진", "detail": "활주 중 공을 받아치면 15% 확률로 공 속도가 80% 증가하고 공이 붉은보라색으로 변합니다. 보스가 가드하면 원래 속도와 색으로 돌아옵니다.", "rarity": "general", "runtime_enabled": true},
 	"reverb": {"name": "잔향", "detail": "초식 사용 뒤 3초 동안 이동 속도가 70% 증가합니다.", "rarity": "general", "runtime_enabled": true},
 	"golden_trajectory": {"name": "황금 궤적", "detail": "공이 벽에 반사될 때 골드 2를 얻습니다. 라운드당 최대 40골드입니다.", "rarity": "general", "runtime_enabled": true},
-	"static_field": {"name": "정전기장", "detail": "실점 직후 4초 동안 보스 이동 속도가 30% 감소합니다.", "rarity": "general", "runtime_enabled": true},
+	"static_field": {"name": "정전기장", "detail": "실점 뒤 서브 대기 중 정전기장이 최대 10초 유지되며 보스 이동 속도가 30% 감소합니다.", "rarity": "general", "runtime_enabled": true},
 	"recycle_protocol": {"name": "절처봉생", "detail": "실점할 때 25% 확률로 활주 횟수를 모두 회복합니다.", "rarity": "general", "runtime_enabled": true},
 	"meridian_expand": {"name": "기맥 확장", "detail": "이번 런의 무공 최대 슬롯이 1칸 늘어납니다.", "rarity": "general", "runtime_enabled": true},
 	"sleeve_cosmos": {"name": "수리건곤", "rarity": "retired", "runtime_enabled": false},

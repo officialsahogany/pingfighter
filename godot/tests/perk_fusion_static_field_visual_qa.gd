@@ -1,20 +1,24 @@
 extends SceneTree
 
 const StatusEffectOverlayRenderer := preload("res://scripts/status/status_effect_overlay_renderer.gd")
+const BattleEffectsUpdateController := preload("res://scripts/effects/battle_effects_update_controller.gd")
+const BossSlowTiers := preload("res://scripts/status/boss_slow_tiers.gd")
+const StatusEffectState := preload("res://scripts/status/status_effect_state.gd")
 
-const VIEW_SIZE := Vector2i(760, 300)
-const CAPTURE_PATH := "res://.tmp/perk_fusion_static_field_visual_qa.png"
+const VIEW_SIZE := Vector2i(760, 750)
+const ACTIVE_CAPTURE_PATH := "res://.tmp/perk_fusion_static_field_serve_active_visual_qa.png"
+const CLEARED_CAPTURE_PATH := "res://.tmp/perk_fusion_static_field_serve_ended_visual_qa.png"
 
 
 class StaticFieldProbe:
 	extends Node2D
 
-	var static_field_active := false
+	var context: Dictionary = {}
 	var overlay: Object = null
 
 	func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, Vector2(VIEW_SIZE)), Color(0.015, 0.022, 0.052), true)
-		for line_index in range(8):
+		for line_index in range(22):
 			var y := 30.0 + float(line_index) * 34.0
 			draw_line(Vector2(0.0, y), Vector2(float(VIEW_SIZE.x), y), Color(0.08, 0.12, 0.24, 0.35), 1.0)
 		var boss_pos := Vector2(330.0, 70.0)
@@ -22,17 +26,6 @@ class StaticFieldProbe:
 		draw_circle(boss_pos + Vector2(50.0, 14.0), 34.0, Color(0.16, 0.10, 0.30, 0.96))
 		draw_rect(Rect2(boss_pos, boss_size), Color(0.64, 0.30, 0.80, 1.0), true)
 		draw_rect(Rect2(boss_pos, boss_size), Color(0.94, 0.70, 1.0, 0.96), false, 2.0)
-		var context := {
-			"active_item_boss_spider_slow_active": true,
-			"active_item_boss_spider_slow_ratio": 0.72,
-			"status_boss_slow_ratio": 0.72,
-			"perk_fusion_static_field_active": static_field_active,
-			"perk_fusion_static_field_ratio": 0.72,
-			"perk_fusion_static_field_remaining_sec": 3.6,
-			"perk_fusion_static_field_multiplier": 0.70,
-			"boss_max_health": 100,
-			"boss_current_health": 72,
-		}
 		overlay.draw_boss_status_overlays(
 			self,
 			context,
@@ -56,13 +49,39 @@ func _run() -> void:
 		return
 
 	var overlay := StatusEffectOverlayRenderer.new()
+	var status_state := StatusEffectState.new()
+	status_state.apply_status("boss", "slow", 600.0, {
+		"multiplier": BossSlowTiers.WEAK,
+		"clear_when_serve_ends": true,
+	}, StatusEffectState.SOURCE_PERK_FUSION_STATIC_FIELD)
+	var effects_controller := BattleEffectsUpdateController.new()
+	effects_controller.update(4.0, _effects_context(false, true), {
+		"status_effect_state": status_state,
+	})
+	var active_context: Dictionary = status_state.get_actor_draw_context()
+	active_context["boss_max_health"] = 100
+	active_context["boss_current_health"] = 72
+	if not bool(active_context.get("perk_fusion_static_field_active", false)):
+		_fail("production status owner should expose static field during serve wait")
+		return
+	effects_controller.update(1.0 / 60.0, _effects_context(true, false), {
+		"status_effect_state": status_state,
+	})
+	var cleared_context: Dictionary = status_state.get_actor_draw_context()
+	cleared_context["boss_max_health"] = 100
+	cleared_context["boss_current_health"] = 72
+	if bool(cleared_context.get("perk_fusion_static_field_active", false)):
+		_fail("production status owner should clear static field when serve wait ends")
+		return
+
 	var baseline_probe := StaticFieldProbe.new()
 	baseline_probe.overlay = overlay
+	baseline_probe.context = cleared_context
 	var baseline_viewport := _build_viewport(baseline_probe)
 
 	var active_probe := StaticFieldProbe.new()
 	active_probe.overlay = overlay
-	active_probe.static_field_active = true
+	active_probe.context = active_context
 	var active_viewport := _build_viewport(active_probe)
 
 	baseline_probe.queue_redraw()
@@ -84,8 +103,11 @@ func _run() -> void:
 	if badge_ink < 120:
 		_fail("static-field activation badge should remain legible below the boss (%d bright pixels)" % badge_ink)
 		return
-	if active_image.save_png(CAPTURE_PATH) != OK:
-		_fail("failed to save static-field visual QA capture")
+	if active_image.save_png(ACTIVE_CAPTURE_PATH) != OK:
+		_fail("failed to save serve-active static-field visual QA capture")
+		return
+	if baseline_image.save_png(CLEARED_CAPTURE_PATH) != OK:
+		_fail("failed to save serve-ended static-field visual QA capture")
 		return
 
 	baseline_probe.queue_free()
@@ -93,9 +115,25 @@ func _run() -> void:
 	active_probe.queue_free()
 	active_viewport.queue_free()
 	await process_frame
+	print("perk_fusion_static_field_visual_qa: SERVE_ACTIVE=true SERVE_END_CLEARED=true CHANGED_PIXELS=%d" % changed_pixels)
 	print("perk_fusion_static_field_visual_qa: ok")
-	print(ProjectSettings.globalize_path(CAPTURE_PATH))
+	print(ProjectSettings.globalize_path(ACTIVE_CAPTURE_PATH))
+	print(ProjectSettings.globalize_path(CLEARED_CAPTURE_PATH))
 	quit(0)
+
+
+func _effects_context(ball_active: bool, waiting_for_serve: bool) -> Dictionary:
+	return {
+		"current_stage": 1,
+		"current_msec": 1000,
+		"selected_character_type": "smasher",
+		"ball_active": ball_active,
+		"waiting_for_serve": waiting_for_serve,
+		"dash_snapshot": {},
+		"ball_pos": Vector2(380.0, 360.0),
+		"player_pos": Vector2(300.0, 680.0),
+		"boss_pos": Vector2(330.0, 70.0),
+	}
 
 
 func _build_viewport(probe: Node2D) -> SubViewport:

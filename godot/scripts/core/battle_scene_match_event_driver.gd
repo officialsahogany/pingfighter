@@ -756,11 +756,10 @@ func _apply_pending_perk_fusion_round_start(registry: Object) -> void:
 				maxf(0.0, float(static_field.get("duration_sec", 0.0))) * 60.0,
 				{
 					"multiplier": float(static_field.get("boss_slow_multiplier", 1.0)),
-					# The scoreboard has already closed, but the serve banner plus the
-					# player's manual/auto serve delay can consume nearly all four
-					# seconds while the ball is still parked. Preserve four seconds of
-					# actual rally pressure instead of four seconds of menu waiting.
-					"pause_while_ball_inactive": true,
+					# `waiting_for_serve` is the production serve-time owner. The field
+					# counts down only as a serve-wait effect and is removed on the first
+					# update after that state closes, before live-rally boss AI reads it.
+					"clear_when_serve_ends": true,
 				},
 				"perk_fusion_static_field"
 			)

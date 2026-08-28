@@ -108,7 +108,7 @@ func _verify_point_loss_payload_and_roll_boundary() -> void:
 	)
 	var static_field: Dictionary = static_result.get("static_field", {}) as Dictionary
 	_expect_close(float(static_field.get("boss_slow_multiplier", 0.0)), BossSlowTiers.WEAK, "static field should use the shared WEAK boss slow tier")
-	_expect_close(float(static_field.get("duration_sec", 0.0)), 4.0, "static field should last four seconds")
+	_expect_close(float(static_field.get("duration_sec", 0.0)), 10.0, "static field should last up to ten seconds")
 	_expect(not bool(static_result.get("restore_dash_tokens", true)), "static field alone should not restore dash tokens")
 
 	var recycle_owned := [PerkFusionByproductRuntime.RECYCLE_PROTOCOL_ID]
