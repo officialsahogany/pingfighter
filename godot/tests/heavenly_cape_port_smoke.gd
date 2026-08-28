@@ -2,9 +2,12 @@ extends SceneTree
 
 const MythicItemCatalog := preload("res://scripts/items/mythic_item_catalog.gd")
 const MythicItemRuntime := preload("res://scripts/items/mythic_item_runtime.gd")
+const MythicItemOwnerSyncer := preload("res://scripts/items/mythic_item_owner_syncer.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const SmasherSkillConfig := preload("res://scripts/characters/smasher_skill_config.gd")
 const ViperSkillConfig := preload("res://scripts/characters/viper_skill_config.gd")
+const CommonSkillCatalog := preload("res://scripts/characters/common_skill_catalog.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
 const SmasherSkillOrbRenderer := preload("res://scripts/hud/smasher_skill_orb_renderer.gd")
 const ProjectResourceLoader := preload("res://scripts/resources/project_resource_loader.gd")
@@ -55,6 +58,25 @@ class FakeRegistry:
 			"viper_skill_config":
 				return viper_config
 		return null
+
+
+class SlotSyncRuntime:
+	extends RefCounted
+
+	var computed_slot_bonus := 0
+	var slot_bonus_query_count := 0
+
+	func get_player_skill_cooldown_multiplier() -> float:
+		return 1.0
+
+	func get_heavenly_cape_skill_slot_bonus() -> int:
+		slot_bonus_query_count += 1
+		return computed_slot_bonus
+
+	func _get_instance(registry: Object, key: String) -> Object:
+		if registry == null or not registry.has_method("get_instance"):
+			return null
+		return registry.get_instance(key)
 
 
 func _init() -> void:
@@ -161,9 +183,78 @@ func _init() -> void:
 	_expect(int(smasher_snapshot.get("max_slots", 0)) == 5, "unequipping Heavenly Cape should restore five skill slots")
 	_expect(_get_array(smasher_snapshot.get("equipped_skills", [])).size() == 5, "unequipping Heavenly Cape should trim the overflow skill")
 	_expect(not perk_state.runtime_skill_levels.has("shield_kiting"), "trimmed sixth-slot skill should be removed from runtime perk levels")
+	_verify_converted_slot_staleness_and_real_loss()
 
 	print("heavenly_cape_port_smoke: ok")
 	quit(0)
+
+
+func _verify_converted_slot_staleness_and_real_loss() -> void:
+	PerkConversionFlags.debug_set_enabled(true)
+	var vision_skill_id := CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID
+	var vision_unlock_id := CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_UNLOCK_ID
+
+	var stale_state := RuntimePerkState.new()
+	stale_state.runtime_skill_levels = {
+		"heavenly_cape": 1,
+		vision_skill_id: 1,
+		vision_unlock_id: 1,
+	}
+	var stale_config := _build_six_slot_smasher(vision_skill_id)
+	var stale_runtime := SlotSyncRuntime.new()
+	var stale_registry := FakeRegistry.new(stale_runtime, stale_state, stale_config, null)
+	MythicItemOwnerSyncer.new().sync_skill_cooldown_to_configs(stale_runtime, stale_registry)
+	print(
+		"[ChosikSlotTrimTrace] phase=stage_clear_reward_apply sync_calls=%d computed_bonus=%d authoritative_cape_level=%d equipped=%d vision_owned=%s"
+		% [
+			stale_runtime.slot_bonus_query_count,
+			stale_runtime.computed_slot_bonus,
+			int(stale_state.runtime_skill_levels.get("heavenly_cape", 0)),
+			(stale_config.get_snapshot().get("equipped_skills", []) as Array).size(),
+			str(stale_state.runtime_skill_levels.has(vision_skill_id)),
+		]
+	)
+	_expect(
+		(stale_config.get_snapshot().get("equipped_skills", []) as Array).size() == 6,
+		"a stale derived zero must not trim the sixth Chosik while Heavenly Cape remains authoritatively owned"
+	)
+	_expect(
+		stale_state.runtime_skill_levels.has(vision_skill_id)
+		and stale_state.runtime_skill_levels.has(vision_unlock_id),
+		"stale slot synchronization must preserve both Vision Chosik ownership keys"
+	)
+
+	var lost_state := RuntimePerkState.new()
+	lost_state.runtime_skill_levels = {
+		vision_skill_id: 1,
+		vision_unlock_id: 1,
+	}
+	var lost_config := _build_six_slot_smasher(vision_skill_id)
+	var lost_runtime := SlotSyncRuntime.new()
+	var lost_registry := FakeRegistry.new(lost_runtime, lost_state, lost_config, null)
+	MythicItemOwnerSyncer.new().sync_skill_cooldown_to_configs(lost_runtime, lost_registry)
+	print(
+		"[ChosikSlotTrimTrace] phase=confirmed_cape_loss sync_calls=%d computed_bonus=%d authoritative_cape_level=%d equipped=%d"
+		% [
+			lost_runtime.slot_bonus_query_count,
+			lost_runtime.computed_slot_bonus,
+			int(lost_state.runtime_skill_levels.get("heavenly_cape", 0)),
+			(lost_config.get_snapshot().get("equipped_skills", []) as Array).size(),
+		]
+	)
+	_expect(
+		(lost_config.get_snapshot().get("equipped_skills", []) as Array).size() == 5,
+		"confirmed Heavenly Cape loss must still shrink equipped Chosik from six to five"
+	)
+	PerkConversionFlags.debug_set_enabled(false)
+
+
+func _build_six_slot_smasher(vision_skill_id: String) -> Object:
+	var config := SmasherSkillConfig.new()
+	config.set_item_skill_slot_bonus(1)
+	for skill_id in ["plasma", "recovery", "cleanse", vision_skill_id]:
+		_expect(config.unlock_and_equip_skill(skill_id), "six-slot fixture must equip %s" % skill_id)
+	return config
 
 
 func _find_roll_option(options: Array, key: String) -> Dictionary:

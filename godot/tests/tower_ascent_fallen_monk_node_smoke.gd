@@ -317,6 +317,7 @@ func _init() -> void:
 	_verify_swap_rejection_rolls_back_without_payment()
 	_verify_insufficient_muhon_is_a_no_op()
 	_verify_mugong_slot_budget_rechecks_fixed_offer()
+	_verify_six_of_six_chosik_uses_swap_gate()
 	_verify_flag_off_is_untouched()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
@@ -563,6 +564,48 @@ func _verify_mugong_slot_budget_rechecks_fixed_offer() -> void:
 	)
 	_expect(not bool(blocked_result.get("accepted", true)) and str(blocked_result.get("reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "direct fixed-offer execution must reject with the shared slot-limit reason")
 	_expect(fixture.runtime_state.apply_calls == apply_calls_before and int(flow.get_run_state_snapshot().get("muhon", -1)) == 38, "blocked fixed-offer execution must issue no apply or debit")
+	_finish_flow(flow, owner)
+
+
+func _verify_six_of_six_chosik_uses_swap_gate() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var fixture := _build_fixture()
+	fixture.skill_config.max_slots = 6
+	fixture.skill_config.equipped_skills = [
+		"base_skill",
+		"owned_skill_2",
+		"owned_skill_3",
+		"owned_skill_4",
+		"owned_skill_5",
+		"vision_skill_6",
+	]
+	var flow := TowerAscentFlowOwner.new()
+	var owner := FakeOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "fallen-monk-six-of-six",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "fallen_monk",
+		"run_state": {"muhon": 40},
+		"registry": fixture.registry,
+	}), "six-of-six monk fixture must open")
+	_expect(
+		TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner),
+		"six-of-six monk fixture must arrive at the monk"
+	)
+	var actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var swap_action := _find_action_with_prefix(actions, "fallen_monk:swap:")
+	var acquire_action := _find_action_with_prefix(actions, "fallen_monk:acquire:")
+	print(
+		"[ChosikSlotTrimTrace] phase=fallen_monk_gate equipped=%d max_slots=%d swap=%s acquire=%s"
+		% [
+			fixture.skill_config.equipped_skills.size(),
+			fixture.skill_config.max_slots,
+			str(not swap_action.is_empty()),
+			str(not acquire_action.is_empty()),
+		]
+	)
+	_expect(not swap_action.is_empty(), "a Heavenly Cape 6/6 loadout must expose the Fallen Monk swap route")
+	_expect(acquire_action.is_empty(), "a Heavenly Cape 6/6 loadout must not bypass replacement with direct acquisition")
 	_finish_flow(flow, owner)
 
 

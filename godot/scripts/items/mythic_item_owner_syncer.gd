@@ -1,8 +1,13 @@
 extends RefCounted
 
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
+const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 const RuntimePerkAngelBlessingGaugeCompositor := preload("res://scripts/characters/runtime_perk_angel_blessing_gauge_compositor.gd")
 const MythicItemResourceBonusRuntime := preload("res://scripts/items/mythic_item_resource_bonus_runtime.gd")
+
+const HEAVENLY_CAPE_PERK_ID := "heavenly_cape"
+const HEAVENLY_CAPE_SLOT_BONUS_KEY := "skill_slot_bonus"
 
 var _fallback_scene_config: Object = BattleSceneConfig.new()
 var _resource_bonus_runtime: Object = MythicItemResourceBonusRuntime.new()
@@ -731,15 +736,84 @@ func sync_skill_cooldown_to_configs(runtime: Object, registry: Object) -> void:
 	if registry == null:
 		return
 	var multiplier: float = runtime.get_player_skill_cooldown_multiplier()
-	var skill_slot_bonus: int = runtime.get_heavenly_cape_skill_slot_bonus()
+	var computed_slot_bonus: int = runtime.get_heavenly_cape_skill_slot_bonus()
+	var skill_slot_bonus: int = _resolve_authoritative_heavenly_cape_slot_bonus(
+		runtime,
+		registry,
+		computed_slot_bonus
+	)
 	for key in ["smasher_skill_config", "viper_skill_config", "commando_skill_config", "blacksmith_skill_config", "optimus_skill_config"]:
 		var skill_config: Object = runtime._get_instance(registry, key)
 		if skill_config != null and skill_config.has_method("set_item_cooldown_multiplier"):
 			skill_config.set_item_cooldown_multiplier(multiplier)
 		if skill_config != null and skill_config.has_method("set_item_skill_slot_bonus"):
 			var removed_value: Variant = skill_config.set_item_skill_slot_bonus(skill_slot_bonus)
-			if removed_value is Array:
+			if removed_value is Array and not (removed_value as Array).is_empty():
+				push_warning(
+					"[ChosikSlotTrim] applied config=%s computed_bonus=%d resolved_bonus=%d removed=%s stack=%s"
+					% [
+						key,
+						computed_slot_bonus,
+						skill_slot_bonus,
+						str(removed_value),
+						_format_call_stack(),
+					]
+				)
 				cleanup_removed_player_skills(runtime, registry, removed_value)
+
+
+func _resolve_authoritative_heavenly_cape_slot_bonus(
+	runtime: Object,
+	registry: Object,
+	computed_slot_bonus: int
+) -> int:
+	var resolved_bonus: int = max(0, computed_slot_bonus)
+	if not PerkConversionFlags.is_enabled():
+		return resolved_bonus
+	var runtime_perk_state: Object = runtime._get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state == null:
+		return resolved_bonus
+	var levels_value: Variant = runtime_perk_state.get("runtime_skill_levels")
+	if not (levels_value is Dictionary):
+		return resolved_bonus
+	# Converted perk ownership is the durable ledger. A lower derived projection
+	# during reward/map handoff must not destructively shrink the equipped slots.
+	var authoritative_level: int = int((levels_value as Dictionary).get(HEAVENLY_CAPE_PERK_ID, 0))
+	if authoritative_level <= 0:
+		return resolved_bonus
+	var authoritative_bonus: int = max(
+		0,
+		int(round(PerkConversionValues.get_mythic_value(
+			HEAVENLY_CAPE_PERK_ID,
+			HEAVENLY_CAPE_SLOT_BONUS_KEY
+		)))
+	)
+	if resolved_bonus >= authoritative_bonus:
+		return resolved_bonus
+	push_warning(
+		"[ChosikSlotTrim] prevented stale Heavenly Cape shrink computed_bonus=%d authoritative_level=%d authoritative_bonus=%d stack=%s"
+		% [
+			computed_slot_bonus,
+			authoritative_level,
+			authoritative_bonus,
+			_format_call_stack(),
+		]
+	)
+	return authoritative_bonus
+
+
+func _format_call_stack() -> String:
+	var labels: Array[String] = []
+	for frame_value in get_stack():
+		if not (frame_value is Dictionary):
+			continue
+		var frame := frame_value as Dictionary
+		labels.append("%s@%s:%d" % [
+			str(frame.get("function", "?")),
+			str(frame.get("source", "?")),
+			int(frame.get("line", 0)),
+		])
+	return " <- ".join(labels)
 
 
 func cleanup_removed_player_skills(runtime: Object, registry: Object, removed_skills: Array) -> void:
