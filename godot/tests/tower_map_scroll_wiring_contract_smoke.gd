@@ -23,8 +23,20 @@ const EXPECTED_STANDARD_MAP_ROW_COUNT := 32
 const EXPECTED_PRODUCTION_DRAW_CHUNK_COUNT := 21
 const EXPECTED_PRODUCTION_SEAM_COUNT := 20
 const EXPECTED_BAND_SEAM_OVERLAP_WORLD_PX := 16.0
-const EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 24.0
-const EXPECTED_REFLECTED_TAIL_WORLD_PX := 48.0
+const EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 8.0
+const EXPECTED_REFLECTED_TAIL_WORLD_PX := 16.0
+const EXPECTED_BAND_EDGE_BLEED_METHOD := "mirrored_adjacent_inner_rows"
+const EXPECTED_BAND_TEXTURE_SCALE := 4
+const EXPECTED_BAND_BODY_LUMA_THRESHOLD := 200.0
+const EXPECTED_BAND_BODY_DETAIL_THRESHOLD := 18.0
+const EXPECTED_BAND_EDGE_BLEED_WORLD_PX := {
+	"human_realm_01_mountain_rev2_x4.png": Vector2i(21, 15),
+	"human_realm_02_village_rev2_x4.png": Vector2i(24, 22),
+	"human_realm_03_river_rev2_x4.png": Vector2i(21, 15),
+	"immortal_realm_01_islands_rev2_x4.png": Vector2i(26, 23),
+	"immortal_realm_02_cloud_cranes_rev2_x4.png": Vector2i(18, 15),
+	"immortal_realm_03_pavilions_rev2_x4.png": Vector2i(25, 26),
+}
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -37,6 +49,7 @@ func _init() -> void:
 func _run() -> void:
 	_verify_approved_asset_catalog_and_dimensions()
 	_verify_x4_manifest_and_import_policy()
+	_verify_band_edge_bleed_art_contract()
 	_verify_cloud_bitmap_import_policy()
 	_verify_negative_cache_and_missing_asset_fallback()
 	_verify_deterministic_nonrepeating_floor_variants()
@@ -155,6 +168,167 @@ func _verify_cloud_bitmap_import_policy() -> void:
 		_expect(import_source.find("compress/high_quality=true") >= 0, "%s must use high-quality VRAM compression" % asset_key)
 		_expect(import_source.find("mipmaps/generate=true") >= 0, "%s must generate mipmaps for fit-all downscaling" % asset_key)
 	_leg_count += 1
+
+
+func _verify_band_edge_bleed_art_contract() -> void:
+	var manifest_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(
+		"res://assets/sprites/tower/map_scroll/tower_map_scroll_x4_manifest.json"
+	))
+	_expect(manifest_value is Dictionary, "Z11 band edge-bleed manifest must decode")
+	if not (manifest_value is Dictionary):
+		return
+	var records_by_output := {}
+	for record_value in (manifest_value as Dictionary).get("assets", []):
+		if record_value is Dictionary:
+			var record := record_value as Dictionary
+			records_by_output[str(record.get("output", ""))] = record
+	var catalog := TowerMapScrollAssetCatalog.new()
+	var band_asset_keys := (
+		TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS
+		+ TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS
+	)
+	var rejected_gutter_count := 0
+	for asset_key in band_asset_keys:
+		var path := catalog.resolve_declared_path(asset_key)
+		var output_name := path.get_file()
+		var record: Dictionary = records_by_output.get(output_name, {})
+		var edge_bleed: Dictionary = record.get("edge_bleed", {})
+		var top_world_px := int(edge_bleed.get("top_world_px", 0))
+		var bottom_world_px := int(edge_bleed.get("bottom_world_px", 0))
+		var texture_scale := int(edge_bleed.get("texture_scale", 0))
+		var expected_widths: Vector2i = EXPECTED_BAND_EDGE_BLEED_WORLD_PX.get(
+			output_name,
+			Vector2i.ZERO
+		)
+		_expect(
+			str(edge_bleed.get("method", "")) == EXPECTED_BAND_EDGE_BLEED_METHOD,
+			"%s must pin mirrored adjacent-row edge bleed" % output_name
+		)
+		_expect(
+			texture_scale == EXPECTED_BAND_TEXTURE_SCALE,
+			"%s edge bleed must retain x4 density" % output_name
+		)
+		_expect(
+			Vector2i(top_world_px, bottom_world_px) == expected_widths,
+			"%s must retain the measured top/bottom gutter widths" % output_name
+		)
+		_expect(
+			is_equal_approx(
+				float(edge_bleed.get("body_luma_threshold", -1.0)),
+				EXPECTED_BAND_BODY_LUMA_THRESHOLD
+			)
+			and is_equal_approx(
+				float(edge_bleed.get("body_detail_threshold", -1.0)),
+				EXPECTED_BAND_BODY_DETAIL_THRESHOLD
+			),
+			"%s must retain the measured body-boundary thresholds" % output_name
+		)
+		var image := Image.new()
+		var image_error := image.load_png_from_buffer(FileAccess.get_file_as_bytes(path))
+		_expect(image_error == OK and not image.is_empty(), "%s must decode for Z11 art QA" % output_name)
+		if image_error != OK or image.is_empty():
+			continue
+		var top_rows := top_world_px * texture_scale
+		var bottom_rows := bottom_world_px * texture_scale
+		var edge_contract_ok := _has_mirrored_band_edge_bleed(image, top_rows, bottom_rows)
+		_expect(
+			edge_contract_ok,
+			"%s top/bottom gutter rows must equal their adjacent interior rows" % output_name
+		)
+		var interior := image.get_region(Rect2i(
+			0,
+			top_rows,
+			image.get_width(),
+			image.get_height() - top_rows - bottom_rows
+		))
+		_expect(
+			_sha256(interior.get_data()) == str(edge_bleed.get("interior_rgb_sha256", "")),
+			"%s approved interior pixels must remain byte-identical" % output_name
+		)
+		_expect(
+			str(edge_bleed.get("original_output_sha256", "")).length() == 64
+			and str(edge_bleed.get("original_output_sha256", "")) != str(record.get("output_sha256", "")),
+			"%s must retain the pre-Z11 output hash as Git-history provenance" % output_name
+		)
+		var rejected := image.duplicate()
+		rejected.set_pixel(0, 0, Color.BLACK)
+		if not _has_mirrored_band_edge_bleed(rejected, top_rows, bottom_rows):
+			rejected_gutter_count += 1
+	_expect(
+		rejected_gutter_count == band_asset_keys.size(),
+		"restoring a non-adjacent edge pixel must turn all six gutter seals RED"
+	)
+	var common_path := catalog.resolve_declared_path(TowerMapScrollAssetCatalog.COMMON_HANJI_PAPER)
+	var common := Image.new()
+	var common_error := common.load_png_from_buffer(FileAccess.get_file_as_bytes(common_path))
+	_expect(common_error == OK and not common.is_empty(), "common hanji paper must decode for edge comparison")
+	if common_error == OK and not common.is_empty():
+		var sample_rows := 8 * EXPECTED_BAND_TEXTURE_SCALE
+		var common_top_edge := common.get_region(Rect2i(0, 0, common.get_width(), sample_rows))
+		var common_top_inner := common.get_region(Rect2i(0, sample_rows, common.get_width(), sample_rows))
+		var common_bottom_edge := common.get_region(Rect2i(
+			0,
+			common.get_height() - sample_rows,
+			common.get_width(),
+			sample_rows
+		))
+		var common_bottom_inner := common.get_region(Rect2i(
+			0,
+			common.get_height() - sample_rows * 2,
+			common.get_width(),
+			sample_rows
+		))
+		_expect(
+			absf(_mean_image_luma_8bit(common_top_edge) - _mean_image_luma_8bit(common_top_inner)) <= 2.0
+			and absf(_mean_image_luma_8bit(common_bottom_edge) - _mean_image_luma_8bit(common_bottom_inner)) <= 2.0,
+			"common hanji paper must remain a flat paper control, not a band-art gutter target"
+		)
+	_leg_count += 1
+
+
+func _has_mirrored_band_edge_bleed(image: Image, top_rows: int, bottom_rows: int) -> bool:
+	if (
+		top_rows <= 0
+		or bottom_rows <= 0
+		or top_rows * 2 >= image.get_height()
+		or bottom_rows * 2 >= image.get_height()
+	):
+		return false
+	var top_edge := image.get_region(Rect2i(0, 0, image.get_width(), top_rows))
+	var expected_top := image.get_region(Rect2i(0, top_rows, image.get_width(), top_rows))
+	expected_top.flip_y()
+	var bottom_edge := image.get_region(Rect2i(
+		0,
+		image.get_height() - bottom_rows,
+		image.get_width(),
+		bottom_rows
+	))
+	var expected_bottom := image.get_region(Rect2i(
+		0,
+		image.get_height() - bottom_rows * 2,
+		image.get_width(),
+		bottom_rows
+	))
+	expected_bottom.flip_y()
+	return (
+		top_edge.get_data() == expected_top.get_data()
+		and bottom_edge.get_data() == expected_bottom.get_data()
+	)
+
+
+func _mean_image_luma_8bit(image: Image) -> float:
+	var sample := image.duplicate()
+	sample.resize(1, 1, Image.INTERPOLATE_LANCZOS)
+	var color: Color = sample.get_pixel(0, 0)
+	return (0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b) * 255.0
+
+
+func _sha256(bytes: PackedByteArray) -> String:
+	var hashing := HashingContext.new()
+	if hashing.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	hashing.update(bytes)
+	return hashing.finish().hex_encode()
 
 
 func _verify_approved_asset_catalog_and_dimensions() -> void:
@@ -357,7 +531,7 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			renderer.get_map_scroll_band_source_edge_guard_world_px(),
 			EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX
 		),
-		"seam phases must retain the approved 24px source-edge guard"
+		"seam phases must retain the Z11 8px source-edge guard"
 	)
 	var expected_overlap := EXPECTED_BAND_SEAM_OVERLAP_WORLD_PX * map_scale
 	var expected_source_guard := EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX * map_scale
@@ -672,10 +846,10 @@ func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
 		_leg_count += 1
 		return
 	var expected_fades := PackedFloat32Array([0.0, 16.0, 16.0, 16.0])
-	var expected_guards := PackedFloat32Array([0.0, 24.0, 24.0, 24.0])
-	var expected_target_heights := PackedFloat32Array([320.0, 272.0, 112.0, 52.0])
+	var expected_guards := PackedFloat32Array([0.0, 8.0, 8.0, 8.0])
+	var expected_target_heights := PackedFloat32Array([320.0, 304.0, 144.0, 84.0])
 	var expected_entry_heights := PackedFloat32Array([0.0, 16.0, 16.0, 16.0])
-	var expected_tail_heights := PackedFloat32Array([0.0, 48.0, 48.0, 48.0])
+	var expected_tail_heights := PackedFloat32Array([0.0, 16.0, 16.0, 16.0])
 	var first_band_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "texture")
 	var first_paper_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "paper_texture")
 	var boundary_scales_match := true
@@ -751,7 +925,7 @@ func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
 			"320/160/cap paper scale must match the first 320px chunk"
 		)
 	print(
-		"[TowerMapBandScaleBoundary] content_heights=320,320,160,100 target_heights=320,272,112,52 entry_heights=0,16,16,16 tail_heights=0,48,48,48 guards=0,24,24,24 fades=0,16,16,16 scale_match=%s source_bounds=%s band_scale=%.6f paper_scale=%.6f"
+		"[TowerMapBandScaleBoundary] content_heights=320,320,160,100 target_heights=320,304,144,84 entry_heights=0,16,16,16 tail_heights=0,16,16,16 guards=0,8,8,8 fades=0,16,16,16 scale_match=%s source_bounds=%s band_scale=%.6f paper_scale=%.6f"
 			% [
 				str(boundary_scales_match),
 				str(boundary_source_bounds_ok),

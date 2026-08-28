@@ -135,7 +135,7 @@ const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
 const MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX := 16.0
-const MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 24.0
+const MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 8.0
 const MAP_SCROLL_ROW_PITCH := 160.0
 const MAP_SCROLL_NODE_ART_SIZE := 32.0
 const MAP_SCROLL_ROUTE_BRUSH_WIDTH := 18.0
@@ -2411,8 +2411,9 @@ func build_scroll_background_model(
 			)
 			var draw_rect := paper_rect
 			# Keep the approved 16px crossfade independent from the art-source guard.
-			# Trimming both source edges removes the opaque gutter; reflecting twice
-			# the guard width fills that trimmed span without stretching any phase.
+			# Z11 mirrors adjacent internal rows over the generated bright edge bleed,
+			# so the guard only skips the 8px replacement interface. A 16px reflected tail
+			# now fills the body trim at native scale instead of Z9 A2's 48px fold.
 			# The quarter-height cap keeps body, entry, and tail valid on short crops.
 			var guarded_edge_world_px := (
 				minf(source_edge_guard_world_px, chunk_height * 0.25)
@@ -2420,9 +2421,11 @@ func build_scroll_background_model(
 				else 0.0
 			)
 			var alpha_ramp_world_px := (
-				minf(seam_overlap_world_px, guarded_edge_world_px)
+				minf(seam_overlap_world_px, chunk_height * 0.25)
+				if not draw_chunks.is_empty()
+				else 0.0
 			)
-			var reflected_tail_world_px := guarded_edge_world_px * 2.0
+			var reflected_tail_world_px := alpha_ramp_world_px
 			var paper_source_rect := Rect2(
 				Vector2.ZERO,
 				Vector2(1.0, chunk_height / tile_size.y)

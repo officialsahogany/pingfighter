@@ -142,7 +142,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "62626f66024859c5e4bd5b4d3a104e7dfaa6d4920d45208b7d463c69fd63f483",
-      "output_sha256": "8d88d76c81c76a452f764535e059f9d563f3a46f856678bba256d4935477cdac"
+      "output_sha256": "88f9413000e98aec3cf2c431a9f9452f8145d010f0423ffbb9bc75236df269d8",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 21,
+        "bottom_world_px": 15,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "8d88d76c81c76a452f764535e059f9d563f3a46f856678bba256d4935477cdac",
+        "interior_rgb_sha256": "20695482b205d14ff674903db86c02c60ce66a87d9daa3d031eec5d13632bb29"
+      }
     },
     {
       "source": "human_realm_02_village_rev2.png",
@@ -165,7 +175,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "9671e3c92ee2a8db2100b806ee3ae775a19525c83dc038fe8718ae5d4b8556e8",
-      "output_sha256": "bd3688eb35b7ef3ee16b2baf71d29e7619e5ac171a2856f55df9fabc1339924d"
+      "output_sha256": "d7b2f40cb89cf8a51e3294e1621759ea107399b99e6e8e467152507c8c3283fd",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 24,
+        "bottom_world_px": 22,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "bd3688eb35b7ef3ee16b2baf71d29e7619e5ac171a2856f55df9fabc1339924d",
+        "interior_rgb_sha256": "aadcd25cf3a5ae0de5ef354f39352145d803efac503665a67986e7e53d1acfba"
+      }
     },
     {
       "source": "human_realm_03_river_rev2.png",
@@ -188,7 +208,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "c98527f221921497f38382dc5cf7a39fbf64a53aa4bd762af9714635fcf49e13",
-      "output_sha256": "7aaafbf79d395d6f373bef900ebbe1ab55941bbc2f9950117d58701fa33eb881"
+      "output_sha256": "5c0e47be941c09fec192d7822c478f7f7536b98741629a65bab79cdcaaaad378",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 21,
+        "bottom_world_px": 15,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "7aaafbf79d395d6f373bef900ebbe1ab55941bbc2f9950117d58701fa33eb881",
+        "interior_rgb_sha256": "c05f1f7e01f3c250e0426dc44a1a5c263b8ff42861c2b3eaac2428a47197f178"
+      }
     },
     {
       "source": "immortal_realm_01_islands_rev2.png",
@@ -211,7 +241,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "9b4b2897b2b0bc0f431791818e8bb31d0b3e6ab1d2bb914ad8ab7b154084d835",
-      "output_sha256": "a203575517828b8f3ad46e784a5bef43451cb9536b5079283cbbf6bcc65ea672"
+      "output_sha256": "6e3650de556f57161211147caf9ce91da6f4a4c21e25b822ca9b0ce013930f84",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 26,
+        "bottom_world_px": 23,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "a203575517828b8f3ad46e784a5bef43451cb9536b5079283cbbf6bcc65ea672",
+        "interior_rgb_sha256": "afd3d6c79bf204485951f4d0a82f7aca539828cf0540bb6791e1bc40e66f1e53"
+      }
     },
     {
       "source": "immortal_realm_02_cloud_cranes_rev2.png",
@@ -234,7 +274,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "ea93d5fff94996d850b70611223d7ba2f6f6084c06a7ca21d4f03170ec809fef",
-      "output_sha256": "81d6c70f6d2fdd4b47559a4ffce4acd3e6ea0a158e11cb8b613ee5649f178878"
+      "output_sha256": "2357db8f36db1b3cb1185bfe91f547459e47ae3821575e4c626dd411b4c1506d",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 18,
+        "bottom_world_px": 15,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "81d6c70f6d2fdd4b47559a4ffce4acd3e6ea0a158e11cb8b613ee5649f178878",
+        "interior_rgb_sha256": "1ecb7b2c440a4cff74772f7479f2beea7066878d548563acd57c54c84b365279"
+      }
     },
     {
       "source": "immortal_realm_03_pavilions_rev2.png",
@@ -257,7 +307,17 @@
         "partial_pixels": 0
       },
       "source_sha256": "17a14c5567b9e64fdba53ba3feb2fad261bc4dfb71266a8341edb81692c5c43b",
-      "output_sha256": "e37ac5043817d3dde22a779c0a99d47bf295503eec26f779cbb53f0a50126a3f"
+      "output_sha256": "41f70e8535fdbdf44bf077b8065d493084335f3aafcb8eb36b7cf063d29c8ecf",
+      "edge_bleed": {
+        "method": "mirrored_adjacent_inner_rows",
+        "texture_scale": 4,
+        "top_world_px": 25,
+        "bottom_world_px": 26,
+        "body_luma_threshold": 200.0,
+        "body_detail_threshold": 18.0,
+        "original_output_sha256": "e37ac5043817d3dde22a779c0a99d47bf295503eec26f779cbb53f0a50126a3f",
+        "interior_rgb_sha256": "b31c67b46fc81b2d5ae3be99af9cb3d240110217787c3d8593fa416a0ea9119e"
+      }
     }
   ]
 }

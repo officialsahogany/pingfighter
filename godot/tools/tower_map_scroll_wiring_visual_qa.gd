@@ -267,7 +267,7 @@ func _run() -> void:
 
 
 func _run_band_seam_only(output_dir: String) -> void:
-	var fixture := _create_fixture("tower-map-band-seam-visual-qa")
+	var fixture := _create_fixture("tower-map-band-seam-visual-qa", "", true)
 	if fixture.is_empty():
 		return
 	var flow: Object = fixture["flow"]
@@ -695,10 +695,19 @@ func _edge_cull_detail_crop(image: Image, edge: Dictionary) -> Image:
 	return detail
 
 
-func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:
+func _create_fixture(
+	run_id: String,
+	record_path: String = "",
+	load_raw_band_sources: bool = false
+) -> Dictionary:
 	var flow := TowerAscentFlowOwner.new()
 	if not record_path.is_empty():
 		flow.set_record_store_path_for_tests(record_path)
+	if load_raw_band_sources:
+		# PNG promotion is intentionally materialized by the editor after landing.
+		# The isolated Vulkan lane must nevertheless measure the exact source bytes
+		# under review instead of a same-path imported cache from the parent commit.
+		flow.set("_map_scroll_asset_catalog", _create_raw_band_source_catalog())
 	var registry := TowerMapOverlayVisualQa.CaptureRegistry.new(flow)
 	var viewport := SubViewport.new()
 	viewport.size = GAME_SIZE
@@ -721,6 +730,37 @@ func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:
 		"viewport": viewport,
 		"canvas": canvas,
 	}
+
+
+func _create_raw_band_source_catalog() -> RefCounted:
+	var canonical := TowerMapScrollAssetCatalog.new()
+	var raw_band_paths := {}
+	for asset_key in (
+		TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS
+		+ TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS
+	):
+		raw_band_paths[canonical.resolve_declared_path(asset_key)] = true
+	return TowerMapScrollAssetCatalog.new(
+		func(path: String) -> bool:
+			return (
+				FileAccess.file_exists(path)
+				if raw_band_paths.has(path)
+				else ResourceLoader.exists(path, "Texture2D")
+			),
+		func(path: String) -> Resource:
+			return (
+				_load_raw_png_texture(path)
+				if raw_band_paths.has(path)
+				else ResourceLoader.load(path, "Texture2D")
+			)
+	)
+
+
+func _load_raw_png_texture(path: String) -> Texture2D:
+	var image := Image.new()
+	if image.load_png_from_buffer(FileAccess.get_file_as_bytes(path)) != OK:
+		return null
+	return ImageTexture.create_from_image(image)
 
 
 func _prepare_gameplay_zoom_fixture(fixture: Dictionary) -> bool:

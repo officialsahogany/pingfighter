@@ -1,6 +1,7 @@
 param(
     [string]$GodotExe = "",
-    [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+    [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
+    [switch]$BandSeamOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,14 +26,19 @@ try {
     )
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
+    $godotArgs = @(
+        "--path", $ProjectPath,
+        "--windowed",
+        "--rendering-method", "mobile",
+        "--rendering-driver", "vulkan",
+        "--log-file", $logPath,
+        "-s", $qaPath
+    )
+    if ($BandSeamOnly) {
+        $godotArgs += @("--", "--band-seam-only")
+    }
     try {
-        $output = & $godot `
-            --path $ProjectPath `
-            --windowed `
-            --rendering-method mobile `
-            --rendering-driver vulkan `
-            --log-file $logPath `
-            -s $qaPath 2>&1
+        $output = & $godot @godotArgs 2>&1
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -43,7 +49,12 @@ try {
     $seriousErrors = @($output | Where-Object {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
-    $okMarker = "tower_map_scroll_wiring_visual_qa: ok"
+    $okMarker = if ($BandSeamOnly) {
+        "tower_map_band_seam_visual_qa: ok"
+    }
+    else {
+        "tower_map_scroll_wiring_visual_qa: ok"
+    }
     if ($exitCode -ne 0 -or $seriousErrors.Count -gt 0 -or -not $outputText.Contains($okMarker)) {
         Write-Host "Tower map-scroll wiring QA log preserved: $logPath"
         if ($exitCode -ne 0) {
