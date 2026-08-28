@@ -257,6 +257,7 @@ env:
     res://tests/lingpet_companion_motion_coordinator_refactor_smoke.gd
     res://tests/lingpet_companion_player_runtime_resolver_smoke.gd
     res://tests/lingpet_guardian_duration_lifecycle_coordinator_owner_smoke.gd
+    res://tests/guardian_active_unlock_absorption_smoke.gd
     res://tests/lingpet_guardian_enhance_flow_coordinator_owner_smoke.gd
     res://tests/lingpet_guardian_enhance_presentation_coordinator_owner_smoke.gd
     res://tests/lingpet_egg_crack_capture_smoke.gd

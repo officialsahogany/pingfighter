@@ -148,7 +148,8 @@ func loadout_matches(
 
 func _seed_unlock_choice_candidates(pet_id: String, guardian_run_state: Object) -> void:
 	var rewards: Dictionary = guardian_run_state.get_cumulative_rewards(pet_id)
-	if bool(rewards.get("active_unlocked", false)):
+	var second_active_unlocked := bool(rewards.get("second_active_unlocked", false))
+	if bool(rewards.get("active_unlocked", false)) or second_active_unlocked:
 		_seed_unlock_candidates_for_type(
 			pet_id,
 			LingpetGuardianRunState.REWARD_TYPE_ACTIVE_UNLOCK,
@@ -163,7 +164,7 @@ func _seed_unlock_choice_candidates(pet_id: String, guardian_run_state: Object) 
 			guardian_run_state
 		)
 	_auto_resolve_unlock_choices(pet_id, guardian_run_state, ["active", "passive"])
-	if bool(rewards.get("second_active_unlocked", false)):
+	if second_active_unlocked:
 		_seed_unlock_candidates_for_type(
 			pet_id,
 			LingpetGuardianRunState.REWARD_TYPE_SECOND_ACTIVE_UNLOCK,
