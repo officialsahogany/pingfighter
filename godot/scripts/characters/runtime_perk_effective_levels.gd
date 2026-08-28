@@ -44,6 +44,7 @@ const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := {
 	TRAINING_MASTERY_ID: true,
 	"common_training": true,
 	"perk_boost_charge": true,
+	"combo_amplifier_chip": true,
 }
 const VIPER_IGNITION_AURA_LEVEL_BONUS_EXCLUDED_IDS := {
 	"unlock_magnum_grip": true,
@@ -302,11 +303,21 @@ func get_combo_amplifier_chip_bonus(
 		"combo_amplifier_chip"
 	)
 	if level <= 0:
-		return {"drive_speed": 0.0, "drive_curve": 0.0, "smash_speed": 0.0}
+		return {
+			"drive_speed": 0.0,
+			"drive_curve": 0.0,
+			"smash_speed": 0.0,
+			"initial_boost_decay_reduction": 0.0,
+		}
 	return {
 		"drive_speed": RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_speed_bonus", level),
 		"smash_speed": RuntimePerkProgression.get_value("combo_amplifier_chip", "smash_speed_bonus", level),
 		"drive_curve": RuntimePerkProgression.get_value("combo_amplifier_chip", "drive_curve_bonus", level),
+		"initial_boost_decay_reduction": RuntimePerkProgression.get_value(
+			"combo_amplifier_chip",
+			"initial_boost_decay_reduction",
+			level
+		),
 	}
 
 

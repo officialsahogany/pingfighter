@@ -387,12 +387,30 @@ func get_perk_amplify_multiplier(effective_levels: Object, runtime_state: Object
 
 func get_combo_amplifier_chip_bonus(effective_levels: Object, runtime_state: Object) -> Dictionary:
 	if effective_levels == null or not effective_levels.has_method("get_combo_amplifier_chip_bonus"):
-		return {"drive_speed": 0.0, "drive_curve": 0.0, "smash_speed": 0.0}
-	return effective_levels.get_combo_amplifier_chip_bonus(
-		_get_runtime_skill_levels(runtime_state),
-		_get_item_perk_level_bonus(runtime_state),
-		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active")
+		return {
+			"drive_speed": 0.0,
+			"drive_curve": 0.0,
+			"smash_speed": 0.0,
+			"initial_boost_decay_reduction": 0.0,
+		}
+	var combo_level := get_runtime_skill_level(
+		effective_levels,
+		runtime_state,
+		"combo_amplifier_chip"
 	)
+	var resolved: Dictionary = effective_levels.get_combo_amplifier_chip_bonus(
+		{"combo_amplifier_chip": combo_level},
+		0,
+		false
+	)
+	var polish_multiplier := get_perk_amplify_multiplier(
+		effective_levels,
+		runtime_state,
+		"combo_amplifier_chip"
+	)
+	for key_value: Variant in resolved.keys():
+		resolved[key_value] = float(resolved.get(key_value, 0.0)) * polish_multiplier
+	return resolved
 
 
 func get_dash_recharge_frames(effective_levels: Object, runtime_state: Object, base_frames: float) -> float:

@@ -144,8 +144,21 @@ func apply_hit_velocity(
 	)
 
 
-func apply_motion(ball_velocity: Vector2, fps_scale: float, gravity_effect: float, boost_duration: float, combo_amp_chip_level: int = 0) -> Vector2:
-	return velocity_facade.apply_motion(runtime_state, ball_velocity, fps_scale, gravity_effect, boost_duration, combo_amp_chip_level)
+func apply_motion(
+	ball_velocity: Vector2,
+	fps_scale: float,
+	gravity_effect: float,
+	boost_duration: float,
+	initial_boost_decay_reduction: float = 0.0
+) -> Vector2:
+	return velocity_facade.apply_motion(
+		runtime_state,
+		ball_velocity,
+		fps_scale,
+		gravity_effect,
+		boost_duration,
+		initial_boost_decay_reduction
+	)
 
 
 func notify_wall_bounce(side: String) -> void:

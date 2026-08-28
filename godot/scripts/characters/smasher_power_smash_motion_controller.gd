@@ -44,18 +44,24 @@ func apply_motion(ball_vel: Vector2, fps_scale: float, context: Dictionary, deps
 		var scene_value: Variant = context.get("scene", {})
 		if scene_value is Dictionary and power_state.has_method("apply_ghost_shot_motion"):
 			return power_state.apply_ghost_shot_motion(scene_value, fps_scale, context, deps)
-	# 콤보증폭칩: 초기부스트 감쇄 완화용 칩 레벨 해석(motion 경로엔 deps가 도착함).
-	var combo_amp_chip_level: int = 0
+	# 콤보증폭칩: projection/융합/개광결까지 해석된 감쇄 완화 실효값을
+	# motion 경로에 전달한다. 여기서 progression 원본을 다시 읽으면 개광결이 탈락한다.
+	var initial_boost_decay_reduction := 0.0
 	var runtime_perk_state: Object = deps.get("runtime_perk_state", null)
-	if runtime_perk_state != null and runtime_perk_state.has_method("get_runtime_skill_level"):
-		combo_amp_chip_level = int(runtime_perk_state.get_runtime_skill_level("combo_amplifier_chip"))
+	if runtime_perk_state != null and runtime_perk_state.has_method("get_combo_amplifier_chip_bonus"):
+		initial_boost_decay_reduction = float(
+			runtime_perk_state.get_combo_amplifier_chip_bonus().get(
+				"initial_boost_decay_reduction",
+				0.0
+			)
+		)
 	return {
 		"ball_vel": power_state.apply_motion(
 			ball_vel,
 			fps_scale,
 			float(context.get("gravity_effect", 0.0)),
 			float(context.get("boost_duration", 0.0)),
-			combo_amp_chip_level
+			initial_boost_decay_reduction
 		),
 	}
 

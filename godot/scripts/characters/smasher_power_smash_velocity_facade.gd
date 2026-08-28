@@ -39,7 +39,7 @@ func apply_motion(
 	fps_scale: float,
 	gravity_effect: float,
 	boost_duration: float,
-	combo_amp_chip_level: int = 0
+	initial_boost_decay_reduction: float = 0.0
 ) -> Vector2:
 	return motion_resolver.apply(
 		runtime_state,
@@ -47,5 +47,5 @@ func apply_motion(
 		fps_scale,
 		gravity_effect,
 		boost_duration,
-		combo_amp_chip_level
+		initial_boost_decay_reduction
 	)

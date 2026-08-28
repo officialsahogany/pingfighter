@@ -13,16 +13,24 @@ extends SceneTree
 const BallPhysics := preload("res://scripts/ball/ball_physics.gd")
 const PaddleBouncePowerHitHandler := preload("res://scripts/ball/paddle_bounce_power_hit_handler.gd")
 const PowerSmashMotionResolver := preload("res://scripts/characters/smasher_power_smash_motion_resolver.gd")
+const PowerSmashMotionController := preload("res://scripts/characters/smasher_power_smash_motion_controller.gd")
 const SmasherPowerSmashState := preload("res://scripts/characters/smasher_power_smash_state.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 
 var _failures: Array[String] = []
 
 
 func _init() -> void:
+	var conversion_was_enabled := PerkConversionFlags.is_enabled()
+	PerkConversionFlags.debug_set_enabled(true)
 	_verify_chip_raises_launch_speed()
 	_verify_no_combo_ignores_amp()
 	_verify_chip_softens_decay()
+	_verify_polish_amplifies_smash_and_decay_outcomes()
+	_verify_motion_controller_passes_effective_decay_value()
 	_verify_decay_lv0_baseline_unchanged()
+	PerkConversionFlags.debug_set_enabled(conversion_was_enabled)
 
 	if _failures.is_empty():
 		print("smasher_combo_amplifier_powersmash_smoke: ok")
@@ -99,12 +107,12 @@ class _FakeBoostState:
 		return _boosted
 
 
-func _decay_speed(chip_level: int) -> float:
+func _decay_speed(decay_reduction: float) -> float:
 	# target=10, boosted=16, progress=0.1/0.5=0.2에서 보간 속도 비교.
 	var resolver: Object = PowerSmashMotionResolver.new()
 	var fake: Object = _FakeBoostState.new(10.0, 16.0)
 	var result: Vector2 = resolver._apply_initial_boost(
-		fake, Vector2(0.0, -16.0), 0.1, 0.5, chip_level
+		fake, Vector2(0.0, -16.0), 0.1, 0.5, decay_reduction
 	)
 	return result.length()
 
@@ -112,10 +120,68 @@ func _decay_speed(chip_level: int) -> float:
 func _verify_chip_softens_decay() -> void:
 	# 감쇄가 완만 = 부스트 속도(16)를 더 오래 유지 = 보간 속도가 더 큼.
 	var lv0: float = _decay_speed(0)
-	var lv5: float = _decay_speed(5)
+	var lv5: float = _decay_speed(0.50)
 	_expect(
 		lv5 > lv0 + 0.001,
 		"Lv5 chip should soften initial-boost decay (higher retained speed) vs Lv0"
+	)
+
+
+func _make_perk_state(polish_level: int) -> Object:
+	var state: Object = RuntimePerkState.new()
+	state.runtime_skill_levels["combo_amplifier_chip"] = 1
+	if polish_level > 0:
+		state.runtime_skill_levels["item_polish"] = polish_level
+	return state
+
+
+func _verify_polish_amplifies_smash_and_decay_outcomes() -> void:
+	var base_bonus: Dictionary = _make_perk_state(0).get_combo_amplifier_chip_bonus()
+	var polished_bonus: Dictionary = _make_perk_state(1).get_combo_amplifier_chip_bonus()
+	var base_launch := _launch_speed(3, float(base_bonus["smash_speed"]))
+	var polished_launch := _launch_speed(3, float(polished_bonus["smash_speed"]))
+	_expect(
+		polished_launch > base_launch + 0.001,
+		"item_polish should increase the production power-smash launch outcome"
+	)
+	var base_decay := _decay_speed(float(base_bonus["initial_boost_decay_reduction"]))
+	var polished_decay := _decay_speed(float(polished_bonus["initial_boost_decay_reduction"]))
+	_expect(
+		polished_decay > base_decay + 0.001,
+		"item_polish should increase the production initial-boost retention outcome"
+	)
+
+
+class _MotionCapturePowerState:
+	var received_decay_reduction := -1.0
+
+	func apply_motion(
+		ball_velocity: Vector2,
+		_fps_scale: float,
+		_gravity_effect: float,
+		_boost_duration: float,
+		decay_reduction: float
+	) -> Vector2:
+		received_decay_reduction = decay_reduction
+		return ball_velocity
+
+
+func _verify_motion_controller_passes_effective_decay_value() -> void:
+	var polished_state: Object = _make_perk_state(1)
+	var expected := float(
+		polished_state.get_combo_amplifier_chip_bonus()["initial_boost_decay_reduction"]
+	)
+	var power_state := _MotionCapturePowerState.new()
+	var controller: Object = PowerSmashMotionController.new()
+	controller.apply_motion(
+		Vector2(0.0, -16.0),
+		1.0,
+		{"gravity_effect": 0.0, "boost_duration": 0.5},
+		{"power_state": power_state, "runtime_perk_state": polished_state}
+	)
+	_expect(
+		is_equal_approx(power_state.received_decay_reduction, expected),
+		"power-smash motion controller should pass the Polish-amplified decay value"
 	)
 
 
