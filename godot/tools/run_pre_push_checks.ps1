@@ -73,6 +73,7 @@ $focusedSmoke = @(
     "res://tests/stage2_molewang_boss_port_smoke.gd",
     "res://tests/boss_skill_card_cooldown_contract_smoke.gd",
     "res://tests/boss_skill_card_fill_smoothing_smoke.gd",
+    "res://tests/boss_skill_card_continuous_fill_motion_smoke.gd",
     "res://tests/boss_skill_card_pity_gate_contract_smoke.gd",
     "res://tests/boss_skill_card_trigger_marker_contract_smoke.gd",
     "res://tests/stage2_arachne_boss_port_smoke.gd",

@@ -44,7 +44,7 @@ func _init() -> void:
 		% [RENDERER_PATHS.size(), STEP_SAMPLE_COUNT, _motion_sample_count, _reached_frame, BossSkillCardHudSpec.CARD_FILL_DURATION]
 	)
 	print(
-		"[BossSkillCardFillSmoothing] INCREASE=renderer_only_ease DECREASE=authority_snap PAYLOAD_UNCHANGED=true NO_CATALOG_SCAN=true NEGATIVE_FIXTURE_ENV=%s"
+		"[BossSkillCardFillSmoothing] INCREASE=renderer_only_critical_damping DECREASE=authority_snap PAYLOAD_UNCHANGED=true NO_CATALOG_SCAN=true NEGATIVE_FIXTURE_ENV=%s"
 		% DISABLE_SMOOTHING_FIXTURE_ENV
 	)
 	print("boss_skill_card_fill_smoothing_smoke: ok")

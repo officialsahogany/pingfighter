@@ -278,6 +278,7 @@ const SHUFFLE_LIFT_TRAVEL_REF_BASE := 11.0  # 이 이동거리(base px)에서 �
 const SHUFFLE_RETARGET_EPS := 0.5         # 목표 y 변경 감지 임계(px)
 const CARD_FILL_DURATION := 0.30          # 권위 fill 증가를 표시값이 따라가는 시간(초)
 const CARD_FILL_EPS := 0.0001
+const CARD_FILL_CRITICAL_DAMPING_STRENGTH := 12.0
 
 
 # `store`: 렌더러 소유 Dictionary(카드 id → 트윈 상태). 반환:
@@ -352,10 +353,11 @@ static func _shuffle_lift(s: Dictionary, p: float, sf: float) -> float:
 	return maxf(arc, float(s.get("lift_from", 0.0)) * (1.0 - p))
 
 
-# `store`: 렌더러 소유 Dictionary(카드 id → 표시 fill 트윈 상태).
-# 증가만 0.30초 smoothstep으로 보간하고, 감소(스킬 사용/리셋)는 권위값에 즉시
-# 스냅한다. 연속 증가 중에는 기존 트윈의 시작 시간을 유지해 매 프레임 재타겟이
-# 수렴을 영원히 미루지 않으며, 고정된 목표는 CARD_FILL_DURATION 안에 정확히 닿는다.
+# `store`: 렌더러 소유 Dictionary(카드 id → 표시 fill 감쇠 상태).
+# 증가에는 시간 간격 기반 임계 감쇠를 적용하고, 감소(스킬 사용/리셋)는 권위값에
+# 즉시 스냅한다. 연속 증가 권위를 고정 길이 smoothstep으로 반복 재타겟하면
+# 0.30초 경계마다 속도가 0으로 돌아가므로 현재 표시 속도를 상태에 보존한다.
+# 단일 단조 시간원만 사용하며 draw 호출 간격이 벌어져도 실제 경과시간만큼 따라잡는다.
 static func advance_card_fill(
 	store: Dictionary,
 	key: String,
@@ -366,10 +368,9 @@ static func advance_card_fill(
 	var state: Variant = store.get(key)
 	if not (state is Dictionary):
 		store[key] = {
-			"from_fill": target,
 			"target_fill": target,
-			"t0": time_seconds - CARD_FILL_DURATION,
 			"display_fill": target,
+			"display_velocity": 0.0,
 			"last_time": time_seconds,
 		}
 		return target
@@ -382,58 +383,33 @@ static func advance_card_fill(
 		_snap_card_fill_state(s, target, time_seconds)
 		return target
 
-	var progress := _card_fill_progress(s, time_seconds)
-	var current := lerpf(
-		clampf(float(s.get("from_fill", previous_display)), 0.0, 1.0),
-		previous_target,
-		_card_fill_ease(progress)
-	)
-	if progress >= 1.0:
-		current = previous_target
-
-	if target > previous_target + CARD_FILL_EPS:
-		if progress >= 1.0:
-			s["from_fill"] = current
-			# 새 트윈의 첫 호출도 직전 표시 프레임부터 흐른 시간만큼 전진한다.
-			# 그래야 연속 증가 권위값을 따라갈 때 트윈 경계마다 한 프레임 멎지 않는다.
-			var elapsed_since_last := clampf(time_seconds - last_time, 0.0, CARD_FILL_DURATION)
-			s["t0"] = time_seconds - elapsed_since_last
-		s["target_fill"] = target
-
-	progress = _card_fill_progress(s, time_seconds)
-	var displayed := lerpf(
-		clampf(float(s.get("from_fill", current)), 0.0, 1.0),
-		clampf(float(s.get("target_fill", target)), 0.0, 1.0),
-		_card_fill_ease(progress)
-	)
-	if progress >= 1.0:
-		displayed = clampf(float(s.get("target_fill", target)), 0.0, 1.0)
-	# 부동소수·재타겟 조합에서도 증가 표시가 한 픽셀 뒤로 흔들리지 않게 봉인.
-	displayed = maxf(previous_display, displayed)
+	var elapsed := clampf(time_seconds - last_time, 0.0, CARD_FILL_DURATION)
+	var velocity := maxf(0.0, float(s.get("display_velocity", 0.0)))
+	var displayed := previous_display
+	if elapsed > 0.0 and target > previous_display + CARD_FILL_EPS:
+		var omega := CARD_FILL_CRITICAL_DAMPING_STRENGTH / CARD_FILL_DURATION
+		var decay := exp(-omega * elapsed)
+		var displacement := previous_display - target
+		var integration := (velocity + omega * displacement) * elapsed
+		displayed = target + (displacement + integration) * decay
+		velocity = (velocity - omega * integration) * decay
+		displayed = clampf(displayed, previous_display, target)
+		velocity = maxf(0.0, velocity)
+	if target - displayed <= CARD_FILL_EPS:
+		displayed = target
+		velocity = 0.0
+	s["target_fill"] = target
 	s["display_fill"] = displayed
+	s["display_velocity"] = velocity
 	s["last_time"] = time_seconds
 	return displayed
 
 
 static func _snap_card_fill_state(state: Dictionary, target: float, time_seconds: float) -> void:
-	state["from_fill"] = target
 	state["target_fill"] = target
-	state["t0"] = time_seconds - CARD_FILL_DURATION
 	state["display_fill"] = target
+	state["display_velocity"] = 0.0
 	state["last_time"] = time_seconds
-
-
-static func _card_fill_progress(state: Dictionary, time_seconds: float) -> float:
-	return clampf(
-		(time_seconds - float(state.get("t0", time_seconds))) / CARD_FILL_DURATION,
-		0.0,
-		1.0
-	)
-
-
-static func _card_fill_ease(progress: float) -> float:
-	var p := clampf(progress, 0.0, 1.0)
-	return p * p * (3.0 - 2.0 * p)
 
 
 # 정렬에서 사라진 카드의 트윈 상태 정리(렌더러별 _prune_queue_positions 공용화).
