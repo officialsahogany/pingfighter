@@ -10,6 +10,12 @@ const KIND_MEDITATION := 1
 const KIND_ILLUSION := 2
 const KIND_AWAKEN_AURA := 3
 const HOST_KIND_COUNT := 4
+const HOST_NAMES := [
+	"PonkMagneticFxHost",
+	"PonkMeditationFxHost",
+	"PonkIllusionRippleFxHost",
+	"PonkAwakenAuraFxHost",
+]
 
 # Owns Stage 4 Ponk's detached FX Node references, staged runtime-node
 # prewarm, existing-child adoption, deferred attachment, sync, and immediate
@@ -25,6 +31,23 @@ var fx_hosts_prewarmed := false
 var _add_pending: Array[bool] = [false, false, false, false]
 var _runtime_prewarmed: Array[bool] = [false, false, false, false]
 var _prewarm_step_index := 0
+
+
+static func tear_down_from_canvas(canvas: Object, free_self: bool = false) -> int:
+	if canvas == null or not is_instance_valid(canvas):
+		return 0
+	if not canvas.has_method("get_node_or_null"):
+		return 0
+	var tear_down_count := 0
+	for host_name: String in HOST_NAMES:
+		var host: Node = canvas.get_node_or_null(host_name)
+		if host == null or not is_instance_valid(host) or host.is_queued_for_deletion():
+			continue
+		if not host.has_method("tear_down"):
+			continue
+		host.call("tear_down", free_self)
+		tear_down_count += 1
+	return tear_down_count
 
 
 func prewarm_runtime_hosts(canvas: CanvasItem) -> void:

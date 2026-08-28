@@ -227,6 +227,19 @@ func set_active(active: bool) -> void:
 func tear_down(free_self: bool = false) -> void:
 	set_active(false)
 	_stop_all_tweens()
+	_state.clear()
+	pulse_value = 0.0
+	breath_value = 0.0
+	open_value = 0.0
+	release_flash = 0.0
+	elapsed_sec = 0.0
+	_last_release_id = -1
+	for trail_line: Line2D in [_trail_glow_line, _trail_core_line, _release_line]:
+		if trail_line != null and is_instance_valid(trail_line):
+			trail_line.clear_points()
+	for particles: GPUParticles2D in [_mote_particles, _petal_particles, _release_particles]:
+		if particles != null and is_instance_valid(particles):
+			particles.restart()
 	if free_self:
 		queue_free()
 

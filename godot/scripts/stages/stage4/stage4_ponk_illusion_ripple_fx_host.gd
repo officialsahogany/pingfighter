@@ -106,6 +106,16 @@ func set_active(enabled: bool) -> void:
 		set_process(false)
 
 
+func tear_down(free_self: bool = false) -> void:
+	set_active(false)
+	_last_active_sync_msec = 0
+	if _material != null:
+		_material.set_shader_parameter("strength", 0.0)
+		_material.set_shader_parameter("elapsed_sec", 0.0)
+	if free_self:
+		queue_free()
+
+
 func get_debug_status() -> Dictionary:
 	return {
 		"active": visible,

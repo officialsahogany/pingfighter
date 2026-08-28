@@ -188,7 +188,14 @@ func set_active(active: bool) -> void:
 func tear_down(free_self: bool = false) -> void:
 	set_active(false)
 	_stop_open_tween()
+	_state.clear()
+	open_value = 0.0
+	elapsed_sec = 0.0
+	if _mote_particles != null and is_instance_valid(_mote_particles):
+		_mote_particles.restart()
 	if free_self:
+		if _pending_host == self:
+			_pending_host = null
 		queue_free()
 
 

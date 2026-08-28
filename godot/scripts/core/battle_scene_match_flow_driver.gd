@@ -4,6 +4,7 @@ const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneMatchResetResultApplier := preload("res://scripts/core/battle_scene_match_reset_result_applier.gd")
 const PlayerRainWetnessLifecycle := preload("res://scripts/effects/player_rain_wetness_lifecycle.gd")
+const Stage4PonkFxHostCoordinator := preload("res://scripts/stages/stage4/stage4_ponk_fx_host_coordinator.gd")
 const PlazaSaveStore := preload("res://scripts/plaza/plaza_save_store.gd")
 const ScoreboardState := preload("res://scripts/hud/scoreboard_state.gd")
 const TowerAscentBossRegistry := preload(
@@ -499,9 +500,10 @@ func _try_start_tower_ascent_vertical_slice(
 	))
 	if started:
 		# Tower clear enters the node map without leaving the battle scene, so
-		# BattleSceneTeardownLifecycle is not reached. Retire the visible layer and
-		# accumulated envelope here, but retain the warmed host for the next fight.
+		# BattleSceneTeardownLifecycle is not reached. Retire detached battle FX
+		# state here, but retain warmed hosts for the next fight.
 		PlayerRainWetnessLifecycle.tear_down_from_canvas(owner, false)
+		Stage4PonkFxHostCoordinator.tear_down_from_canvas(owner, false)
 	return started
 
 

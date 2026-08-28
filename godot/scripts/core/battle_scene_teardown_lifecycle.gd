@@ -5,6 +5,7 @@ const SkillOrbTextureNormalizer := preload("res://scripts/resources/skill_orb_te
 const CharacterSelectPrewarm := preload("res://scripts/ui/character_select_prewarm.gd")
 const MobileTouchControls := preload("res://scripts/core/mobile_touch_controls.gd")
 const PlayerRainWetnessLifecycle := preload("res://scripts/effects/player_rain_wetness_lifecycle.gd")
+const Stage4PonkFxHostCoordinator := preload("res://scripts/stages/stage4/stage4_ponk_fx_host_coordinator.gd")
 
 
 func exit_tree(owner: Node, registry: Object, cached_module_getter: Callable, callbacks: Dictionary) -> void:
@@ -13,6 +14,7 @@ func exit_tree(owner: Node, registry: Object, cached_module_getter: Callable, ca
 	# renderer reference; otherwise the detached child can survive until the
 	# outgoing battle canvas itself is finally destroyed.
 	PlayerRainWetnessLifecycle.tear_down_from_canvas(owner, true)
+	Stage4PonkFxHostCoordinator.tear_down_from_canvas(owner, true)
 	if registry != null and registry.has_method("get_cached_instance"):
 		var online_runtime: Variant = registry.get_cached_instance("online_match_runtime")
 		if typeof(online_runtime) == TYPE_OBJECT and online_runtime != null and online_runtime.has_method("stop"):

@@ -234,6 +234,13 @@ func set_active(active: bool) -> void:
 func tear_down(free_self: bool = false) -> void:
 	set_active(false)
 	_stop_open_tween()
+	_state.clear()
+	open_value = 0.0
+	elapsed_sec = 0.0
+	_charge_glyph_preset_name = ""
+	_lattice_preset_name = ""
+	if _prism_particles != null and is_instance_valid(_prism_particles):
+		_prism_particles.restart()
 	if free_self:
 		queue_free()
 

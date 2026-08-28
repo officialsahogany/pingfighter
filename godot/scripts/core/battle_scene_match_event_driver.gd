@@ -4,6 +4,7 @@ const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_r
 const BattleSceneBossHealthFlow := preload("res://scripts/core/battle_scene_boss_health_flow.gd")
 const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
 const PlayerRainWetnessLifecycle := preload("res://scripts/effects/player_rain_wetness_lifecycle.gd")
+const Stage4PonkFxHostCoordinator := preload("res://scripts/stages/stage4/stage4_ponk_fx_host_coordinator.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const BallDependencyContext := preload("res://scripts/ball/ball_dependency_context.gd")
 const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
@@ -706,8 +707,10 @@ func _reset_ball(owner: Object, registry: Object) -> void:
 	# Accepted scores, serve starts, true round restarts, and score-cancel holds
 	# all converge here. Reset the detached wetness envelope before the new ball
 	# (and potentially a new weather roll) starts, while retaining its warmed
-	# Sprite2D/ShaderMaterial for reuse on this battle canvas.
+	# Sprite2D/ShaderMaterial for reuse on this battle canvas. Stage 4 Ponk's
+	# detached hosts share this reset boundary and the same reuse contract.
 	PlayerRainWetnessLifecycle.tear_down_from_canvas(owner, false)
+	Stage4PonkFxHostCoordinator.tear_down_from_canvas(owner, false)
 	var perf_logger: Object = _get_instance(registry, "battle_perf_logger")
 	var ball_driver: Object = _get_instance(registry, "battle_scene_ball_update_driver")
 	if ball_driver != null:
