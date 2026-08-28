@@ -19,6 +19,12 @@ const TowerAscentTuning := preload(
 const EXPECTED_ASSET_COUNT := 16
 const EXPECTED_UPSCALE_MANIFEST_ASSET_COUNT := 11
 const EXPECTED_CLOUD_ASSET_COUNT := 5
+const EXPECTED_STANDARD_MAP_ROW_COUNT := 32
+const EXPECTED_PRODUCTION_DRAW_CHUNK_COUNT := 21
+const EXPECTED_PRODUCTION_SEAM_COUNT := 20
+const EXPECTED_BAND_SEAM_OVERLAP_WORLD_PX := 16.0
+const EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 24.0
+const EXPECTED_REFLECTED_TAIL_WORLD_PX := 48.0
 
 var _failures: Array[String] = []
 var _leg_count := 0
@@ -270,6 +276,20 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	_expect(bool(background.get("ready", false)), "the live fullscreen model must select approved opaque bands")
 	var tiles: Array = background.get("tiles", [])
 	var draw_chunks: Array = background.get("draw_chunks", [])
+	var production_global_rows: Dictionary = {}
+	for phase_variant in flow.get_graph_phases():
+		if not (phase_variant is Dictionary):
+			continue
+		for node_variant in (phase_variant as Dictionary).get("nodes", []):
+			if not (node_variant is Dictionary):
+				continue
+			var global_row := int((node_variant as Dictionary).get("global_row", -1))
+			if global_row >= 0:
+				production_global_rows[global_row] = true
+	_expect(
+		production_global_rows.size() == EXPECTED_STANDARD_MAP_ROW_COUNT,
+		"the Y1 compact standard map must retain 32 generated rows"
+	)
 	_expect(
 		tiles.size() == (model.get("floor_bands", []) as Array).size()
 		and tiles.size() == 12,
@@ -325,16 +345,27 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		previous_key = asset_key
 		previous_floor = int(tile.get("floor", 0))
 	var previous_end_y := tile_world_rect.position.y
-	var expected_overlap_base_world_px := 56.0
 	_expect(
 		is_equal_approx(
 			renderer.get_map_scroll_band_seam_overlap_world_px(),
-			expected_overlap_base_world_px
+			EXPECTED_BAND_SEAM_OVERLAP_WORLD_PX
 		),
-		"band chunks must retain the approved 56px base-world overlap"
+		"band chunks must retain the approved 16px base-world overlap"
 	)
-	var expected_overlap := expected_overlap_base_world_px * map_scale
-	_expect(draw_chunks.size() == 22, "the 34-row map must retain its existing 22 draw chunks")
+	_expect(
+		is_equal_approx(
+			renderer.get_map_scroll_band_source_edge_guard_world_px(),
+			EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX
+		),
+		"seam phases must retain the approved 24px source-edge guard"
+	)
+	var expected_overlap := EXPECTED_BAND_SEAM_OVERLAP_WORLD_PX * map_scale
+	var expected_source_guard := EXPECTED_BAND_SOURCE_EDGE_GUARD_WORLD_PX * map_scale
+	var expected_reflected_tail := EXPECTED_REFLECTED_TAIL_WORLD_PX * map_scale
+	_expect(
+		draw_chunks.size() == EXPECTED_PRODUCTION_DRAW_CHUNK_COUNT,
+		"the 32-row Y1 map must retain its 21 production draw chunks"
+	)
 	_expect(
 		int(background.get("draw_call_count", -1)) == draw_chunks.size() * 2,
 		"bounded entry/body/tail phases must remain one art draw per chunk"
@@ -348,11 +379,19 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 	)
 	var production_scales_match := true
 	var production_source_bounds_ok := true
+	var production_seam_entry_count := 0
+	var production_seam_tail_count := 0
 	for chunk_index in range(draw_chunks.size()):
 		var chunk_variant: Variant = draw_chunks[chunk_index]
 		var chunk := chunk_variant as Dictionary
 		var chunk_rect: Rect2 = chunk.get("rect", Rect2())
 		var alpha_ramp_world_px := float(chunk.get("alpha_ramp_world_px", -1.0))
+		var source_edge_guard_world_px := float(
+			chunk.get("source_edge_guard_world_px", -1.0)
+		)
+		var reflected_tail_world_px := float(
+			chunk.get("reflected_tail_world_px", -1.0)
+		)
 		var source_rect: Rect2 = chunk.get(
 			"normalized_source_rect",
 			Rect2(0.0, 0.0, 1.0, 1.0)
@@ -376,15 +415,25 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			"every repeated band chunk must span the scroll width"
 		)
 		var required_overlap := expected_overlap if chunk_index > 0 else 0.0
+		var required_source_guard := expected_source_guard if chunk_index > 0 else 0.0
+		var required_reflected_tail := expected_reflected_tail if chunk_index > 0 else 0.0
 		_expect(
 			is_equal_approx(paper_rect.position.y, previous_end_y)
 			and is_equal_approx(chunk_rect.position.y, paper_rect.position.y)
-			and is_equal_approx(chunk_rect.end.y, paper_rect.end.y - required_overlap),
+			and is_equal_approx(
+				chunk_rect.end.y,
+				paper_rect.end.y - required_reflected_tail
+			),
 			"native-scale band bodies must reserve exactly one reflected tail"
 		)
 		_expect(
 			is_equal_approx(alpha_ramp_world_px, required_overlap),
 			"every overlap must carry the matching vertical alpha ramp"
+		)
+		_expect(
+			is_equal_approx(source_edge_guard_world_px, required_source_guard)
+			and is_equal_approx(reflected_tail_world_px, required_reflected_tail),
+			"every seam must decouple its 16px crossfade from the guarded reflected tail"
 		)
 		_expect(
 			is_equal_approx(
@@ -394,11 +443,18 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			"band-body source and target heights must preserve native scale"
 		)
 		_expect(
-			is_equal_approx(source_rect.position.y, required_overlap / (320.0 * map_scale)),
+			is_equal_approx(
+				source_rect.position.y,
+				required_source_guard / (320.0 * map_scale)
+			),
 			"later bodies must begin after the omitted bright source gutter"
 		)
+		var normalized_source_guard := required_source_guard / (320.0 * map_scale)
+		var guarded_source_min := paper_source_rect.position.y + normalized_source_guard
+		var guarded_source_max := paper_source_rect.end.y - normalized_source_guard
 		var body_source_bounds_ok := (
-			source_rect.position.y >= -0.0001 and source_rect.end.y <= 1.0001
+			source_rect.position.y >= guarded_source_min - 0.0001
+			and source_rect.end.y <= guarded_source_max + 0.0001
 		)
 		var paper_source_bounds_ok := (
 			paper_source_rect.position.y >= -0.0001
@@ -426,14 +482,18 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 				"the map-top chunk must omit incoming seam phase geometry"
 			)
 		else:
+			if seam_entry_rect.has_area():
+				production_seam_entry_count += 1
+			if seam_tail_rect.has_area():
+				production_seam_tail_count += 1
 			_expect(
 				is_equal_approx(seam_entry_rect.position.y, paper_rect.position.y - required_overlap)
 				and is_equal_approx(seam_entry_rect.end.y, paper_rect.position.y),
 				"every real seam must own one bounded incoming phase strip"
 			)
 			var entry_source_bounds_ok := (
-				seam_entry_source_rect.position.y >= -0.0001
-				and seam_entry_source_rect.end.y <= 1.0001
+				seam_entry_source_rect.position.y >= guarded_source_min - 0.0001
+				and seam_entry_source_rect.end.y <= guarded_source_max + 0.0001
 			)
 			production_source_bounds_ok = (
 				production_source_bounds_ok and entry_source_bounds_ok
@@ -441,6 +501,17 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			_expect(
 				entry_source_bounds_ok,
 				"every seam-entry source rect must stay inside normalized texture bounds"
+			)
+			_expect(
+				is_equal_approx(
+					seam_entry_source_rect.position.y,
+					guarded_source_min
+				)
+				and is_equal_approx(
+					seam_entry_source_rect.size.y,
+					required_overlap / (320.0 * map_scale)
+				),
+				"every seam entry must sample inward from the guarded source edge"
 			)
 			_expect(
 				is_equal_approx(
@@ -459,8 +530,8 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 				"every shifted body must end in one bounded reflected tail"
 			)
 			var tail_source_bounds_ok := (
-				seam_tail_source_rect.position.y >= -0.0001
-				and seam_tail_source_rect.end.y <= 1.0001
+				seam_tail_source_rect.position.y >= guarded_source_min - 0.0001
+				and seam_tail_source_rect.end.y <= guarded_source_max + 0.0001
 			)
 			production_source_bounds_ok = (
 				production_source_bounds_ok and tail_source_bounds_ok
@@ -468,6 +539,14 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 			_expect(
 				tail_source_bounds_ok,
 				"every seam-tail source rect must stay inside normalized texture bounds"
+			)
+			_expect(
+				is_equal_approx(seam_tail_source_rect.end.y, guarded_source_max)
+				and is_equal_approx(
+					seam_tail_source_rect.size.y,
+					required_reflected_tail / (320.0 * map_scale)
+				),
+				"every reflected tail must finish before the guarded source edge"
 			)
 			_expect(
 				is_equal_approx(
@@ -507,6 +586,11 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 		_expect(chunk.has("paper_rect"), "paper_rect must remain the live logical chunk geometry")
 		previous_end_y = paper_rect.end.y
 	_expect(
+		production_seam_entry_count == EXPECTED_PRODUCTION_SEAM_COUNT
+		and production_seam_tail_count == EXPECTED_PRODUCTION_SEAM_COUNT,
+		"21 production chunks must retain exactly 20 bounded seam entries and tails"
+	)
+	_expect(
 		is_equal_approx(previous_end_y, tile_world_rect.end.y),
 		"the opaque tile stack must cover the complete scroll world: end=%.3f expected=%.3f"
 			% [previous_end_y, tile_world_rect.end.y]
@@ -519,8 +603,8 @@ func _verify_opaque_floor_tile_render_model_and_fallback() -> void:
 				first_band_scale,
 				first_paper_scale,
 				str(production_source_bounds_ok),
-				draw_chunks.size() - 1,
-				draw_chunks.size() - 1,
+				production_seam_entry_count,
+				production_seam_tail_count,
 			]
 	)
 	var legacy: Dictionary = renderer.build_render_model(flow).get("legacy_scroll_background", {})
@@ -587,10 +671,11 @@ func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
 	if chunks.size() != chunk_heights.size():
 		_leg_count += 1
 		return
-	var expected_fades := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
-	var expected_target_heights := PackedFloat32Array([320.0, 264.0, 104.0, 50.0])
-	var expected_entry_heights := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
-	var expected_tail_heights := PackedFloat32Array([0.0, 56.0, 56.0, 50.0])
+	var expected_fades := PackedFloat32Array([0.0, 16.0, 16.0, 16.0])
+	var expected_guards := PackedFloat32Array([0.0, 24.0, 24.0, 24.0])
+	var expected_target_heights := PackedFloat32Array([320.0, 272.0, 112.0, 52.0])
+	var expected_entry_heights := PackedFloat32Array([0.0, 16.0, 16.0, 16.0])
+	var expected_tail_heights := PackedFloat32Array([0.0, 48.0, 48.0, 48.0])
 	var first_band_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "texture")
 	var first_paper_scale := _chunk_vertical_scale(chunks[0] as Dictionary, "paper_texture")
 	var boundary_scales_match := true
@@ -611,7 +696,14 @@ func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
 		)
 		_expect(
 			is_equal_approx(float(chunk.get("alpha_ramp_world_px", -1.0)), float(expected_fades[index])),
-			"boundary chunk %d must retain the expected 320/160/cap fade span" % index
+			"boundary chunk %d must retain the approved 16px overlap span" % index
+		)
+		_expect(
+			is_equal_approx(
+				float(chunk.get("source_edge_guard_world_px", -1.0)),
+				float(expected_guards[index])
+			),
+			"boundary chunk %d must retain its source-edge guard" % index
 		)
 		_expect(
 			is_equal_approx(entry_rect.size.y, float(expected_entry_heights[index])),
@@ -659,7 +751,7 @@ func _verify_band_chunk_scale_invariant_boundary_fixture() -> void:
 			"320/160/cap paper scale must match the first 320px chunk"
 		)
 	print(
-		"[TowerMapBandScaleBoundary] content_heights=320,320,160,100 target_heights=320,264,104,50 entry_heights=0,56,56,50 tail_heights=0,56,56,50 fades=0,56,56,50 scale_match=%s source_bounds=%s band_scale=%.6f paper_scale=%.6f"
+		"[TowerMapBandScaleBoundary] content_heights=320,320,160,100 target_heights=320,272,112,52 entry_heights=0,16,16,16 tail_heights=0,48,48,48 guards=0,24,24,24 fades=0,16,16,16 scale_match=%s source_bounds=%s band_scale=%.6f paper_scale=%.6f"
 			% [
 				str(boundary_scales_match),
 				str(boundary_source_bounds_ok),

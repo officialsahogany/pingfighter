@@ -44,6 +44,11 @@ const EDGE_CULL_FRAME_NAME := "16_live_edge_cull_frame.png"
 const EDGE_CULL_DETAIL_NAME := "17_live_edge_cull_detail.png"
 const BAND_SEAM_BRIGHT_LUMA_THRESHOLD := 200.0
 const BAND_SEAM_MIN_GUTTER_WIDTH_PX := 2
+const BAND_SEAM_EXPECTED_PRODUCTION_CHUNK_COUNT := 21
+const BAND_SEAM_EXPECTED_PRODUCTION_SEAM_COUNT := 20
+const BAND_SEAM_EXPECTED_CROSSFADE_WORLD_PX := 16.0
+const BAND_SEAM_BASELINE_REFLECTED_TAIL_WORLD_PX := 56.0
+const BAND_SEAM_FOLD_COMPARISON_ZOOM := 2.15
 
 const HUMAN_BAND_PATHS := [
 	"res://assets/sprites/tower/map_scroll/human_realm_01_mountain_rev2.png",
@@ -294,6 +299,40 @@ func _run_band_seam_only(output_dir: String) -> void:
 		return
 	var minimum_pixel_scale := float(seam_probe.get("minimum_pixel_scale", -1.0))
 	var maximum_pixel_scale := float(seam_probe.get("maximum_pixel_scale", -1.0))
+	var crossfade_world_px := float(seam_probe.get("maximum_crossfade_world_px", -1.0))
+	var source_guard_world_px := float(seam_probe.get("maximum_source_guard_world_px", -1.0))
+	var reflected_tail_world_px := float(
+		seam_probe.get("maximum_reflected_tail_world_px", -1.0)
+	)
+	var baseline_fold_screen_px := (
+		BAND_SEAM_BASELINE_REFLECTED_TAIL_WORLD_PX * BAND_SEAM_FOLD_COMPARISON_ZOOM
+	)
+	var candidate_fold_screen_px := (
+		reflected_tail_world_px * BAND_SEAM_FOLD_COMPARISON_ZOOM
+	)
+	if (
+		not is_equal_approx(crossfade_world_px, BAND_SEAM_EXPECTED_CROSSFADE_WORLD_PX)
+		or candidate_fold_screen_px >= baseline_fold_screen_px - 0.001
+	):
+		_fail(
+			"Band-seam fold width must retain the 16px crossfade and improve on the 56px baseline"
+		)
+		return
+	print(
+		"[TowerMapBandFoldWidthQA] zoom=%.2f crossfade_world_px=%.1f source_guard_world_px=%.1f reflected_tail_world_px=%.1f candidate_screen_px=%.1f baseline_screen_px=%.1f improvement_px=%.1f improvement_pct=%.1f"
+			% [
+				BAND_SEAM_FOLD_COMPARISON_ZOOM,
+				crossfade_world_px,
+				source_guard_world_px,
+				reflected_tail_world_px,
+				candidate_fold_screen_px,
+				baseline_fold_screen_px,
+				baseline_fold_screen_px - candidate_fold_screen_px,
+				(
+					baseline_fold_screen_px - candidate_fold_screen_px
+				) / baseline_fold_screen_px * 100.0,
+			]
+	)
 	print(
 		"[TowerMapBandArtScaleVisualQA] samples=%d minimum_scale=%.3f maximum_scale=%.3f"
 			% [
@@ -370,7 +409,10 @@ func _run_band_seam_only(output_dir: String) -> void:
 	)
 	await _dispose_fixture(fixture)
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
-	print("[TowerMapBandSeamVisualQA] output=%s captures=6 seams=21" % output_dir)
+	print(
+		"[TowerMapBandSeamVisualQA] output=%s captures=6 seams=%d"
+			% [output_dir, int((seam_probe.get("seams", []) as Array).size())]
+	)
 	print("tower_map_band_seam_visual_qa: ok")
 	quit(0)
 
@@ -898,7 +940,7 @@ func _build_band_seam_probe(model: Dictionary) -> Dictionary:
 	var background: Dictionary = model.get("scroll_background", {})
 	var draw_chunks: Array = background.get("draw_chunks", [])
 	var tiles: Array = background.get("tiles", [])
-	if draw_chunks.size() != 22 or tiles.is_empty():
+	if draw_chunks.size() != BAND_SEAM_EXPECTED_PRODUCTION_CHUNK_COUNT or tiles.is_empty():
 		return {"ready": false}
 	var tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
 	var map_scale := tile_rect.size.x / 692.0
@@ -920,6 +962,23 @@ func _build_band_seam_probe(model: Dictionary) -> Dictionary:
 	var pixel_scale_probe := _measure_band_art_pixel_scales(draw_chunks, map_scale)
 	if not bool(pixel_scale_probe.get("ready", false)):
 		return {"ready": false}
+	var maximum_crossfade_world_px := 0.0
+	var maximum_source_guard_world_px := 0.0
+	var maximum_reflected_tail_world_px := 0.0
+	for chunk_variant in draw_chunks:
+		var measured_chunk := chunk_variant as Dictionary
+		maximum_crossfade_world_px = maxf(
+			maximum_crossfade_world_px,
+			float(measured_chunk.get("alpha_ramp_world_px", 0.0)) / map_scale
+		)
+		maximum_source_guard_world_px = maxf(
+			maximum_source_guard_world_px,
+			float(measured_chunk.get("source_edge_guard_world_px", 0.0)) / map_scale
+		)
+		maximum_reflected_tail_world_px = maxf(
+			maximum_reflected_tail_world_px,
+			float(measured_chunk.get("reflected_tail_world_px", 0.0)) / map_scale
+		)
 	var seams: Array[Dictionary] = []
 	var worst_jump := -1.0
 	var worst_seam_y := -1
@@ -964,7 +1023,7 @@ func _build_band_seam_probe(model: Dictionary) -> Dictionary:
 			worst_jump = before_jump
 			worst_seam_y = seam_y
 	return {
-		"ready": seams.size() == 21,
+		"ready": seams.size() == BAND_SEAM_EXPECTED_PRODUCTION_SEAM_COUNT,
 		"before_image": before_image,
 		"after_image": after_image,
 		"seams": seams,
@@ -972,6 +1031,9 @@ func _build_band_seam_probe(model: Dictionary) -> Dictionary:
 		"minimum_pixel_scale": float(pixel_scale_probe.get("minimum_scale", -1.0)),
 		"maximum_pixel_scale": float(pixel_scale_probe.get("maximum_scale", -1.0)),
 		"pixel_scale_sample_count": int(pixel_scale_probe.get("sample_count", 0)),
+		"maximum_crossfade_world_px": maximum_crossfade_world_px,
+		"maximum_source_guard_world_px": maximum_source_guard_world_px,
+		"maximum_reflected_tail_world_px": maximum_reflected_tail_world_px,
 	}
 
 

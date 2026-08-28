@@ -134,7 +134,8 @@ const BOSS_ART_GRID := Vector2i(2, 2)
 const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
-const MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX := 56.0
+const MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX := 16.0
+const MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 24.0
 const MAP_SCROLL_ROW_PITCH := 160.0
 const MAP_SCROLL_NODE_ART_SIZE := 32.0
 const MAP_SCROLL_ROUTE_BRUSH_WIDTH := 18.0
@@ -2364,6 +2365,11 @@ func build_scroll_background_model(
 		* tile_size.y
 		/ MAP_SCROLL_TILE_SIZE.y
 	)
+	var source_edge_guard_world_px := (
+		MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX
+		* tile_size.y
+		/ MAP_SCROLL_TILE_SIZE.y
+	)
 	var previous_asset_key := ""
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
@@ -2404,11 +2410,19 @@ func build_scroll_background_model(
 				Vector2(tile_size.x, chunk_height)
 			)
 			var draw_rect := paper_rect
-			var alpha_ramp_world_px := (
-				minf(seam_overlap_world_px, chunk_height * 0.5)
+			# Keep the approved 16px crossfade independent from the art-source guard.
+			# Trimming both source edges removes the opaque gutter; reflecting twice
+			# the guard width fills that trimmed span without stretching any phase.
+			# The quarter-height cap keeps body, entry, and tail valid on short crops.
+			var guarded_edge_world_px := (
+				minf(source_edge_guard_world_px, chunk_height * 0.25)
 				if not draw_chunks.is_empty()
 				else 0.0
 			)
+			var alpha_ramp_world_px := (
+				minf(seam_overlap_world_px, guarded_edge_world_px)
+			)
+			var reflected_tail_world_px := guarded_edge_world_px * 2.0
 			var paper_source_rect := Rect2(
 				Vector2.ZERO,
 				Vector2(1.0, chunk_height / tile_size.y)
@@ -2418,32 +2432,38 @@ func build_scroll_background_model(
 			var seam_entry_source_rect := Rect2()
 			var seam_tail_rect := Rect2()
 			var seam_tail_source_rect := Rect2()
-			if alpha_ramp_world_px > 0.0:
+			if guarded_edge_world_px > 0.0:
+				var normalized_guard := guarded_edge_world_px / tile_size.y
+				var normalized_tail := reflected_tail_world_px / tile_size.y
 				var normalized_ramp := alpha_ramp_world_px / tile_size.y
 				seam_entry_rect = Rect2(
 					Vector2(world_rect.position.x, paper_rect.position.y - alpha_ramp_world_px),
 					Vector2(tile_size.x, alpha_ramp_world_px)
 				)
 				seam_entry_source_rect = Rect2(
-					Vector2(0.0, normalized_ramp),
+					Vector2(0.0, normalized_guard),
 					Vector2(1.0, normalized_ramp)
 				)
-				draw_rect.size.y -= alpha_ramp_world_px
-				normalized_source_rect.position.y += normalized_ramp
-				normalized_source_rect.size.y -= normalized_ramp
+				draw_rect.size.y -= reflected_tail_world_px
+				normalized_source_rect.position.y += normalized_guard
+				normalized_source_rect.size.y -= normalized_guard * 2.0
 				seam_tail_rect = Rect2(
 					Vector2(
 						world_rect.position.x,
-						paper_rect.end.y - alpha_ramp_world_px
+						paper_rect.end.y - reflected_tail_world_px
 					),
-					Vector2(tile_size.x, alpha_ramp_world_px)
+					Vector2(tile_size.x, reflected_tail_world_px)
 				)
 				seam_tail_source_rect = Rect2(
 					Vector2(
 						0.0,
-						(chunk_height - alpha_ramp_world_px) / tile_size.y
+						(
+							chunk_height
+							- guarded_edge_world_px
+							- reflected_tail_world_px
+						) / tile_size.y
 					),
-					Vector2(1.0, alpha_ramp_world_px / tile_size.y)
+					Vector2(1.0, normalized_tail)
 				)
 			draw_chunks.append({
 				"floor": floor_number,
@@ -2453,6 +2473,8 @@ func build_scroll_background_model(
 				"paper_source_rect": paper_source_rect,
 				"rect": draw_rect,
 				"alpha_ramp_world_px": alpha_ramp_world_px,
+				"source_edge_guard_world_px": guarded_edge_world_px,
+				"reflected_tail_world_px": reflected_tail_world_px,
 				"normalized_source_rect": normalized_source_rect,
 				"seam_entry_rect": seam_entry_rect,
 				"seam_entry_source_rect": seam_entry_source_rect,
@@ -2504,6 +2526,10 @@ func build_scroll_background_model(
 
 func get_map_scroll_band_seam_overlap_world_px() -> float:
 	return MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX
+
+
+func get_map_scroll_band_source_edge_guard_world_px() -> float:
+	return MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX
 
 
 func resolve_segment_floor_for_world_y(
