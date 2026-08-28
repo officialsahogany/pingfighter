@@ -40,6 +40,8 @@ const BAND_SEAM_COMPARE_NAME := "12_band_seam_before_after_probe.png"
 const BAND_SEAM_BEFORE_STACK_NAME := "13_band_seam_before_stack.png"
 const BAND_SEAM_AFTER_STACK_NAME := "14_band_seam_after_stack.png"
 const BAND_SEAM_BOTTOM_NAME := "15_live_map_bottom.png"
+const EDGE_CULL_FRAME_NAME := "16_live_edge_cull_frame.png"
+const EDGE_CULL_DETAIL_NAME := "17_live_edge_cull_detail.png"
 const BAND_SEAM_BRIGHT_LUMA_THRESHOLD := 200.0
 const BAND_SEAM_MIN_GUTTER_WIDTH_PX := 2
 
@@ -75,6 +77,9 @@ func _run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--band-seam-only"):
 		await _run_band_seam_only(output_dir)
+		return
+	if OS.get_cmdline_user_args().has("--edge-cull-only"):
+		await _run_edge_cull_only(output_dir)
 		return
 
 	var record_path := "user://tower_map_scroll_wiring_%d.cfg" % Time.get_ticks_usec()
@@ -368,6 +373,284 @@ func _run_band_seam_only(output_dir: String) -> void:
 	print("[TowerMapBandSeamVisualQA] output=%s captures=6 seams=21" % output_dir)
 	print("tower_map_band_seam_visual_qa: ok")
 	quit(0)
+
+
+func _run_edge_cull_only(output_dir: String) -> void:
+	var fixture := _create_fixture("tower-map-edge-cull-visual-qa")
+	if fixture.is_empty():
+		return
+	var flow: Object = fixture["flow"]
+	var renderer := TowerAscentFlowRenderer.new()
+	var initial_model := renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var initial_camera: Dictionary = initial_model.get("camera", {})
+	var target_zoom := clampf(
+		TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM,
+		float(initial_camera.get("minimum_fit_all_zoom", 1.0)),
+		float(initial_camera.get("maximum_zoom", TowerAscentTuning.TEMP_MAP_CAMERA_ZOOM))
+	)
+	var drag_state: Object = flow.get("_map_drag_state")
+	var best_requested_offset := Vector2.ZERO
+	var best_score := -1
+	for edge_variant in initial_model.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var focus_world := (
+			(edge.get("from_position", Vector2.ZERO) as Vector2)
+			+ (edge.get("to_position", Vector2.ZERO) as Vector2)
+		) * 0.5
+		var requested_offset := VIEWPORT_RECT.get_center() - focus_world * target_zoom
+		drag_state.call("apply_zoom_override", target_zoom, requested_offset)
+		var frame_model := renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+		var frame_stats := _route_edge_cull_stats(renderer, flow, frame_model)
+		var frame_score := (
+			int(frame_stats.get("partial_edge_count", 0)) * 100000
+			+ int(frame_stats.get("segment_intersection_visible_segments", 0))
+			- int(frame_stats.get("endpoint_and_visible_segments", 0))
+		)
+		if frame_score > best_score:
+			best_score = frame_score
+			best_requested_offset = requested_offset
+	if best_score < 0:
+		_fail("Edge-cull QA could not evaluate the production overlay")
+		return
+	drag_state.call("apply_zoom_override", target_zoom, best_requested_offset)
+	var model := renderer.build_fullscreen_map_model(flow, VIEWPORT_RECT)
+	var stats := _route_edge_cull_stats(renderer, flow, model)
+	if int(stats.get("partial_edge_count", 0)) <= 0:
+		_fail("Edge-cull QA could not find an offscreen-endpoint route crossing the viewport")
+		return
+	var image := await _capture(fixture["canvas"], fixture["viewport"])
+	if not _save(image, output_dir.path_join(EDGE_CULL_FRAME_NAME)):
+		_fail("Edge-cull production frame could not be saved")
+		return
+	var detail := _edge_cull_detail_crop(
+		image,
+		stats.get("first_partial_edge", {}) as Dictionary
+	)
+	if not _save_any_size(detail, output_dir.path_join(EDGE_CULL_DETAIL_NAME)):
+		_fail("Edge-cull detail crop could not be saved")
+		return
+	await _dispose_fixture(fixture)
+	print(
+		"[TowerMapEdgeCullVisualQA] zoom=%.6f offset=%s partial_edges=%d endpoint_and_edges=%d segment_intersection_edges=%d renderer_edges=%d missed_edges=%d"
+			% [
+				target_zoom,
+				str((model.get("camera", {}) as Dictionary).get("offset", Vector2.ZERO)),
+				int(stats.get("partial_edge_count", -1)),
+				int(stats.get("endpoint_and_drawn_edges", -1)),
+				int(stats.get("segment_intersection_drawn_edges", -1)),
+				int(stats.get("renderer_drawn_edges", -1)),
+				int(stats.get("renderer_missed_partial_edges", -1)),
+			]
+	)
+	print(
+		"[TowerMapEdgeCullBudget] path_draw_call_budget=%d brush_segment_budget=%d endpoint_and_visible_segments=%d segment_intersection_visible_segments=%d renderer_visible_segments=%d"
+			% [
+				int(stats.get("path_draw_call_budget", -1)),
+				int(stats.get("path_brush_draw_call_budget", -1)),
+				int(stats.get("endpoint_and_visible_segments", -1)),
+				int(stats.get("segment_intersection_visible_segments", -1)),
+				int(stats.get("renderer_visible_segments", -1)),
+			]
+	)
+	if int(stats.get("renderer_missed_partial_edges", 0)) > 0:
+		_fail("Segment-crossing routes were dropped by endpoint-only culling")
+		return
+	if (
+		int(stats.get("renderer_visible_segments", 0))
+		> int(stats.get("path_brush_draw_call_budget", -1))
+	):
+		_fail("Visible route brushes exceeded the cached brush-segment budget")
+		return
+	print("[TowerMapEdgeCullVisualQA] output=%s captures=2 size=%dx%d" % [
+		output_dir,
+		GAME_SIZE.x,
+		GAME_SIZE.y,
+	])
+	print("tower_map_edge_cull_visual_qa: ok")
+	quit(0)
+
+
+func _route_edge_cull_stats(
+	renderer: Object,
+	flow: Object,
+	model: Dictionary
+) -> Dictionary:
+	var camera: Dictionary = model.get("camera", {})
+	var route_history: Array = flow.get_route_history()
+	var active_candidate_ids: Array = flow.get_route_target_ids()
+	var current_node_id := str(flow.get_current_node_id())
+	var endpoint_and_drawn_edges := 0
+	var segment_intersection_drawn_edges := 0
+	var renderer_drawn_edges := 0
+	var endpoint_and_visible_segments := 0
+	var segment_intersection_visible_segments := 0
+	var renderer_visible_segments := 0
+	var partial_edge_count := 0
+	var renderer_missed_partial_edges := 0
+	var first_partial_edge := {}
+	for edge_variant in model.get("edges", []):
+		if not (edge_variant is Dictionary):
+			continue
+		var edge := edge_variant as Dictionary
+		var asset_key: String = renderer.resolve_route_brush_asset_key(
+			edge,
+			route_history,
+			active_candidate_ids,
+			current_node_id
+		)
+		var completed := asset_key == TowerMapScrollAssetCatalog.ROUTE_BRUSH_COMPLETED_GOLD
+		var from_screen := _edge_camera_screen_point(
+			camera,
+			edge.get("from_position", Vector2.ZERO) as Vector2
+		)
+		var to_screen := _edge_camera_screen_point(
+			camera,
+			edge.get("to_position", Vector2.ZERO) as Vector2
+		)
+		var endpoint_and_draws := completed or (
+			VIEWPORT_RECT.has_point(from_screen)
+			and VIEWPORT_RECT.has_point(to_screen)
+		)
+		var segment_intersection_draws := completed or _edge_segment_intersects_rect(
+			from_screen,
+			to_screen,
+			VIEWPORT_RECT
+		)
+		var renderer_draws: bool = renderer.should_draw_route_edge_in_view(
+			edge,
+			asset_key,
+			VIEWPORT_RECT,
+			camera
+		)
+		var quads: Array = edge.get(
+			"completed_brush_quads" if completed else "brush_quads",
+			[]
+		)
+		var visible_segments := _visible_route_brush_segment_count(quads, camera)
+		if endpoint_and_draws:
+			endpoint_and_drawn_edges += 1
+			endpoint_and_visible_segments += visible_segments
+		if segment_intersection_draws:
+			segment_intersection_drawn_edges += 1
+			segment_intersection_visible_segments += visible_segments
+		if renderer_draws:
+			renderer_drawn_edges += 1
+			renderer_visible_segments += visible_segments
+		if segment_intersection_draws and not endpoint_and_draws and not completed:
+			partial_edge_count += 1
+			if first_partial_edge.is_empty():
+				first_partial_edge = {
+					"from_screen": from_screen,
+					"to_screen": to_screen,
+				}
+			if not renderer_draws:
+				renderer_missed_partial_edges += 1
+	var debug_state: Dictionary = renderer.get_render_cache_debug_state()
+	return {
+		"endpoint_and_drawn_edges": endpoint_and_drawn_edges,
+		"segment_intersection_drawn_edges": segment_intersection_drawn_edges,
+		"renderer_drawn_edges": renderer_drawn_edges,
+		"endpoint_and_visible_segments": endpoint_and_visible_segments,
+		"segment_intersection_visible_segments": segment_intersection_visible_segments,
+		"renderer_visible_segments": renderer_visible_segments,
+		"partial_edge_count": partial_edge_count,
+		"renderer_missed_partial_edges": renderer_missed_partial_edges,
+		"first_partial_edge": first_partial_edge,
+		"path_draw_call_budget": int(debug_state.get("path_draw_call_budget", -1)),
+		"path_brush_draw_call_budget": int(
+			debug_state.get("path_brush_draw_call_budget", -1)
+		),
+	}
+
+
+func _edge_camera_screen_point(camera: Dictionary, point: Vector2) -> Vector2:
+	var zoom := maxf(
+		0.001,
+		float(camera.get("render_zoom_multiplier", camera.get("zoom_multiplier", 1.0)))
+	)
+	return point * zoom + (camera.get("offset", Vector2.ZERO) as Vector2)
+
+
+func _edge_segment_intersects_rect(from_pos: Vector2, to_pos: Vector2, rect: Rect2) -> bool:
+	if rect.has_point(from_pos) or rect.has_point(to_pos):
+		return true
+	var top_left: Vector2 = rect.position
+	var top_right := Vector2(rect.end.x, rect.position.y)
+	var bottom_right: Vector2 = rect.end
+	var bottom_left := Vector2(rect.position.x, rect.end.y)
+	return (
+		Geometry2D.segment_intersects_segment(from_pos, to_pos, top_left, top_right) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, top_right, bottom_right) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, bottom_right, bottom_left) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, bottom_left, top_left) != null
+	)
+
+
+func _visible_route_brush_segment_count(quads: Array, camera: Dictionary) -> int:
+	var count := 0
+	for quad_variant in quads:
+		if not (quad_variant is Dictionary):
+			continue
+		var points: PackedVector2Array = (quad_variant as Dictionary).get(
+			"points",
+			PackedVector2Array()
+		)
+		var screen_points := PackedVector2Array()
+		for point in points:
+			screen_points.append(_edge_camera_screen_point(camera, point))
+		if _edge_points_bounds(screen_points).intersects(VIEWPORT_RECT):
+			count += 1
+	return count
+
+
+func _edge_points_bounds(points: PackedVector2Array) -> Rect2:
+	if points.is_empty():
+		return Rect2()
+	var minimum := points[0]
+	var maximum := points[0]
+	for point in points:
+		minimum.x = minf(minimum.x, point.x)
+		minimum.y = minf(minimum.y, point.y)
+		maximum.x = maxf(maximum.x, point.x)
+		maximum.y = maxf(maximum.y, point.y)
+	return Rect2(minimum, maximum - minimum)
+
+
+func _edge_cull_detail_crop(image: Image, edge: Dictionary) -> Image:
+	if image == null or image.is_empty() or edge.is_empty():
+		return Image.new()
+	var from_screen: Vector2 = edge.get("from_screen", VIEWPORT_RECT.get_center())
+	var to_screen: Vector2 = edge.get("to_screen", VIEWPORT_RECT.get_center())
+	var anchor := VIEWPORT_RECT.get_center()
+	var top_left: Vector2 = VIEWPORT_RECT.position
+	var top_right := Vector2(VIEWPORT_RECT.end.x, VIEWPORT_RECT.position.y)
+	var bottom_right: Vector2 = VIEWPORT_RECT.end
+	var bottom_left := Vector2(VIEWPORT_RECT.position.x, VIEWPORT_RECT.end.y)
+	for boundary in [
+		[top_left, top_right],
+		[top_right, bottom_right],
+		[bottom_right, bottom_left],
+		[bottom_left, top_left],
+	]:
+		var intersection: Variant = Geometry2D.segment_intersects_segment(
+			from_screen,
+			to_screen,
+			boundary[0] as Vector2,
+			boundary[1] as Vector2
+		)
+		if intersection is Vector2:
+			anchor = intersection as Vector2
+			break
+	var crop_size := Vector2i(560, 320)
+	var crop_position := Vector2i(
+		clampi(int(round(anchor.x)) - crop_size.x / 2, 0, GAME_SIZE.x - crop_size.x),
+		clampi(int(round(anchor.y)) - crop_size.y / 2, 0, GAME_SIZE.y - crop_size.y)
+	)
+	var detail := image.get_region(Rect2i(crop_position, crop_size))
+	detail.resize(crop_size.x * 2, crop_size.y * 2, Image.INTERPOLATE_NEAREST)
+	return detail
 
 
 func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:

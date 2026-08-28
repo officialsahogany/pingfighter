@@ -794,10 +794,22 @@ func _verify_three_route_brush_states_and_geometry() -> void:
 		"from_position": Vector2(50.0, 50.0),
 		"to_position": Vector2(50.0, 140.0),
 	}
-	_expect(not renderer.should_draw_route_edge_in_view(clipped_edge, unselected_key, route_clip), "an unselected edge with an offscreen endpoint must not leave an orphan brush tail")
-	_expect(not renderer.should_draw_route_edge_in_view(clipped_edge, available_key, route_clip), "an available edge with an offscreen endpoint must wait until both nodes are visible")
+	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, unselected_key, route_clip), "an unselected edge with one offscreen endpoint must retain its visible segment")
+	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, available_key, route_clip), "an available edge with one offscreen endpoint must retain its visible segment")
 	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, completed_key, route_clip), "completed gold history must retain its established clipped continuation")
+	clipped_edge = {
+		"from_position": Vector2(-20.0, -20.0),
+		"to_position": Vector2(120.0, 120.0),
+	}
+	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, unselected_key, route_clip), "a diagonal edge with both endpoints offscreen must remain drawable while crossing the viewport")
+	clipped_edge = {
+		"from_position": Vector2(-40.0, 20.0),
+		"to_position": Vector2(-20.0, 80.0),
+	}
+	_expect(not renderer.should_draw_route_edge_in_view(clipped_edge, unselected_key, route_clip), "an edge wholly outside the viewport must remain culled")
+	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, completed_key, route_clip), "completed gold history must remain unconditionally drawable outside the viewport")
 	clipped_edge["to_position"] = Vector2(50.0, 90.0)
+	clipped_edge["from_position"] = Vector2(50.0, 50.0)
 	_expect(renderer.should_draw_route_edge_in_view(clipped_edge, unselected_key, route_clip), "a non-gold edge between two visible nodes must remain drawable")
 
 	var catalog := TowerMapScrollAssetCatalog.new()

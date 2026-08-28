@@ -2634,7 +2634,22 @@ func should_draw_route_edge_in_view(
 		camera_model,
 		edge.get("to_position", Vector2.ZERO) as Vector2
 	)
-	return clip_rect.has_point(from_screen) and clip_rect.has_point(to_screen)
+	return _segment_intersects_rect(from_screen, to_screen, clip_rect)
+
+
+func _segment_intersects_rect(from_pos: Vector2, to_pos: Vector2, rect: Rect2) -> bool:
+	if rect.has_point(from_pos) or rect.has_point(to_pos):
+		return true
+	var top_left: Vector2 = rect.position
+	var top_right := Vector2(rect.end.x, rect.position.y)
+	var bottom_right: Vector2 = rect.end
+	var bottom_left := Vector2(rect.position.x, rect.end.y)
+	return (
+		Geometry2D.segment_intersects_segment(from_pos, to_pos, top_left, top_right) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, top_right, bottom_right) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, bottom_right, bottom_left) != null
+		or Geometry2D.segment_intersects_segment(from_pos, to_pos, bottom_left, top_left) != null
+	)
 
 
 func build_route_brush_strip(
