@@ -2963,10 +2963,8 @@ const EXACT_TEXT_EN := {
 	"전투 상태 초기화 중": "Initializing Battle State",
 	"스테이지 입장 연출 준비 중": "Preparing Stage Intro",
 	"준비 완료": "Ready",
-	"기를 모으는 중…": "Gathering strength…",
 	"보스": "Boss",
 	"플레이어 서브": "Player Serve",
-	"%s의 서브": "%s's Serve",
 	"스테이지 전환 중": "Changing Stage",
 	"다음 보스 예고": "Next Boss Preview",
 	"게임 데이터 준비 중": "Preparing Game Data",
@@ -3612,10 +3610,8 @@ const EXACT_TEXT_ZH := {
 	"전투 상태 초기화 중": "正在初始化战斗状态",
 	"스테이지 입장 연출 준비 중": "正在准备关卡入场演出",
 	"준비 완료": "准备完成",
-	"기를 모으는 중…": "正在蓄势…",
 	"보스": "首领",
 	"플레이어 서브": "玩家发球",
-	"%s의 서브": "%s发球",
 	"스테이지 전환 중": "正在切换关卡",
 	"다음 보스 예고": "下一个首领预告",
 	"게임 데이터 준비 중": "正在准备游戏数据",
@@ -4273,10 +4269,8 @@ const EXACT_TEXT_JA := {
 	"전투 상태 초기화 중": "戦闘状態初期化中",
 	"스테이지 입장 연출 준비 중": "ステージ入場演出準備中",
 	"준비 완료": "準備完了",
-	"기를 모으는 중…": "力を溜めています…",
 	"보스": "ボス",
 	"플레이어 서브": "プレイヤーのサーブ",
-	"%s의 서브": "%sのサーブ",
 	"스테이지 전환 중": "ステージ切替中",
 	"다음 보스 예고": "次のボス予告",
 	"게임 데이터 준비 중": "ゲームデータ準備中",
@@ -4934,10 +4928,8 @@ const EXACT_TEXT_ES := {
 	"전투 상태 초기화 중": "Inicializando estado de combate",
 	"스테이지 입장 연출 준비 중": "Preparando intro de fase",
 	"준비 완료": "Listo",
-	"기를 모으는 중…": "Concentrando energía…",
 	"보스": "Jefe",
 	"플레이어 서브": "Saque del jugador",
-	"%s의 서브": "Saque de %s",
 	"스테이지 전환 중": "Cambiando de fase",
 	"다음 보스 예고": "Vista previa del próximo jefe",
 	"게임 데이터 준비 중": "Preparando datos del juego",
@@ -5464,10 +5456,8 @@ const EXACT_TEXT_ES := {
 const EXACT_TEXT_PT_BR := EXACT_TEXT_EN
 
 const EXACT_TEXT_PT_BR_OVERRIDES := {
-	"기를 모으는 중…": "Concentrando energia…",
 	"보스": "Chefe",
 	"플레이어 서브": "Saque do jogador",
-	"%s의 서브": "Saque de %s",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Puxa a água do lago do dragão e lança uma torrente pela arena. A carga é interrompida quando o chefe é atingido.",
 	"클릭해 계속": "Clique para continuar",
 	"극정호신": "Guarda de Velocidade Extrema",
@@ -5756,10 +5746,8 @@ const EXACT_TEXT_PT_BR_OVERRIDES := {
 const EXACT_TEXT_RU := EXACT_TEXT_EN
 
 const EXACT_TEXT_RU_OVERRIDES := {
-	"기를 모으는 중…": "Накапливает силу…",
 	"보스": "Босс",
 	"플레이어 서브": "Подача игрока",
-	"%s의 서브": "Подача: %s",
 	"용소의 물을 끌어올려 전장을 가로지르는 격류를 발사합니다. 보스가 타격당하면 충전이 중단됩니다.": "Поднимает воду из драконьего пруда и выпускает поток через всю арену. Заряд прерывается, когда босс получает удар.",
 	"클릭해 계속": "Щёлкните, чтобы продолжить",
 	"극정호신": "Сверхскоростная защита",
@@ -6127,6 +6115,9 @@ const QUALITY_PREFIXES_RU := {
 
 const TEXT := {
 	LANGUAGE_KOREAN: {
+		"hud.serve_wait.boss_turn_format": "%s 차례",
+		"hud.serve_wait.preparing": "준비중..",
+		"hud.serve_wait.ready": "준비 완료",
 		"victory_highlight_title": "승리의 순간",
 		"victory_highlight_finisher": "승부를 가른 결정타",
 		"victory_highlight_long_rally": "불꽃 튀는 공방",
@@ -6317,6 +6308,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "A / X 홀드 - 체공",
 	},
 	LANGUAGE_ENGLISH: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "Moments of Victory",
 		"victory_highlight_finisher": "Match-Ending Strike",
 		"victory_highlight_long_rally": "Fierce Rally",
@@ -6507,6 +6501,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "Hold A / X - Stay airborne",
 	},
 	LANGUAGE_CHINESE: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "胜利瞬间",
 		"victory_highlight_finisher": "制胜一击",
 		"victory_highlight_long_rally": "激烈攻防",
@@ -6697,6 +6694,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "按住 A / X - 滞空",
 	},
 	LANGUAGE_JAPANESE: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "勝利の瞬間",
 		"victory_highlight_finisher": "勝負を決めた一撃",
 		"victory_highlight_long_rally": "白熱のラリー",
@@ -6887,6 +6887,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "A / X 長押し - 滞空",
 	},
 	LANGUAGE_SPANISH: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "Momentos de victoria",
 		"victory_highlight_finisher": "Gol decisivo",
 		"victory_highlight_long_rally": "Intercambio feroz",
@@ -7077,6 +7080,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "Mantén A / X - Mantente en el aire",
 	},
 	LANGUAGE_PORTUGUESE_BRAZIL: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "Momentos da vitória",
 		"victory_highlight_finisher": "Gol decisivo",
 		"victory_highlight_long_rally": "Troca intensa",
@@ -7267,6 +7273,9 @@ const TEXT := {
 		"tutorial.viper.jetpack.gamepad": "Segure A / X - Fique no ar",
 	},
 	LANGUAGE_RUSSIAN: {
+		"hud.serve_wait.boss_turn_format": "%s Serve",
+		"hud.serve_wait.preparing": "Preparing...",
+		"hud.serve_wait.ready": "Ready",
 		"victory_highlight_title": "Моменты победы",
 		"victory_highlight_finisher": "Решающий удар",
 		"victory_highlight_long_rally": "Жаркий розыгрыш",

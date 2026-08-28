@@ -5,16 +5,12 @@ const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TUTORIAL_STAGE := 50
 const PLAYER_AUTO_SERVE_DELAY := 3.0
 const SERVE_FONT_SIZE := 24
-const INFO_FONT_SIZE := 17
+const INFO_FONT_SIZE := 16
 const SERVE_BANNER_FONT_SIZE := 48
 const RESTART_NOTICE_FONT_SIZE := 52
 const SERVE_BANNER_FADE_IN := 0.12
 const SERVE_BANNER_FADE_OUT := 0.16
 const RESTART_NOTICE_TEXT := "재시작!"
-const BOSS_PANEL_MAX_WIDTH := 390.0
-const BOSS_PANEL_HEIGHT := 122.0
-const BOSS_PANEL_TOP := 22.0
-const BOSS_PROGRESS_HEIGHT := 11.0
 const STAGE_BOSS_NAMES := {
 	1: "달지",
 }
@@ -78,147 +74,16 @@ func _draw_boss_serve(
 	serve_label: String,
 	accent_color: Color
 ) -> void:
-	var ready := serve_timer >= serve_delay
-	var progress := 1.0 if ready else clampf(serve_timer / maxf(serve_delay, 0.001), 0.0, 1.0)
-	var panel_width := minf(BOSS_PANEL_MAX_WIDTH, width - 24.0)
-	var panel_rect := Rect2(
-		Vector2((width - panel_width) * 0.5, BOSS_PANEL_TOP),
-		Vector2(panel_width, BOSS_PANEL_HEIGHT)
-	)
-	_draw_boss_serve_panel(canvas, panel_rect, serve_timer, progress, ready, accent_color)
+	var center := Vector2(width * 0.5, 80.0)
+	var serve_rect: Rect2 = _draw_text_centered(canvas, center, serve_label, SERVE_FONT_SIZE, Color.WHITE)
+	_draw_accent_line(canvas, width, serve_rect, accent_color)
 
-	var title_center := Vector2(width * 0.5, panel_rect.position.y + 36.0)
-	_draw_text_centered(
-		canvas,
-		title_center,
-		serve_label,
-		SERVE_FONT_SIZE,
-		Color(1.0, 0.94, 0.73)
-	)
-	var info_text := LanguageSettings.translate_text("준비 완료" if ready else "기를 모으는 중…")
-	var info_color := Color(1.0, 0.91, 0.46) if ready else Color(0.91, 0.86, 0.72)
-	_draw_text_centered(
-		canvas,
-		Vector2(width * 0.5, panel_rect.position.y + 100.0),
-		info_text,
-		INFO_FONT_SIZE,
-		info_color
-	)
-
-
-func _draw_boss_serve_panel(
-	canvas: CanvasItem,
-	panel_rect: Rect2,
-	serve_timer: float,
-	progress: float,
-	ready: bool,
-	accent_color: Color
-) -> void:
-	var ink := Color(0.025, 0.022, 0.019, 0.91)
-	var ink_wash := Color(0.08, 0.065, 0.045, 0.78)
-	var hanji := Color(0.80, 0.69, 0.46, 0.13)
-	var deep_red := Color(accent_color.r * 0.48, accent_color.g * 0.25, accent_color.b * 0.18, 0.78)
-	var gold := Color(0.93, 0.66, 0.20, 0.94)
-	var pale_gold := Color(1.0, 0.91, 0.55, 0.98)
-
-	canvas.draw_rect(panel_rect.grow(5.0), Color(0.0, 0.0, 0.0, 0.28), true)
-	canvas.draw_rect(panel_rect, ink, true)
-	canvas.draw_rect(
-		Rect2(panel_rect.position + Vector2(3.0, 4.0), panel_rect.size - Vector2(6.0, 8.0)),
-		ink_wash,
-		true
-	)
-	var hanji_band := Rect2(
-		panel_rect.position + Vector2(34.0, 14.0),
-		Vector2(panel_rect.size.x - 68.0, 43.0)
-	)
-	canvas.draw_rect(hanji_band, hanji, true)
-	for index in range(7):
-		var fiber_y := hanji_band.position.y + 5.0 + float(index) * 5.4
-		var fiber_inset := 8.0 + absf(sin(float(index) * 2.13)) * 13.0
-		canvas.draw_line(
-			Vector2(hanji_band.position.x + fiber_inset, fiber_y),
-			Vector2(hanji_band.end.x - fiber_inset * 0.72, fiber_y + sin(float(index)) * 1.2),
-			Color(1.0, 0.91, 0.67, 0.045),
-			1.0
-		)
-
-	var corner_length := 28.0
-	var corner_color := Color(gold.r, gold.g, gold.b, 0.66)
-	for side_value in [-1.0, 1.0]:
-		var side := float(side_value)
-		var corner_x: float = panel_rect.get_center().x + side * (panel_rect.size.x * 0.5 - 11.0)
-		var inner_x: float = corner_x - side * corner_length
-		canvas.draw_line(
-			Vector2(corner_x, panel_rect.position.y + 10.0),
-			Vector2(inner_x, panel_rect.position.y + 10.0),
-			corner_color,
-			2.0
-		)
-		canvas.draw_line(
-			Vector2(corner_x, panel_rect.position.y + 10.0),
-			Vector2(corner_x, panel_rect.position.y + 28.0),
-			corner_color,
-			2.0
-		)
-		canvas.draw_line(
-			Vector2(corner_x, panel_rect.end.y - 10.0),
-			Vector2(inner_x, panel_rect.end.y - 10.0),
-			Color(gold.r, gold.g, gold.b, 0.38),
-			1.0
-		)
-
-	var track := Rect2(
-		Vector2(panel_rect.position.x + 48.0, panel_rect.position.y + 68.0),
-		Vector2(panel_rect.size.x - 96.0, BOSS_PROGRESS_HEIGHT)
-	)
-	canvas.draw_rect(track.grow(2.0), Color(0.0, 0.0, 0.0, 0.58), true)
-	canvas.draw_rect(track, Color(0.16, 0.12, 0.075, 0.92), true)
-	var fill_width := track.size.x * progress
-	if fill_width > 0.1:
-		var fill_rect := Rect2(track.position, Vector2(fill_width, track.size.y))
-		canvas.draw_rect(fill_rect.grow(6.0), Color(gold.r, gold.g, gold.b, 0.055), true)
-		canvas.draw_rect(fill_rect.grow(3.0), Color(gold.r, gold.g, gold.b, 0.10), true)
-		canvas.draw_rect(fill_rect, deep_red, true)
-		canvas.draw_rect(
-			Rect2(fill_rect.position + Vector2(0.0, 2.0), Vector2(fill_width, fill_rect.size.y - 4.0)),
-			gold,
-			true
-		)
-		canvas.draw_rect(
-			Rect2(fill_rect.position + Vector2(0.0, 2.0), Vector2(fill_width, 2.0)),
-			pale_gold,
-			true
-		)
-		var light_width := minf(46.0, fill_width)
-		canvas.draw_rect(
-			Rect2(
-				Vector2(fill_rect.end.x - light_width, fill_rect.position.y + 3.0),
-				Vector2(light_width, fill_rect.size.y - 6.0)
-			),
-			Color(1.0, 0.95, 0.69, 0.42),
-			true
-		)
-		canvas.draw_rect(
-			Rect2(Vector2(fill_rect.end.x - 1.0, track.position.y - 4.0), Vector2(2.0, track.size.y + 8.0)),
-			Color(1.0, 0.88, 0.40, 0.80),
-			true
-		)
-
-	var motion_progress := 1.0 if ready else progress
-	for index in range(7):
-		var speed := 0.29 + float(index) * 0.027
-		var mote_phase := fmod(serve_timer * speed + float(index) * 0.163, 1.0)
-		if mote_phase > motion_progress:
-			continue
-		var mote_x := track.position.x + track.size.x * mote_phase
-		var mote_y := track.position.y - 3.0 - absf(sin(serve_timer * 3.2 + float(index))) * 5.0
-		var mote_alpha := 0.28 + 0.34 * absf(sin(serve_timer * 4.0 + float(index) * 1.7))
-		canvas.draw_circle(
-			Vector2(mote_x, mote_y),
-			1.0 + float(index % 3) * 0.35,
-			Color(1.0, 0.83, 0.34, mote_alpha)
-		)
+	var info_text := LanguageSettings.translate("hud.serve_wait.preparing")
+	var info_color := Color(0.78, 0.78, 0.78)
+	if serve_timer >= serve_delay:
+		info_text = LanguageSettings.translate("hud.serve_wait.ready")
+		info_color = Color(1.0, 1.0, 0.39)
+	_draw_text_centered(canvas, Vector2(width * 0.5, serve_rect.position.y + serve_rect.size.y + 20.0), info_text, INFO_FONT_SIZE, info_color)
 
 
 func _draw_serve_banner(
@@ -333,4 +198,4 @@ func _get_serve_label(player_serves: bool, context: Dictionary) -> String:
 	var current_stage: int = int(context.get("current_stage", 1))
 	var boss_name_key: String = str(STAGE_BOSS_NAMES.get(current_stage, "보스"))
 	var boss_name: String = LanguageSettings.translate_text(boss_name_key)
-	return LanguageSettings.translate_text("%s의 서브") % boss_name
+	return LanguageSettings.translate("hud.serve_wait.boss_turn_format") % boss_name
