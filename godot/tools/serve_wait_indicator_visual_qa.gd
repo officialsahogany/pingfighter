@@ -7,15 +7,17 @@ const VIEW_SIZE := Vector2i(760, 750)
 const FULL_RECT := Rect2i(Vector2i.ZERO, VIEW_SIZE)
 const TITLE_RECT := Rect2i(230, 58, 300, 50)
 const STATUS_RECT := Rect2i(260, 98, 240, 42)
-const BOSS_SOURCE_RECT := Rect2i(0, 0, 384, 512)
+const CENTER_BANNER_RECT := Rect2i(180, 320, 400, 110)
+const BOSS_SOURCE_RECT := Rect2i(0, 0, 256, 256)
 const BOSS_DRAW_RECT := Rect2(87.0, 3.0, 96.0, 112.0)
 const PLAYER_DRAW_RECT := Rect2(255.0, 626.0, 250.0, 120.0)
-const BOSS_SOURCE_PATH := "res://assets/sprites/stage1/dalji/dalji_boss_idle.png"
+const BOSS_SOURCE_PATH := "res://assets/sprites/stage1/gaksital/gaksital_boss_idle_8f_autosprite_v1_pro.png"
 const PLAYER_SOURCE_PATH := "res://assets/sprites/smasher_current_idle.png"
 const OUTPUT_DIR := "res://.godot/codex_captures/serve_wait_indicator"
-const PREPARING_PATH := OUTPUT_DIR + "/01_reverted_korean_preparing_characters.png"
-const READY_PATH := OUTPUT_DIR + "/02_reverted_korean_ready_characters.png"
-const STRIP_PATH := OUTPUT_DIR + "/boss_serve_wait_reverted_characters_vulkan.png"
+const PREPARING_PATH := OUTPUT_DIR + "/01_gaksital_korean_preparing.png"
+const READY_PATH := OUTPUT_DIR + "/02_gaksital_korean_ready.png"
+const BANNER_PATH := OUTPUT_DIR + "/03_gaksital_korean_serve_banner.png"
+const STRIP_PATH := OUTPUT_DIR + "/gaksital_serve_wait_variant_vulkan.png"
 const PIXEL_DELTA := 3.0 / 255.0
 
 var _failures: Array[String] = []
@@ -26,6 +28,7 @@ class FakeRoundState:
 
 	var serve_timer := 0.0
 	var serve_delay := 1.0
+	var serve_banner_active := false
 
 	func is_waiting_for_serve() -> bool:
 		return true
@@ -37,13 +40,15 @@ class FakeRoundState:
 		return {
 			"serve_timer": serve_timer,
 			"serve_delay": serve_delay,
+			"serve_banner_timer": 0.5,
+			"serve_banner_duration": 0.85,
 		}
 
 	func is_round_restart_notice_active() -> bool:
 		return false
 
 	func is_serve_banner_active() -> bool:
-		return false
+		return serve_banner_active
 
 
 class ServeCanvas:
@@ -72,7 +77,11 @@ class ServeCanvas:
 				self,
 				float(VIEW_SIZE.x),
 				float(VIEW_SIZE.y),
-				{"current_stage": 1},
+				{
+					"current_stage": 1,
+					"stage1_boss_variant": "gaksi",
+					"stage_boss_variant": "alice",
+				},
 				{"round_state": round_state}
 			)
 
@@ -98,26 +107,37 @@ func _run() -> void:
 
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	var renderer := ServeWaitIndicatorRenderer.new()
-	var background := await _capture(renderer, 0.25, false, false, boss_texture, player_texture)
-	var actors := await _capture(renderer, 0.25, true, false, boss_texture, player_texture)
-	var preparing := await _capture(renderer, 0.25, true, true, boss_texture, player_texture)
-	var ready := await _capture(renderer, 1.0, true, true, boss_texture, player_texture)
-	for image_value in [background, actors, preparing, ready]:
+	var variant_context := {
+		"current_stage": 1,
+		"stage1_boss_variant": "gaksi",
+		"stage_boss_variant": "alice",
+	}
+	_expect(renderer._get_serve_label(false, variant_context) == "각시탈 차례", "the visual fixture should use the separate Stage 1 Gaksital authority")
+	var background := await _capture(renderer, 0.25, false, false, false, boss_texture, player_texture)
+	var actors := await _capture(renderer, 0.25, true, false, false, boss_texture, player_texture)
+	var preparing := await _capture(renderer, 0.25, true, true, false, boss_texture, player_texture)
+	var ready := await _capture(renderer, 1.0, true, true, false, boss_texture, player_texture)
+	var banner := await _capture(renderer, 0.25, true, true, true, boss_texture, player_texture)
+	for image_value in [background, actors, preparing, ready, banner]:
 		(image_value as Image).convert(Image.FORMAT_RGBA8)
 
 	var actor_pixels := _count_changed_pixels(background, actors, FULL_RECT)
 	var overlay_pixels := _count_changed_pixels(actors, preparing, FULL_RECT)
 	var actor_overlap := _count_change_overlap(background, actors, preparing, FULL_RECT)
 	var prep_ready_changed := _count_changed_pixels(preparing, ready, STATUS_RECT)
+	var banner_changed := _count_changed_pixels(preparing, banner, FULL_RECT)
 	var title_light_pixels := _count_light_pixels(preparing, TITLE_RECT)
 	var status_light_pixels := _count_light_pixels(preparing, STATUS_RECT)
-	_expect(actor_pixels > 3500, "the production Dalji and Smasher sources should be visibly rendered")
+	var center_light_pixels := _count_light_pixels(banner, CENTER_BANNER_RECT)
+	_expect(actor_pixels > 3500, "the production Gaksital and Smasher sources should be visibly rendered")
 	_expect(overlay_pixels > 300, "the reverted title, accent line, and status should be visible")
 	_expect(overlay_pixels < 6500, "the reverted overlay should remain compact without a broad panel")
 	_expect(actor_overlap == 0, "the reverted boss wait overlay should not cover either character")
 	_expect(prep_ready_changed > 80, "preparing and ready status rows should be visibly distinct")
 	_expect(title_light_pixels > 150, "the Korean boss-turn title should remain readable")
 	_expect(status_light_pixels > 45, "the Korean preparing status should remain readable")
+	_expect(banner_changed > 100000, "the central serve banner should visibly dim the full playfield")
+	_expect(center_light_pixels > 450, "the central Korean Gaksital turn label should remain readable")
 
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
 	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
@@ -125,22 +145,26 @@ func _run() -> void:
 	else:
 		_expect(preparing.save_png(ProjectSettings.globalize_path(PREPARING_PATH)) == OK, "preparing capture should save")
 		_expect(ready.save_png(ProjectSettings.globalize_path(READY_PATH)) == OK, "ready capture should save")
-		var strip := Image.create(VIEW_SIZE.x * 2, VIEW_SIZE.y, false, Image.FORMAT_RGBA8)
+		_expect(banner.save_png(ProjectSettings.globalize_path(BANNER_PATH)) == OK, "central banner capture should save")
+		var strip := Image.create(VIEW_SIZE.x * 3, VIEW_SIZE.y, false, Image.FORMAT_RGBA8)
 		strip.fill(Color.BLACK)
 		strip.blit_rect(preparing, FULL_RECT, Vector2i.ZERO)
 		strip.blit_rect(ready, FULL_RECT, Vector2i(VIEW_SIZE.x, 0))
-		_expect(strip.save_png(ProjectSettings.globalize_path(STRIP_PATH)) == OK, "two-frame character-visible strip should save")
+		strip.blit_rect(banner, FULL_RECT, Vector2i(VIEW_SIZE.x * 2, 0))
+		_expect(strip.save_png(ProjectSettings.globalize_path(STRIP_PATH)) == OK, "three-frame Gaksital strip should save")
 
 	print(
-		"[ServeWaitIndicatorQA] DEVICE=%s ACTOR_PIXELS=%d OVERLAY_PIXELS=%d ACTOR_OVERLAP=%d PREP_READY_CHANGED=%d TITLE_LIGHT=%d STATUS_LIGHT=%d VULKAN=true"
+		"[ServeWaitIndicatorQA] DEVICE=%s GAKSITAL_LABEL=true ACTOR_PIXELS=%d OVERLAY_PIXELS=%d ACTOR_OVERLAP=%d PREP_READY_CHANGED=%d BANNER_CHANGED=%d TITLE_LIGHT=%d STATUS_LIGHT=%d CENTER_LIGHT=%d VULKAN=true"
 		% [
 			RenderingServer.get_video_adapter_name(),
 			actor_pixels,
 			overlay_pixels,
 			actor_overlap,
 			prep_ready_changed,
+			banner_changed,
 			title_light_pixels,
 			status_light_pixels,
+			center_light_pixels,
 		]
 	)
 	print("[ServeWaitIndicatorQA] evidence=%s" % STRIP_PATH)
@@ -161,6 +185,7 @@ func _capture(
 	serve_timer: float,
 	draw_actors: bool,
 	draw_overlay: bool,
+	serve_banner_active: bool,
 	boss_texture: Texture2D,
 	player_texture: Texture2D
 ) -> Image:
@@ -171,6 +196,7 @@ func _capture(
 	get_root().add_child(viewport)
 	var state := FakeRoundState.new()
 	state.serve_timer = serve_timer
+	state.serve_banner_active = serve_banner_active
 	var canvas := ServeCanvas.new()
 	canvas.renderer = renderer
 	canvas.round_state = state

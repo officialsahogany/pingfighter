@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 const TUTORIAL_STAGE := 50
 const PLAYER_AUTO_SERVE_DELAY := 3.0
@@ -11,8 +12,12 @@ const RESTART_NOTICE_FONT_SIZE := 52
 const SERVE_BANNER_FADE_IN := 0.12
 const SERVE_BANNER_FADE_OUT := 0.16
 const RESTART_NOTICE_TEXT := "재시작!"
-const STAGE_BOSS_NAMES := {
-	1: "달지",
+const NON_VARIANT_BOSS_NAMES_BY_STAGE := {
+	4: "퐁크",
+	5: "홍련",
+	6: "테트리서",
+	7: "아카무 리고",
+	8: "미노타우로스",
 }
 
 const SERVE_FONT: Font = preload("res://assets/fonts/NeoDunggeunmoPro.ttf")
@@ -195,7 +200,22 @@ func _draw_text_centered(
 func _get_serve_label(player_serves: bool, context: Dictionary) -> String:
 	if player_serves:
 		return LanguageSettings.translate_text("플레이어 서브")
-	var current_stage: int = int(context.get("current_stage", 1))
-	var boss_name_key: String = str(STAGE_BOSS_NAMES.get(current_stage, "보스"))
-	var boss_name: String = LanguageSettings.translate_text(boss_name_key)
+	var boss_name: String = _resolve_boss_name(context)
 	return LanguageSettings.translate("hud.serve_wait.boss_turn_format") % boss_name
+
+
+func _resolve_boss_name(context: Dictionary) -> String:
+	var explicit_name: String = str(context.get("boss_display_name", "")).strip_edges()
+	if explicit_name != "":
+		return LanguageSettings.translate_text(explicit_name)
+	var current_stage: int = int(context.get("current_stage", 1))
+	var requested_variant: Variant = (
+		context.get("stage1_boss_variant", "dalji")
+		if current_stage == 1
+		else context.get("stage_boss_variant", "")
+	)
+	var entry: Dictionary = StageBossVariantCatalog.get_entry(current_stage, requested_variant)
+	var boss_name: String = str(entry.get("display_name", ""))
+	if boss_name == "":
+		boss_name = str(NON_VARIANT_BOSS_NAMES_BY_STAGE.get(current_stage, "보스"))
+	return LanguageSettings.translate_text(boss_name)
