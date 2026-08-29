@@ -136,6 +136,7 @@ var _resource_load_override: Callable
 var _cache_hit_count := 0
 var _filesystem_probe_count := 0
 var _resource_load_count := 0
+var _repeat_texture_create_count := 0
 
 
 func _init(
@@ -236,6 +237,15 @@ func prewarm_asset(asset_key: String) -> Dictionary:
 				if actual_size == expected_texture_size
 				else "size_mismatch"
 			)
+			if (
+				actual_size == expected_texture_size
+				and _is_band_asset_key(asset_key)
+			):
+				var repeat_texture := CanvasTexture.new()
+				repeat_texture.diffuse_texture = texture
+				repeat_texture.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+				resolution["repeat_texture"] = repeat_texture
+				_repeat_texture_create_count += 1
 	_resolution_by_key[asset_key] = resolution
 	return resolution.duplicate(false)
 
@@ -261,6 +271,7 @@ func get_cached_resolution(asset_key: String) -> Dictionary:
 func get_debug_state() -> Dictionary:
 	var ready_count := 0
 	var missing_count := 0
+	var repeat_texture_ready_count := 0
 	for resolution_value in _resolution_by_key.values():
 		if not (resolution_value is Dictionary):
 			continue
@@ -268,6 +279,16 @@ func get_debug_state() -> Dictionary:
 			ready_count += 1
 		else:
 			missing_count += 1
+		var repeat_texture := (
+			(resolution_value as Dictionary).get("repeat_texture", null) as CanvasTexture
+		)
+		if (
+			repeat_texture != null
+			and repeat_texture.diffuse_texture
+				== (resolution_value as Dictionary).get("texture", null)
+			and repeat_texture.texture_repeat == CanvasItem.TEXTURE_REPEAT_ENABLED
+		):
+			repeat_texture_ready_count += 1
 	return {
 		"entry_count": _resolution_by_key.size(),
 		"expected_count": ASSET_SPECS.size(),
@@ -276,6 +297,11 @@ func get_debug_state() -> Dictionary:
 		"cache_hit_count": _cache_hit_count,
 		"filesystem_probe_count": _filesystem_probe_count,
 		"resource_load_count": _resource_load_count,
+		"repeat_texture_ready_count": repeat_texture_ready_count,
+		"repeat_texture_expected_count": (
+			HUMAN_BAND_ASSET_KEYS.size() + IMMORTAL_BAND_ASSET_KEYS.size()
+		),
+		"repeat_texture_create_count": _repeat_texture_create_count,
 		"load_attempt_by_path": _load_attempt_by_path.duplicate(true),
 	}
 
@@ -286,6 +312,11 @@ func clear_cache() -> void:
 	_cache_hit_count = 0
 	_filesystem_probe_count = 0
 	_resource_load_count = 0
+	_repeat_texture_create_count = 0
+
+
+func _is_band_asset_key(asset_key: String) -> bool:
+	return HUMAN_BAND_ASSET_KEYS.has(asset_key) or IMMORTAL_BAND_ASSET_KEYS.has(asset_key)
 
 
 func _load_bitmap_once(path: String) -> Texture2D:

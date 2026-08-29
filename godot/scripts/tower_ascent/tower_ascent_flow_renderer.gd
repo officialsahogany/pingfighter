@@ -135,7 +135,7 @@ const PLAYFIELD_SIZE := Vector2(760.0, 750.0)
 const MAP_RECT := Rect2(34.0, 24.0, 692.0, 702.0)
 const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
 const MAP_SCROLL_BAND_SEAM_OVERLAP_WORLD_PX := 16.0
-const MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 8.0
+const MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX := 0.0
 const MAP_SCROLL_ROW_PITCH := 160.0
 const MAP_SCROLL_NODE_ART_SIZE := 32.0
 const MAP_SCROLL_ROUTE_BRUSH_WIDTH := 18.0
@@ -2365,11 +2365,6 @@ func build_scroll_background_model(
 		* tile_size.y
 		/ MAP_SCROLL_TILE_SIZE.y
 	)
-	var source_edge_guard_world_px := (
-		MAP_SCROLL_BAND_SOURCE_EDGE_GUARD_WORLD_PX
-		* tile_size.y
-		/ MAP_SCROLL_TILE_SIZE.y
-	)
 	var previous_asset_key := ""
 	for index in range(floor_bands.size()):
 		var band := floor_bands[index] as Dictionary
@@ -2402,6 +2397,18 @@ func build_scroll_background_model(
 				"missing_asset_key": asset_key,
 				"tiles": [],
 			}
+		var repeat_texture := resolution.get("repeat_texture", null) as CanvasTexture
+		if (
+			repeat_texture == null
+			or repeat_texture.diffuse_texture != texture
+			or repeat_texture.texture_repeat != CanvasItem.TEXTURE_REPEAT_ENABLED
+		):
+			return {
+				"ready": false,
+				"reason": "band_repeat_texture_unavailable",
+				"missing_asset_key": asset_key,
+				"tiles": [],
+			}
 		var chunk_y := band_rect.position.y
 		while chunk_y < band_rect.end.y - 0.001:
 			var chunk_height := minf(tile_size.y, band_rect.end.y - chunk_y)
@@ -2409,64 +2416,52 @@ func build_scroll_background_model(
 				Vector2(world_rect.position.x, chunk_y),
 				Vector2(tile_size.x, chunk_height)
 			)
-			var draw_rect := paper_rect
-			# Keep the approved 16px crossfade independent from the art-source guard.
-			# Z11 mirrors adjacent internal rows over the generated bright edge bleed,
-			# so the guard only skips the 8px replacement interface. A 16px reflected tail
-			# now fills the body trim at native scale instead of Z9 A2's 48px fold.
-			# The quarter-height cap keeps body, entry, and tail valid on short crops.
-			var guarded_edge_world_px := (
-				minf(source_edge_guard_world_px, chunk_height * 0.25)
-				if not draw_chunks.is_empty()
-				else 0.0
-			)
-			var alpha_ramp_world_px := (
-				minf(seam_overlap_world_px, chunk_height * 0.25)
-				if not draw_chunks.is_empty()
-				else 0.0
-			)
-			var reflected_tail_world_px := alpha_ramp_world_px
+			var seam_kind := "map_top"
+			var alpha_ramp_world_px := 0.0
+			var body_source_phase_world_px := 0.0
+			if not draw_chunks.is_empty():
+				var previous_chunk := draw_chunks[-1] as Dictionary
+				var previous_chunk_key := str(previous_chunk.get("asset_key", ""))
+				if previous_chunk_key == asset_key:
+					seam_kind = "same_asset_butt"
+					var previous_paper_rect: Rect2 = previous_chunk.get(
+						"paper_rect",
+						Rect2()
+					)
+					body_source_phase_world_px = fposmod(
+						float(previous_chunk.get("body_source_phase_world_px", 0.0))
+							+ previous_paper_rect.size.y,
+						tile_size.y
+					)
+				else:
+					seam_kind = "cross_asset_forward"
+					alpha_ramp_world_px = minf(
+						seam_overlap_world_px,
+						chunk_height * 0.25
+					)
+					body_source_phase_world_px = alpha_ramp_world_px
 			var paper_source_rect := Rect2(
 				Vector2.ZERO,
 				Vector2(1.0, chunk_height / tile_size.y)
 			)
-			var normalized_source_rect := paper_source_rect
+			# A different-art entry consumes [0, r]. The full native-scale body then
+			# starts at r and wraps vertically, so it never rewinds or needs a tail.
+			# Same-art chunks carry the preceding modulo phase and meet as a butt joint.
+			var normalized_source_rect := Rect2(
+				Vector2(0.0, body_source_phase_world_px / tile_size.y),
+				paper_source_rect.size
+			)
 			var seam_entry_rect := Rect2()
 			var seam_entry_source_rect := Rect2()
-			var seam_tail_rect := Rect2()
-			var seam_tail_source_rect := Rect2()
-			if guarded_edge_world_px > 0.0:
-				var normalized_guard := guarded_edge_world_px / tile_size.y
-				var normalized_tail := reflected_tail_world_px / tile_size.y
+			if seam_kind == "cross_asset_forward":
 				var normalized_ramp := alpha_ramp_world_px / tile_size.y
 				seam_entry_rect = Rect2(
 					Vector2(world_rect.position.x, paper_rect.position.y - alpha_ramp_world_px),
 					Vector2(tile_size.x, alpha_ramp_world_px)
 				)
 				seam_entry_source_rect = Rect2(
-					Vector2(0.0, normalized_guard),
+					Vector2.ZERO,
 					Vector2(1.0, normalized_ramp)
-				)
-				draw_rect.size.y -= reflected_tail_world_px
-				normalized_source_rect.position.y += normalized_guard
-				normalized_source_rect.size.y -= normalized_guard * 2.0
-				seam_tail_rect = Rect2(
-					Vector2(
-						world_rect.position.x,
-						paper_rect.end.y - reflected_tail_world_px
-					),
-					Vector2(tile_size.x, reflected_tail_world_px)
-				)
-				seam_tail_source_rect = Rect2(
-					Vector2(
-						0.0,
-						(
-							chunk_height
-							- guarded_edge_world_px
-							- reflected_tail_world_px
-						) / tile_size.y
-					),
-					Vector2(1.0, normalized_tail)
 				)
 			draw_chunks.append({
 				"floor": floor_number,
@@ -2474,17 +2469,18 @@ func build_scroll_background_model(
 				"asset_key": asset_key,
 				"paper_rect": paper_rect,
 				"paper_source_rect": paper_source_rect,
-				"rect": draw_rect,
+				"rect": paper_rect,
+				"seam_kind": seam_kind,
 				"alpha_ramp_world_px": alpha_ramp_world_px,
-				"source_edge_guard_world_px": guarded_edge_world_px,
-				"reflected_tail_world_px": reflected_tail_world_px,
+				"forward_dissolve_world_px": alpha_ramp_world_px,
+				"source_edge_guard_world_px": 0.0,
+				"body_source_phase_world_px": body_source_phase_world_px,
 				"normalized_source_rect": normalized_source_rect,
 				"seam_entry_rect": seam_entry_rect,
 				"seam_entry_source_rect": seam_entry_source_rect,
-				"seam_tail_rect": seam_tail_rect,
-				"seam_tail_source_rect": seam_tail_source_rect,
 				"paper_texture": paper_texture,
-				"texture": texture,
+				"source_texture": texture,
+				"texture": repeat_texture,
 			})
 			chunk_y += chunk_height
 		previous_asset_key = asset_key
@@ -3005,12 +3001,10 @@ func _draw_scroll_background_model(
 ) -> void:
 	if not bool(model.get("ready", false)):
 		return
-	# Render every native-scale paper underlay before any band artwork. Every real
-	# seam has the same bounded entry/body/tail phase: the entry walks backward
-	# from the interior to the body's first texel, so neither bright edge gutter
-	# is sampled in the overlap. The reflected tail starts on the body's final
-	# texel, and the next entry fades over it. The map top alone has no incoming
-	# seam; this is the intentional chunk-0 exception.
+	# Render every native-scale paper underlay before any band artwork. Same-art
+	# chunks meet directly on the tileable bitmap phase. Only an asset change owns
+	# a forward 16px entry, whose final texel is also the full body's first texel.
+	# The repeat-enabled body carries that phase without a reflected tail.
 	for tile_variant in model.get("draw_chunks", model.get("tiles", [])):
 		if not (tile_variant is Dictionary):
 			continue
@@ -3029,8 +3023,8 @@ func _draw_scroll_background_model(
 			continue
 		var tile := tile_variant as Dictionary
 		# rev2 rejected green-key matte extraction, not runtime vertex alpha.
-		# This one polygon draw maps the bounded entry/body/tail phases directly;
-		# it never keys or rewrites the opaque RGB source pixels.
+		# This remains one art draw: a direct body for same-art butt joints, or
+		# one polygon containing the forward entry and phase-continuous body.
 		_draw_scroll_texture_phase(canvas, tile, clip_rect, camera_model)
 
 
@@ -3073,6 +3067,38 @@ func _draw_scroll_texture_region(
 	)
 
 
+func resolve_scroll_texture_phase_sample(
+	point_y: float,
+	has_entry: bool,
+	projected_entry: Rect2,
+	projected_body: Rect2,
+	entry_source_rect: Rect2,
+	body_source_rect: Rect2
+) -> Vector2:
+	# Keep the forward entry and body phase in one production-called pure helper.
+	# The focused contract can exercise its endpoints directly: a reflected entry
+	# or row-zero body rewind then changes behavior, not merely source spelling.
+	if has_entry and point_y <= projected_entry.end.y + 0.001:
+		var entry_t := clampf(
+			(point_y - projected_entry.position.y) / projected_entry.size.y,
+			0.0,
+			1.0
+		)
+		return Vector2(
+			entry_source_rect.position.y + entry_source_rect.size.y * entry_t,
+			entry_t
+		)
+	var body_t := clampf(
+		(point_y - projected_body.position.y) / projected_body.size.y,
+		0.0,
+		1.0
+	)
+	return Vector2(
+		body_source_rect.position.y + body_source_rect.size.y * body_t,
+		1.0
+	)
+
+
 func _draw_scroll_texture_phase(
 	canvas: CanvasItem,
 	tile: Dictionary,
@@ -3087,21 +3113,10 @@ func _draw_scroll_texture_phase(
 	)
 	var entry_rect: Rect2 = tile.get("seam_entry_rect", Rect2())
 	var entry_source_rect: Rect2 = tile.get("seam_entry_source_rect", Rect2())
-	var tail_rect: Rect2 = tile.get("seam_tail_rect", Rect2())
-	var tail_source_rect: Rect2 = tile.get("seam_tail_source_rect", Rect2())
 	if texture == null or not body_rect.has_area():
 		return
-	if not entry_rect.has_area() or not tail_rect.has_area():
-		_draw_scroll_texture_region(
-			canvas,
-			texture,
-			body_rect,
-			clip_rect,
-			camera_model,
-			body_source_rect
-		)
-		return
-	var world_target := entry_rect.merge(body_rect).merge(tail_rect)
+	var has_entry := entry_rect.has_area()
+	var world_target := entry_rect.merge(body_rect) if has_entry else body_rect
 	var projected_target := snap_scroll_background_rect(
 		_camera_world_rect_to_screen(camera_model, world_target)
 	)
@@ -3110,20 +3125,17 @@ func _draw_scroll_texture_phase(
 	)
 	if visible_target.size.x <= 0.0 or visible_target.size.y <= 0.0:
 		return
-	var projected_entry := snap_scroll_background_rect(
-		_camera_world_rect_to_screen(camera_model, entry_rect)
+	var projected_entry := (
+		snap_scroll_background_rect(_camera_world_rect_to_screen(camera_model, entry_rect))
+		if has_entry
+		else Rect2()
 	)
 	var projected_body := snap_scroll_background_rect(
 		_camera_world_rect_to_screen(camera_model, body_rect)
 	)
-	var projected_tail := snap_scroll_background_rect(
-		_camera_world_rect_to_screen(camera_model, tail_rect)
-	)
 	var row_y: Array[float] = [visible_target.position.y]
-	if projected_entry.end.y > visible_target.position.y + 0.001 and projected_entry.end.y < visible_target.end.y - 0.001:
+	if has_entry and projected_entry.end.y > visible_target.position.y + 0.001 and projected_entry.end.y < visible_target.end.y - 0.001:
 		row_y.append(projected_entry.end.y)
-	if projected_body.end.y > visible_target.position.y + 0.001 and projected_body.end.y < visible_target.end.y - 0.001:
-		row_y.append(projected_body.end.y)
 	row_y.append(visible_target.end.y)
 	var polygon_points := PackedVector2Array()
 	for y in row_y:
@@ -3132,38 +3144,27 @@ func _draw_scroll_texture_phase(
 		polygon_points.append(Vector2(visible_target.end.x, row_y[row_index]))
 	var colors := PackedColorArray()
 	var uvs := PackedVector2Array()
+	var half_source_texel_u := 0.5 / maxf(float(texture.get_width()), 1.0)
 	for point in polygon_points:
 		var relative_x := (
 			(point.x - projected_target.position.x) / projected_target.size.x
 		)
-		var source_v := body_source_rect.position.y
-		var alpha := 1.0
-		if point.y <= projected_entry.end.y + 0.001:
-			var entry_t := clampf(
-				(point.y - projected_entry.position.y) / projected_entry.size.y,
-				0.0,
-				1.0
-			)
-			source_v = entry_source_rect.end.y - entry_source_rect.size.y * entry_t
-			alpha = entry_t
-		elif point.y <= projected_body.end.y + 0.001:
-			var body_t := clampf(
-				(point.y - projected_body.position.y) / projected_body.size.y,
-				0.0,
-				1.0
-			)
-			source_v = body_source_rect.position.y + body_source_rect.size.y * body_t
-		else:
-			var tail_t := clampf(
-				(point.y - projected_tail.position.y) / projected_tail.size.y,
-				0.0,
-				1.0
-			)
-			source_v = tail_source_rect.end.y - tail_source_rect.size.y * tail_t
-		colors.append(Color(1.0, 1.0, 1.0, alpha))
+		var phase_sample := resolve_scroll_texture_phase_sample(
+			point.y,
+			has_entry,
+			projected_entry,
+			projected_body,
+			entry_source_rect,
+			body_source_rect
+		)
+		colors.append(Color(1.0, 1.0, 1.0, phase_sample.y))
 		uvs.append(Vector2(
-			body_source_rect.position.x + body_source_rect.size.x * relative_x,
-			source_v
+			clampf(
+				body_source_rect.position.x + body_source_rect.size.x * relative_x,
+				half_source_texel_u,
+				1.0 - half_source_texel_u
+			),
+			phase_sample.x
 		))
 	canvas.draw_polygon(polygon_points, colors, uvs, texture)
 

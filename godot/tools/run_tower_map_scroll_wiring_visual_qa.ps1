@@ -65,9 +65,14 @@ try {
         }
         throw "$qaPath did not emit its ok marker"
     }
-    Remove-Item -LiteralPath $logPath -Force
-    if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
-        Remove-Item -LiteralPath $logDir -Force
+    if ($BandSeamOnly) {
+        Write-Host "Tower map-scroll wiring QA log preserved: $logPath"
+    }
+    else {
+        Remove-Item -LiteralPath $logPath -Force
+        if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {
+            Remove-Item -LiteralPath $logDir -Force
+        }
     }
     Write-Host "Tower map-scroll wiring Vulkan visual QA passed."
 }
