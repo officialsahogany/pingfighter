@@ -41,6 +41,7 @@ const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_TIMING_BADGE := "tower_ascent.node_modal.training.timing_badge"
 const KEY_TRAINING_JUDGMENT_MAX_BADGE := "tower_ascent.node_modal.training.judgment_max_badge"
 const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
+const KEY_TRAINING_VISIT_COMPLETE := "tower_ascent.node_modal.training.visit_complete"
 const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
 const KEY_TRAINING_TIMING_PROMPT := "tower_ascent.node_modal.training.timing_prompt"
 const KEY_TRAINING_TIMING_CANCELLED := "tower_ascent.node_modal.training.timing_cancelled"
@@ -168,7 +169,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_COMPLETED: "{name} 습득 완료",
 		KEY_TRAINING_TIMING_BADGE: "행운 판정 폭 {width}% · 최대 효과 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "판정 성공 시 최대 {effect}",
-		KEY_TRAINING_STORAGE_BADGE: "고정 +1칸",
+		KEY_TRAINING_STORAGE_BADGE: "회심 +2칸, 그 외 +1칸",
+		KEY_TRAINING_VISIT_COMPLETE: "이번 수련 완료",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 적용",
 		KEY_TRAINING_TIMING_PROMPT: "움직이는 중심추를 클릭하여 멈추세요.",
 		KEY_TRAINING_TIMING_CANCELLED: "수련을 취소했습니다. 무혼은 소모되지 않았습니다.",
@@ -299,7 +301,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "Effect limit",
 		KEY_TRAINING_TIMING_BADGE: "Luck window {width}% · Max effect +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Up to {effect} on judgment success",
-		KEY_TRAINING_STORAGE_BADGE: "Fixed +1 slot",
+		KEY_TRAINING_STORAGE_BADGE: "Perfect +2 slots, otherwise +1",
+		KEY_TRAINING_VISIT_COMPLETE: "Training visit complete",
 		KEY_TRAINING_BASE_RECEIPT: "Applied {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Click to stop the moving marker.",
 		KEY_TRAINING_TIMING_CANCELLED: "Training cancelled. No Mugong Soul spent.",
@@ -362,7 +365,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "效果上限",
 		KEY_TRAINING_TIMING_BADGE: "幸运判定宽度 {width}% · 最大效果 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功时最多 {effect}",
-		KEY_TRAINING_STORAGE_BADGE: "固定 +1 格",
+		KEY_TRAINING_STORAGE_BADGE: "会心 +2 格，其他 +1 格",
+		KEY_TRAINING_VISIT_COMPLETE: "本次训练已完成",
 		KEY_TRAINING_BASE_RECEIPT: "已应用 {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "点击停止移动的指针。",
 		KEY_TRAINING_TIMING_CANCELLED: "训练已取消，未消耗武魂。",
@@ -425,7 +429,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "効果上限",
 		KEY_TRAINING_TIMING_BADGE: "幸運判定幅 {width}% · 最大効果 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功時は最大 {effect}",
-		KEY_TRAINING_STORAGE_BADGE: "固定 +1枠",
+		KEY_TRAINING_STORAGE_BADGE: "会心 +2枠、その他 +1枠",
+		KEY_TRAINING_VISIT_COMPLETE: "今回の修練は完了",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 適用",
 		KEY_TRAINING_TIMING_PROMPT: "クリックして動く指針を止めてください。",
 		KEY_TRAINING_TIMING_CANCELLED: "修練を中止しました。武魂は消費されません。",
@@ -462,7 +467,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "Límite de efecto",
 		KEY_TRAINING_TIMING_BADGE: "Zona de suerte {width}% · Efecto máx. +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Hasta {effect} al acertar el juicio",
-		KEY_TRAINING_STORAGE_BADGE: "+1 espacio fijo",
+		KEY_TRAINING_STORAGE_BADGE: "Perfecto +2 espacios, otros +1",
+		KEY_TRAINING_VISIT_COMPLETE: "Entrenamiento completado",
 		KEY_TRAINING_BASE_RECEIPT: "Se aplicó {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Haz clic para detener el marcador móvil.",
 		KEY_TRAINING_TIMING_CANCELLED: "Entrenamiento cancelado. No se gastó alma marcial.",
@@ -499,7 +505,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "Limite do efeito",
 		KEY_TRAINING_TIMING_BADGE: "Faixa de sorte {width}% · Efeito máx. +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Até {effect} ao acertar o julgamento",
-		KEY_TRAINING_STORAGE_BADGE: "+1 espaço fixo",
+		KEY_TRAINING_STORAGE_BADGE: "Perfeito +2 espaços, outros +1",
+		KEY_TRAINING_VISIT_COMPLETE: "Treino concluído",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} aplicado",
 		KEY_TRAINING_TIMING_PROMPT: "Clique para parar o marcador em movimento.",
 		KEY_TRAINING_TIMING_CANCELLED: "Treino cancelado. Nenhuma alma marcial foi gasta.",
@@ -536,7 +543,8 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_MAXIMUM: "Предел эффекта",
 		KEY_TRAINING_TIMING_BADGE: "Ширина удачи {width}% · Макс. эффект +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "До {effect} при успешной оценке",
-		KEY_TRAINING_STORAGE_BADGE: "Фикс. +1 ячейка",
+		KEY_TRAINING_STORAGE_BADGE: "Идеально +2 ячейки, иначе +1",
+		KEY_TRAINING_VISIT_COMPLETE: "Тренировка завершена",
 		KEY_TRAINING_BASE_RECEIPT: "Применено: {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Нажмите, чтобы остановить бегущий маркер.",
 		KEY_TRAINING_TIMING_CANCELLED: "Тренировка отменена. Душа боя не потрачена.",

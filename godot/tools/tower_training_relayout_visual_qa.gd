@@ -3,6 +3,9 @@ extends SceneTree
 const PerkConversionFlags := preload(
 	"res://scripts/characters/perk_conversion_flags.gd"
 )
+const LanguageSettings := preload(
+	"res://scripts/core/language_settings.gd"
+)
 const RuntimePerkState := preload(
 	"res://scripts/characters/runtime_perk_state.gd"
 )
@@ -29,12 +32,28 @@ const VIEW_SIZE := Vector2i(2020, 1246)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_training_relayout"
 const ALLOWED_TRAINING_IDS: Array[String] = [
 	"physique_move_speed",
-	"physique_storage",
 	"physique_dash_distance",
 	"physique_paddle_size",
 	"physique_max_gauge",
-	"physique_hit_gauge",
 ]
+const STORAGE_TRAINING_IDS: Array[String] = [
+	"physique_storage",
+	"physique_move_speed",
+	"physique_dash_distance",
+	"physique_paddle_size",
+]
+
+# Independent acceptance geometry. Keep this fixed-reference board separate
+# from the production layout constants so a production drift cannot move both
+# halves of the visual comparison together.
+const ACCEPTED_MODAL_RECT := Rect2(24.0, 28.0, 712.0, 694.0)
+const ACCEPTED_TITLE_RECT := Rect2(126.0, 52.0, 508.0, 80.0)
+const ACCEPTED_TRAINING_CARD_GRID_RECT := Rect2(52.0, 150.0, 245.0, 476.0)
+const ACCEPTED_TRAINING_CARD_ROWS := 4
+const ACCEPTED_TRAINING_CARD_ROW_GAP := 6.0
+const ACCEPTED_TRAINING_STAGE_RECT := Rect2(312.0, 150.0, 405.0, 210.0)
+const ACCEPTED_TRAINING_STATS_RECT := Rect2(312.0, 372.0, 405.0, 254.0)
+const ACCEPTED_TRAINING_END_WORK_RECT := Rect2(246.0, 638.0, 268.0, 40.0)
 
 
 class CaptureOwner:
@@ -60,9 +79,13 @@ class CaptureOwner:
 
 class CaptureUnlockStore:
 	extends RefCounted
+	var allowed_ids: Array[String] = []
+
+	func _init(source_ids: Array[String] = ALLOWED_TRAINING_IDS) -> void:
+		allowed_ids.assign(source_ids)
 
 	func is_unlocked(_content_type: String, content_id: String) -> bool:
-		return ALLOWED_TRAINING_IDS.has(content_id)
+		return allowed_ids.has(content_id)
 
 
 class CaptureMythicItemRuntime:
@@ -141,6 +164,7 @@ func _run() -> void:
 		return
 
 	var original_conversion_flag := PerkConversionFlags.is_enabled()
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	PerkConversionFlags.debug_set_enabled(true)
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 
@@ -197,18 +221,18 @@ func _run() -> void:
 		return
 	frames.append(idle)
 
-	for card_index in range(6):
+	for card_index in range(4):
 		var model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
 		var actions: Array = model.get("actions", [])
 		var rects: Array = model.get("action_rects", [])
-		if actions.size() != 7 or rects.size() != 7:
-			_fail("training rail lost its six-card action contract")
+		if actions.size() != 5 or rects.size() != 5:
+			_fail("training rail lost its four-card action contract")
 			break
 		var before_values: Array = card_renderer.get_tower_training_stats_snapshot_for_tests().get(
 			"values",
 			[]
 		)
-		var clock_base := 10000 + card_index * 2000
+		var clock_base := 10000 + card_index * 3000
 		flow.set_training_stage_clock_msec_for_tests(clock_base)
 		var top_corner := (rects[card_index] as Rect2).position + Vector2(2.0, 2.0)
 		flow.handle_input(_mouse_button(true, top_corner))
@@ -232,7 +256,14 @@ func _run() -> void:
 			[]
 		)
 		if var_to_bytes(after_values) == var_to_bytes(before_values):
-			_fail("card %d did not update a canonical stat row" % (card_index + 1))
+			_fail(
+				"card %d (%s) did not update a canonical stat row; history=%d"
+				% [
+					card_index + 1,
+					str((actions[card_index] as Dictionary).get("id", "")),
+					flow.get_training_history().size(),
+				]
+			)
 			break
 		var frame := await _capture_frame(
 			viewport,
@@ -247,7 +278,7 @@ func _run() -> void:
 			break
 		frames.append(frame)
 		flow.set_training_stage_clock_msec_for_tests(
-			int(strike_debug.get("started_msec", clock_base)) + 1300
+			int(strike_debug.get("started_msec", clock_base)) + 2000
 		)
 		flow.update_selective(0.016, null)
 
@@ -255,26 +286,36 @@ func _run() -> void:
 		var returned := await _capture_frame(
 			viewport,
 			canvas,
-			output_dir.path_join("training_relayout_07_returned.png")
+			output_dir.path_join("training_relayout_05_returned.png")
 		)
 		if returned == null:
 			_fail("returned capture failed")
 		else:
 			frames.append(returned)
-	if not _failed and flow.get_training_history().size() != 6:
-		_fail("six top-corner clicks did not produce six training commits")
+	if not _failed and flow.get_training_history().size() != 4:
+		_fail("four top-corner clicks did not produce four training commits")
 	if not _failed and not _verify_region_contract(flow):
 		_fail("three-region layout contract failed")
 	if not _failed and not _save_frame_strip(
 		frames,
-		output_dir.path_join("training_relayout_six_click_sequence_4x2.png")
+		output_dir.path_join("training_relayout_four_click_sequence_3x2.png")
 	):
-		_fail("six-click frame strip save failed")
+		_fail("four-click frame strip save failed")
 	if not _failed and not _save_direction_comparison(
 		idle,
 		output_dir.path_join("training_relayout_mockup_direction_comparison.png")
 	):
 		_fail("mockup-direction comparison save failed")
+	if not _failed:
+		var storage_capture_ok := await _capture_storage_visit(
+			viewport,
+			canvas,
+			owner,
+			registry,
+			output_dir
+		)
+		if not storage_capture_ok:
+			_fail("storage badge and completed-visit capture failed")
 
 	_finish_flags(original_conversion_flag)
 	if _failed:
@@ -282,8 +323,9 @@ func _run() -> void:
 		return
 	print("tower_training_relayout_visual_qa: evidence=%s" % output_dir)
 	print("tower_training_relayout_visual_qa: captures=%d" % _capture_count)
-	print("tower_training_relayout_visual_qa: six_clicks=ok")
+	print("tower_training_relayout_visual_qa: four_clicks=ok")
 	print("tower_training_relayout_visual_qa: stats_same_frame=ok")
+	print("tower_training_relayout_visual_qa: storage_visit=ok")
 	print("tower_training_relayout_visual_qa: comparison=ok")
 	print("tower_training_relayout_visual_qa: ok")
 	quit(0)
@@ -304,11 +346,94 @@ func _capture_frame(
 	return image
 
 
-func _save_frame_strip(frames: Array[Image], path: String) -> bool:
-	if frames.size() != 8:
+func _capture_storage_visit(
+	viewport: SubViewport,
+	canvas: CaptureCanvas,
+	owner: CaptureOwner,
+	registry: CaptureRegistry,
+	output_dir: String
+) -> bool:
+	var runtime_state := RuntimePerkState.new()
+	registry.instances["runtime_perk_state"] = runtime_state
+	registry.instances["tower_ascent_unlock_store"] = CaptureUnlockStore.new(
+		STORAGE_TRAINING_IDS
+	)
+	registry.instances["mythic_item_runtime"] = CaptureMythicItemRuntime.new(
+		runtime_state
+	)
+	var flow := TowerAscentFlowOwner.new()
+	flow.set("_active", true)
+	flow.set("_phase", 1)
+	flow.set("_node_modal_kind", "training")
+	flow.set("_current_node_id", "training-storage-visual")
+	flow.set("_map_seed", 1207)
+	flow.set("_active_owner", owner)
+	flow.set("_active_registry", registry)
+	var run_state: Object = flow.get("_run_state")
+	if not bool(run_state.begin("training-storage-visual-run", {"muhon": 10})):
 		return false
-	var cell_size := Vector2i(VIEW_SIZE.x / 4, VIEW_SIZE.y / 4)
-	var strip := Image.create(cell_size.x * 4, cell_size.y * 2, false, Image.FORMAT_RGBA8)
+	flow.call("_open_node_modal")
+	canvas.flow = flow
+	var opening_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var opening_actions: Array = opening_model.get("actions", [])
+	var storage_seen := false
+	var non_storage_action_id := ""
+	for action_value: Variant in opening_actions:
+		if not (action_value is Dictionary):
+			continue
+		var action: Dictionary = action_value
+		var action_id := str(action.get("id", ""))
+		if action_id == "training_stat:physique_storage":
+			storage_seen = (
+				str(action.get("payload", {}).get("choice", {}).get(
+					"bonus_badge_text",
+					""
+				)) == "회심 +2칸, 그 외 +1칸"
+			)
+		elif action_id.begins_with("training_stat:") and non_storage_action_id.is_empty():
+			non_storage_action_id = action_id
+	if not storage_seen or non_storage_action_id.is_empty():
+		return false
+	if await _capture_frame(
+		viewport,
+		canvas,
+		output_dir.path_join("training_relayout_06_storage_badge.png")
+	) == null:
+		return false
+	var result: Dictionary = flow.execute_node_action(
+		non_storage_action_id,
+		"training-storage-visual:first"
+	)
+	if not bool(result.get("applied", false)):
+		return false
+	var completed_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var completed_actions: Array = completed_model.get("actions", [])
+	var completed_count := 0
+	for action_value: Variant in completed_actions:
+		if not (action_value is Dictionary):
+			continue
+		var action: Dictionary = action_value
+		if not str(action.get("id", "")).begins_with("training_stat:"):
+			continue
+		completed_count += int(
+			not bool(action.get("enabled", true))
+			and str(action.get("disabled_reason", "")) == "training_visit_complete"
+			and not str(action.get("unavailable_reason", "")).is_empty()
+		)
+	if completed_count != 4:
+		return false
+	return await _capture_frame(
+		viewport,
+		canvas,
+		output_dir.path_join("training_relayout_07_storage_visit_complete.png")
+	) != null
+
+
+func _save_frame_strip(frames: Array[Image], path: String) -> bool:
+	if frames.size() != 6:
+		return false
+	var cell_size := Vector2i(VIEW_SIZE.x / 3, VIEW_SIZE.y / 3)
+	var strip := Image.create(cell_size.x * 3, cell_size.y * 2, false, Image.FORMAT_RGBA8)
 	strip.fill(Color(0.025, 0.02, 0.016, 1.0))
 	for index in range(frames.size()):
 		var thumbnail := frames[index].duplicate()
@@ -317,7 +442,7 @@ func _save_frame_strip(frames: Array[Image], path: String) -> bool:
 		strip.blit_rect(
 			thumbnail,
 			Rect2i(Vector2i.ZERO, thumbnail.get_size()),
-			Vector2i(index % 4, index / 4) * cell_size
+			Vector2i(index % 3, index / 3) * cell_size
 		)
 	return strip.save_png(path) == OK
 
@@ -330,27 +455,28 @@ func _save_direction_comparison(actual: Image, path: String) -> bool:
 	reference.fill(Color(0.82, 0.76, 0.62, 1.0))
 	var base_scale := minf(float(half_size.x) / 760.0, float(half_size.y) / 750.0)
 	var base_offset := (Vector2(half_size) - Vector2(760.0, 750.0) * base_scale) * 0.5
-	_fill_reference_rect(reference, TowerAscentNodeModalState.MODAL_RECT, base_scale, base_offset, Color(0.91, 0.85, 0.70, 1.0))
-	_fill_reference_rect(reference, Rect2(126.0, 52.0, 508.0, 80.0), base_scale, base_offset, Color(0.69, 0.50, 0.26, 0.42))
-	for row in range(6):
+	_fill_reference_rect(reference, ACCEPTED_MODAL_RECT, base_scale, base_offset, Color(0.91, 0.85, 0.70, 1.0))
+	_fill_reference_rect(reference, ACCEPTED_TITLE_RECT, base_scale, base_offset, Color(0.69, 0.50, 0.26, 0.42))
+	for row in range(ACCEPTED_TRAINING_CARD_ROWS):
 		var card_height := (
-			TowerAscentNodeModalState.TRAINING_CARD_GRID_RECT.size.y
-			- TowerAscentNodeModalState.TRAINING_GRID_ROW_GAP * 5.0
-		) / 6.0
+			ACCEPTED_TRAINING_CARD_GRID_RECT.size.y
+			- ACCEPTED_TRAINING_CARD_ROW_GAP
+			* float(ACCEPTED_TRAINING_CARD_ROWS - 1)
+		) / float(ACCEPTED_TRAINING_CARD_ROWS)
 		_fill_reference_rect(
 			reference,
 			Rect2(
-				TowerAscentNodeModalState.TRAINING_CARD_GRID_RECT.position
-				+ Vector2(0.0, float(row) * (card_height + TowerAscentNodeModalState.TRAINING_GRID_ROW_GAP)),
-				Vector2(TowerAscentNodeModalState.TRAINING_CARD_GRID_RECT.size.x, card_height)
+				ACCEPTED_TRAINING_CARD_GRID_RECT.position
+					+ Vector2(0.0, float(row) * (card_height + ACCEPTED_TRAINING_CARD_ROW_GAP)),
+				Vector2(ACCEPTED_TRAINING_CARD_GRID_RECT.size.x, card_height)
 			),
 			base_scale,
 			base_offset,
 			Color(0.40, 0.22 + 0.025 * float(row), 0.10, 0.92)
 		)
-	_fill_reference_rect(reference, TowerAscentNodeModalState.TRAINING_STAGE_RECT, base_scale, base_offset, Color(0.16, 0.09, 0.055, 0.96))
-	_fill_reference_rect(reference, TowerAscentNodeModalState.TRAINING_STATS_RECT, base_scale, base_offset, Color(0.70, 0.62, 0.45, 0.98))
-	_fill_reference_rect(reference, TowerAscentNodeModalState.TRAINING_END_WORK_RECT, base_scale, base_offset, Color(0.49, 0.30, 0.12, 0.96))
+	_fill_reference_rect(reference, ACCEPTED_TRAINING_STAGE_RECT, base_scale, base_offset, Color(0.16, 0.09, 0.055, 0.96))
+	_fill_reference_rect(reference, ACCEPTED_TRAINING_STATS_RECT, base_scale, base_offset, Color(0.70, 0.62, 0.45, 0.98))
+	_fill_reference_rect(reference, ACCEPTED_TRAINING_END_WORK_RECT, base_scale, base_offset, Color(0.49, 0.30, 0.12, 0.96))
 	var actual_half := actual.duplicate()
 	actual_half.resize(half_size.x, half_size.y, Image.INTERPOLATE_LANCZOS)
 	actual_half.convert(Image.FORMAT_RGBA8)
@@ -415,6 +541,7 @@ func _mouse_button(pressed: bool, position: Vector2) -> InputEventMouseButton:
 func _finish_flags(original_conversion_flag: bool) -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(original_conversion_flag)
+	LanguageSettings.set_test_locale_override("")
 
 
 func _fail(message: String) -> void:

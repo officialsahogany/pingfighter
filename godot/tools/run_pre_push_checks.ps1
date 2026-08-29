@@ -309,7 +309,9 @@ $focusedSmoke = @(
     "res://tests/gaksital_vision_fan_throw_smoke.gd",
     "res://tests/gaksital_vision_input_exclusivity_smoke.gd",
     "res://tests/yangui_hoechun_wave_contract_smoke.gd",
-    "res://tests/vision_modifier_movement_latch_smoke.gd"
+    "res://tests/vision_modifier_movement_latch_smoke.gd",
+    "res://tests/runtime_perk_stage_start_item_grant_smoke.gd",
+    "res://tests/guardian_active_cooldown_scale_smoke.gd"
 )
 
 # Resolve Godot once and reuse for every step (avoids 3x disk search).

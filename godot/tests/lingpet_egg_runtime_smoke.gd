@@ -3626,6 +3626,8 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	})
 	runtime.update(0.0, owner, registry)
 	owner.ball_active = true
+	var hydro_cooldown := float(runtime._current_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect_float(hydro_cooldown, 32.0, "Hydro Sphere profile should apply the final guardian cooldown scale")
 	_expect(str(owner.lingpet_skill_id) == "maribo_hydro_sphere", "owned Maribo should publish its Hydro Sphere skill-card id")
 	_expect(str(owner.lingpet_skill_name) == "하이드로 스피어", "owned Maribo should publish its Korean Hydro Sphere skill-card name")
 	_expect(bool(owner.lingpet_skill_ready), "owned Maribo skill should start ready")
@@ -3634,7 +3636,7 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	var rail_snap: Dictionary = runtime.get_snapshot()
 	_expect(bool(runtime.is_maribo_companion_active()), "owned Maribo should be companion-active for the boss-rail entry gate")
 	_expect(str(rail_snap.get("companion_skill_id", "")) == "maribo_hydro_sphere", "active companion snapshot should expose the hydro sphere skill id for the rail entry")
-	_expect(absf(float(rail_snap.get("companion_skill_cooldown_duration", 0.0)) - 40.0) <= 0.01, "lingpet rail entry should source the 40s companion cooldown duration")
+	_expect_float(float(rail_snap.get("companion_skill_cooldown_duration", 0.0)), hydro_cooldown, "lingpet rail entry should source the resolved 32s companion cooldown duration")
 	_expect(absf(float(rail_snap.get("companion_skill_windup_seconds", 0.0)) - 1.0) <= 0.01, "lingpet rail entry should source the catalog skill wind-up duration")
 	_expect(rail_snap.has("companion_skill_ready"), "lingpet rail entry should source ready state from the companion snapshot")
 	_expect(rail_snap.has("companion_skill_flash_ratio"), "lingpet rail entry should source a normalized flash ratio (not the raw 24-frame boss unit)")
@@ -3656,12 +3658,12 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 	_expect(int(owner.lingpet_skill_trigger_count) == 0, "Hydro Sphere wind-up should not count a launch yet")
 	_expect(audio.hydro_count == 0, "Hydro Sphere should hold its launch cue until the wind-up releases")
 
-	# Completing the wind-up launches the projectile, counts the cast, and starts the 40s cooldown.
+	# Completing the wind-up launches the projectile, counts the cast, and starts the resolved cooldown.
 	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
 	_expect(is_equal_approx(owner.special_gauge, 100.0), "Hydro Sphere should not replace Maribo's passive gauge bonus with a gauge grant")
 	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Hydro Sphere should count its launch after the wind-up")
 	_expect(is_equal_approx(owner.lingpet_skill_last_gain, 0.0), "Hydro Sphere should publish zero direct gauge gain")
-	_expect(owner.lingpet_skill_cooldown > 39.0, "Hydro Sphere should enter a 40-second cooldown at launch")
+	_expect(owner.lingpet_skill_cooldown > hydro_cooldown - 0.1 and owner.lingpet_skill_cooldown <= hydro_cooldown, "Hydro Sphere should enter the profile-resolved 32-second cooldown at launch")
 	_expect(not bool(owner.lingpet_skill_ready), "Maribo skill should not be ready during cooldown")
 	_expect(audio.hydro_count == 1, "Hydro Sphere should play the water hydro cue on launch")
 	var skill_snapshot: Dictionary = runtime.get_snapshot()
@@ -3704,11 +3706,11 @@ func _verify_companion_skill_card_hydro_sphere() -> void:
 
 	owner.ball_pos = owner.lingpet_companion_pos + Vector2(0.0, -90.0)
 	# Cooldown expiry re-arms the wind-up; the relaunch only fires once it completes.
-	runtime.update(40.1, owner, registry)
+	runtime.update(hydro_cooldown + 0.1, owner, registry)
 	_expect(bool(runtime.get_snapshot().get("companion_skill_winding_up", false)), "Hydro Sphere should re-arm its throw wind-up after the cooldown expires")
 	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count, "Hydro Sphere should not relaunch until the re-armed wind-up completes")
 	runtime.update(LingpetEggRuntime.COMPANION_SKILL_WINDUP_SECONDS + 0.05, owner, registry)
-	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its 40-second cooldown plus the wind-up")
+	_expect(int(owner.lingpet_skill_trigger_count) == first_trigger_count + 1, "Hydro Sphere should relaunch after its resolved cooldown plus the wind-up")
 
 
 func _verify_hydro_sphere_scales_with_level() -> void:
@@ -3961,6 +3963,8 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	owner.lingpet_owned_pet_ids = ["maribo"]
 	var runtime: Object = LingpetEggRuntime.new()
 	runtime.update(0.0, owner)
+	var hydro_cooldown := float(runtime._current_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect_float(hydro_cooldown, 32.0, "Maribo character-info fixture should resolve the global cooldown scale")
 	_expect(bool(runtime.is_maribo_companion_active()), "owned Maribo should activate the companion effect")
 	_expect(str(owner.lingpet_effect_text).find("공용 풀") >= 0, "owner effect text should defer passive details to the shared passive loadout")
 	var snapshot: Dictionary = runtime.get_snapshot()
@@ -3980,7 +3984,7 @@ func _verify_maribo_companion_gauge_bonus() -> void:
 	_expect(_stat_values_have_exact(lingpet_stats, "2.00"), "character-info lingpet stats should show Maribo speed as a slower single player-style value")
 	_expect(_stat_values_have_fragment(lingpet_stats, "100x44"), "character-info lingpet stats should show the body-size footprint")
 	_expect(_stat_values_have_exact(lingpet_stats, "40pt"), "character-info lingpet stats should show the direct hit gauge gain as a common stat")
-	_expect(_stat_values_have_exact(lingpet_stats, CharacterInfoOverlayFormatter.format_seconds_text(40.0)), "character-info lingpet stats should show Hydro Sphere cooldown")
+	_expect(_stat_values_have_exact(lingpet_stats, CharacterInfoOverlayFormatter.format_seconds_text(hydro_cooldown)), "character-info lingpet stats should show the resolved Hydro Sphere cooldown")
 	_expect(_stat_values_have_exact(lingpet_stats, "30%"), "character-info lingpet stats should show the real defense rate")
 
 	var overlay_gain: float = CharacterInfoOverlayStatsPresenter.effective_gauge_gain_per_hit(null, null, runtime)
@@ -4082,7 +4086,7 @@ func _verify_maribo_defense_actually_blocks_reachable_ball() -> void:
 	runtime.update(0.0, owner, registry)
 	# Maribo auto-casts Hydro Sphere with a ~1s wind-up that FREEZES companion motion
 	# (windup_active -> freeze_motion). Let the initial cast LAUNCH (needs an active
-	# ball) so it enters its 40s cooldown and stops re-winding; then the guard moves
+	# ball) so it enters its resolved cooldown and stops re-winding; then the guard moves
 	# freely. Ball is parked away from the lane so it triggers nothing during warm-up.
 	owner.ball_active = true
 	owner.ball_pos = Vector2(60.0, 120.0)
@@ -4685,6 +4689,8 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(absf(start_pos.y - player_lane_y) > 20.0, "Lunabi should not start locked to the player-height patrol lane")
 	_expect(start_pos.x < 0.0 or start_pos.x > 760.0, "Lunabi should enter mainly from the left or right edge")
 	var snapshot: Dictionary = runtime.get_snapshot()
+	var headbutt_cooldown := float(runtime._current_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect_float(headbutt_cooldown, 24.0, "Lunabi Headbutt profile should apply the final guardian cooldown scale")
 	_expect(str(snapshot.get("companion_motion_style", "")) == "sortie_flight", "Lunabi snapshot should expose sortie-flight motion style")
 	_expect(snapshot.get("companion_free_flight_target", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose a sortie destination")
 	_expect(snapshot.get("companion_motion_velocity", Vector2.ZERO) is Vector2, "Lunabi snapshot should expose sortie velocity for save/restore")
@@ -4694,7 +4700,7 @@ func _verify_lunabi_free_flight_profile() -> void:
 	_expect(first_target.x >= 150.0 and first_target.x <= 610.0 and first_target.y >= 150.0 and first_target.y <= 480.0, "Lunabi ingress should initially aim toward the central playfield background")
 	_expect(is_equal_approx(float(snapshot.get("companion_defense_rate", -1.0)), 0.0), "Lunabi should not use Maribo's defensive intercept rate")
 	_expect(str(snapshot.get("companion_skill_id", "")) == "lunabi_headbutt", "Lunabi should publish a Headbutt rail-card id")
-	_expect(is_equal_approx(float(snapshot.get("companion_skill_cooldown_duration", 0.0)), 30.0), "Lunabi Headbutt should use the 30-second cooldown")
+	_expect_float(float(snapshot.get("companion_skill_cooldown_duration", 0.0)), headbutt_cooldown, "Lunabi Headbutt snapshot should use the resolved 24-second cooldown")
 	_expect(is_equal_approx(float(snapshot.get("companion_skill_windup_seconds", 0.0)), 0.45), "Lunabi Headbutt should expose its short charge wind-up")
 	_expect(str(snapshot.get("companion_skill_card_path", "")).ends_with("lunabi_headbutt_skillcard_imagegen_v1.png"), "Lunabi Headbutt should expose its imagegen skill-card art")
 	_expect(str(snapshot.get("companion_skill_icon_path", "")).ends_with("lunabi_headbutt_skill_icon_imagegen_v1.png"), "Lunabi Headbutt should expose its imagegen skill icon")
@@ -4934,6 +4940,8 @@ func _verify_lunabi_headbutt_skill() -> void:
 
 	runtime.update(0.50, owner, registry)
 	var launched_snap: Dictionary = runtime.get_snapshot()
+	var resolved_headbutt_cooldown := float(runtime._current_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect_float(resolved_headbutt_cooldown, 21.12, "Lunabi Headbutt Lv.5 profile should scale the level-reduced cooldown once")
 	_expect(bool(launched_snap.get("headbutt_active", false)), "Lunabi Headbutt should launch after its wind-up")
 	_expect(bool(launched_snap.get("headbutt_companion_override_active", false)), "Lunabi Headbutt should drive the real companion body during the charge")
 	_expect(_vector2_distance(launched_snap.get("companion_pos", Vector2.ZERO), launched_snap.get("headbutt_pos", Vector2.INF)) <= 0.1, "Lunabi Headbutt launch should start from the real companion body position")
@@ -4942,7 +4950,7 @@ func _verify_lunabi_headbutt_skill() -> void:
 	_expect(combo_total >= 2, "the Lunabi Headbutt smoke fixture should exercise a repeat-capable combo")
 	_expect(int(launched_snap.get("headbutt_combo_index", 0)) == 1, "Lunabi Headbutt should publish the first dash as combo index 1")
 	_expect(int(owner.lingpet_skill_trigger_count) == 1, "Lunabi Headbutt should count one launch")
-	_expect(owner.lingpet_skill_cooldown > 25.0 and owner.lingpet_skill_cooldown <= 26.5, "Lunabi Headbutt Lv.5 should enter the level-reduced ~26.4s cooldown (30s base - 12% global level reduction)")
+	_expect(owner.lingpet_skill_cooldown > resolved_headbutt_cooldown - 0.1 and owner.lingpet_skill_cooldown <= resolved_headbutt_cooldown, "Lunabi Headbutt Lv.5 should enter the profile-resolved 21.12s cooldown")
 	_expect(not bool(owner.lingpet_skill_ready), "Lunabi Headbutt should not be ready during cooldown")
 
 	var boss_x_before := owner.boss_pos.x
@@ -5194,6 +5202,8 @@ func _verify_koyora_puppet_grab_skill() -> void:
 
 	runtime.update(0.85, owner, registry)  # exceed the 0.8s wind-up
 	var launched: Dictionary = runtime.get_snapshot()
+	var resolved_puppet_cooldown := float(runtime._current_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect_float(resolved_puppet_cooldown, 20.0, "Puppet Control profile should resolve exactly to the cooldown-floor boundary")
 	_expect(bool(launched.get("puppet_grab_active", false)), "Koyora 꼭두각시 조종 should launch after its wind-up")
 	# Snapshot lock-on: the freeze flag is NOT set during EXTENDING. The boss is
 	# free to dodge during the 0.7s extend window — only a confirmed HIT at the
@@ -5202,7 +5212,7 @@ func _verify_koyora_puppet_grab_skill() -> void:
 	_expect(int(launched.get("puppet_grab_phase", -1)) == 0, "the grab should open in the extending phase")
 	_expect(bool(launched.get("puppet_grab_companion_override_active", false)), "Koyora should stay pinned at her cast spot while puppeteering")
 	_expect(int(runtime.get_puppet_grab_count_for_tests()) == 1, "the grab should count one launch")
-	_expect(owner.lingpet_skill_cooldown > 20.0, "꼭두각시 조종 should enter its long cooldown at launch (25s)")
+	_expect(owner.lingpet_skill_cooldown > resolved_puppet_cooldown - 0.1 and owner.lingpet_skill_cooldown <= resolved_puppet_cooldown, "꼭두각시 조종 should enter its resolved 20-second cooldown at launch")
 	_expect(puppet_audio.puppet_grab_cast_count == 1, "launching Puppet Control should play the original tentacle cast sound once")
 	_expect(puppet_audio.puppet_grab_pull_count == 0 and puppet_audio.puppet_grab_kiss_count == 0, "Puppet Control should not play pull/kiss sounds before their phase edges")
 

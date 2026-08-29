@@ -637,22 +637,75 @@ func _build_training_actions() -> Array[Dictionary]:
 	if offer.is_empty():
 		return []
 	var balances: Dictionary = _run_state.export_economy()
+	var cost := _get_current_training_cost()
+	var visit_complete := _is_training_visit_complete(offer)
 	var result: Array[Dictionary] = []
 	for choice_value in offer.get("stat_choices", []):
 		if choice_value is Dictionary:
 			result.append(_build_training_action(
 				"stat",
 				choice_value as Dictionary,
-				TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST,
-				balances
+				cost,
+				balances,
+				visit_complete
 			))
 	return result
+
+
+func _get_current_training_success_count() -> int:
+	var success_count := 0
+	for record_value in _training_history:
+		if (
+			record_value is Dictionary
+			and str((record_value as Dictionary).get("node_id", "")) == _current_node_id
+		):
+			success_count += 1
+	return success_count
+
+
+func _get_current_training_cost() -> int:
+	var step_successes := maxi(
+		1,
+		TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST_STEP_SUCCESSES
+	)
+	return (
+		TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_BASE_COST
+		+ floori(float(_get_current_training_success_count()) / float(step_successes))
+	)
+
+
+func _training_offer_contains_storage(offer: Dictionary) -> bool:
+	for choice_value in offer.get("stat_choices", []):
+		if (
+			choice_value is Dictionary
+			and str((choice_value as Dictionary).get("id", "")).strip_edges()
+			== TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
+		):
+			return true
+	return false
+
+
+func _is_training_visit_complete(offer: Dictionary = {}) -> bool:
+	var current_offer := offer
+	if current_offer.is_empty():
+		current_offer = _get_or_create_training_offer()
+	return (
+		_get_current_training_success_count() > 0
+		and _training_offer_contains_storage(current_offer)
+	)
+
+
+func _training_visit_complete_message() -> String:
+	return TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
+	)
 
 func _build_training_action(
 	choice_kind: String,
 	choice: Dictionary,
 	cost: int,
-	balances: Dictionary
+	balances: Dictionary,
+	visit_complete: bool = false
 ) -> Dictionary:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
@@ -672,13 +725,13 @@ func _build_training_action(
 		runtime_state,
 		_active_registry
 	))
-	var enabled: bool = not at_maximum and affordable
+	var enabled: bool = not visit_complete and not at_maximum and affordable
 	live_choice["training_timing_luck_percent"] = (
 		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
 	)
 	if choice_id == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID:
-		# Storage is the one structural exception: timing quality never changes
-		# its fixed +1-slot result, so the card keeps this anti-confusion badge.
+		# Storage is the structural exception: critical grants two slots while
+		# great and base results grant one, so disclose the split on the card.
 		live_choice["bonus_badge_text"] = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE
 		)
@@ -693,7 +746,10 @@ func _build_training_action(
 		)
 	var unavailable_reason := ""
 	var disabled_reason := ""
-	if at_maximum:
+	if visit_complete:
+		disabled_reason = "training_visit_complete"
+		unavailable_reason = _training_visit_complete_message()
+	elif at_maximum:
 		disabled_reason = "training_maximum_reached"
 		unavailable_reason = _training_maximum_message(live_choice)
 	elif not affordable:
@@ -796,6 +852,24 @@ func _prepare_training_timing_action(
 			"prepared": false,
 			"reason": "unknown_training_choice",
 		}
+	var requested_resolution := requested_resolution_id.strip_edges()
+	if not requested_resolution.is_empty() and _resolution_ids.has(requested_resolution):
+		return {
+			"accepted": true,
+			"prepared": false,
+			"applied": false,
+			"reason": "already_committed",
+			"node_resolution_id": requested_resolution,
+		}
+	if _is_training_visit_complete():
+		var visit_message := _training_visit_complete_message()
+		_refresh_training_modal(visit_message)
+		return {
+			"accepted": false,
+			"prepared": false,
+			"reason": "training_visit_complete",
+			"message": visit_message,
+		}
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
 		choice_kind,
@@ -816,7 +890,7 @@ func _prepare_training_timing_action(
 			"reason": "training_maximum_reached",
 			"message": maximum_message,
 		}
-	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
+	var cost := _get_current_training_cost()
 	var affordability: Dictionary = _run_state.can_afford({"muhon": cost})
 	if not bool(affordability.get("accepted", false)):
 		var insufficient_message := TowerAscentNodeModalLocalization.text(
@@ -830,7 +904,7 @@ func _prepare_training_timing_action(
 		affordability["message"] = insufficient_message
 		_refresh_training_modal(insufficient_message)
 		return affordability
-	var resolution_id := requested_resolution_id.strip_edges()
+	var resolution_id := requested_resolution
 	if resolution_id.is_empty():
 		resolution_id = _make_resolution_id(
 			_current_node_id,
@@ -872,6 +946,22 @@ func _execute_training_action(
 	var choice := _find_training_choice(choice_kind, choice_id)
 	if choice.is_empty():
 		return {"accepted": false, "reason": "unknown_training_choice"}
+	var requested_resolution := requested_resolution_id.strip_edges()
+	if not requested_resolution.is_empty() and _resolution_ids.has(requested_resolution):
+		return {
+			"accepted": true,
+			"applied": false,
+			"reason": "already_committed",
+			"node_resolution_id": requested_resolution,
+		}
+	if _is_training_visit_complete():
+		var visit_message := _training_visit_complete_message()
+		_refresh_training_modal(visit_message)
+		return {
+			"accepted": false,
+			"reason": "training_visit_complete",
+			"message": visit_message,
+		}
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
 		choice_kind,
@@ -891,7 +981,7 @@ func _execute_training_action(
 			"reason": "training_maximum_reached",
 			"message": maximum_message,
 		}
-	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_STAT_COST
+	var cost := _get_current_training_cost()
 	var affordability: Dictionary = _run_state.can_afford({"muhon": cost})
 	if not bool(affordability.get("accepted", false)):
 		var insufficient_message := TowerAscentNodeModalLocalization.text(
@@ -904,7 +994,7 @@ func _execute_training_action(
 		affordability["message"] = insufficient_message
 		_refresh_training_modal(insufficient_message)
 		return affordability
-	var resolution_id := requested_resolution_id.strip_edges()
+	var resolution_id := requested_resolution
 	if resolution_id.is_empty():
 		resolution_id = _make_resolution_id(
 			_current_node_id,
@@ -1040,12 +1130,18 @@ func _get_or_create_training_offer() -> Dictionary:
 	return _generated_training_offers.back()
 
 func _get_training_offer_entry() -> Dictionary:
-	for offer in _generated_training_offers:
-		if (
-			str(offer.get("node_id", "")) == _current_node_id
-			and _training_offer_builder.is_current_training_offer(offer)
-		):
+	for offer_index in range(_generated_training_offers.size()):
+		var offer: Dictionary = _generated_training_offers[offer_index]
+		if str(offer.get("node_id", "")) != _current_node_id:
+			continue
+		if _training_offer_builder.is_current_training_offer(offer):
 			return offer
+		var migrated: Dictionary = _training_offer_builder.migrate_legacy_training_offer(
+			offer
+		)
+		if not migrated.is_empty():
+			_generated_training_offers[offer_index] = migrated
+			return _generated_training_offers[offer_index]
 	return {}
 
 func _find_training_choice(choice_kind: String, choice_id: String) -> Dictionary:

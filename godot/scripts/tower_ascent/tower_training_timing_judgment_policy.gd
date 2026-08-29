@@ -108,9 +108,10 @@ static func multiplier_for_judgment(judgment_kind: String) -> float:
 
 
 static func applied_multiplier(training_id: String, judgment_kind: String) -> float:
-	# physique_storage changes an integer structural slot count. There is no
-	# meaningful 1.5-slot or 1.3-slot result, and rounding would award +2 slots,
-	# breaking both timing multipliers. It therefore remains exactly +1 slot.
+	# Storage training changes an integer structural slot count. A critical hit
+	# grants two slots while great and base results grant one slot.
 	if training_id.strip_edges() == STORAGE_TRAINING_ID:
+		if judgment_kind.strip_edges() == JUDGMENT_CRITICAL:
+			return 2.0
 		return BASE_MULTIPLIER
 	return multiplier_for_judgment(judgment_kind)

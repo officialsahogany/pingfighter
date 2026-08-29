@@ -16,12 +16,16 @@ const RuntimePerkCharacterContext := preload(
 	"res://scripts/characters/runtime_perk_character_context.gd"
 )
 
-const OFFER_VERSION := "tower_training_offer_v2"
+const TRAINING_OFFER_VERSION := "tower_training_offer_v3"
+const MIXED_REWARD_OFFER_VERSION := "tower_training_offer_v2"
+# Compatibility surface for callers that inspect the current training offer
+# schema. Mixed rewards deliberately retain their pre-Z17 v2 seed/version.
+const OFFER_VERSION := TRAINING_OFFER_VERSION
 const OFFER_KIND_TRAINING := "training"
 const OFFER_KIND_MIXED_REWARD := "mixed_reward"
-const TRAINING_CARD_COUNT := 6
+const TRAINING_CARD_COUNT := 4
 # Mixed result rewards filter Chosik/system rows after the catalog draw, so ask
-# for reserve rows without changing the six-card training-node contract.
+# for reserve rows without changing the mixed-reward six-choice contract.
 const MIXED_REWARD_MUGONG_CHOICE_COUNT := 6
 
 var _physique_catalog: Object = PhysiqueTrainingCatalog.new()
@@ -84,7 +88,11 @@ func build_offer(
 	var result := {
 		"accepted": true,
 		"reason": "generated",
-		"offer_version": OFFER_VERSION,
+		"offer_version": (
+			TRAINING_OFFER_VERSION
+			if training_only
+			else MIXED_REWARD_OFFER_VERSION
+		),
 		"offer_kind": normalized_offer_kind,
 		"node_id": normalized_node_id,
 		"stat_choices": stat_choices,
@@ -97,7 +105,7 @@ func build_offer(
 
 func is_current_training_offer(offer: Dictionary) -> bool:
 	if (
-		str(offer.get("offer_version", "")) != OFFER_VERSION
+		str(offer.get("offer_version", "")) != TRAINING_OFFER_VERSION
 		or str(offer.get("offer_kind", "")) != OFFER_KIND_TRAINING
 	):
 		return false
@@ -115,6 +123,48 @@ func is_current_training_offer(offer: Dictionary) -> bool:
 		)):
 			return false
 	return true
+
+
+func migrate_legacy_training_offer(offer: Dictionary) -> Dictionary:
+	if (
+		str(offer.get("offer_version", "")) != MIXED_REWARD_OFFER_VERSION
+		or str(offer.get("offer_kind", "")) != OFFER_KIND_TRAINING
+	):
+		return {}
+	var choices_value: Variant = offer.get("stat_choices", [])
+	if not (choices_value is Array):
+		return {}
+	var legacy_choices: Array = choices_value
+	if legacy_choices.size() < TRAINING_CARD_COUNT:
+		return {}
+	var selected: Array[Dictionary] = []
+	var storage_choice: Dictionary = {}
+	for choice_value: Variant in legacy_choices:
+		if (
+			not (choice_value is Dictionary)
+			or not bool((choice_value as Dictionary).get("is_physique_training", false))
+		):
+			return {}
+		var choice: Dictionary = choice_value
+		if str(choice.get("id", "")) == "physique_storage":
+			storage_choice = choice.duplicate(true)
+		if selected.size() < TRAINING_CARD_COUNT:
+			selected.append(choice.duplicate(true))
+	if not storage_choice.is_empty():
+		var selected_has_storage := false
+		for choice: Dictionary in selected:
+			selected_has_storage = (
+				selected_has_storage
+				or str(choice.get("id", "")) == "physique_storage"
+			)
+		if not selected_has_storage:
+			selected[TRAINING_CARD_COUNT - 1] = storage_choice
+	var migrated := offer.duplicate(true)
+	migrated["offer_version"] = TRAINING_OFFER_VERSION
+	migrated["stat_choices"] = selected
+	migrated["mugong_choices"] = []
+	migrated["migration"] = "legacy_v2_four_card"
+	return migrated if is_current_training_offer(migrated) else {}
 
 
 func build_live_choice_projection(
@@ -257,7 +307,12 @@ func _build_stat_choices(
 		else:
 			candidates.append(candidate)
 	var rng := RandomNumberGenerator.new()
-	rng.seed = absi(hash("%d:%s:%s:stat" % [map_seed, node_id, OFFER_VERSION]))
+	var seed_version := (
+		TRAINING_OFFER_VERSION
+		if use_saturated_fallback
+		else MIXED_REWARD_OFFER_VERSION
+	)
+	rng.seed = absi(hash("%d:%s:%s:stat" % [map_seed, node_id, seed_version]))
 	var result: Array[Dictionary] = []
 	var multiplier := 1.0
 	if runtime_state.has_method("get_physique_training_multiplier"):

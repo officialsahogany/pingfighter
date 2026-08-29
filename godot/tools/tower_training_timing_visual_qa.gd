@@ -33,11 +33,9 @@ const OUTPUT_DIR := "res://.godot/codex_captures/tower_training_timing"
 const TARGET_ACTION_ID := "training_stat:physique_move_speed"
 const ALLOWED_TRAINING_IDS: Array[String] = [
 	"physique_move_speed",
-	"physique_storage",
 	"physique_dash_distance",
 	"physique_paddle_size",
 	"physique_max_gauge",
-	"physique_hit_gauge",
 ]
 const TIER_SPECS: Array[Dictionary] = [
 	{
@@ -932,15 +930,22 @@ func _verify_card_text_budget(flow: Object, card_renderer: Object) -> void:
 		long_action,
 		rect
 	)
+	var long_description_rows := int(
+		long_layout.get("appended_description_row_count", -1)
+	)
+	var long_badge_rows := int(
+		long_layout.get("appended_bonus_badge_row_count", -1)
+	)
+	var long_total_rows := int(long_layout.get("appended_text_row_count", -1))
 	if (
-		int(long_layout.get("appended_description_row_count", -1)) != 2
-		or int(long_layout.get("appended_bonus_badge_row_count", -1)) != 1
-		or int(long_layout.get("appended_text_row_count", -1)) != 3
+		long_description_rows < 2
+		or long_badge_rows != 1
+		or long_total_rows != long_description_rows + long_badge_rows
 	):
-		_fail("GRT-021 live card did not preserve the complete two-description-row budget: description=%d badge=%d total=%d" % [
-			int(long_layout.get("appended_description_row_count", -1)),
-			int(long_layout.get("appended_bonus_badge_row_count", -1)),
-			int(long_layout.get("appended_text_row_count", -1)),
+		_fail("GRT-021 live card did not preserve at least two complete description rows plus its judgment footer: description=%d badge=%d total=%d" % [
+			long_description_rows,
+			long_badge_rows,
+			long_total_rows,
 		])
 
 

@@ -14,7 +14,9 @@ const TARGET_ID := "physique_move_speed"
 const STORAGE_ID := "physique_storage"
 const ALLOWED_TRAINING_IDS: Array[String] = [
 	TARGET_ID, STORAGE_ID, "physique_dash_distance", "physique_paddle_size",
-	"physique_max_gauge", "physique_hit_gauge",
+]
+const NON_STORAGE_TRAINING_IDS: Array[String] = [
+	TARGET_ID, "physique_dash_distance", "physique_paddle_size", "physique_max_gauge",
 ]
 
 var _failures: Array[String] = []
@@ -33,9 +35,10 @@ class FakeOwner:
 
 class FakeUnlockStore:
 	extends RefCounted
+	var allowed_ids: Array[String] = ALLOWED_TRAINING_IDS.duplicate()
 
 	func is_unlocked(_content_type: String, content_id: String) -> bool:
-		return ALLOWED_TRAINING_IDS.has(content_id)
+		return allowed_ids.has(content_id)
 
 
 class FakeMythicItemRuntime:
@@ -87,8 +90,6 @@ class FakeRuntimePerkState:
 	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
 		var training_id := str(choice.get("id", ""))
 		var effect_multiplier := float(choice.get("training_effect_multiplier", 1.0))
-		if training_id == STORAGE_ID:
-			effect_multiplier = 1.0
 		training_counts[training_id] = get_physique_training_count(training_id) + 1
 		applied_counts[training_id] = get_physique_training_applied_count(training_id) + effect_multiplier
 		return true
@@ -133,7 +134,7 @@ func _run() -> void:
 	_verify_rng_separation_and_wall_clock()
 	_verify_storage_badge_and_saturation_copy()
 	_verify_accumulated_copy_locales()
-	_verify_six_card_stats_panel_sync()
+	_verify_four_card_stats_panel_sync()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(original_conversion_flag)
 	if _failures.is_empty():
@@ -260,9 +261,22 @@ func _verify_storage_badge_and_saturation_copy() -> void:
 	_stop_timing_at(storage_flow, "critical")
 	var storage_record: Dictionary = storage_flow.get_training_history()[0]
 	_expect(str(storage_record.get("timing_judgment_kind", "")) == "critical", "storage reports the visible timing tier")
-	_expect(is_equal_approx(float(storage_record.get("effect_multiplier", 0.0)), 1.0), "storage must never round 1.5 slots into +2")
-	_expect(storage_runtime.get_active_item_slot_capacity() == base_slots + 1, "storage final consumer gains exactly one slot")
-	_expect(str(_find_action(storage_flow, "training_stat:%s" % STORAGE_ID).get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "고정 +1칸", "storage card discloses its fixed exception")
+	_expect(is_equal_approx(float(storage_record.get("effect_multiplier", 0.0)), 2.0), "critical storage training must apply an exact two-slot result")
+	_expect(storage_runtime.get_active_item_slot_capacity() == base_slots + 2, "storage final consumer gains two slots on critical")
+	var storage_save := storage_runtime.build_unlock_save_snapshot()
+	var restored_storage_runtime := RuntimePerkState.new()
+	_expect(
+		bool(restored_storage_runtime.apply_unlock_save_snapshot(storage_save).get("restored", false)),
+		"critical storage result must restore through the production runtime-perk save codec"
+	)
+	var restored_storage_snapshot := restored_storage_runtime.get_physique_training_snapshot()
+	_expect(
+		int((restored_storage_snapshot.get("acquired_counts", {}) as Dictionary).get(STORAGE_ID, 0)) == 1
+		and is_equal_approx(float((restored_storage_snapshot.get("applied_counts", {}) as Dictionary).get(STORAGE_ID, 0.0)), 2.0)
+		and restored_storage_runtime.get_active_item_slot_capacity() == base_slots + 2,
+		"restored critical storage must retain acquired=1, applied=2, and the two-slot capacity gain"
+	)
+	_expect(str(_find_action(storage_flow, "training_stat:%s" % STORAGE_ID).get("payload", {}).get("choice", {}).get("bonus_badge_text", "")) == "회심 +2칸, 그 외 +1칸", "storage card discloses critical +2 and other +1 results")
 
 	var runtime := FakeRuntimePerkState.new()
 	runtime.training_counts[TARGET_ID] = 1
@@ -344,8 +358,8 @@ func _verify_accumulated_copy_locales() -> void:
 	LanguageSettings.set_test_locale_override("")
 
 
-func _verify_six_card_stats_panel_sync() -> void:
-	var flow := _open_training_flow(RuntimePerkState.new(), 20)
+func _verify_four_card_stats_panel_sync() -> void:
+	var flow := _open_training_flow(RuntimePerkState.new(), 20, NON_STORAGE_TRAINING_IDS)
 	var registry: Object = flow.get("_active_registry")
 	var renderer: Object = registry.get_cached_instance("runtime_perk_overlay_renderer")
 	var opening: Dictionary = renderer.get_tower_training_stats_snapshot_for_tests()
@@ -355,7 +369,7 @@ func _verify_six_card_stats_panel_sync() -> void:
 		flow.get_node_modal_view_model()
 		flow.get_node_modal_render_context()
 	_expect(int(renderer.get_tower_training_stats_snapshot_for_tests().get("prepare_count", 0)) == 1, "idle frames perform zero stats-panel preparation")
-	for card_index in range(6):
+	for card_index in range(4):
 		var model: Dictionary = flow.get_node_modal_view_model()
 		var actions: Array = model.get("actions", [])
 		var rects: Array = model.get("action_rects", [])
@@ -373,11 +387,17 @@ func _verify_six_card_stats_panel_sync() -> void:
 		_finish_presentation(flow)
 
 
-func _open_training_flow(runtime_state: Object, muhon: int) -> Object:
+func _open_training_flow(
+	runtime_state: Object,
+	muhon: int,
+	allowed_training_ids: Array[String] = ALLOWED_TRAINING_IDS
+) -> Object:
 	var registry := FakeRegistry.new()
+	var unlock_store := FakeUnlockStore.new()
+	unlock_store.allowed_ids.assign(allowed_training_ids)
 	registry.instances = {
 		"runtime_perk_state": runtime_state,
-		"tower_ascent_unlock_store": FakeUnlockStore.new(),
+		"tower_ascent_unlock_store": unlock_store,
 		"runtime_perk_overlay_renderer": RuntimePerkOverlayRenderer.new(),
 		"mythic_item_runtime": FakeMythicItemRuntime.new(runtime_state),
 	}

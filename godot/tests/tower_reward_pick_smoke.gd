@@ -691,6 +691,11 @@ func _verify_flag_on_training_candidates_exclude_retired_expansion() -> void:
 		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
 	)
 	_expect(bool(offer.get("accepted", false)), "flag-ON mixed reward source offer must remain available")
+	_expect(
+		str(offer.get("offer_version", ""))
+		== TowerAscentTrainingOfferBuilder.MIXED_REWARD_OFFER_VERSION,
+		"Z17 training-card migration must preserve the Z16 mixed-reward v2 contract"
+	)
 	var mugong_choices: Array = offer.get("mugong_choices", [])
 	_expect(
 		mugong_choices.size() == 5,

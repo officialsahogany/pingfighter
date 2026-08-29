@@ -102,6 +102,27 @@ func _verify_pixel_boundaries_and_luck_width() -> void:
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("critical"), 1.5), "critical multiplier is x1.5")
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("great"), 1.3), "great multiplier is x1.3")
 	_expect(is_equal_approx(TowerTrainingTimingJudgmentPolicy.multiplier_for_judgment("base"), 1.0), "base multiplier is x1.0")
+	_expect(
+		is_equal_approx(
+			TowerTrainingTimingJudgmentPolicy.applied_multiplier("physique_storage", "critical"),
+			2.0
+		),
+		"critical storage training grants two slots"
+	)
+	_expect(
+		is_equal_approx(
+			TowerTrainingTimingJudgmentPolicy.applied_multiplier("physique_storage", "great"),
+			1.0
+		),
+		"great storage training grants one slot"
+	)
+	_expect(
+		is_equal_approx(
+			TowerTrainingTimingJudgmentPolicy.applied_multiplier("physique_storage", "base"),
+			1.0
+		),
+		"base storage training grants one slot"
+	)
 
 
 func _verify_wall_clock_period_and_single_target_roll() -> void:
@@ -471,6 +492,8 @@ func _verify_training_timing_gauge_promoted_assets() -> void:
 func _verify_localization_and_retired_probability_copy() -> void:
 	var timing_keys: Array[String] = [
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE,
+		TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE,
+		TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_PROMPT,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CANCELLED,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CRITICAL,

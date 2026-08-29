@@ -4,6 +4,7 @@ const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 
 var _current_profile: Object = LingpetCurrentProfile.new()
+var _replacement_profile: Object = LingpetCurrentProfile.new()
 var _current_cache_key := ""
 var _current_cache: Dictionary = {}
 var _replacement_cache_key := ""
@@ -44,22 +45,26 @@ func build_replacement(pet_id: String, loadout_state: Object) -> Dictionary:
 	var cache_key := "%s:%d" % [normalized_pet_id, hash(loadout)]
 	if cache_key == _replacement_cache_key and not _replacement_cache.is_empty():
 		return _replacement_cache.duplicate(true)
-	var active_level := int(loadout.get("active_skill_level", LingpetCatalog.DEFAULT_ACTIVE_SKILL_LEVEL))
-	var passive_level := int(loadout.get("passive_skill_level", LingpetCatalog.DEFAULT_PASSIVE_SKILL_LEVEL))
+	_replacement_profile.set_pet_id(normalized_pet_id)
+	_replacement_profile.set_loadout_from_data(loadout)
 	var active_entries: Array[Dictionary] = []
-	for skill_id in collect_loadout_skill_ids(loadout, "active_skill_ids", "active_skill_id"):
-		var slot_level := int((loadout.get("active_skill_levels", {}) as Dictionary).get(skill_id, active_level))
-		var slot_skill := LingpetCatalog.get_active_skill(normalized_pet_id, skill_id, slot_level)
+	for slot in range(_replacement_profile.get_active_slot_count()):
+		var slot_skill: Dictionary = _replacement_profile.get_active_skill(slot)
 		if slot_skill.is_empty():
 			continue
-		active_entries.append(build_skill_entry(slot_skill, slot_level))
+		active_entries.append(build_skill_entry(
+			slot_skill,
+			int(slot_skill.get("level", _replacement_profile.get_active_skill_level_for_slot(slot)))
+		))
 	var passive_entries: Array[Dictionary] = []
-	for skill_id in collect_loadout_skill_ids(loadout, "passive_skill_ids", "passive_skill_id"):
-		var slot_level := int((loadout.get("passive_skill_levels", {}) as Dictionary).get(skill_id, passive_level))
-		var slot_passive := LingpetCatalog.get_passive_skill(normalized_pet_id, skill_id, slot_level)
+	for slot in range(_replacement_profile.get_passive_slot_count()):
+		var slot_passive: Dictionary = _replacement_profile.get_passive_skill(slot)
 		if slot_passive.is_empty():
 			continue
-		passive_entries.append(build_skill_entry(slot_passive, slot_level))
+		passive_entries.append(build_skill_entry(
+			slot_passive,
+			int(slot_passive.get("level", _replacement_profile.get_passive_skill_level_for_slot(slot)))
+		))
 	# A level-0 hatch roll is a real empty slot. Never borrow pool[0] here: the
 	# comparison card must preview exactly what a confirmed replacement keeps.
 	var active_skill: Dictionary = active_entries[0] if not active_entries.is_empty() else {}

@@ -6,8 +6,10 @@ const LingpetEnhancementBuffStore := preload(
 	"res://scripts/lingpet/lingpet_enhancement_buff_store.gd"
 )
 const LingpetVisualTextureCache := preload("res://scripts/lingpet/lingpet_visual_texture_cache.gd")
+const CooldownFloorPolicy := preload("res://scripts/characters/cooldown_floor_policy.gd")
 
 const DEFAULT_PET_ID := LingpetCatalog.DEFAULT_PET_ID
+const GUARDIAN_ACTIVE_COOLDOWN_SCALE := 0.8
 const ENHANCEMENT_MOBILITY_SPEED_BONUS_PCT := 5.0
 const ENHANCEMENT_MOBILITY_SPEED_CAP_PCT := 30.0
 const ENHANCEMENT_FLIGHT_APPEARANCE_BONUS := 0.05
@@ -123,12 +125,14 @@ func get_active_skill(slot_index: int = 0) -> Dictionary:
 		return (_active_skill_caches.get(slot, {}) as Dictionary)
 	var skill_id := get_skill_id(slot)
 	var skill := LingpetCatalog.get_active_skill(pet_id, skill_id, _get_effective_active_skill_level(slot))
+	var cooldown_floor_base := _get_active_skill_cooldown_floor_base(skill)
 	var passive_cooldown_reduction_pct := _get_passive_effect_value("active_cooldown_reduction_pct")
 	if passive_cooldown_reduction_pct > 0.0 and float(skill.get("cooldown", 0.0)) > 0.0:
 		var current_cooldown := float(skill.get("cooldown", 0.0))
 		skill["pre_passive_cooldown"] = current_cooldown
 		skill["passive_cooldown_reduction_pct"] = passive_cooldown_reduction_pct
 		skill["cooldown"] = current_cooldown * maxf(0.10, 1.0 - passive_cooldown_reduction_pct / 100.0)
+	_apply_guardian_active_cooldown_scale(skill, cooldown_floor_base)
 	var passive_windup_reduction_pct := _get_passive_effect_value("active_windup_reduction_pct")
 	if passive_windup_reduction_pct > 0.0 and float(skill.get("windup_seconds", 0.0)) > 0.0:
 		var current_windup := float(skill.get("windup_seconds", 0.0))
@@ -141,6 +145,25 @@ func get_active_skill(slot_index: int = 0) -> Dictionary:
 		_active_skill_cache_key = cache_key
 		_active_skill_cache = skill
 	return skill
+
+
+func _get_active_skill_cooldown_floor_base(skill: Dictionary) -> float:
+	var selected_cooldown := maxf(0.0, float(skill.get("cooldown", 0.0)))
+	if bool(skill.get("cooldown_by_level_authoritative", false)):
+		return selected_cooldown
+	return maxf(0.0, float(skill.get("base_cooldown", selected_cooldown)))
+
+
+func _apply_guardian_active_cooldown_scale(skill: Dictionary, cooldown_floor_base: float) -> void:
+	if skill.is_empty():
+		return
+	var current_cooldown := float(skill.get("cooldown", 0.0))
+	if current_cooldown <= 0.0:
+		return
+	skill["cooldown"] = CooldownFloorPolicy.floor_final_seconds(
+		cooldown_floor_base,
+		current_cooldown * GUARDIAN_ACTIVE_COOLDOWN_SCALE
+	)
 
 
 func get_active_skill_pool() -> Array[Dictionary]:

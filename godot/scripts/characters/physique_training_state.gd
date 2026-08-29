@@ -8,6 +8,8 @@ extends RefCounted
 # 비교)가 정본이고, 여기 게이트는 프로브 없는 호출용 하위 폴백이다.
 const SNAPSHOT_VERSION := 2
 const MAX_EFFECT_MULTIPLIER := 1.5
+const STORAGE_TRAINING_ID := "physique_storage"
+const STORAGE_CRITICAL_EFFECT_MULTIPLIER := 2.0
 
 var acquired_counts: Dictionary = {}
 var applied_counts: Dictionary = {}
@@ -64,11 +66,13 @@ func commit(
 	if not can_acquire(clean_id, catalog):
 		return _build_result(false, clean_id, "cap_or_invalid")
 	var applied_multiplier := clampf(effect_multiplier, 1.0, MAX_EFFECT_MULTIPLIER)
-	if clean_id == "physique_storage":
-		# 수납술은 정수 구조값이다. 1.5칸은 슬롯으로 적용할 수 없고 반올림하면
-		# +2칸이 되어 타이밍 판정의 1.5배/1.3배 계약을 깨므로, 이 한 항목은
-		# 언제나 +1칸이다.
-		applied_multiplier = 1.0
+	if clean_id == STORAGE_TRAINING_ID:
+		# Structural slots stay integral: only a critical storage result may add two.
+		applied_multiplier = (
+			STORAGE_CRITICAL_EFFECT_MULTIPLIER
+			if effect_multiplier >= STORAGE_CRITICAL_EFFECT_MULTIPLIER
+			else 1.0
+		)
 	var previous_applied_count := get_applied_count(clean_id)
 	acquired_counts[clean_id] = get_count(clean_id) + 1
 	applied_counts[clean_id] = previous_applied_count + applied_multiplier
@@ -179,14 +183,18 @@ func restore(snapshot: Dictionary, catalog: Object) -> Dictionary:
 				count = mini(count, max_count)
 			if count > 0:
 				restored_counts[training_id] = count
+				var maximum_multiplier := (
+					STORAGE_CRITICAL_EFFECT_MULTIPLIER
+					if training_id == STORAGE_TRAINING_ID
+					else MAX_EFFECT_MULTIPLIER
+				)
 				var applied_count := clampf(
 					float(incoming_applied.get(training_id, count)),
 					float(count),
-					float(count) * MAX_EFFECT_MULTIPLIER
+					float(count) * maximum_multiplier
 				)
-				# 수납술은 선택 횟수와 적용 슬롯 수가 항상 같은 정수여야 한다.
-				if training_id == "physique_storage":
-					applied_count = float(count)
+				if training_id == STORAGE_TRAINING_ID:
+					applied_count = float(roundi(applied_count))
 				restored_applied_counts[training_id] = applied_count
 				restored_total += count
 	acquired_counts = restored_counts

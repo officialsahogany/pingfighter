@@ -27,6 +27,9 @@ const TowerAscentUnlockFilter := preload(
 const TowerAscentTrainingOfferBuilder := preload(
 	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
 )
+const TowerAscentRouteWindPolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_route_wind_policy.gd"
+)
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
@@ -179,7 +182,8 @@ class FakeRegistry:
 
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
-	_verify_training_only_six_cards_repeated_choice_and_snapshot()
+	_verify_training_only_four_cards_repeated_choice_and_snapshot()
+	_verify_storage_offer_limits_the_whole_visit()
 	_verify_finite_maximum_rejection_is_no_op()
 	_verify_unlimited_physique_level_contract()
 	_verify_saturated_fallback_and_candidate_shortage_boundary()
@@ -199,16 +203,23 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
+func _verify_training_only_four_cards_repeated_choice_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
 	var perk_catalog := FakeRuntimePerkCatalog.new()
-	var registry := _build_registry(runtime_state, perk_catalog)
+	var unlock_store := FakeUnlockStore.new()
+	unlock_store.allowed_ids.assign([
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+		"physique_max_gauge",
+	])
+	var registry := _build_registry(runtime_state, perk_catalog, unlock_store)
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
 		"run_id": "training-contract",
-		"map_seed": _initial_route_seed,
+		"map_seed": 42,
 		"node_modal_kind": "training",
 		"run_state": {"muhon": 30, "gold": 0, "chance_gems": 3},
 		"registry": registry,
@@ -218,7 +229,7 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	_expect(generated.size() == 1, "one training visit must generate one node-owned offer")
 	var offer: Dictionary = generated[0]
 	var stat_choices: Array = offer.get("stat_choices", [])
-	_expect(stat_choices.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT, "training must present exactly six training cards")
+	_expect(stat_choices.size() == 4, "training must present exactly four training cards")
 	_expect((offer.get("mugong_choices", []) as Array).is_empty(), "training must present zero Mugong cards")
 	for choice_value in stat_choices:
 		_expect(
@@ -227,7 +238,7 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 			"every training offer card must come from the physique training catalog"
 		)
 	var actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	_expect(actions.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT + 1, "training modal must expose six training cards plus the shared end-work action")
+	_expect(actions.size() == 5, "training modal must expose four training cards plus the shared end-work action")
 	_expect(perk_catalog.choice_calls == 0, "training must never query the Mugong choice catalog")
 
 	var stat_action := _find_unlimited_stat_action(actions)
@@ -254,7 +265,7 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	_expect(runtime_state.apply_calls == 1 and flow.get_training_history().size() == 1, "one timing-stop click must commit exactly one training step")
 	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 29, "one resolved timing judgment must debit exactly one Muhon")
 
-	for purchase_index in range(2, 4):
+	for purchase_index in range(2, 7):
 		var repeated_result := flow.execute_node_action(
 			str(stat_action.get("id", "")),
 			"training-contract:stat-%d" % purchase_index
@@ -263,18 +274,60 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	var refreshed_actions: Array = flow.get_node_modal_view_model().get("actions", [])
 	var refreshed_stat := _find_action_by_id(refreshed_actions, str(stat_action.get("id", "")))
 	var refreshed_choice: Dictionary = refreshed_stat.get("payload", {}).get("choice", {})
-	_expect(bool(refreshed_stat.get("enabled", false)), "repeatable training must remain enabled after three purchases")
-	_expect(str(refreshed_choice.get("level_text", "")) == "Lv.3", "training card must refresh to the live level after three purchases")
-	_expect(runtime_state.apply_calls == 3 and int(runtime_state.training_counts.get(choice_id, 0)) == 3, "three repeated purchases must apply exactly three training levels")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "three repeated training purchases must debit three Muhon")
+	_expect(bool(refreshed_stat.get("enabled", false)), "repeatable training must remain enabled after six purchases")
+	_expect(str(refreshed_choice.get("level_text", "")) == "Lv.6", "training card must refresh to the live level after six purchases")
+	_expect(runtime_state.apply_calls == 6 and int(runtime_state.training_counts.get(choice_id, 0)) == 6, "six repeated purchases must apply exactly six training levels")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 18, "six repeated training purchases must debit costs 1, 1, 2, 2, 3, and 3")
+	var history: Array[Dictionary] = flow.get_training_history()
+	_expect(
+		history.size() == 6
+		and int(history[0].get("cost", -1)) == 1
+		and int(history[1].get("cost", -1)) == 1
+		and int(history[2].get("cost", -1)) == 2
+		and int(history[3].get("cost", -1)) == 2
+		and int(history[4].get("cost", -1)) == 3
+		and int(history[5].get("cost", -1)) == 3,
+		"training cost must advance as 1, 1, 2, 2, 3, 3 after successful training"
+	)
 
-	var duplicate := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:stat-3")
+	var duplicate := flow.execute_node_action(str(stat_action.get("id", "")), "training-contract:stat-6")
 	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "duplicate node_resolution_id must remain an accepted no-op before grant")
-	_expect(runtime_state.apply_calls == 3 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 27, "duplicate transaction must neither grant nor debit")
+	_expect(runtime_state.apply_calls == 6 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 18, "duplicate transaction must neither grant nor debit")
 
+	var first_training_node_id := str(flow.get("_current_node_id"))
+	flow.debug_advance_to_route_aim()
+	_expect(
+		_advance_route_to_training_node_modal(flow, owner),
+		"seed 42 must serve through map transition into its adjacent second training node; first=%s phase=%s wind=%s targets=%s"
+		% [first_training_node_id, flow.get_phase_name(), flow.get_route_wind_model(), flow.get_route_aim_targets()]
+	)
+	var second_training_node_id := str(flow.get("_current_node_id"))
+	_expect(
+		not first_training_node_id.is_empty()
+		and second_training_node_id != first_training_node_id,
+		"the reset leg must use two distinct production node ids"
+	)
+	var second_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var second_stat := _find_unlimited_stat_action(second_actions)
+	var second_result := flow.execute_node_action(
+		str(second_stat.get("id", "")),
+		"training-contract:second-node-first"
+	)
+	_expect(
+		bool(second_result.get("applied", false))
+		and int(flow.get_training_history().back().get("cost", -1)) == 1,
+		"the first success after production arrival at the next training node must reset to cost 1"
+	)
+	_expect(
+		int(flow.get_run_state_snapshot().get("muhon", -1)) == 17
+		and flow.get_training_history().size() == 7,
+		"the second training node must debit only its reset cost and append one history record"
+	)
+
+	var all_generated := flow.get_generated_training_offers()
 	var snapshot := flow.export_persistable_snapshot()
-	_expect((snapshot.get("generated_training_offers", []) as Array).size() == 1, "training offers must be part of the stable run snapshot")
-	_expect((snapshot.get("training_history", []) as Array).size() == 3, "all repeated transactions must be part of the run snapshot")
+	_expect((snapshot.get("generated_training_offers", []) as Array).size() == 2, "both training-node offers must be part of the stable run snapshot")
+	_expect((snapshot.get("training_history", []) as Array).size() == 7, "all repeated and next-node transactions must be part of the run snapshot")
 	_expect((snapshot.get("build_state", {}) as Dictionary).has("runtime_perk_snapshot"), "runtime perk build state must use its existing save codec")
 	var restored_runtime := FakeRuntimePerkState.new()
 	var restored_catalog := FakeRuntimePerkCatalog.new()
@@ -282,10 +335,139 @@ func _verify_training_only_six_cards_repeated_choice_and_snapshot() -> void:
 	var restored := TowerAscentFlowOwner.new()
 	_expect(restored.restore_snapshot(snapshot, Callable(), FakeOwner.new(), restored_registry), "stable training snapshot must restore")
 	_expect(restored_catalog.choice_calls == 0, "restoring a training node must not query or reroll Mugong choices")
-	_expect(var_to_bytes(restored.get_generated_training_offers()) == var_to_bytes(generated), "restored training offers must match byte-for-byte")
-	_expect(restored_runtime.restore_calls == 1 and int(restored_runtime.training_counts.get(choice_id, 0)) == 3, "restore must keep all repeated training levels through runtime_perk_state's existing run-save codec")
+	_expect(var_to_bytes(restored.get_generated_training_offers()) == var_to_bytes(all_generated), "restored training offers must match byte-for-byte")
+	_expect(restored_runtime.restore_calls == 1 and restored_runtime.apply_calls == 0, "restore must use the runtime-perk save codec without replaying grants")
+	_expect(_sum_dictionary_int_values(restored_runtime.training_counts) == 7, "restore must keep all seven training levels across both production node visits")
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
+
+
+func _verify_storage_offer_limits_the_whole_visit() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var runtime_state := FakeRuntimePerkState.new()
+	var unlock_store := FakeUnlockStore.new()
+	unlock_store.allowed_ids.assign([
+		"physique_storage",
+		"physique_dash_distance",
+		"physique_move_speed",
+		"physique_paddle_size",
+	])
+	var owner := FakeOwner.new()
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "training-storage-visit",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "training",
+		"run_state": {"muhon": 10},
+		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new(), unlock_store),
+	}), "storage visit fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "storage visit fixture must arrive at training")
+	var opening_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var first_action := _find_unlimited_stat_action(opening_actions)
+	_expect(not first_action.is_empty(), "storage visit fixture must expose a non-storage training card")
+	var first_result := flow.execute_node_action(
+		str(first_action.get("id", "")),
+		"training-storage-visit:first"
+	)
+	_expect(bool(first_result.get("applied", false)), "the first successful training in a storage offer must commit")
+	var after_first_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var blocked_count := 0
+	var second_action_id := ""
+	for action_value in after_first_actions:
+		if not (action_value is Dictionary):
+			continue
+		var action := action_value as Dictionary
+		if not str(action.get("id", "")).begins_with("training_stat:"):
+			continue
+		blocked_count += int(
+			not bool(action.get("enabled", true))
+			and str(action.get("disabled_reason", "")) == "training_visit_complete"
+		)
+		if str(action.get("id", "")) != str(first_action.get("id", "")):
+			second_action_id = str(action.get("id", ""))
+	_expect(blocked_count == 4, "storage in the offer must disable all four cards after one success")
+	var balance_after_first := int(flow.get_run_state_snapshot().get("muhon", -1))
+	var second_result := flow.execute_node_action(
+		second_action_id,
+		"training-storage-visit:second"
+	)
+	_expect(str(second_result.get("reason", "")) == "training_visit_complete", "direct execution must enforce the whole-visit storage limit")
+	_expect(
+		runtime_state.apply_calls == 1
+		and flow.get_training_history().size() == 1
+		and int(flow.get_run_state_snapshot().get("muhon", -1)) == balance_after_first,
+		"a blocked second training must not grant, debit, or append history"
+	)
+	var snapshot := flow.export_persistable_snapshot()
+	var restored_runtime := FakeRuntimePerkState.new()
+	var restored := TowerAscentFlowOwner.new()
+	_expect(restored.restore_snapshot(
+		snapshot,
+		Callable(),
+		FakeOwner.new(),
+		_build_registry(restored_runtime, FakeRuntimePerkCatalog.new(), unlock_store)
+	), "storage visit snapshot must restore")
+	var restored_action := _find_action_with_prefix(
+		restored.get_node_modal_view_model().get("actions", []),
+		"training_stat:"
+	)
+	_expect(
+		not bool(restored_action.get("enabled", true))
+		and str(restored_action.get("disabled_reason", "")) == "training_visit_complete",
+		"restoring the same storage visit must preserve its one-success limit"
+	)
+	var legacy_snapshot := snapshot.duplicate(true)
+	var legacy_offer: Dictionary = (
+		(legacy_snapshot.get("generated_training_offers", []) as Array)[0] as Dictionary
+	).duplicate(true)
+	var legacy_choices: Array[Dictionary] = []
+	var storage_choice: Dictionary = {}
+	for choice_value: Variant in legacy_offer.get("stat_choices", []):
+		if not (choice_value is Dictionary):
+			continue
+		var legacy_choice: Dictionary = choice_value
+		if str(legacy_choice.get("id", "")) == "physique_storage":
+			storage_choice = legacy_choice.duplicate(true)
+		else:
+			legacy_choices.append(legacy_choice.duplicate(true))
+	var physique_catalog := PhysiqueTrainingCatalog.new()
+	legacy_choices.append(physique_catalog.build_card("physique_max_gauge", 0))
+	legacy_choices.append(physique_catalog.build_card("physique_hit_gauge", 0))
+	legacy_choices.append(storage_choice)
+	legacy_offer["offer_version"] = TowerAscentTrainingOfferBuilder.MIXED_REWARD_OFFER_VERSION
+	legacy_offer["stat_choices"] = legacy_choices
+	legacy_snapshot["generated_training_offers"] = [legacy_offer]
+	var legacy_restored := TowerAscentFlowOwner.new()
+	_expect(legacy_restored.restore_snapshot(
+		legacy_snapshot,
+		Callable(),
+		FakeOwner.new(),
+		_build_registry(FakeRuntimePerkState.new(), FakeRuntimePerkCatalog.new(), unlock_store)
+	), "legacy six-card storage visit snapshot must restore")
+	var migrated_offers := legacy_restored.get_generated_training_offers()
+	var migrated_offer: Dictionary = migrated_offers[0] if migrated_offers.size() == 1 else {}
+	_expect(
+		str(migrated_offer.get("offer_version", ""))
+		== TowerAscentTrainingOfferBuilder.TRAINING_OFFER_VERSION
+		and str(migrated_offer.get("migration", "")) == "legacy_v2_four_card"
+		and (migrated_offer.get("stat_choices", []) as Array).size() == 4
+		and _choice_ids(migrated_offer.get("stat_choices", [])).has("physique_storage"),
+		"legacy v2 six-card visit must migrate without rerolling away its storage presence"
+	)
+	var legacy_blocked_count := 0
+	for action_value: Variant in legacy_restored.get_node_modal_view_model().get("actions", []):
+		if (
+			action_value is Dictionary
+			and str((action_value as Dictionary).get("id", "")).begins_with("training_stat:")
+			and not bool((action_value as Dictionary).get("enabled", true))
+			and str((action_value as Dictionary).get("disabled_reason", ""))
+			== "training_visit_complete"
+		):
+			legacy_blocked_count += 1
+	_expect(legacy_blocked_count == 4, "legacy storage presence must keep all four migrated cards blocked after the saved success")
+	_finish_flow(flow, owner)
+	_finish_flow(restored, null)
+	_finish_flow(legacy_restored, null)
 
 
 func _verify_finite_maximum_rejection_is_no_op() -> void:
@@ -298,8 +480,6 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 		"physique_dash_distance",
 		"physique_move_speed",
 		"physique_paddle_size",
-		"physique_max_gauge",
-		"physique_hit_gauge",
 	])
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
@@ -317,12 +497,12 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 	var final_purchase := flow.execute_node_action(action_id, "training-maximum:final")
 	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite training final level must commit")
 	var maximum_action := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
-	_expect(not bool(maximum_action.get("enabled", true)), "finite training must disable at its canonical maximum")
-	_expect(str(maximum_action.get("disabled_reason", "")) == "training_maximum_reached", "finite maximum must have a distinct disabled reason")
+	_expect(not bool(maximum_action.get("enabled", true)), "storage training must disable after the visit's first success")
+	_expect(str(maximum_action.get("disabled_reason", "")) == "training_visit_complete", "storage visit completion must take precedence after the successful final level")
 	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "5/5", "finite training maximum card must show current and maximum")
 	var muhon_before_rejection := int(flow.get_run_state_snapshot().get("muhon", -1))
 	var rejected := flow.execute_node_action(action_id, "training-maximum:blocked")
-	_expect(str(rejected.get("reason", "")) == "training_maximum_reached", "direct finite-maximum execution must reject before transaction")
+	_expect(str(rejected.get("reason", "")) == "training_visit_complete", "direct execution must reject after the storage visit succeeds")
 	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == muhon_before_rejection and runtime_state.apply_calls == 1, "finite-maximum rejection must not grant or debit")
 	_finish_flow(flow, owner)
 
@@ -367,8 +547,6 @@ func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
 		"physique_dash_distance",
 		"physique_move_speed",
 		"physique_paddle_size",
-		"physique_max_gauge",
-		"physique_hit_gauge",
 	])
 	runtime_state.training_counts["physique_storage"] = 5
 	runtime_state.saturated_ids.append("physique_storage")
@@ -380,17 +558,15 @@ func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
 		TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING
 	)
 	var saturated_choices: Array = saturated_offer.get("stat_choices", [])
-	_expect(bool(saturated_offer.get("accepted", false)), "one saturated training must not collapse a six-card storefront")
-	_expect(saturated_choices.size() == TowerAscentTrainingOfferBuilder.TRAINING_CARD_COUNT, "saturated fallback must preserve exactly six cards")
-	_expect(_choice_ids(saturated_choices).has("physique_storage"), "saturated fallback must retain the disabled finite training card when it is needed to fill six slots")
+	_expect(bool(saturated_offer.get("accepted", false)), "one saturated training must not collapse a four-card storefront")
+	_expect(saturated_choices.size() == 4, "saturated fallback must preserve exactly four cards")
+	_expect(_choice_ids(saturated_choices).has("physique_storage"), "saturated fallback must retain the disabled finite training card when it is needed to fill four slots")
 
 	var shortage_store := FakeUnlockStore.new()
 	shortage_store.allowed_ids.assign([
 		"physique_dash_distance",
 		"physique_move_speed",
 		"physique_paddle_size",
-		"physique_max_gauge",
-		"physique_hit_gauge",
 	])
 	var shortage_offer: Dictionary = builder.build_offer(
 		"training-shortage",
@@ -399,9 +575,9 @@ func _verify_saturated_fallback_and_candidate_shortage_boundary() -> void:
 		_build_registry(FakeRuntimePerkState.new(), FakeRuntimePerkCatalog.new(), shortage_store),
 		TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING
 	)
-	_expect(not bool(shortage_offer.get("accepted", true)), "fewer than six unlocked trainings must fail closed instead of showing a partial storefront")
+	_expect(not bool(shortage_offer.get("accepted", true)), "fewer than four unlocked trainings must fail closed instead of showing a partial storefront")
 	_expect(str(shortage_offer.get("reason", "")) == "insufficient_training_candidates", "candidate shortage must expose its distinct reason")
-	_expect(int(shortage_offer.get("candidate_count", -1)) == 5, "candidate shortage must report the five available training cards")
+	_expect(int(shortage_offer.get("candidate_count", -1)) == 3, "candidate shortage must report the three available training cards")
 
 
 func _verify_insufficient_muhon_and_grant_rejection_are_no_ops() -> void:
@@ -482,11 +658,13 @@ func _verify_source_contract() -> void:
 	var tuning_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 	_expect(flow_source.find("apply_choice") >= 0 and flow_source.find("build_unlock_save_snapshot") >= 0, "training must reuse the existing runtime perk grant and save boundaries")
 	_expect(builder_source.find("OFFER_KIND_TRAINING") >= 0 and builder_source.find("OFFER_KIND_MIXED_REWARD") >= 0, "shared builder consumers must declare training-only versus mixed reward intent")
-	_expect(builder_source.find("TRAINING_CARD_COUNT := 6") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training must use six cards from the physique catalog")
+	_expect(builder_source.contains('TRAINING_OFFER_VERSION := "tower_training_offer_v3"') and builder_source.contains('MIXED_REWARD_OFFER_VERSION := "tower_training_offer_v2"'), "training migration must not advance the shared Z16 mixed-reward version")
+	_expect(builder_source.find("TRAINING_CARD_COUNT := 4") >= 0 and builder_source.find("PhysiqueTrainingCatalog") >= 0, "training must use four cards from the physique catalog")
 	_expect(flow_source.find("TowerAscentTrainingOfferBuilder.OFFER_KIND_TRAINING") >= 0, "production training flow must request the training-only builder lane")
 	_expect(flow_source.find('var prefix := "training_stat:"') >= 0 and flow_source.find('"training_mugong:"') < 0, "training execution must accept only stat action ids")
-	_expect(not tuning_source.contains("TEMP_PHASE_C_TRAINING_USES_PER_VISIT"), "the per-visit training cap constant must stay deleted")
-	_expect(not flow_source.contains("training_visit_complete") and not flow_source.contains("training_choice_used"), "display and execution paths must not retain visit-cap or one-use consumers")
+	_expect(tuning_source.contains("TEMP_PHASE_C_TRAINING_STAT_BASE_COST := 1"), "training cost must retain its Tower tuning base")
+	_expect(tuning_source.contains("TEMP_PHASE_C_TRAINING_STAT_COST_STEP_SUCCESSES := 2"), "training cost must advance every two successes")
+	_expect(flow_source.contains("_is_training_visit_complete") and flow_source.contains("training_visit_complete"), "display and execution paths must share the storage-offer visit gate")
 
 
 func _build_registry(
@@ -541,6 +719,51 @@ func _choice_ids(choices: Array) -> Array[String]:
 		if choice_value is Dictionary:
 			result.append(str((choice_value as Dictionary).get("id", "")))
 	return result
+
+
+func _sum_dictionary_int_values(values: Dictionary) -> int:
+	var total := 0
+	for value: Variant in values.values():
+		total += int(value)
+	return total
+
+
+func _advance_route_to_training_node_modal(flow: Object, owner: Object) -> bool:
+	if flow == null or flow.get_phase_name() != "ROUTE_AIM":
+		return false
+	var target_index := -1
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	for index in range(targets.size()):
+		if str(targets[index].get("kind", "")) == "training":
+			target_index = index
+			break
+	if target_index < 0:
+		return false
+	var route_runtime: Object = flow.get("_route_serve_runtime")
+	if (
+		route_runtime == null
+		or not bool(route_runtime.begin(
+			owner,
+			flow.get("_active_registry"),
+			TowerAscentRouteWindPolicy.calm_model()
+		).get("accepted", false))
+	):
+		return false
+	flow.debug_launch_at_target(target_index)
+	for _flight_step in range(120):
+		flow.update_selective(0.1, owner)
+		if flow.get_phase_name() == "MAP_TRANSITION":
+			break
+	if flow.get_phase_name() != "MAP_TRANSITION":
+		return false
+	for _transition_step in range(80):
+		flow.update_selective(0.1, owner)
+		if flow.get_phase_name() == "NODE_MODAL":
+			break
+	return (
+		flow.get_phase_name() == "NODE_MODAL"
+		and flow.get_node_modal_kind() == "training"
+	)
 
 
 func _find_action_index(actions: Array, action_id: String) -> int:

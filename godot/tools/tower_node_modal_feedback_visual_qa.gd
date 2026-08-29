@@ -315,7 +315,8 @@ func _sampled_difference_count(first: Image, second: Image) -> int:
 
 func _actions(node_kind: String, disabled_first: bool) -> Array:
 	var result: Array[Dictionary] = []
-	for index in range(6):
+	var card_count := 4 if node_kind == "training" else 6
+	for index in range(card_count):
 		var display_name: String = (
 			["탕약", "빙결패", "화염패", "천둥패", "액티브 캡슐", "기회의 보석"][index]
 			if node_kind == "shop"

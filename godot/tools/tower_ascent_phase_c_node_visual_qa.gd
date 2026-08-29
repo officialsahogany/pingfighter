@@ -98,8 +98,6 @@ const CAPTURE_SPECS := [
 			{"label": "체질 수련 선택지 B", "cost_text": "1 무혼", "enabled": true},
 			{"label": "체질 수련 선택지 C", "cost_text": "1 무혼", "enabled": true},
 			{"label": "체질 수련 선택지 D", "cost_text": "1 무혼", "enabled": true},
-			{"label": "체질 수련 선택지 E", "cost_text": "1 무혼", "enabled": true},
-			{"label": "체질 수련 선택지 F", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -112,8 +110,6 @@ const CAPTURE_SPECS := [
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -125,8 +121,6 @@ const CAPTURE_SPECS := [
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": true},
 			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": true},
-			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": true},
 		],
 	},
 	{
@@ -139,8 +133,6 @@ const CAPTURE_SPECS := [
 			{"label": "유운보 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 			{"label": "철산공 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 			{"label": "태허심법 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
-			{"label": "격기심법 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
-			{"label": "순환결 수련", "cost_text": "1 무혼", "enabled": false, "unavailable_reason": "무혼 1 필요, 1 부족"},
 		],
 	},
 	{
@@ -310,8 +302,13 @@ class CaptureRegistry:
 class LiveUnlockStore:
 	extends RefCounted
 
-	func is_unlocked(_content_type: String, _content_id: String) -> bool:
-		return true
+	func is_unlocked(_content_type: String, content_id: String) -> bool:
+		return content_id in [
+			"physique_dash_distance",
+			"physique_move_speed",
+			"physique_paddle_size",
+			"physique_max_gauge",
+		]
 
 
 class LiveRuntimePerkCatalog:
@@ -702,11 +699,12 @@ func _capture_node(spec: Dictionary, output_dir: String, index: int) -> bool:
 		var card_rects: Array[Rect2] = capture_flow.modal_state.get_action_rects(
 			Vector2(GAME_SIZE)
 		)
-		if card_rects.size() != 7:
-			push_error("six-card visual fixture did not expose six cards plus footer")
+		var card_count := 4 if str(spec.get("kind", "")) == "training" else 6
+		if card_rects.size() != card_count + 1:
+			push_error("service-card visual fixture did not expose its cards plus footer")
 			quit(1)
 			return false
-		for card_index in range(6):
+		for card_index in range(card_count):
 			if not _rect_has_visual_detail(image, card_rects[card_index] as Rect2):
 				push_error("card %d did not produce enough rendered pixel detail" % card_index)
 				quit(1)
@@ -821,7 +819,7 @@ func _capture_live_training_round(spec: Dictionary, output_dir: String) -> bool:
 	var live_choice: Dictionary = live_action.get("payload", {}).get("choice", {})
 	if (
 		flow.get_training_history().size() != 3
-		or int(flow.get_run_state_snapshot().get("muhon", -1)) != 27
+		or int(flow.get_run_state_snapshot().get("muhon", -1)) != 26
 		or str(live_choice.get("level_text", "")) != "Lv.3"
 		or not bool(live_action.get("enabled", false))
 	):
@@ -841,7 +839,7 @@ func _capture_live_training_round(spec: Dictionary, output_dir: String) -> bool:
 		"action_rects",
 		[]
 	)
-	for card_index in range(6):
+	for card_index in range(4):
 		if not _rect_has_visual_detail(image, card_rects[card_index] as Rect2):
 			push_error("live training card %d lacked rendered detail" % card_index)
 			quit(1)

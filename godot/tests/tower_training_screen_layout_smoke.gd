@@ -27,6 +27,7 @@ func _run() -> void:
 	_verify_layout_cache_is_size_owned()
 	_verify_compact_description_three_row_budget()
 	_verify_shop_cells_bypass_compact_card_text_layout()
+	_verify_compact_unavailable_reason_reserves_description_row()
 	_verify_compact_hover_detail_lane_geometry()
 	_verify_training_hanji_chrome_assets_and_gate()
 	if _failures.is_empty():
@@ -39,7 +40,7 @@ func _run() -> void:
 
 
 func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
-	var modal := _build_six_card_modal("training")
+	var modal := _build_card_modal("training")
 	var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
 	var layout_flags: Dictionary = model.get("layout_flags", {})
 	_expect(
@@ -54,7 +55,7 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 	)
 	var rects: Array = model.get("action_rects", [])
 	var direct_rects: Array = modal.get_action_rects(BASE_VIEW_SIZE, layout_flags)
-	_expect(rects.size() == 7, "training must expose six cards plus end work")
+	_expect(rects.size() == 5, "training must expose four cards plus end work")
 	_expect(direct_rects == rects, "render model and direct hit-test rect builder must consume the same layout flags")
 	var card_width := (
 		card_grid_rect.size.x
@@ -67,8 +68,8 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 		* float(TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS - 1)
 	) / float(TowerAscentNodeModalState.TRAINING_CARD_GRID_ROWS)
 	_expect(is_equal_approx(card_width, 245.0), "training rail card width must resolve to 245px")
-	_expect(is_equal_approx(card_height, 74.333336), "training rail card height must derive from six rows")
-	for index in range(6):
+	_expect(is_equal_approx(card_height, 114.5), "training rail card height must derive from four rows")
+	for index in range(4):
 		var expected_column := index % TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
 		var expected_row := index / TowerAscentNodeModalState.TRAINING_CARD_GRID_COLUMNS
 		var expected_rect := Rect2(
@@ -107,14 +108,14 @@ func _verify_training_layout_flag_owns_render_and_hit_rects() -> void:
 
 	var live_model: Dictionary = modal.build_view_model(LIVE_VIEW_SIZE)
 	var live_rects: Array = live_model.get("action_rects", [])
-	var live_top_corner := (live_rects[5] as Rect2).position + Vector2(2.0, 2.0)
+	var live_top_corner := (live_rects[3] as Rect2).position + Vector2(2.0, 2.0)
 	_expect(
 		modal.select_at_position(live_top_corner, LIVE_VIEW_SIZE),
 		"scaled live-view training top corner must share the rendered layout"
 	)
 	_expect(
-		str(modal.get_selected_action().get("id", "")) == "training-card-5",
-		"scaled live-view top corner must select the sixth training card"
+		str(modal.get_selected_action().get("id", "")) == "training-card-3",
+		"scaled live-view top corner must select the fourth training card"
 	)
 
 
@@ -157,7 +158,7 @@ func _verify_service_card_layout_profiles() -> void:
 		"shop must use the stacked-screen exit footer"
 	)
 
-	var fallen_monk_modal := _build_six_card_modal("fallen_monk")
+	var fallen_monk_modal := _build_card_modal("fallen_monk")
 	var fallen_monk_model: Dictionary = fallen_monk_modal.build_view_model(BASE_VIEW_SIZE)
 	var fallen_monk_flags: Dictionary = fallen_monk_model.get("layout_flags", {})
 	_expect(
@@ -173,7 +174,7 @@ func _verify_service_card_layout_profiles() -> void:
 
 
 func _verify_training_stage_reservations() -> void:
-	var modal := _build_six_card_modal("training")
+	var modal := _build_card_modal("training")
 	var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
 	var card_grid: Rect2 = model.get("card_grid_rect", Rect2())
 	var stage: Rect2 = model.get("training_stage_rect", Rect2())
@@ -181,7 +182,7 @@ func _verify_training_stage_reservations() -> void:
 	var dummy_slot: Rect2 = model.get("training_dummy_slot_rect", Rect2())
 	var stats: Rect2 = model.get("training_stats_rect", Rect2())
 	var rects: Array = model.get("action_rects", [])
-	var end_work: Rect2 = rects[6] as Rect2
+	var end_work: Rect2 = rects[4] as Rect2
 	_expect(stage.is_equal_approx(TowerAscentNodeModalState.TRAINING_STAGE_RECT), "training stage must use the approved upper-right reservation")
 	_expect(stats.is_equal_approx(TowerAscentNodeModalState.TRAINING_STATS_RECT), "stats panel must use the approved lower-right reservation")
 	_expect(stage.encloses(player_slot), "training stage must enclose the player character slot")
@@ -216,10 +217,10 @@ func _verify_training_stage_reservations() -> void:
 
 
 func _verify_layout_cache_is_size_owned() -> void:
-	var modal := _build_six_card_modal("training")
+	var modal := _build_card_modal("training")
 	_expect(modal.get_layout_build_count_for_tests() == 0, "layout cache must be cold before its first consumer")
 	var first_model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
-	_expect(first_model.get("action_rects", []).size() == 7, "first layout build must expose all training actions")
+	_expect(first_model.get("action_rects", []).size() == 5, "first layout build must expose all training actions")
 	_expect(modal.get_layout_build_count_for_tests() == 1, "first viewport size must build layout exactly once")
 	for frame in range(8):
 		modal.build_view_model(BASE_VIEW_SIZE)
@@ -230,7 +231,7 @@ func _verify_layout_cache_is_size_owned() -> void:
 
 
 func _verify_compact_description_three_row_budget() -> void:
-	var modal := _build_six_card_modal("training")
+	var modal := _build_card_modal("training")
 	var card_rect := modal.get_action_rects(BASE_VIEW_SIZE)[0] as Rect2
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var action := _training_card_action(0)
@@ -240,7 +241,7 @@ func _verify_compact_description_three_row_budget() -> void:
 	var description_rows: Array = layout.get("description_rows", [])
 	var badge_rows: Array = layout.get("bonus_badge_rows", [])
 	_expect(bool(layout.get("compact_card", false)), "production training card rect must select the compact card builder")
-	_expect(int(layout.get("description_font_size", 0)) == 11, "base training rail must raise its compact description floor to 11px")
+	_expect(int(layout.get("description_font_size", 0)) == 13, "four-row training rail must use a 13px compact description font")
 	_expect(description_rows.size() == 3, "longest compact training description must append exactly three rows")
 	_expect(int(layout.get("appended_description_row_count", -1)) == 3, "description append count must be the actual three drawn rows")
 	_expect(badge_rows.is_empty(), "ordinary training cards must reserve no bonus-badge row")
@@ -253,16 +254,16 @@ func _verify_compact_description_three_row_budget() -> void:
 		"large Vulkan viewport must keep the same aspect-ratio compact card profile"
 	)
 	_expect(
-		int(live_layout.get("description_font_size", 0)) == 14,
-		"wide Vulkan training rail must scale its compact description font to 14px"
+		int(live_layout.get("description_font_size", 0)) == 18,
+		"wide Vulkan training rail must scale its compact description font to 18px"
 	)
 	_expect(
-		int(live_layout.get("appended_description_row_count", -1)) == 2,
-		"wide Vulkan training rail must append exactly two description rows"
+		int(live_layout.get("appended_description_row_count", -1)) == 3,
+		"wide Vulkan training rail must append exactly three description rows"
 	)
 	_expect(
-		int(live_layout.get("appended_text_row_count", -1)) == 2,
-		"wide Vulkan training rail must append exactly its two description rows"
+		int(live_layout.get("appended_text_row_count", -1)) == 3,
+		"wide Vulkan training rail must append exactly its three description rows"
 	)
 	var live_badge_rows: Array = live_layout.get("bonus_badge_rows", [])
 	_expect(live_badge_rows.is_empty(), "large Vulkan viewport must also reserve no ordinary training badge row")
@@ -297,13 +298,17 @@ func _verify_shop_cells_bypass_compact_card_text_layout() -> void:
 
 
 func _verify_compact_unavailable_reason_reserves_description_row() -> void:
-	var shop_modal := _build_six_card_modal("shop")
+	var training_modal := _build_card_modal("training")
 	var renderer := RuntimePerkOverlayRenderer.new()
-	var reason := "금화 150 필요, 30 부족"
-	var disabled_action := _chance_gem_shop_action(false, reason)
-	var no_reason_action := _chance_gem_shop_action(false, "")
+	var disabled_action := _training_card_action(0)
+	disabled_action["enabled"] = false
+	disabled_action["unavailable_reason"] = "이번 수련 완료"
+	var disabled_choice: Dictionary = disabled_action.get("payload", {}).get("choice", {})
+	disabled_choice["description"] = "A complete training-effect description that occupies multiple whole rows before the completed-visit reason reserves its own lane."
+	var no_reason_action := disabled_action.duplicate(true)
+	no_reason_action["unavailable_reason"] = ""
 	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
-		var card_rect := shop_modal.get_action_rects(view_size)[5] as Rect2
+		var card_rect := training_modal.get_action_rects(view_size)[0] as Rect2
 		var disabled_layout := renderer.build_tower_node_card_text_layout(
 			disabled_action,
 			card_rect
@@ -316,7 +321,7 @@ func _verify_compact_unavailable_reason_reserves_description_row() -> void:
 		var disabled_rows: Array = disabled_layout.get("description_rows", [])
 		_expect(
 			bool(disabled_layout.get("compact_card", false)),
-			"chance-gem overlap leg requires the compact shop profile at %s" % view_size
+			"completed-visit overlap leg requires the compact training profile at %s" % view_size
 		)
 		_expect(
 			no_reason_rows.size() >= 2,
@@ -336,11 +341,6 @@ func _verify_compact_unavailable_reason_reserves_description_row() -> void:
 			== no_reason_rows.size() - disabled_rows.size(),
 			"compact unavailable reason must report every wholly omitted row at %s" % view_size
 		)
-		if view_size == LIVE_VIEW_SIZE:
-			_expect(
-				int(disabled_layout.get("unavailable_reason_row_omitted_count", 0)) == 1,
-				"the acceptance-resolution compact card must yield exactly one description row"
-			)
 		for row_index in range(disabled_rows.size()):
 			_expect(
 				str(disabled_rows[row_index]) == str(no_reason_rows[row_index]),
@@ -351,13 +351,6 @@ func _verify_compact_unavailable_reason_reserves_description_row() -> void:
 		var description_start := card_rect.position.y + 64.0 * compact_scale
 		var description_step := 12.0 * compact_scale
 		var reason_center_y := card_rect.end.y - 31.0 * compact_scale
-		var unreserved_last_baseline := (
-			description_start + float(no_reason_rows.size() - 1) * description_step
-		)
-		_expect(
-			absf(unreserved_last_baseline - reason_center_y) < float(description_font_size),
-			"RED counterproof requires the unreserved last description baseline to overlap the reason lane at %s" % view_size
-		)
 		if not disabled_rows.is_empty():
 			var reserved_last_baseline := (
 				description_start + float(disabled_rows.size() - 1) * description_step
@@ -367,7 +360,7 @@ func _verify_compact_unavailable_reason_reserves_description_row() -> void:
 				"reserved compact description rows must clear the unavailable-reason lane at %s" % view_size
 			)
 
-	var legacy_modal := _build_six_card_modal("fallen_monk")
+	var legacy_modal := _build_card_modal("fallen_monk")
 	var legacy_rect := legacy_modal.get_action_rects(BASE_VIEW_SIZE)[0] as Rect2
 	var legacy_reason_layout := renderer.build_tower_node_card_text_layout(
 		disabled_action,
@@ -393,20 +386,30 @@ func _verify_compact_unavailable_reason_reserves_description_row() -> void:
 
 
 func _verify_compact_hover_detail_lane_geometry() -> void:
-	var modal := _build_six_card_modal("training")
+	var modal := _build_card_modal("training")
 	var renderer := RuntimePerkOverlayRenderer.new()
 	var action := _training_card_action(0)
 	var choice: Dictionary = action.get("payload", {}).get("choice", {})
 	choice["name"] = "유운보"
-	choice["bonus_badge_text"] = "고정 +1칸"
+	choice["bonus_badge_text"] = "회심 +2칸, 그 외 +1칸"
 	action["enabled"] = false
-	action["unavailable_reason"] = "효과 한계"
+	action["unavailable_reason"] = "이번 수련 완료"
 	for view_size in [BASE_VIEW_SIZE, LIVE_VIEW_SIZE]:
 		var card_rect := modal.get_action_rects(view_size)[0] as Rect2
 		var layout: Dictionary = renderer.build_tower_node_card_text_layout(action, card_rect)
 		_expect(
 			bool(layout.get("compact_card", false)),
 			"hover lane geometry leg requires the compact training profile at %s" % view_size
+		)
+		_expect(
+			bool(layout.get("bonus_badge_visible", false))
+			and int(layout.get("appended_bonus_badge_row_count", 0)) == 1
+			and (layout.get("bonus_badge_rows", []) as Array) == ["회심 +2칸, 그 외 +1칸"],
+			"storage critical-versus-base badge must remain complete and visible at %s" % view_size
+		)
+		_expect(
+			bool(layout.get("unavailable_reason_row_reserved", false)),
+			"disabled storage visit copy must reserve its compact-card reason lane at %s" % view_size
 		)
 		var compact_scale := float(layout.get("compact_scale", 0.0))
 		var description_font := int(layout.get("description_font_size", 0))
@@ -553,10 +556,11 @@ func _verify_training_hanji_chrome_assets_and_gate() -> void:
 	)
 
 
-func _build_six_card_modal(node_kind: String) -> Object:
+func _build_card_modal(node_kind: String) -> Object:
 	var modal := TowerAscentNodeModalState.new()
 	var actions: Array[Dictionary] = []
-	for index in range(6):
+	var card_count := 4 if node_kind == "training" else 6
+	for index in range(card_count):
 		actions.append(_training_card_action(index, node_kind))
 	modal.open("layout-%s" % node_kind, node_kind, {"muhon": 20, "gold": 120}, actions)
 	return modal

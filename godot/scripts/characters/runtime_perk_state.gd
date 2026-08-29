@@ -56,6 +56,7 @@ const PerkConversionValues := preload("res://scripts/characters/perk_conversion_
 const RuntimePerkMysticDiceRuntimeState := preload("res://scripts/characters/runtime_perk_mystic_dice_runtime_state.gd")
 const RuntimePerkPhysiqueTrainingRuntimeState := preload("res://scripts/characters/runtime_perk_physique_training_runtime_state.gd")
 const RuntimePerkAngelBlessingRuntimeState := preload("res://scripts/characters/runtime_perk_angel_blessing_runtime_state.gd")
+const RuntimePerkStageStartItemGrantState := preload("res://scripts/characters/runtime_perk_stage_start_item_grant_state.gd")
 const RuntimePerkChosikEventState := preload("res://scripts/characters/runtime_perk_chosik_event_state.gd")
 const RuntimePerkHyeonmunCharyeokRuntimeState := preload("res://scripts/characters/runtime_perk_hyeonmun_charyeok_runtime_state.gd")
 const TowerAscentFeatureFlags := preload("res://scripts/tower_ascent/tower_ascent_feature_flags.gd")
@@ -269,6 +270,7 @@ var _physique_training_offer_planner: Object:
 	set(value):
 		_physique_training_runtime_state.set_offer_planner(value)
 var _angel_blessing_runtime_state: Object = RuntimePerkAngelBlessingRuntimeState.new()
+var _stage_start_item_grant_state: Object = RuntimePerkStageStartItemGrantState.new()
 var _chosik_event_state: Object = RuntimePerkChosikEventState.new()
 var _hyeonmun_charyeok_runtime_state: Object = RuntimePerkHyeonmunCharyeokRuntimeState.new()
 var _hyeonmun_charyeok_state: Object:
@@ -1057,6 +1059,7 @@ func reset() -> void:
 	tower_spring_prayer_count = 0
 	_fusion_runtime_state.reset()
 	_physique_training_runtime_state.reset_state()
+	_stage_start_item_grant_state.reset()
 	_chosik_event_state.reset()
 	_hyeonmun_charyeok_runtime_state.reset_state()
 	_display_projection_state.invalidate()
@@ -2205,13 +2208,22 @@ func on_ball_spawn_intro_finished(
 	angel_roll_options: Dictionary = {}
 ) -> Dictionary:
 	# Existing deferred dimension/full-gauge actions resolve first by contract.
-	# Angel then atomically replaces the prior stage result and refreshes the
-	# final owner/config consumers from that post-deferred value.
+	# The stage item opportunity is consumed before Angel opens presentation so
+	# rally restarts cannot retry a skipped inventory grant mid-stage.
 	var result: Dictionary = _instant_choice_flow.on_ball_spawn_intro_finished_from_runtime_state(
 		self,
 		owner,
 		registry
 	)
+	var stage_item_result: Dictionary = _stage_start_item_grant_state.on_ball_spawn_intro_finished(
+		self,
+		owner,
+		registry
+	)
+	if not stage_item_result.is_empty():
+		result["stage_start_item_grant"] = stage_item_result
+	# Angel atomically replaces the prior stage result and refreshes the final
+	# owner/config consumers from the post-deferred value.
 	var angel_result: Dictionary = _angel_blessing_runtime_state.handle_spawn_intro_completion_from_runtime_state(
 		self,
 		owner,
@@ -2220,6 +2232,10 @@ func on_ball_spawn_intro_finished(
 	)
 	result.merge(angel_result, true)
 	return result
+
+
+func get_stage_start_item_grant_snapshot() -> Dictionary:
+	return _stage_start_item_grant_state.get_snapshot()
 
 
 func _apply_monkey_blessing_choice(owner: Object, registry: Object, choice_name: String = "") -> Dictionary:

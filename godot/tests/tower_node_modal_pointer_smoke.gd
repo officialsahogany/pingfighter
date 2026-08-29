@@ -229,7 +229,7 @@ func _run() -> void:
 	_verify_balance_row_is_horizontal_unboxed_and_not_clickable()
 	_verify_playfield_phase_keeps_coordinate_projection()
 	_verify_reward_pick_uses_screen_coordinates_and_view_size()
-	_verify_six_card_grid_top_corners_match_hit_test()
+	_verify_service_card_grid_top_corners_match_hit_test()
 	_verify_tower_node_card_description_rows()
 	_verify_screen_space_render_routing_and_viewport_priority()
 	if _failures.is_empty():
@@ -506,14 +506,17 @@ func _verify_reward_pick_uses_screen_coordinates_and_view_size() -> void:
 	_expect(loot.received_view_size.is_equal_approx(LIVE_VIEW_SIZE), "reward rect generation and hit testing must share the live viewport size")
 
 
-func _verify_six_card_grid_top_corners_match_hit_test() -> void:
+func _verify_service_card_grid_top_corners_match_hit_test() -> void:
 	for node_kind in ["shop", "training", "fallen_monk"]:
 		var modal := TowerAscentNodeModalState.new()
 		var actions: Array[Dictionary] = []
-		var card_count := 8 if node_kind == "shop" else 6
+		var card_count := (
+			8 if node_kind == "shop"
+			else (4 if node_kind == "training" else 6)
+		)
 		for index in range(card_count):
 			actions.append({"id": "%s-card-%d" % [node_kind, index], "label": "card %d" % index})
-		modal.open("six-card-node", node_kind, {"muhon": 20}, actions)
+		modal.open("service-card-node", node_kind, {"muhon": 20}, actions)
 		var model: Dictionary = modal.build_view_model()
 		var layout_flags: Dictionary = model.get("layout_flags", {})
 		var layout: Dictionary = modal.build_screen_layout(Vector2(760.0, 750.0), layout_flags)
@@ -604,7 +607,7 @@ func _verify_six_card_grid_top_corners_match_hit_test() -> void:
 			- row_gap
 			* float(grid_rows - 1)
 		) / float(grid_rows)
-		for index in range(6):
+		for index in range(card_count):
 			var rect := rects[index] as Rect2
 			var expected_column := index % grid_columns
 			var expected_row := index / grid_columns

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
+const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 
 var pending := false
 var active := false
@@ -9,6 +10,7 @@ var suspended_companion_pet_id := ""
 var from_item_egg := false
 var absorb_only := false
 var compare_only := false
+var _preview_profile: Object = LingpetCurrentProfile.new()
 
 
 func reset() -> void:
@@ -81,11 +83,16 @@ func build_snapshot(collection_state: Object) -> Dictionary:
 				})
 	var pending_id := str(pending_pet_id)
 	var preview_loadout := LingpetCatalog.build_default_loadout(pending_id)
-	var preview_skill := LingpetCatalog.get_active_skill(
-		pending_id,
-		str(preview_loadout.get("active_skill_id", "")),
-		maxi(1, int(preview_loadout.get("active_skill_level", 1)))
-	)
+	# This direct preview has not rolled a passive yet. Keep that pending channel
+	# empty so only the final global guardian scale affects the active cooldown.
+	preview_loadout["passive_skill_id"] = ""
+	preview_loadout["passive_skill_level"] = 0
+	preview_loadout["passive_skill_ids"] = []
+	preview_loadout["passive_skill_levels"] = {}
+	preview_loadout["passive_slot_count"] = 0
+	_preview_profile.set_pet_id(pending_id)
+	_preview_profile.set_loadout_from_data(preview_loadout)
+	var preview_skill: Dictionary = _preview_profile.get_active_skill(0)
 	var pending_stats := {
 		"patrol_speed_default": LingpetCatalog.get_stat(pending_id, "patrol_speed_default", 0.0),
 		"patrol_speed_min": LingpetCatalog.get_stat(pending_id, "patrol_speed_min", 0.0),

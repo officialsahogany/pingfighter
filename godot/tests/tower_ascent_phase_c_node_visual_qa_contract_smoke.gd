@@ -27,7 +27,7 @@ func _init() -> void:
 		_expect(qa_source.find('"file": "%s"' % output_name) >= 0, "visual QA must own %s" % output_name)
 	_expect(qa_source.find("TowerAscentFlowRenderer") >= 0, "visual QA must use the production tower renderer")
 	_expect(qa_source.find("draw_fullscreen_node_modal") >= 0, "visual QA must render through the production fullscreen consumer")
-	_expect(qa_source.find("RuntimePerkOverlayRenderer") >= 0 and qa_source.find("RuntimePerkIconRenderer") >= 0, "six-card nodes must use the canonical reward-card and icon renderers")
+	_expect(qa_source.find("RuntimePerkOverlayRenderer") >= 0 and qa_source.find("RuntimePerkIconRenderer") >= 0, "service-card nodes must use the canonical reward-card and icon renderers")
 	_expect(qa_source.find("get_node_modal_render_context") >= 0, "visual fixture must expose the same renderer context as the production flow")
 	_expect(qa_source.find("_rect_has_visual_detail") >= 0, "each captured card rect must carry a rendered-pixel counterproof")
 	_expect(qa_source.find("_capture_live_training_round") >= 0 and qa_source.find("execute_node_action") >= 0, "one windowed run must enter the production flow and purchase the same card")

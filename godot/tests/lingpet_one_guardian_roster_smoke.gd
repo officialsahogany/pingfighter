@@ -2,6 +2,7 @@ extends SceneTree
 
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const LingpetCollectionState := preload("res://scripts/lingpet/lingpet_collection_state.gd")
+const LingpetCurrentProfile := preload("res://scripts/lingpet/lingpet_current_profile.gd")
 const LingpetSaveRestorePlanner := preload("res://scripts/lingpet/lingpet_save_restore_planner.gd")
 const LingpetOverflowChoiceState := preload("res://scripts/lingpet/lingpet_overflow_choice_state.gd")
 const LingpetOverflowReplacePlan := preload("res://scripts/lingpet/lingpet_overflow_replace_plan.gd")
@@ -163,6 +164,17 @@ func _verify_new_guardian_portrait_and_tooltip_payload() -> void:
 	choice.begin_main_overflow("rahoset")
 	choice.activate_after_cutin()
 	var snapshot: Dictionary = choice.build_snapshot(collection_state)
+	var preview_profile := LingpetCurrentProfile.new()
+	preview_profile.set_pet_id("rahoset")
+	var preview_loadout := LingpetCatalog.build_default_loadout("rahoset")
+	preview_profile.set_loadout(
+		str(preview_loadout.get("active_skill_id", "")),
+		"",
+		int(preview_loadout.get("active_skill_level", 1)),
+		0
+	)
+	var preview_cooldown := float(preview_profile.get_active_skill(0).get("cooldown", 0.0))
+	_expect(is_equal_approx(preview_cooldown, 24.0), "Rahoset overflow profile should apply the final guardian cooldown scale")
 	var expected_art_path := LingpetCatalog.get_visual_path("rahoset", "cutin_art")
 	_expect(str(snapshot.get("pending_art_path", "")) == expected_art_path, "overflow snapshot must expose the acquired guardian portrait path")
 	_expect(FileAccess.file_exists(expected_art_path), "overflow guardian portrait path must point to a real source asset")
@@ -171,7 +183,7 @@ func _verify_new_guardian_portrait_and_tooltip_payload() -> void:
 	_expect(is_equal_approx(float(stats.get("hit_gauge_gain", 0.0)), 40.0), "overflow tooltip payload must expose guardian vigor gain")
 	_expect(str(snapshot.get("replacement_skill_name", "")) == "모래감옥", "overflow tooltip payload must expose the acquired guardian's active skill")
 	_expect(str(snapshot.get("replacement_skill_description", "")).find("보스 주위") >= 0, "overflow tooltip payload must include the active skill description")
-	_expect(is_equal_approx(float(snapshot.get("replacement_skill_cooldown", 0.0)), 30.0), "overflow tooltip payload must expose the active cooldown")
+	_expect(is_equal_approx(float(snapshot.get("replacement_skill_cooldown", 0.0)), preview_cooldown), "overflow tooltip payload must expose the profile-resolved active cooldown")
 	var info := LingpetOverflowChoiceOverlayHost.build_guardian_info_for_tests(snapshot, "ko")
 	_expect(str(info.get("title", "")) == "라호세트", "guardian art tooltip must use the acquired guardian name")
 	_expect((info.get("stat_rows", []) as Array).size() >= 4, "guardian art tooltip must present the base stat rows")
@@ -224,17 +236,6 @@ func _verify_two_choice_input_routes() -> void:
 	_expect(host.handle_input(enter, runtime, owner, null, Vector2(760.0, 750.0)), "comparison Replace retry must be consumed")
 	_expect(host.handle_input(enter, runtime, owner, null, Vector2(760.0, 750.0)), "final confirmation must be consumed")
 	_expect(runtime.replace_count == 1 and runtime.absorb_count == 0, "only final confirmation may call production replacement")
-	var mouse_runtime := FakeChoiceRuntime.new()
-	var mouse_host := LingpetOverflowChoiceOverlayHost.new()
-	_expect(mouse_host.handle_input(key_one, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "mouse cancellation fixture must open comparison")
-	var compare_layout := mouse_host.get_compare_layout_for_tests(Vector2(760.0, 750.0))
-	var cancel_click := InputEventMouseButton.new()
-	cancel_click.pressed = true
-	cancel_click.button_index = MOUSE_BUTTON_LEFT
-	cancel_click.position = (compare_layout.get("secondary_button", Rect2()) as Rect2).get_center()
-	_expect(mouse_host.handle_input(cancel_click, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "comparison cancel button must be consumed")
-	_expect(mouse_host.get_phase_for_tests() == LingpetOverflowChoiceOverlayHost.PHASE_CHOICE, "comparison cancel button must return to the initial choice")
-	_expect(mouse_runtime.replace_count == 0 and mouse_runtime.absorb_count == 0, "comparison cancel button must not mutate the roster")
 	var mouse_runtime := FakeChoiceRuntime.new()
 	var mouse_host := LingpetOverflowChoiceOverlayHost.new()
 	_expect(mouse_host.handle_input(key_one, mouse_runtime, owner, null, Vector2(760.0, 750.0)), "mouse cancellation fixture must open comparison")
