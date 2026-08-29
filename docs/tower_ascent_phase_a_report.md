@@ -107,7 +107,7 @@ Godot headless load check passed.
 
 ## 3. 임시 튜닝 표
 
-아래 15개만 정본 미확정 수치다. 모두
+아래 13개만 정본 미확정 수치다. 모두
 `godot/scripts/tower_ascent/tower_ascent_tuning.gd` 한곳에 있다.
 
 | 상수 | 임시값 | 근거 |
@@ -125,8 +125,20 @@ Godot headless load check passed.
 | `TEMP_NORMAL_CHEST_ACTIVE_RARITIES` | `["common", "rare"]` | 일반상자 채널 필터 구조 검증용 |
 | `TEMP_SHOP_REGULAR_ACTIVE_RARITIES` | `["common", "rare"]` | 일반 선반 채널 필터 구조 검증용 |
 | `TEMP_SHOP_PREMIUM_ACTIVE_RARITIES` | `["legendary", "mythic"]` | 프리미엄 선반 채널 필터 구조 검증용 |
+
+다음 두 행은 Phase A 도입 당시의 **검증용 이력**이다. 현재 실전 상수는 아니다.
+
+| 이전 상수 | 검증값 | 당시 근거 |
+|---|---|---|
 | `TEMP_REGULAR_SPAWN_BUDGET_MIN` | `0` | 판당 총량 owner와 0-cap 부정 레그 검증용 |
 | `TEMP_REGULAR_SPAWN_BUDGET_MAX` | `1` | 재굴림·cap 소진 구조를 최소 범위로 검증용 |
+
+2026-08-29 Z14에서 같은 판당 cap 구조를 유지하고 실전 범위만 갱신했다.
+
+| 실전 상수 | 채택값 | 근거 |
+|---|---|---|
+| `REGULAR_SPAWN_BUDGET_MIN` | `2` | 버티컬 전투마다 정규 필드 아이템을 최소 1개 이상 보장하고 0-cap은 debug 부정 레그로만 유지 |
+| `REGULAR_SPAWN_BUDGET_MAX` | `4` | 20~50초 스폰 간격과 통상 전투의 4~8회 자연 기회를 고려해 총량 제한은 유지하면서 초반 1회 고갈을 해소 |
 
 다음 수치는 임시 발명값이 아니라 정본 확정값이다.
 

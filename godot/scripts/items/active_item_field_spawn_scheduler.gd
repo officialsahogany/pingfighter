@@ -104,8 +104,8 @@ func _reset_regular_spawn_budget() -> void:
 		regular_spawn_budget = -1
 		return
 	regular_spawn_budget = randi_range(
-		TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MIN,
-		TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MAX
+		TowerAscentTuning.REGULAR_SPAWN_BUDGET_MIN,
+		TowerAscentTuning.REGULAR_SPAWN_BUDGET_MAX
 	)
 
 

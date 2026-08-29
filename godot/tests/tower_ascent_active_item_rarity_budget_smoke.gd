@@ -6,6 +6,9 @@ const ActiveItemCatalog := preload(
 const ActiveItemFieldSpawnPool := preload(
 	"res://scripts/items/active_item_field_spawn_pool.gd"
 )
+const ActiveItemFieldSpawnController := preload(
+	"res://scripts/items/active_item_field_spawn_controller.gd"
+)
 const ActiveItemFieldSpawnScheduler := preload(
 	"res://scripts/items/active_item_field_spawn_scheduler.gd"
 )
@@ -42,6 +45,7 @@ func _init() -> void:
 	_verify_shared_acquisition_channels()
 	_verify_live_field_chest_and_shop_consumers()
 	_verify_regular_spawn_budget_owner()
+	_verify_production_controller_invokes_budget_owner()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	if _failures.is_empty():
@@ -127,12 +131,43 @@ func _verify_live_field_chest_and_shop_consumers() -> void:
 
 func _verify_regular_spawn_budget_owner() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	_expect(
+		TowerAscentTuning.REGULAR_SPAWN_BUDGET_MIN == 2,
+		"tower regular-spawn minimum budget must use the adopted live value"
+	)
+	_expect(
+		TowerAscentTuning.REGULAR_SPAWN_BUDGET_MAX == 4,
+		"tower regular-spawn maximum budget must use the adopted live value"
+	)
+	_expect(
+		TowerAscentTuning.REGULAR_SPAWN_BUDGET_MIN >= 1,
+		"tower regular-spawn tuning must never roll a zero-item match"
+	)
 	var scheduler := ActiveItemFieldSpawnScheduler.new()
-	scheduler.reset()
-	var initial: Dictionary = scheduler.get_regular_spawn_budget_state()
-	_expect(int(initial.get("budget", -1)) >= TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MIN, "tower match reset must roll the budget from the tuning table")
-	_expect(int(initial.get("budget", -1)) <= TowerAscentTuning.TEMP_REGULAR_SPAWN_BUDGET_MAX, "tower match reset must cap the budget at the tuning-table maximum")
-	var generation := int(initial.get("generation", 0))
+	var out_of_range_rolls := 0
+	var zero_budget_rolls := 0
+	for _sample_index in range(128):
+		scheduler.reset()
+		var rolled_budget := int(scheduler.get_regular_spawn_budget_state().get("budget", -1))
+		if (
+			rolled_budget < TowerAscentTuning.REGULAR_SPAWN_BUDGET_MIN
+			or rolled_budget > TowerAscentTuning.REGULAR_SPAWN_BUDGET_MAX
+		):
+			out_of_range_rolls += 1
+		if rolled_budget < 1:
+			zero_budget_rolls += 1
+	_expect(out_of_range_rolls == 0, "tower match resets must stay inside the tuning-table range")
+	_expect(
+		zero_budget_rolls == 0,
+		"tower match resets must never roll a zero-item budget; observed %d of 128" % zero_budget_rolls
+	)
+	var generation := int(scheduler.get_regular_spawn_budget_state().get("generation", 0))
+	scheduler.debug_set_regular_spawn_budget_for_test(0)
+	_make_due(scheduler)
+	_expect(
+		not scheduler.consume_regular_spawn_due(FakeOwner.new(), null, false, false),
+		"debug zero budget must preserve the exhausted-cap negative leg"
+	)
 	scheduler.debug_set_regular_spawn_budget_for_test(1)
 	_make_due(scheduler)
 	_expect(scheduler.consume_regular_spawn_due(FakeOwner.new(), null, false, false), "one available regular budget must admit one due spawn")
@@ -147,11 +182,24 @@ func _verify_regular_spawn_budget_owner() -> void:
 
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
 	scheduler.reset()
-	_expect(bool(scheduler.get_regular_spawn_budget_state().get("unlimited", false)), "flag OFF scheduler must preserve the uncapped legacy timer")
+	var legacy_state: Dictionary = scheduler.get_regular_spawn_budget_state()
+	_expect(int(legacy_state.get("budget", 0)) == -1, "flag OFF scheduler must preserve the exact uncapped sentinel")
+	_expect(bool(legacy_state.get("unlimited", false)), "flag OFF scheduler must preserve the uncapped legacy timer")
 	_make_due(scheduler)
 	_expect(scheduler.consume_regular_spawn_due(FakeOwner.new(), null, false, false), "flag OFF first legacy timer opportunity must remain available")
 	_make_due(scheduler)
 	_expect(scheduler.consume_regular_spawn_due(FakeOwner.new(), null, false, false), "flag OFF later legacy timer opportunities must remain available")
+
+
+func _verify_production_controller_invokes_budget_owner() -> void:
+	var controller := ActiveItemFieldSpawnController.new()
+	var scheduler := CountingSpawnScheduler.new()
+	controller.spawn_scheduler = scheduler
+	controller._update_spawn_timer(FakeOwner.new(), null)
+	_expect(
+		scheduler.consume_calls == 1,
+		"the production field-spawn controller must invoke the budget owner exactly once per timer update"
+	)
 
 
 func _verify_source_contract() -> void:
@@ -162,7 +210,21 @@ func _verify_source_contract() -> void:
 	_expect(chest_source.find("CHANNEL_NORMAL_CHEST") >= 0, "normal chest must call the shared acquisition policy")
 	_expect(shelf_source.find("CHANNEL_SHOP_REGULAR") >= 0 and shelf_source.find("CHANNEL_SHOP_PREMIUM") >= 0, "both shop shelves must call the shared acquisition policy")
 	var tuning_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_tuning.gd")
-	_expect(tuning_source.find("TEMP_REGULAR_SPAWN_BUDGET_MIN") >= 0 and tuning_source.find("TEMP_REGULAR_SPAWN_BUDGET_MAX") >= 0, "unresolved budget values must stay named TEMP tuning constants")
+	_expect(
+		tuning_source.find("const REGULAR_SPAWN_BUDGET_MIN := 2") >= 0
+		and tuning_source.find("const REGULAR_SPAWN_BUDGET_MAX := 4") >= 0,
+		"live regular-spawn budget values must be named production tuning constants"
+	)
+	_expect(
+		tuning_source.find("TEMP_REGULAR_SPAWN_BUDGET") < 0,
+		"the adopted regular-spawn budget must not retain its TEMP prefix"
+	)
+	var scheduler_source := FileAccess.get_file_as_string("res://scripts/items/active_item_field_spawn_scheduler.gd")
+	_expect(
+		scheduler_source.find("TowerAscentTuning.REGULAR_SPAWN_BUDGET_MIN") >= 0
+		and scheduler_source.find("TowerAscentTuning.REGULAR_SPAWN_BUDGET_MAX") >= 0,
+		"the live scheduler roll must consume the production tuning range"
+	)
 
 
 func _make_due(scheduler: Object) -> void:
@@ -180,6 +242,20 @@ class FakeOwner:
 	var current_stage := 1
 	var arena_mode_enabled := false
 	var victory_loot_phase_active := false
+
+
+class CountingSpawnScheduler:
+	extends RefCounted
+	var consume_calls := 0
+
+	func consume_regular_spawn_due(
+		_owner: Object,
+		_registry: Object,
+		_has_spawned_items: bool,
+		_has_pending_spawn_or_portals: bool
+	) -> bool:
+		consume_calls += 1
+		return false
 
 
 class FakeUnlockStore:

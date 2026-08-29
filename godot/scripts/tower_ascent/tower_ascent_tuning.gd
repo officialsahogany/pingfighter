@@ -18,8 +18,11 @@ const TEMP_FIELD_ACTIVE_RARITIES := ["common"]
 const TEMP_NORMAL_CHEST_ACTIVE_RARITIES := ["common", "rare"]
 const TEMP_SHOP_REGULAR_ACTIVE_RARITIES := ["common", "rare"]
 const TEMP_SHOP_PREMIUM_ACTIVE_RARITIES := ["legendary", "mythic"]
-const TEMP_REGULAR_SPAWN_BUDGET_MIN := 0
-const TEMP_REGULAR_SPAWN_BUDGET_MAX := 1
+
+# Live Tower matches keep the Phase A per-match cap owner, with a practical
+# range for the regular 20-50 second spawn cadence.
+const REGULAR_SPAWN_BUDGET_MIN := 2
+const REGULAR_SPAWN_BUDGET_MAX := 4
 
 # TEMP: Phase B establishes generated floor/row ownership. Product tuning may
 # change only these values while the 12-floor and floor-gate contracts remain
