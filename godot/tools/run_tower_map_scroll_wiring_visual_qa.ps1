@@ -1,10 +1,22 @@
 param(
     [string]$GodotExe = "",
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
-    [switch]$BandSeamOnly
+    [switch]$BandSeamOnly,
+    [switch]$BandMistOnly,
+    [switch]$BandMistReferenceCounterproofOnly
 )
 
 $ErrorActionPreference = "Stop"
+
+if (
+    @(
+        $BandSeamOnly,
+        $BandMistOnly,
+        $BandMistReferenceCounterproofOnly
+    ).Where({ $_ }).Count -gt 1
+) {
+    throw "Band-seam, band-mist, and reference-counterproof modes are mutually exclusive"
+}
 
 . (Join-Path $PSScriptRoot "assert_no_interactive_godot_game.ps1")
 $validationPriorityContext = $null
@@ -37,6 +49,12 @@ try {
     if ($BandSeamOnly) {
         $godotArgs += @("--", "--band-seam-only")
     }
+    elseif ($BandMistOnly) {
+        $godotArgs += @("--", "--band-mist-only")
+    }
+    elseif ($BandMistReferenceCounterproofOnly) {
+        $godotArgs += @("--", "--band-mist-reference-counterproof-only")
+    }
     try {
         $output = & $godot @godotArgs 2>&1
         $exitCode = $LASTEXITCODE
@@ -49,7 +67,13 @@ try {
     $seriousErrors = @($output | Where-Object {
         Test-GodotSeriousErrorLine -Line $_.ToString()
     })
-    $okMarker = if ($BandSeamOnly) {
+    $okMarker = if ($BandMistReferenceCounterproofOnly) {
+        "tower_map_band_mist_reference_counterproof: ok"
+    }
+    elseif ($BandMistOnly) {
+        "tower_map_band_mist_visual_qa: ok"
+    }
+    elseif ($BandSeamOnly) {
         "tower_map_band_seam_visual_qa: ok"
     }
     else {
@@ -65,7 +89,7 @@ try {
         }
         throw "$qaPath did not emit its ok marker"
     }
-    if ($BandSeamOnly) {
+    if ($BandSeamOnly -or $BandMistOnly -or $BandMistReferenceCounterproofOnly) {
         Write-Host "Tower map-scroll wiring QA log preserved: $logPath"
     }
     else {

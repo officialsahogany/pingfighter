@@ -35,14 +35,24 @@ const MISSING_NAME := "07_live_missing_band_procedural_fallback.png"
 const HUMAN_COMPARE_NAME := "08_approved_human_vs_m_key_overlay.png"
 const IMMORTAL_COMPARE_NAME := "09_approved_immortal_vs_live.png"
 const BAND_SEAM_Z13_DIR_NAME := "z13_tileable_wrap"
+const BAND_SEAM_Z13C_DIR_NAME := "z13c_mist_bake"
 const BAND_SEAM_FULLSCREEN_NAME := "10_z13_live_fullscreen.png"
+const BAND_SEAM_Z13C_FULLSCREEN_NAME := "10_z13c_live_fullscreen.png"
 const BAND_SEAM_STACK_NAME := "11_z13_composed_full_stack.png"
+const BAND_SEAM_Z13C_STACK_NAME := "11_z13c_composed_full_stack.png"
 const BAND_SEAM_SAME_ART_PROBE_NAME := "12_z13_same_art_river_butt_probe.png"
+const BAND_SEAM_Z13C_SAME_ART_PROBE_NAME := "12_z13c_same_art_river_butt_probe.png"
 const BAND_SEAM_DIFFERENT_ART_PROBE_PATTERN := (
 	"13_z13_different_art_forward_%02d.png"
 )
+const BAND_SEAM_Z13C_DIFFERENT_ART_PROBE_PATTERN := (
+	"13_z13c_different_art_forward_%02d.png"
+)
 const BAND_SEAM_LIVE_FRAME_PATTERN := "14_z13_live_move_%02d.png"
+const BAND_SEAM_Z13C_LIVE_FRAME_PATTERN := "14_z13c_live_move_%02d.png"
 const BAND_SEAM_LIVE_CONTACT_NAME := "19_z13_live_move_contact_sheet.png"
+const BAND_SEAM_Z13C_LIVE_CONTACT_NAME := "19_z13c_live_move_contact_sheet.png"
+const BAND_SEAM_RAW_BUTT_PATTERN := "20_z13c_raw_butt_%s.png"
 const EDGE_CULL_FRAME_NAME := "16_live_edge_cull_frame.png"
 const EDGE_CULL_DETAIL_NAME := "17_live_edge_cull_detail.png"
 const BAND_SEAM_BRIGHT_LUMA_THRESHOLD := 200.0
@@ -82,6 +92,22 @@ const BAND_SEAM_LIVE_MAX_RAW_JUMP_RANGE := 0.05
 const BAND_SEAM_PHASE_START_CONTROL_RADIUS_PX := 4
 const BAND_SEAM_MOTION_SAMPLE_SIZE := Vector2i(256, 158)
 const BAND_SEAM_RIVER_ASSET_KEY := "human_realm_03_river_rev2"
+const BAND_SEAM_RAW_BUTT_SOURCE_SIZE := Vector2i(692, 320)
+const BAND_SEAM_RAW_BUTT_TEXTURE_SIZE := Vector2i(2768, 1280)
+const BAND_SEAM_RAW_BUTT_HALF_HEIGHT_PX := 200
+const BAND_SEAM_RAW_BUTT_EDGE_HEIGHT_PX := 35
+const BAND_SEAM_RAW_BUTT_MIRROR_RADIUS_PX := 35
+const BAND_SEAM_RAW_BUTT_MIRROR_CONTROL_OFFSET_PX := 70
+const BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MIN := 0.5
+const BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MAX := 2.0
+const BAND_SEAM_RAW_BUTT_EDGE_LUMA_DELTA_MAX := 5.0
+const BAND_SEAM_RAW_BUTT_COMBINED_LUMA_DELTA_MAX := 3.0
+const BAND_SEAM_RAW_BUTT_MIRROR_EXCESS_MAX := 0.10
+const BAND_SEAM_RAW_BUTT_MIRROR_ABS_MAX := 0.85
+const BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_MARGIN := 0.01
+const BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_EPSILON := 0.0001
+const BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT := 0.01
+const BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON := 0.000001
 
 const HUMAN_BAND_PATHS := [
 	"res://assets/sprites/tower/map_scroll/human_realm_01_mountain_rev2.png",
@@ -129,6 +155,12 @@ func _run() -> void:
 	var output_dir := ProjectSettings.globalize_path(OUTPUT_DIR)
 	if DirAccess.make_dir_recursive_absolute(output_dir) != OK:
 		_fail("Tower map-scroll capture directory could not be created")
+		return
+	if OS.get_cmdline_user_args().has("--band-mist-reference-counterproof-only"):
+		await _run_band_mist_reference_counterproof_only(output_dir)
+		return
+	if OS.get_cmdline_user_args().has("--band-mist-only"):
+		await _run_band_mist_only(output_dir)
 		return
 	if OS.get_cmdline_user_args().has("--band-seam-only"):
 		await _run_band_seam_only(output_dir)
@@ -317,31 +349,280 @@ func _run() -> void:
 
 
 func _run_band_seam_only(output_dir: String) -> void:
+	await _run_band_seam_review(output_dir, false)
+
+
+func _run_band_mist_only(output_dir: String) -> void:
+	await _run_band_seam_review(output_dir, true)
+
+
+func _run_band_mist_reference_counterproof_only(output_dir: String) -> void:
+	var raw_catalog_probe := _build_z13c_raw_png_catalog()
+	if not bool(raw_catalog_probe.get("ready", false)):
+		_fail(
+			"Z13-c counterproof raw PNG catalog override failed: %s"
+				% str(raw_catalog_probe)
+		)
+		return
+	var fixture := _create_fixture(
+		"tower-map-z13c-mist-reference-counterproof",
+		"",
+		raw_catalog_probe.get("catalog", null)
+	)
+	if fixture.is_empty():
+		return
+	var flow: Object = fixture.get("flow", null)
+	var renderer: Object = flow.get("_renderer") if flow != null else null
+	if renderer == null or not renderer.has_method("build_fullscreen_map_model"):
+		await _dispose_fixture(fixture)
+		_fail("Z13-c counterproof could not locate the production renderer")
+		return
+	var model: Dictionary = renderer.call(
+		"build_fullscreen_map_model",
+		flow,
+		VIEWPORT_RECT
+	)
+	var seam_probe := _build_band_seam_probe(model)
+	if not bool(seam_probe.get("ready", false)):
+		await _dispose_fixture(fixture)
+		_fail("Z13-c counterproof seam model failed: %s" % str(seam_probe))
+		return
+	var coverage_probe := _classify_different_art_phase_coverage(
+		seam_probe.get("different_art_seams", [])
+	)
+	var subcover_zoom_probe := _resolve_overview_subcover_probe_zoom(model)
+	if (
+		not bool(coverage_probe.get("ready", false))
+		or not bool(subcover_zoom_probe.get("ready", false))
+	):
+		await _dispose_fixture(fixture)
+		_fail(
+			"Z13-c counterproof coverage setup failed: coverage=%s zoom=%s"
+				% [str(coverage_probe), str(subcover_zoom_probe)]
+		)
+		return
+	var timestamp_usec := int(Time.get_unix_time_from_system() * 1000000.0)
+	var review_output_dir := output_dir.path_join(
+		"z13c_mist_reference_counterproof"
+	).path_join("run_%d_%d" % [OS.get_process_id(), timestamp_usec])
+	if DirAccess.make_dir_recursive_absolute(review_output_dir) != OK:
+		await _dispose_fixture(fixture)
+		_fail("Z13-c counterproof output directory could not be created")
+		return
+	var probe := await _capture_different_art_forward_probes(
+		fixture,
+		renderer,
+		coverage_probe.get("realm_boundary_seams", []),
+		review_output_dir,
+		BAND_SEAM_Z13C_DIFFERENT_ART_PROBE_PATTERN,
+		float(subcover_zoom_probe.get("target_zoom", -1.0)),
+		1,
+		"realm_boundary_subcover",
+		0,
+		true
+	)
+	await _dispose_fixture(fixture)
+	if not bool(probe.get("ready", false)):
+		_fail("Z13-c forward-reference counterproof failed: %s" % str(probe))
+		return
+	print(
+		"[TowerMapBandForwardReferenceCounterproofOnlyQA] output=%s frames=%d authoritative_reference=production_cached_draw_model signed_excess_max=%.4f wrong_phase_red=true forced_zero_red=true loader=raw_png_override production_canvas=true import_unverified=true reimport=false"
+			% [
+				review_output_dir,
+				int(probe.get("frame_count", 0)),
+				float(probe.get("worst_entry_body_continuation_excess", INF)),
+			]
+	)
+	print("tower_map_band_mist_reference_counterproof: ok")
+	quit(0)
+
+
+func _run_band_seam_review(output_dir: String, z13c_mist_bake: bool) -> void:
 	# Never let a partial or older run satisfy artifact provenance. Each process
 	# writes a fresh evidence set; prior captures remain untouched for comparison.
 	var timestamp_usec := int(Time.get_unix_time_from_system() * 1000000.0)
-	var z13_run_name := "run_%d_%d" % [OS.get_process_id(), timestamp_usec]
-	var z13_output_dir := (
-		output_dir.path_join(BAND_SEAM_Z13_DIR_NAME).path_join(z13_run_name)
+	var run_name := "run_%d_%d" % [OS.get_process_id(), timestamp_usec]
+	var profile_dir_name := (
+		BAND_SEAM_Z13C_DIR_NAME if z13c_mist_bake else BAND_SEAM_Z13_DIR_NAME
 	)
-	if DirAccess.dir_exists_absolute(z13_output_dir):
-		_fail("Z13 band-seam capture run directory already exists")
+	var fullscreen_name := (
+		BAND_SEAM_Z13C_FULLSCREEN_NAME if z13c_mist_bake else BAND_SEAM_FULLSCREEN_NAME
+	)
+	var stack_name := (
+		BAND_SEAM_Z13C_STACK_NAME if z13c_mist_bake else BAND_SEAM_STACK_NAME
+	)
+	var same_art_probe_name := (
+		BAND_SEAM_Z13C_SAME_ART_PROBE_NAME
+		if z13c_mist_bake
+		else BAND_SEAM_SAME_ART_PROBE_NAME
+	)
+	var different_art_probe_pattern := (
+		BAND_SEAM_Z13C_DIFFERENT_ART_PROBE_PATTERN
+		if z13c_mist_bake
+		else BAND_SEAM_DIFFERENT_ART_PROBE_PATTERN
+	)
+	var live_frame_pattern := (
+		BAND_SEAM_Z13C_LIVE_FRAME_PATTERN
+		if z13c_mist_bake
+		else BAND_SEAM_LIVE_FRAME_PATTERN
+	)
+	var live_contact_name := (
+		BAND_SEAM_Z13C_LIVE_CONTACT_NAME
+		if z13c_mist_bake
+		else BAND_SEAM_LIVE_CONTACT_NAME
+	)
+	var review_output_dir := (
+		output_dir.path_join(profile_dir_name).path_join(run_name)
+	)
+	if DirAccess.dir_exists_absolute(review_output_dir):
+		_fail("Band-seam capture run directory already exists")
 		return
-	if DirAccess.make_dir_recursive_absolute(z13_output_dir) != OK:
-		_fail("Z13 band-seam capture directory could not be created")
+	if DirAccess.make_dir_recursive_absolute(review_output_dir) != OK:
+		_fail("Band-seam capture directory could not be created")
 		return
-	var import_probe := _probe_imported_band_source_freshness()
-	if not bool(import_probe.get("ready", false)):
+	var human_record_path := ""
+	var immortal_record_path := ""
+	if z13c_mist_bake:
+		human_record_path = review_output_dir.path_join(
+			".z13c_human_tower_ascent_records.cfg"
+		)
+		immortal_record_path = review_output_dir.path_join(
+			".z13c_immortal_tower_ascent_records.cfg"
+		)
+	var raw_butt_probe := {
+		"ready": true,
+		"asset_count": 0,
+		"cases": [],
+		"files": [],
+	}
+	var catalog_override: Object = null
+	if z13c_mist_bake:
+		raw_butt_probe = _build_raw_band_butt_probe(review_output_dir)
+	else:
+		var import_probe := _probe_imported_band_source_freshness()
+		if not bool(import_probe.get("ready", false)):
+			_fail(
+				"Z13 production Vulkan QA blocked by stale or unavailable imported bands: %s"
+					% str(import_probe)
+			)
+			return
+		print(
+			"[TowerMapBandImportFreshnessQA] assets=%d source_and_dest_md5_match=true loader=production_imported_texture"
+				% int(import_probe.get("asset_count", 0))
+		)
+	for case_variant in (
+		raw_butt_probe.get("cases", []) if z13c_mist_bake else []
+	):
+		var case := case_variant as Dictionary
+		print(
+			"[TowerMapBandRawButtVarianceQA] asset=%s edge_height_px=%d top_mean=%.4f top_control_mean=%.4f top_mean_ratio=%.4f top_p95=%.4f top_control_p95=%.4f top_p95_ratio=%.4f bottom_mean=%.4f bottom_control_mean=%.4f bottom_mean_ratio=%.4f bottom_p95=%.4f bottom_control_p95=%.4f bottom_p95_ratio=%.4f combined_mean=%.4f combined_control_mean=%.4f combined_mean_ratio=%.4f combined_p95=%.4f combined_control_p95=%.4f combined_p95_ratio=%.4f"
+				% [
+					str(case.get("asset_key", "")),
+					BAND_SEAM_RAW_BUTT_EDGE_HEIGHT_PX,
+					float(case.get("top_variance_mean", INF)),
+					float(case.get("top_control_variance_mean", INF)),
+					float(case.get("top_variance_mean_ratio", INF)),
+					float(case.get("top_variance_p95", INF)),
+					float(case.get("top_control_variance_p95", INF)),
+					float(case.get("top_variance_p95_ratio", INF)),
+					float(case.get("bottom_variance_mean", INF)),
+					float(case.get("bottom_control_variance_mean", INF)),
+					float(case.get("bottom_variance_mean_ratio", INF)),
+					float(case.get("bottom_variance_p95", INF)),
+					float(case.get("bottom_control_variance_p95", INF)),
+					float(case.get("bottom_variance_p95_ratio", INF)),
+					float(case.get("combined_variance_mean", INF)),
+					float(case.get("combined_control_variance_mean", INF)),
+					float(case.get("combined_variance_mean_ratio", INF)),
+					float(case.get("combined_variance_p95", INF)),
+					float(case.get("combined_control_variance_p95", INF)),
+					float(case.get("combined_variance_p95_ratio", INF)),
+				]
+		)
+		print(
+			"[TowerMapBandRawButtLumaQA] asset=%s interior_rows=35..284 interior_mean=%.4f interior_spatial_sd=%.4f top_mean=%.4f top_abs_delta=%.4f top_gate=%s bottom_mean=%.4f bottom_abs_delta=%.4f bottom_gate=%s combined_mean=%.4f combined_abs_delta=%.4f combined_gate=%s edge_abs_delta_limit=%.1f combined_abs_delta_limit=%.1f luma_gate=%s"
+				% [
+					str(case.get("asset_key", "")),
+					float(case.get("top_control_luma_mean", INF)),
+					float(case.get("top_control_luma_spatial_sd", INF)),
+					float(case.get("top_luma_mean", INF)),
+					float(case.get("top_luma_abs_delta", INF)),
+					str(case.get("top_luma_gate", false)),
+					float(case.get("bottom_luma_mean", INF)),
+					float(case.get("bottom_luma_abs_delta", INF)),
+					str(case.get("bottom_luma_gate", false)),
+					float(case.get("combined_luma_mean", INF)),
+					float(case.get("combined_luma_abs_delta", INF)),
+					str(case.get("combined_luma_gate", false)),
+					BAND_SEAM_RAW_BUTT_EDGE_LUMA_DELTA_MAX,
+					BAND_SEAM_RAW_BUTT_COMBINED_LUMA_DELTA_MAX,
+					str(case.get("luma_gate", false)),
+				]
+		)
+		print(
+			"[TowerMapBandRawButtMirrorQA] asset=%s radius_px=%d correlation=%.4f control_mean=%.4f excess=%.4f abs_correlation=%.4f variance_gate=%s luma_gate=%s mirror_gate=%s file=%s"
+				% [
+					str(case.get("asset_key", "")),
+					BAND_SEAM_RAW_BUTT_MIRROR_RADIUS_PX,
+					float(case.get("mirror_correlation", INF)),
+					float(case.get("mirror_control_mean", INF)),
+					float(case.get("mirror_excess", INF)),
+					absf(float(case.get("mirror_correlation", INF))),
+					str(case.get("variance_gate", false)),
+					str(case.get("luma_gate", false)),
+					str(case.get("mirror_gate", false)),
+					str(case.get("file", "")),
+				]
+		)
+	if z13c_mist_bake:
+		print(
+			"[TowerMapBandRawButtSummaryQA] assets=%d loader=raw_png_x4_lanczos_to_1x composite=bottom200_plus_top200 edge_rows=top_0_34,bottom_285_319 variance_controls=edge_6x35_median,combined_5x70_median variance_ratio_gate=%.2f..%.2f edge_mean_ratio_min=%.4f edge_mean_ratio_max=%.4f edge_p95_ratio_min=%.4f edge_p95_ratio_max=%.4f combined_mean_ratio_max=%.4f combined_p95_ratio_max=%.4f luma_reference=full_interior_rows_35_284 edge_luma_abs_delta_limit=%.1f observed_edge_luma_abs_delta_max=%.4f combined_luma_abs_delta_limit=%.1f observed_combined_luma_abs_delta_max=%.4f mirror_excess_max=%.2f observed_mirror_excess_max=%.4f mirror_abs_max=%.2f observed_mirror_abs_max=%.4f"
+				% [
+					int(raw_butt_probe.get("asset_count", 0)),
+					BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MIN,
+					BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MAX,
+					float(raw_butt_probe.get("edge_variance_mean_ratio_min", INF)),
+					float(raw_butt_probe.get("edge_variance_mean_ratio_max", INF)),
+					float(raw_butt_probe.get("edge_variance_p95_ratio_min", INF)),
+					float(raw_butt_probe.get("edge_variance_p95_ratio_max", INF)),
+					float(raw_butt_probe.get("combined_variance_mean_ratio_max", INF)),
+					float(raw_butt_probe.get("combined_variance_p95_ratio_max", INF)),
+					BAND_SEAM_RAW_BUTT_EDGE_LUMA_DELTA_MAX,
+					float(raw_butt_probe.get("edge_luma_abs_delta_max", INF)),
+					BAND_SEAM_RAW_BUTT_COMBINED_LUMA_DELTA_MAX,
+					float(raw_butt_probe.get("combined_luma_abs_delta_max", INF)),
+					BAND_SEAM_RAW_BUTT_MIRROR_EXCESS_MAX,
+					float(raw_butt_probe.get("mirror_excess_max", INF)),
+					BAND_SEAM_RAW_BUTT_MIRROR_ABS_MAX,
+					float(raw_butt_probe.get("mirror_abs_max", INF)),
+				]
+		)
+	if z13c_mist_bake and not bool(raw_butt_probe.get("ready", false)):
 		_fail(
-			"Z13 production Vulkan QA blocked by stale or unavailable imported bands: %s"
-				% str(import_probe)
+			"Z13-c raw butt-art structure gate failed: %s"
+				% str(raw_butt_probe.get("failures", raw_butt_probe))
 		)
 		return
-	print(
-		"[TowerMapBandImportFreshnessQA] assets=%d source_and_dest_md5_match=true loader=production_imported_texture"
-			% int(import_probe.get("asset_count", 0))
+	if z13c_mist_bake:
+		var raw_catalog_probe := _build_z13c_raw_png_catalog()
+		if not bool(raw_catalog_probe.get("ready", false)):
+			_fail("Z13-c raw PNG catalog override failed: %s" % str(raw_catalog_probe))
+			return
+		catalog_override = raw_catalog_probe.get("catalog", null)
+		print(
+			"[TowerMapBandZ13CSourceQA] assets=%d loader=raw_png_override production_canvas=true import_unverified=true reimport=false"
+				% int(raw_catalog_probe.get("asset_count", 0))
+		)
+	var fixture := _create_fixture(
+		"tower-map-z13c-mist-bake-visual-qa"
+			if z13c_mist_bake
+			else "tower-map-band-seam-visual-qa",
+		human_record_path,
+		catalog_override,
+		review_output_dir if z13c_mist_bake else "",
+		true,
+		"human_final_dispose" if z13c_mist_bake else ""
 	)
-	var fixture := _create_fixture("tower-map-band-seam-visual-qa")
 	if fixture.is_empty():
 		return
 	var flow: Object = fixture["flow"]
@@ -358,7 +639,7 @@ func _run_band_seam_only(output_dir: String) -> void:
 		flow,
 		VIEWPORT_RECT
 	)
-	if not _save(fullscreen_image, z13_output_dir.path_join(BAND_SEAM_FULLSCREEN_NAME)):
+	if not _save(fullscreen_image, review_output_dir.path_join(fullscreen_name)):
 		await _dispose_fixture(fixture)
 		_fail("Band-seam fullscreen capture failed")
 		return
@@ -370,7 +651,7 @@ func _run_band_seam_only(output_dir: String) -> void:
 	var stack_image := seam_probe.get("stack_image", null) as Image
 	if not _save_any_size(
 		stack_image,
-		z13_output_dir.path_join(BAND_SEAM_STACK_NAME)
+		review_output_dir.path_join(stack_name)
 	):
 		await _dispose_fixture(fixture)
 		_fail("Z13 composed band stack could not be saved")
@@ -385,7 +666,7 @@ func _run_band_seam_only(output_dir: String) -> void:
 	if not _save_band_seam_probe(
 		stack_image,
 		int(river_seam.get("probe_y", -1)),
-		z13_output_dir.path_join(BAND_SEAM_SAME_ART_PROBE_NAME)
+		review_output_dir.path_join(same_art_probe_name)
 	):
 		await _dispose_fixture(fixture)
 		_fail("Z13 same-art CPU diagnostic probe could not be saved")
@@ -515,23 +796,223 @@ func _run_band_seam_only(output_dir: String) -> void:
 				int(river_seam.get("gutter", -1)),
 			]
 	)
-	var different_vulkan_probe := await _capture_different_art_forward_probes(
-		fixture,
-		renderer,
-		different_art_seams,
-		z13_output_dir
-	)
+	var different_vulkan_probe := {}
+	if z13c_mist_bake:
+		var coverage_probe := _classify_different_art_phase_coverage(
+			different_art_seams
+		)
+		if not bool(coverage_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c different-art phase coverage classification failed: %s"
+					% str(coverage_probe)
+			)
+			return
+		var subcover_zoom_probe := _resolve_overview_subcover_probe_zoom(
+			seam_model
+		)
+		if not bool(subcover_zoom_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c overview subcover zoom resolution failed: %s"
+					% str(subcover_zoom_probe)
+			)
+			return
+		var realm_boundary_probe := await _capture_different_art_forward_probes(
+			fixture,
+			renderer,
+			coverage_probe.get("realm_boundary_seams", []),
+			review_output_dir,
+			different_art_probe_pattern,
+			float(subcover_zoom_probe.get("target_zoom", -1.0)),
+			1,
+			"realm_boundary_subcover",
+			0,
+			true
+		)
+		if not bool(realm_boundary_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c realm-boundary subcover Vulkan capture failed: %s"
+					% str(realm_boundary_probe)
+			)
+			return
+		var human_phase_probe := await _capture_different_art_forward_probes(
+			fixture,
+			renderer,
+			coverage_probe.get("human_phase_seams", []),
+			review_output_dir,
+			different_art_probe_pattern,
+			BAND_SEAM_FOLD_COMPARISON_ZOOM,
+			8,
+			"human_phase_2_15",
+			0,
+			false
+		)
+		if not bool(human_phase_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c human-phase 2.15x Vulkan capture failed: %s"
+					% str(human_phase_probe)
+			)
+			return
+		var immortal_catalog_probe := _build_z13c_raw_png_catalog()
+		if not bool(immortal_catalog_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c immortal raw PNG catalog override failed: %s"
+					% str(immortal_catalog_probe)
+			)
+			return
+		var immortal_bootstrap_probe := await _bootstrap_immortal_band_mist_record(
+			immortal_record_path,
+			review_output_dir,
+			immortal_catalog_probe.get("catalog", null)
+		)
+		if not bool(immortal_bootstrap_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c immortal production bootstrap failed: %s"
+					% str(immortal_bootstrap_probe)
+			)
+			return
+		var immortal_fixture := _create_fixture(
+			"tower-map-z13c-mist-bake-immortal-reclear-visual-qa",
+			immortal_record_path,
+			immortal_catalog_probe.get("catalog", null),
+			review_output_dir,
+			true,
+			"immortal_reclear_final_dispose"
+		)
+		if immortal_fixture.is_empty():
+			var orphan_cleanup_probe := _remove_scoped_fixture_record({
+				"record_path": immortal_record_path,
+				"record_cleanup_root": review_output_dir,
+				"cleanup_record_on_dispose": true,
+				"record_cleanup_owner": "immortal_reclear_create_failure",
+			})
+			await _dispose_fixture(fixture)
+			if not bool(orphan_cleanup_probe.get("ready", false)):
+				_fail(
+					"Z13-c immortal reclear orphan cleanup failed: %s"
+						% str(orphan_cleanup_probe)
+				)
+			return
+		var immortal_prepare_probe := _prepare_immortal_band_mist_fixture(
+			immortal_fixture
+		)
+		if not bool(immortal_prepare_probe.get("ready", false)):
+			await _dispose_fixture(immortal_fixture)
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c immortal production phase preparation failed: %s"
+					% str(immortal_prepare_probe)
+			)
+			return
+		var immortal_flow: Object = immortal_fixture.get("flow", null)
+		var immortal_renderer: Object = (
+			immortal_flow.get("_renderer") if immortal_flow != null else null
+		)
+		if (
+			immortal_renderer == null
+			or not immortal_renderer.has_method("build_fullscreen_map_model")
+		):
+			await _dispose_fixture(immortal_fixture)
+			await _dispose_fixture(fixture)
+			_fail("Z13-c immortal fixture could not locate the production renderer")
+			return
+		print(
+			"[TowerMapBandZ13CSourceQA] fixture=immortal assets=%d loader=raw_png_override production_canvas=true import_unverified=true reimport=false phase_index=%d phase_name=%s"
+				% [
+					int(immortal_catalog_probe.get("asset_count", 0)),
+					int(immortal_prepare_probe.get("phase_index", -1)),
+					str(immortal_prepare_probe.get("phase_name", "")),
+				]
+		)
+		print(
+			"[TowerMapBandImmortalProductionPathQA] bootstrap_phase=%s bootstrap_judgment=%s bootstrap_fake_ending_cleared=%s bootstrap_settlement_phase=%s bootstrap_inactive=%s reclear_phase=%s reclear_judgment=%s reclear_choice_required=%s transition_phase=%s phase_index=%d cleanup_owner=immortal_reclear_final_dispose fixture_record_scope=run_dir"
+				% [
+					str(immortal_bootstrap_probe.get("teaser_phase", "")),
+					str(immortal_bootstrap_probe.get("judgment", "")),
+					str(immortal_bootstrap_probe.get("fake_ending_cleared", false)),
+					str(immortal_bootstrap_probe.get("settlement_phase", "")),
+					str(immortal_bootstrap_probe.get("inactive", false)),
+					str(immortal_prepare_probe.get("choice_phase", "")),
+					str(immortal_prepare_probe.get("judgment", "")),
+					str(immortal_prepare_probe.get("choice_required", false)),
+					str(immortal_prepare_probe.get("phase_name", "")),
+					int(immortal_prepare_probe.get("phase_index", -1)),
+				]
+		)
+		var immortal_phase_probe := await _capture_different_art_forward_probes(
+			immortal_fixture,
+			immortal_renderer,
+			coverage_probe.get("immortal_phase_seams", []),
+			review_output_dir,
+			different_art_probe_pattern,
+			BAND_SEAM_FOLD_COMPARISON_ZOOM,
+			2,
+			"immortal_phase_subcover_2_15",
+			1,
+			true
+		)
+		var immortal_cleanup_ok := await _dispose_fixture(immortal_fixture)
+		if not immortal_cleanup_ok:
+			await _dispose_fixture(fixture)
+			return
+		if not bool(immortal_phase_probe.get("ready", false)):
+			await _dispose_fixture(fixture)
+			_fail(
+				"Z13-c immortal-phase subcover 2.15x Vulkan capture failed: %s"
+					% str(immortal_phase_probe)
+			)
+			return
+		different_vulkan_probe = _merge_different_art_forward_probes([
+			human_phase_probe,
+			immortal_phase_probe,
+			realm_boundary_probe,
+		])
+		print(
+			"[TowerMapBandDifferentForwardCoverageQA] structural_cpu=%d requested_zoom=%.2f requested_2_15_total=%d phase_local_total=%d human_phase_local=%d immortal_phase_subcover=%d realm_boundary_subcover=%d subcover_total=%d overview_subcover_zoom=%.4f production_canvas=true"
+				% [
+					different_art_seams.size(),
+					float(different_vulkan_probe.get("phase_local_zoom", -1.0)),
+					int(different_vulkan_probe.get("requested_2_15_frame_count", -1)),
+					int(different_vulkan_probe.get("phase_local_frame_count", -1)),
+					int(different_vulkan_probe.get("human_phase_frame_count", -1)),
+					int(different_vulkan_probe.get("immortal_phase_subcover_frame_count", -1)),
+					int(different_vulkan_probe.get("overview_boundary_frame_count", -1)),
+					int(different_vulkan_probe.get("subcover_frame_count", -1)),
+					float(different_vulkan_probe.get("overview_subcover_zoom", -1.0)),
+				]
+		)
+	else:
+		different_vulkan_probe = await _capture_different_art_forward_probes(
+			fixture,
+			renderer,
+			different_art_seams,
+			review_output_dir,
+			different_art_probe_pattern,
+			BAND_SEAM_FOLD_COMPARISON_ZOOM,
+			BAND_SEAM_EXPECTED_DIFFERENT_ART_SEAM_COUNT,
+			"legacy_z13_all_2_15",
+			0,
+			false
+		)
 	print(
-		"[TowerMapBandDifferentForwardVulkanQA] zoom=%.3f frames=%d seams=%d worst_entry_body_raw_row_mean_jump=%.4f worst_phase_start_hard_jump_excess=%.4f maximum_snapped_span_error_px=%.4f framebuffer_gutter_total_px=%d framebuffer_gutter_maximum_px=%d"
+		"[TowerMapBandDifferentForwardVulkanQA] zoom=%.3f frames=%d seams=%d worst_entry_body_raw_row_mean_jump=%.4f worst_entry_body_continuation_excess=%.4f continuation_excess_limit=%.2f worst_phase_start_hard_jump_excess=%.4f maximum_snapped_span_error_px=%.4f framebuffer_gutter_total_px=%d framebuffer_gutter_maximum_px=%d reference_counterproofs=%d"
 			% [
 				float(different_vulkan_probe.get("zoom", -1.0)),
 				int(different_vulkan_probe.get("frame_count", 0)),
 				int(different_vulkan_probe.get("seam_count", 0)),
 				float(different_vulkan_probe.get("worst_entry_body_raw_row_mean_jump", INF)),
+				float(different_vulkan_probe.get("worst_entry_body_continuation_excess", INF)),
+				BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT,
 				float(different_vulkan_probe.get("worst_phase_start_hard_jump_excess", INF)),
 				float(different_vulkan_probe.get("maximum_snapped_span_error_px", INF)),
 				int(different_vulkan_probe.get("framebuffer_gutter_total_px", -1)),
 				int(different_vulkan_probe.get("framebuffer_gutter_maximum_px", -1)),
+				int(different_vulkan_probe.get("forward_reference_counterproof_count", -1)),
 			]
 	)
 	if not bool(different_vulkan_probe.get("ready", false)):
@@ -545,7 +1026,10 @@ func _run_band_seam_only(output_dir: String) -> void:
 		fixture,
 		renderer,
 		river_seam,
-		z13_output_dir
+		review_output_dir,
+		live_frame_pattern,
+		live_contact_name,
+		z13c_mist_bake
 	)
 	if not bool(motion_probe.get("ready", false)):
 		await _dispose_fixture(fixture)
@@ -572,13 +1056,14 @@ func _run_band_seam_only(output_dir: String) -> void:
 			]
 	)
 	print(
-		"[TowerMapBandProjectedSeamVulkanQA] metric=raw_abs_row_mean_luma reflected_A=%.4f epsilon=%.4f worst=%.4f range=%.4f frames=%d"
+		"[TowerMapBandProjectedSeamVulkanQA] metric=raw_abs_row_mean_luma reflected_A=%.4f epsilon=%.4f worst=%.4f range=%.4f frames=%d gate_active=%s"
 			% [
 				BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_JUMP,
 				BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_EPSILON,
 				float(motion_probe.get("worst_raw_row_mean_jump", INF)),
 				float(motion_probe.get("raw_row_mean_jump_range", INF)),
 				int(motion_probe.get("frame_count", 0)),
+				str(not z13c_mist_bake),
 			]
 	)
 	print(
@@ -601,47 +1086,94 @@ func _run_band_seam_only(output_dir: String) -> void:
 				float(motion_probe.get("framebuffer_mirror_excess_p95", INF)),
 			]
 	)
-	await _dispose_fixture(fixture)
+	var fixture_cleanup_ok := await _dispose_fixture(fixture)
+	if not fixture_cleanup_ok:
+		return
+	if z13c_mist_bake:
+		var record_cleanup_verified := (
+			not FileAccess.file_exists(human_record_path)
+			and not FileAccess.file_exists(immortal_record_path)
+		)
+		if not record_cleanup_verified:
+			_fail("Z13-c run-scoped fixture records survived dispose")
+			return
+		print(
+			"[TowerMapBandFixtureRecordScopeQA] fixture_record_scope=run_dir user_save_untouched=true cleanup=dispose records=2 exact_file_only=true human_cleanup_owner=human_final_dispose immortal_cleanup_owner=immortal_reclear_final_dispose"
+		)
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	var direct_vulkan_artifact_count := (
 		1 + different_art_seams.size() + BAND_SEAM_LIVE_FRAME_COUNT
 	)
-	var artifact_count := direct_vulkan_artifact_count + 3
+	var raw_butt_artifact_count := int(raw_butt_probe.get("asset_count", 0))
+	var artifact_count := direct_vulkan_artifact_count + 3 + raw_butt_artifact_count
 	var different_art_capture_names: Array[String] = []
 	for capture_seam_variant in different_art_seams:
 		var capture_seam := capture_seam_variant as Dictionary
 		different_art_capture_names.append(
-			BAND_SEAM_DIFFERENT_ART_PROBE_PATTERN % int(capture_seam.get("index", -1))
+			different_art_probe_pattern % int(capture_seam.get("index", -1))
 		)
 	var motion_capture_names: Array[String] = []
 	for frame_index in range(BAND_SEAM_LIVE_FRAME_COUNT):
-		motion_capture_names.append(BAND_SEAM_LIVE_FRAME_PATTERN % frame_index)
+		motion_capture_names.append(live_frame_pattern % frame_index)
+	if z13c_mist_bake:
+		print(
+			"[TowerMapBandMistVisualQA] output=%s artifacts=%d direct_vulkan_artifacts=%d fullscreen_frames=1 same_art_motion_frames=%d different_art_forward_frames=%d cpu_diagnostics=2 raw_png_butt_composites=%d derived_contact_sheets=1 chunks=%d same_art_butt=%d different_art_forward=%d reflected_tails=0"
+				% [
+					review_output_dir,
+					artifact_count,
+					direct_vulkan_artifact_count,
+					BAND_SEAM_LIVE_FRAME_COUNT,
+					different_art_seams.size(),
+					raw_butt_artifact_count,
+					int(seam_probe.get("draw_chunk_count", -1)),
+					same_art_seams.size(),
+					different_art_seams.size(),
+				]
+		)
+		print(
+			"[TowerMapBandMistCaptureList] run_dir=%s fullscreen=%s different_art_vulkan_crops=%s same_art_motion_frames=%s cpu_diagnostic_files=%s,%s raw_png_butt_composites=%s derived_contact_sheet=%s"
+				% [
+					review_output_dir,
+					fullscreen_name,
+					str(different_art_capture_names),
+					str(motion_capture_names),
+					stack_name,
+					same_art_probe_name,
+					str(raw_butt_probe.get("files", [])),
+					live_contact_name,
+				]
+		)
+	else:
+		print(
+			"[TowerMapBandSeamVisualQA] output=%s artifacts=%d direct_vulkan_artifacts=%d fullscreen_frames=1 same_art_motion_frames=%d different_art_forward_frames=%d cpu_diagnostics=2 derived_contact_sheets=1 chunks=%d same_art_butt=%d different_art_forward=%d reflected_tails=0"
+				% [
+					review_output_dir,
+					artifact_count,
+					direct_vulkan_artifact_count,
+					BAND_SEAM_LIVE_FRAME_COUNT,
+					different_art_seams.size(),
+					int(seam_probe.get("draw_chunk_count", -1)),
+					same_art_seams.size(),
+					different_art_seams.size(),
+				]
+		)
+		print(
+			"[TowerMapBandCaptureList] run_dir=%s fullscreen=%s different_art_vulkan_crops=%s same_art_motion_frames=%s cpu_diagnostic_files=%s,%s derived_contact_sheet=%s"
+				% [
+					review_output_dir,
+					fullscreen_name,
+					str(different_art_capture_names),
+					str(motion_capture_names),
+					stack_name,
+					same_art_probe_name,
+					live_contact_name,
+				]
+		)
 	print(
-		"[TowerMapBandSeamVisualQA] output=%s artifacts=%d direct_vulkan_artifacts=%d fullscreen_frames=1 same_art_motion_frames=%d different_art_forward_frames=%d cpu_diagnostics=2 derived_contact_sheets=1 chunks=%d same_art_butt=%d different_art_forward=%d reflected_tails=0"
-			% [
-				z13_output_dir,
-				artifact_count,
-				direct_vulkan_artifact_count,
-				BAND_SEAM_LIVE_FRAME_COUNT,
-				different_art_seams.size(),
-				int(seam_probe.get("draw_chunk_count", -1)),
-				same_art_seams.size(),
-				different_art_seams.size(),
-			]
+		"tower_map_band_mist_visual_qa: ok"
+			if z13c_mist_bake
+			else "tower_map_band_seam_visual_qa: ok"
 	)
-	print(
-		"[TowerMapBandCaptureList] run_dir=%s fullscreen=%s different_art_vulkan_crops=%s same_art_motion_frames=%s cpu_diagnostic_files=%s,%s derived_contact_sheet=%s"
-			% [
-				z13_output_dir,
-				BAND_SEAM_FULLSCREEN_NAME,
-				str(different_art_capture_names),
-				str(motion_capture_names),
-				BAND_SEAM_STACK_NAME,
-				BAND_SEAM_SAME_ART_PROBE_NAME,
-				BAND_SEAM_LIVE_CONTACT_NAME,
-			]
-	)
-	print("tower_map_band_seam_visual_qa: ok")
 	quit(0)
 
 
@@ -1076,10 +1608,39 @@ func _import_digest_path(imported_texture_path: String) -> String:
 	return ""
 
 
-func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:
+func _create_fixture(
+	run_id: String,
+	record_path: String = "",
+	map_scroll_asset_catalog: Object = null,
+	record_cleanup_root: String = "",
+	cleanup_record_on_dispose: bool = true,
+	record_cleanup_owner: String = ""
+) -> Dictionary:
+	var normalized_record_path := _normalized_absolute_path(record_path)
+	var normalized_record_cleanup_root := _normalized_absolute_path(
+		record_cleanup_root
+	)
+	var has_record_cleanup_scope := not record_cleanup_root.is_empty()
+	var effective_cleanup_record_on_dispose := (
+		has_record_cleanup_scope and cleanup_record_on_dispose
+	)
+	var effective_record_path := (
+		normalized_record_path if has_record_cleanup_scope else record_path
+	)
+	if has_record_cleanup_scope and not _path_is_strictly_inside(
+		normalized_record_path,
+		normalized_record_cleanup_root
+	):
+		_fail(
+			"Fixture record path escaped its cleanup root: %s"
+				% normalized_record_path
+		)
+		return {}
 	var flow := TowerAscentFlowOwner.new()
+	if map_scroll_asset_catalog != null:
+		flow.set("_map_scroll_asset_catalog", map_scroll_asset_catalog)
 	if not record_path.is_empty():
-		flow.set_record_store_path_for_tests(record_path)
+		flow.set_record_store_path_for_tests(effective_record_path)
 	var registry := TowerMapOverlayVisualQa.CaptureRegistry.new(flow)
 	var viewport := SubViewport.new()
 	viewport.size = GAME_SIZE
@@ -1093,6 +1654,22 @@ func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:
 		"current_stage": 4,
 		"map_seed": 83521,
 	}):
+		if flow.is_map_overlay_active():
+			flow.close_map_overlay()
+		if flow.is_active():
+			flow.call("_finish_vertical_slice")
+		if viewport.get_parent() == get_root():
+			get_root().remove_child(viewport)
+		viewport.free()
+		var cleanup_probe := _remove_scoped_fixture_record({
+			"record_path": effective_record_path,
+			"record_cleanup_root": normalized_record_cleanup_root,
+			"cleanup_record_on_dispose": has_record_cleanup_scope,
+			"record_cleanup_owner": "create_failure",
+		})
+		if not bool(cleanup_probe.get("ready", false)):
+			_fail("Fixture record cleanup failed after open failure: %s" % str(cleanup_probe))
+			return {}
 		_fail("Production map surface could not open for %s" % run_id)
 		return {}
 	flow.set_map_overlay_fade_progress_for_qa(1.0)
@@ -1101,7 +1678,287 @@ func _create_fixture(run_id: String, record_path: String = "") -> Dictionary:
 		"registry": registry,
 		"viewport": viewport,
 		"canvas": canvas,
+		"record_path": effective_record_path,
+		"record_cleanup_root": normalized_record_cleanup_root,
+		"cleanup_record_on_dispose": effective_cleanup_record_on_dispose,
+		"record_cleanup_owner": record_cleanup_owner,
 	}
+
+
+func _focus_floor_nine_resolution_fixture(fixture: Dictionary) -> Dictionary:
+	var flow: Object = fixture.get("flow", null)
+	var canvas: CanvasItem = fixture.get("canvas", null) as CanvasItem
+	var registry: Object = fixture.get("registry", null)
+	if flow == null or canvas == null or registry == null:
+		return {"ready": false, "reason": "fixture"}
+	var boundary_node_id := _node_id_for_floor(flow, 9)
+	if boundary_node_id.is_empty():
+		return {"ready": false, "reason": "floor_nine_node"}
+	flow.set("_current_node_id", boundary_node_id)
+	flow.set("_available_route_target_ids", [])
+	flow.set("_route_target_ids", [])
+	if not bool(flow.close_map_overlay()):
+		return {"ready": false, "reason": "close_overlay"}
+	flow.call("_finish_map_overlay_close")
+	if bool(flow.get("_map_overlay_closing")):
+		return {"ready": false, "reason": "overlay_close_not_finished"}
+	return {
+		"ready": true,
+		"flow": flow,
+		"canvas": canvas,
+		"registry": registry,
+		"boundary_node_id": boundary_node_id,
+	}
+
+
+func _dispose_failed_immortal_bootstrap(
+	fixture: Dictionary,
+	reason: String,
+	details: Dictionary = {}
+) -> Dictionary:
+	fixture["cleanup_record_on_dispose"] = true
+	fixture["record_cleanup_owner"] = "immortal_bootstrap_failure"
+	var cleanup_ok := await _dispose_fixture(fixture)
+	return {
+		"ready": false,
+		"reason": reason,
+		"details": details,
+		"cleanup_ok": cleanup_ok,
+		"cleanup_owner": "immortal_bootstrap_failure",
+	}
+
+
+func _bootstrap_immortal_band_mist_record(
+	record_path: String,
+	record_cleanup_root: String,
+	map_scroll_asset_catalog: Object
+) -> Dictionary:
+	var fixture := _create_fixture(
+		"tower-map-z13c-mist-bake-immortal-bootstrap-visual-qa",
+		record_path,
+		map_scroll_asset_catalog,
+		record_cleanup_root,
+		false,
+		"immortal_bootstrap_preserve_for_reclear"
+	)
+	if fixture.is_empty():
+		var create_cleanup_probe := _remove_scoped_fixture_record({
+			"record_path": record_path,
+			"record_cleanup_root": record_cleanup_root,
+			"cleanup_record_on_dispose": true,
+			"record_cleanup_owner": "immortal_bootstrap_create_failure",
+		})
+		return {
+			"ready": false,
+			"reason": "bootstrap_fixture",
+			"cleanup": create_cleanup_probe,
+		}
+	var focus_probe := _focus_floor_nine_resolution_fixture(fixture)
+	if not bool(focus_probe.get("ready", false)):
+		return await _dispose_failed_immortal_bootstrap(
+			fixture,
+			"bootstrap_focus",
+			focus_probe
+		)
+	var flow: Object = focus_probe.get("flow", null)
+	var canvas: CanvasItem = focus_probe.get("canvas", null) as CanvasItem
+	var registry: Object = focus_probe.get("registry", null)
+	var judgment: Dictionary = flow.begin_floor_nine_resolution(
+		"tower-map-z13c-mist-bake:bootstrap:floor09:%d" % Time.get_ticks_usec(),
+		Callable(),
+		canvas,
+		registry
+	)
+	var teaser_phase := str(flow.get_phase_name())
+	var ending: Dictionary = flow.get_ending_state_snapshot()
+	var records: Dictionary = flow.get_record_snapshot()
+	if (
+		not bool(judgment.get("accepted", false))
+		or not bool(judgment.get("changed", false))
+		or str(judgment.get("reason", "")) != "standard_clear_committed"
+		or teaser_phase != "FAKE_ENDING_TEASER"
+		or str(ending.get("judgment", "")) != "standard_clear"
+		or not bool(ending.get("teaser_required", false))
+		or bool(ending.get("teaser_presented", true))
+		or bool(ending.get("choice_required", true))
+		or not bool(ending.get("terminal_committed", false))
+		or not bool(records.get("fake_ending_cleared", false))
+		or int(records.get("clear_count", -1)) != 1
+	):
+		return await _dispose_failed_immortal_bootstrap(
+			fixture,
+			"bootstrap_teaser_contract",
+			{
+				"judgment": judgment,
+				"phase": teaser_phase,
+				"ending": ending,
+				"records": records,
+			}
+		)
+	var confirm := InputEventKey.new()
+	confirm.pressed = true
+	confirm.echo = false
+	confirm.keycode = KEY_SPACE
+	var teaser_confirm_consumed := bool(flow.handle_input(confirm))
+	var settlement_phase := str(flow.get_phase_name())
+	var settlement_ending: Dictionary = flow.get_ending_state_snapshot()
+	if (
+		not teaser_confirm_consumed
+		or settlement_phase != "RUN_SETTLEMENT"
+		or not bool(settlement_ending.get("teaser_presented", false))
+	):
+		return await _dispose_failed_immortal_bootstrap(
+			fixture,
+			"bootstrap_teaser_confirm",
+			{
+				"consumed": teaser_confirm_consumed,
+				"phase": settlement_phase,
+				"ending": settlement_ending,
+			}
+		)
+	var settlement_confirm_consumed := bool(flow.handle_input(confirm))
+	var inactive := not bool(flow.is_active())
+	var terminal_phase := str(flow.get_phase_name())
+	var duplicate_confirm_consumed := bool(flow.handle_input(confirm))
+	var terminal_records: Dictionary = flow.get_record_snapshot()
+	if (
+		not settlement_confirm_consumed
+		or not inactive
+		or terminal_phase != "COMBAT"
+		or duplicate_confirm_consumed
+		or not bool(terminal_records.get("fake_ending_cleared", false))
+		or int(terminal_records.get("clear_count", -1)) != 1
+	):
+		return await _dispose_failed_immortal_bootstrap(
+			fixture,
+			"bootstrap_settlement_confirm",
+			{
+				"consumed": settlement_confirm_consumed,
+				"inactive": inactive,
+				"phase": terminal_phase,
+				"duplicate_consumed": duplicate_confirm_consumed,
+				"records": terminal_records,
+			}
+		)
+	var bootstrap_dispose_ok := await _dispose_fixture(fixture)
+	var normalized_record_path := _normalized_absolute_path(record_path)
+	var normalized_cleanup_root := _normalized_absolute_path(record_cleanup_root)
+	var record_preserved := (
+		bootstrap_dispose_ok
+		and _path_is_strictly_inside(
+			normalized_record_path,
+			normalized_cleanup_root
+		)
+		and FileAccess.file_exists(normalized_record_path)
+	)
+	if not record_preserved:
+		var preserve_failure_cleanup := _remove_scoped_fixture_record({
+			"record_path": normalized_record_path,
+			"record_cleanup_root": normalized_cleanup_root,
+			"cleanup_record_on_dispose": true,
+			"record_cleanup_owner": "immortal_bootstrap_preserve_failure",
+		})
+		return {
+			"ready": false,
+			"reason": "bootstrap_record_preservation",
+			"bootstrap_dispose_ok": bootstrap_dispose_ok,
+			"record_preserved": record_preserved,
+			"cleanup": preserve_failure_cleanup,
+		}
+	return {
+		"ready": true,
+		"teaser_phase": teaser_phase,
+		"judgment": str(ending.get("judgment", "")),
+		"fake_ending_cleared": bool(records.get("fake_ending_cleared", false)),
+		"settlement_phase": settlement_phase,
+		"inactive": inactive,
+		"record_preserved_for_reclear": true,
+		"cleanup_owner": "immortal_reclear_final_dispose",
+	}
+
+
+func _prepare_immortal_band_mist_fixture(fixture: Dictionary) -> Dictionary:
+	var focus_probe := _focus_floor_nine_resolution_fixture(fixture)
+	if not bool(focus_probe.get("ready", false)):
+		return focus_probe
+	var flow: Object = focus_probe.get("flow", null)
+	var canvas: CanvasItem = focus_probe.get("canvas", null) as CanvasItem
+	var registry: Object = focus_probe.get("registry", null)
+	var boundary_node_id := str(focus_probe.get("boundary_node_id", ""))
+	var judgment: Dictionary = flow.begin_floor_nine_resolution(
+		"tower-map-z13c-mist-bake:reclear:floor09:%d" % Time.get_ticks_usec(),
+		Callable(),
+		canvas,
+		registry
+	)
+	var choice_phase := str(flow.get_phase_name())
+	var ending: Dictionary = flow.get_ending_state_snapshot()
+	var records: Dictionary = flow.get_record_snapshot()
+	if (
+		not bool(judgment.get("accepted", false))
+		or not bool(judgment.get("changed", false))
+		or str(judgment.get("reason", "")) != "choice_required"
+		or choice_phase != "ENDING_CHOICE"
+		or str(ending.get("judgment", "")) != "choice_required"
+		or bool(ending.get("teaser_required", true))
+		or bool(ending.get("teaser_presented", true))
+		or not bool(ending.get("choice_required", false))
+		or not str(ending.get("choice", "")).is_empty()
+		or bool(ending.get("route_unlocked", true))
+		or bool(ending.get("terminal_committed", true))
+		or not bool(records.get("fake_ending_cleared", false))
+		or int(records.get("clear_count", -1)) != 1
+	):
+		return {
+			"ready": false,
+			"reason": "reclear_choice_contract",
+			"judgment": judgment,
+			"phase": choice_phase,
+			"ending": ending,
+			"records": records,
+		}
+	var choice: Dictionary = flow.choose_ending_route("continue")
+	var transition_ending: Dictionary = flow.get_ending_state_snapshot()
+	var transition_records: Dictionary = flow.get_record_snapshot()
+	var active_phase: Dictionary = flow.get_active_graph_phase()
+	if (
+		not bool(choice.get("accepted", false))
+		or not bool(choice.get("changed", false))
+		or str(choice.get("reason", "")) != "choice_committed"
+		or int(flow.get_active_graph_phase_index()) != 1
+		or str(flow.get_phase_name()) != "MAP_TRANSITION"
+		or not bool(flow.is_phase_entry_transition())
+		or str(active_phase.get("id", "")) != "phase_02_immortal_realm"
+		or str(transition_ending.get("choice", "")) != "continue"
+		or bool(transition_ending.get("choice_required", true))
+		or not bool(transition_ending.get("route_unlocked", false))
+		or bool(transition_ending.get("terminal_committed", true))
+		or not bool(transition_records.get("fake_ending_cleared", false))
+		or int(transition_records.get("clear_count", -1)) != 1
+	):
+		return {
+			"ready": false,
+			"reason": "immortal_transition",
+			"choice": choice,
+			"active_phase": active_phase,
+			"phase_index": int(flow.get_active_graph_phase_index()),
+			"phase_name": str(flow.get_phase_name()),
+			"phase_entry": bool(flow.is_phase_entry_transition()),
+		}
+	flow.set_transition_progress_for_qa(0.5)
+	return {
+		"ready": true,
+		"boundary_node_id": boundary_node_id,
+		"choice_phase": choice_phase,
+		"judgment": str(ending.get("judgment", "")),
+		"choice_required": bool(ending.get("choice_required", false)),
+		"phase_index": int(flow.get_active_graph_phase_index()),
+		"phase_name": str(flow.get_phase_name()),
+		"phase_id": str(active_phase.get("id", "")),
+		"phase_entry": bool(flow.is_phase_entry_transition()),
+	}
+
+
 func _prepare_gameplay_zoom_fixture(fixture: Dictionary) -> bool:
 	var flow: Object = fixture.get("flow", null)
 	if flow == null:
@@ -1313,6 +2170,562 @@ func _save_live_map_bottom(image: Image, model: Dictionary, output_path: String)
 	var bottom := image.get_region(crop_rect)
 	bottom.resize(bottom.get_width() * 2, bottom.get_height() * 2, Image.INTERPOLATE_NEAREST)
 	return _save_any_size(bottom, output_path)
+
+
+func _load_z13c_raw_x4_band_image(asset_key: String) -> Dictionary:
+	var canonical := TowerMapScrollAssetCatalog.new()
+	var source_path := canonical.resolve_declared_path(asset_key)
+	if source_path.is_empty() or not source_path.ends_with("_x4.png"):
+		return {
+			"ready": false,
+			"reason": "declared_x4_path",
+			"asset_key": asset_key,
+			"source_path": source_path,
+		}
+	var image: Image = Image.load_from_file(ProjectSettings.globalize_path(source_path))
+	if (
+		image == null
+		or image.is_empty()
+		or image.get_size() != BAND_SEAM_RAW_BUTT_TEXTURE_SIZE
+	):
+		return {
+			"ready": false,
+			"reason": "raw_x4_image",
+			"asset_key": asset_key,
+			"source_path": source_path,
+			"size": image.get_size() if image != null else Vector2i.ZERO,
+		}
+	return {
+		"ready": true,
+		"asset_key": asset_key,
+		"source_path": source_path,
+		"image": image,
+	}
+
+
+func _build_z13c_raw_png_catalog() -> Dictionary:
+	var asset_keys: Array[String] = []
+	asset_keys.assign(
+		TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS
+			+ TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS
+	)
+	if asset_keys.size() != 6:
+		return {
+			"ready": false,
+			"reason": "asset_count",
+			"asset_count": asset_keys.size(),
+		}
+	var raw_textures: Dictionary = {}
+	for asset_key in asset_keys:
+		var source_probe := _load_z13c_raw_x4_band_image(asset_key)
+		if not bool(source_probe.get("ready", false)):
+			return {
+				"ready": false,
+				"reason": "raw_source",
+				"source_probe": source_probe,
+			}
+		var image := source_probe.get("image", null) as Image
+		var texture := ImageTexture.create_from_image(image)
+		if (
+			texture == null
+			or Vector2i(texture.get_size()) != BAND_SEAM_RAW_BUTT_TEXTURE_SIZE
+		):
+			return {
+				"ready": false,
+				"reason": "image_texture",
+				"asset_key": asset_key,
+				"size": Vector2i(texture.get_size()) if texture != null else Vector2i.ZERO,
+			}
+		raw_textures[str(source_probe.get("source_path", ""))] = texture
+	var catalog := TowerMapScrollAssetCatalog.new(
+		func(path: String) -> bool:
+			return raw_textures.has(path) or ResourceLoader.exists(path, "Texture2D"),
+		func(path: String) -> Resource:
+			if raw_textures.has(path):
+				return raw_textures.get(path, null) as Resource
+			return ResourceLoader.load(path, "Texture2D")
+	)
+	return {
+		"ready": true,
+		"asset_count": raw_textures.size(),
+		"catalog": catalog,
+	}
+
+
+func _build_raw_band_butt_probe(output_dir: String) -> Dictionary:
+	var asset_keys: Array[String] = []
+	asset_keys.assign(
+		TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS
+			+ TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS
+	)
+	if asset_keys.size() != 6:
+		return {
+			"ready": false,
+			"reason": "raw_butt_asset_catalog",
+			"asset_keys": asset_keys.size(),
+		}
+	var cases: Array = []
+	var files: Array[String] = []
+	var failures: Array[String] = []
+	var edge_variance_mean_ratio_min := INF
+	var edge_variance_mean_ratio_max := 0.0
+	var edge_variance_p95_ratio_min := INF
+	var edge_variance_p95_ratio_max := 0.0
+	var combined_variance_mean_ratio_max := 0.0
+	var combined_variance_p95_ratio_max := 0.0
+	var edge_luma_abs_delta_max := 0.0
+	var combined_luma_abs_delta_max := 0.0
+	var mirror_excess_max := -INF
+	var mirror_abs_max := 0.0
+	var source_height := BAND_SEAM_RAW_BUTT_SOURCE_SIZE.y
+	var source_width := BAND_SEAM_RAW_BUTT_SOURCE_SIZE.x
+	var edge_height := BAND_SEAM_RAW_BUTT_EDGE_HEIGHT_PX
+	var composite_half_height := BAND_SEAM_RAW_BUTT_HALF_HEIGHT_PX
+	var bottom_half_source_y := source_height - composite_half_height
+	var bottom_edge_source_y := source_height - edge_height
+	var top_edge_source_y := 0
+	var composite_seam_y := composite_half_height
+	var edge_control_starts := PackedInt32Array([35, 78, 121, 164, 207, 250])
+	var combined_control_starts := PackedInt32Array([35, 80, 125, 170, 215])
+	for asset_index in range(asset_keys.size()):
+		var asset_key := asset_keys[asset_index]
+		var source_probe := _load_z13c_raw_x4_band_image(asset_key)
+		if not bool(source_probe.get("ready", false)):
+			return {
+				"ready": false,
+				"reason": "raw_butt_source",
+				"asset_key": asset_key,
+				"source_probe": source_probe,
+			}
+		var source_path := str(source_probe.get("source_path", ""))
+		var source := (source_probe.get("image", null) as Image).duplicate()
+		source.resize(
+			BAND_SEAM_RAW_BUTT_SOURCE_SIZE.x,
+			BAND_SEAM_RAW_BUTT_SOURCE_SIZE.y,
+			Image.INTERPOLATE_LANCZOS
+		)
+		if source.get_size() != BAND_SEAM_RAW_BUTT_SOURCE_SIZE:
+			return {
+				"ready": false,
+				"reason": "raw_butt_downsample",
+				"asset_key": asset_key,
+				"size": source.get_size(),
+			}
+		source.convert(Image.FORMAT_RGBA8)
+		var composite := Image.create(
+			source_width,
+			composite_half_height * 2,
+			false,
+			Image.FORMAT_RGBA8
+		)
+		composite.blit_rect(
+			source,
+			Rect2i(0, bottom_half_source_y, source_width, composite_half_height),
+			Vector2i.ZERO
+		)
+		composite.blit_rect(
+			source,
+			Rect2i(0, 0, source_width, composite_half_height),
+			Vector2i(0, composite_half_height)
+		)
+		var file_name := BAND_SEAM_RAW_BUTT_PATTERN % asset_key
+		if not _save_any_size(composite, output_dir.path_join(file_name)):
+			return {
+				"ready": false,
+				"reason": "raw_butt_save",
+				"asset_key": asset_key,
+				"file": file_name,
+			}
+		files.append(file_name)
+		var top_variance := _measure_column_vertical_luma_variance(
+			source,
+			Rect2i(0, top_edge_source_y, source_width, edge_height)
+		)
+		var bottom_variance := _measure_column_vertical_luma_variance(
+			source,
+			Rect2i(0, bottom_edge_source_y, source_width, edge_height)
+		)
+		var edge_control_variance := _aggregate_raw_butt_variance_controls(
+			source,
+			edge_control_starts,
+			edge_height
+		)
+		var butt_zone := composite.get_region(Rect2i(
+			0,
+			composite_seam_y - edge_height,
+			source_width,
+			edge_height * 2
+		))
+		var combined_variance := _measure_column_vertical_luma_variance(
+			butt_zone,
+			Rect2i(Vector2i.ZERO, butt_zone.get_size())
+		)
+		var combined_control_variance := _aggregate_raw_butt_variance_controls(
+			source,
+			combined_control_starts,
+			edge_height * 2
+		)
+		for variance_probe in [
+			top_variance,
+			bottom_variance,
+			edge_control_variance,
+			combined_variance,
+			combined_control_variance,
+		]:
+			if not bool((variance_probe as Dictionary).get("ready", false)):
+				return {
+					"ready": false,
+					"reason": "raw_butt_variance_measurement",
+					"asset_key": asset_key,
+				}
+		var top_luma := _measure_rect_luma_stats(
+			source,
+			Rect2i(0, top_edge_source_y, source_width, edge_height)
+		)
+		var bottom_luma := _measure_rect_luma_stats(
+			source,
+			Rect2i(0, bottom_edge_source_y, source_width, edge_height)
+		)
+		var combined_luma := _measure_rect_luma_stats(
+			butt_zone,
+			Rect2i(Vector2i.ZERO, butt_zone.get_size())
+		)
+		var interior_luma := _measure_rect_luma_stats(
+			source,
+			Rect2i(0, edge_height, source_width, source_height - edge_height * 2)
+		)
+		for luma_probe in [
+			top_luma,
+			bottom_luma,
+			combined_luma,
+			interior_luma,
+		]:
+			if not bool((luma_probe as Dictionary).get("ready", false)):
+				return {
+					"ready": false,
+					"reason": "raw_butt_luma_measurement",
+					"asset_key": asset_key,
+				}
+		var top_variance_mean_ratio := _raw_butt_metric_ratio(
+			float(top_variance.get("mean", INF)),
+			float(edge_control_variance.get("mean", INF))
+		)
+		var top_variance_p95_ratio := _raw_butt_metric_ratio(
+			float(top_variance.get("p95", INF)),
+			float(edge_control_variance.get("p95", INF))
+		)
+		var bottom_variance_mean_ratio := _raw_butt_metric_ratio(
+			float(bottom_variance.get("mean", INF)),
+			float(edge_control_variance.get("mean", INF))
+		)
+		var bottom_variance_p95_ratio := _raw_butt_metric_ratio(
+			float(bottom_variance.get("p95", INF)),
+			float(edge_control_variance.get("p95", INF))
+		)
+		var combined_variance_mean_ratio := _raw_butt_metric_ratio(
+			float(combined_variance.get("mean", INF)),
+			float(combined_control_variance.get("mean", INF))
+		)
+		var combined_variance_p95_ratio := _raw_butt_metric_ratio(
+			float(combined_variance.get("p95", INF)),
+			float(combined_control_variance.get("p95", INF))
+		)
+		var top_luma_abs_delta := absf(
+			float(top_luma.get("mean", INF))
+				- float(interior_luma.get("mean", INF))
+		)
+		var bottom_luma_abs_delta := absf(
+			float(bottom_luma.get("mean", INF))
+				- float(interior_luma.get("mean", INF))
+		)
+		var combined_luma_abs_delta := absf(
+			float(combined_luma.get("mean", INF))
+				- float(interior_luma.get("mean", INF))
+		)
+		var mirror_correlation := _measure_seam_mirror_correlation(
+			composite,
+			composite_seam_y,
+			BAND_SEAM_RAW_BUTT_MIRROR_RADIUS_PX
+		)
+		var mirror_controls: Array[float] = []
+		for control_y in [
+			composite_seam_y - BAND_SEAM_RAW_BUTT_MIRROR_CONTROL_OFFSET_PX,
+			composite_seam_y + BAND_SEAM_RAW_BUTT_MIRROR_CONTROL_OFFSET_PX,
+		]:
+			mirror_controls.append(_measure_seam_mirror_correlation(
+				composite,
+				int(control_y),
+				BAND_SEAM_RAW_BUTT_MIRROR_RADIUS_PX
+			))
+		var mirror_control_mean := _mean_float_values(mirror_controls)
+		var mirror_excess := mirror_correlation - mirror_control_mean
+		var variance_gate := true
+		for edge_ratio in [
+			top_variance_mean_ratio,
+			top_variance_p95_ratio,
+			bottom_variance_mean_ratio,
+			bottom_variance_p95_ratio,
+		]:
+			variance_gate = (
+				variance_gate
+				and _raw_butt_variance_ratio_is_sealed(float(edge_ratio))
+			)
+		var top_luma_gate := (
+			top_luma_abs_delta <= BAND_SEAM_RAW_BUTT_EDGE_LUMA_DELTA_MAX
+		)
+		var bottom_luma_gate := (
+			bottom_luma_abs_delta <= BAND_SEAM_RAW_BUTT_EDGE_LUMA_DELTA_MAX
+		)
+		var edge_luma_gate := top_luma_gate and bottom_luma_gate
+		var combined_luma_gate := (
+			combined_luma_abs_delta
+				<= BAND_SEAM_RAW_BUTT_COMBINED_LUMA_DELTA_MAX
+		)
+		var luma_gate := edge_luma_gate and combined_luma_gate
+		var mirror_gate := (
+			mirror_excess <= BAND_SEAM_RAW_BUTT_MIRROR_EXCESS_MAX
+			and absf(mirror_correlation) < BAND_SEAM_RAW_BUTT_MIRROR_ABS_MAX
+		)
+		var case := {
+			"asset_key": asset_key,
+			"source_path": source_path,
+			"file": file_name,
+			"top_variance_mean": float(top_variance.get("mean", INF)),
+			"top_control_variance_mean": float(edge_control_variance.get("mean", INF)),
+			"top_variance_mean_ratio": top_variance_mean_ratio,
+			"top_variance_p95": float(top_variance.get("p95", INF)),
+			"top_control_variance_p95": float(edge_control_variance.get("p95", INF)),
+			"top_variance_p95_ratio": top_variance_p95_ratio,
+			"bottom_variance_mean": float(bottom_variance.get("mean", INF)),
+			"bottom_control_variance_mean": float(
+				edge_control_variance.get("mean", INF)
+			),
+			"bottom_variance_mean_ratio": bottom_variance_mean_ratio,
+			"bottom_variance_p95": float(bottom_variance.get("p95", INF)),
+			"bottom_control_variance_p95": float(
+				edge_control_variance.get("p95", INF)
+			),
+			"bottom_variance_p95_ratio": bottom_variance_p95_ratio,
+			"combined_variance_mean": float(combined_variance.get("mean", INF)),
+			"combined_control_variance_mean": float(
+				combined_control_variance.get("mean", INF)
+			),
+			"combined_variance_mean_ratio": combined_variance_mean_ratio,
+			"combined_variance_p95": float(combined_variance.get("p95", INF)),
+			"combined_control_variance_p95": float(
+				combined_control_variance.get("p95", INF)
+			),
+			"combined_variance_p95_ratio": combined_variance_p95_ratio,
+			"top_luma_mean": float(top_luma.get("mean", INF)),
+			"top_control_luma_mean": float(interior_luma.get("mean", INF)),
+			"top_luma_abs_delta": top_luma_abs_delta,
+			"top_control_luma_spatial_sd": float(
+				interior_luma.get("spatial_sd", INF)
+			),
+			"bottom_luma_mean": float(bottom_luma.get("mean", INF)),
+			"bottom_control_luma_mean": float(interior_luma.get("mean", INF)),
+			"bottom_luma_abs_delta": bottom_luma_abs_delta,
+			"bottom_control_luma_spatial_sd": float(
+				interior_luma.get("spatial_sd", INF)
+			),
+			"combined_luma_mean": float(combined_luma.get("mean", INF)),
+			"combined_control_luma_mean": float(
+				interior_luma.get("mean", INF)
+			),
+			"combined_luma_abs_delta": combined_luma_abs_delta,
+			"combined_control_luma_spatial_sd": float(
+				interior_luma.get("spatial_sd", INF)
+			),
+			"mirror_correlation": mirror_correlation,
+			"mirror_control_mean": mirror_control_mean,
+			"mirror_excess": mirror_excess,
+			"variance_gate": variance_gate,
+			"top_luma_gate": top_luma_gate,
+			"bottom_luma_gate": bottom_luma_gate,
+			"edge_luma_gate": edge_luma_gate,
+			"combined_luma_gate": combined_luma_gate,
+			"luma_gate": luma_gate,
+			"mirror_gate": mirror_gate,
+		}
+		cases.append(case)
+		if not variance_gate:
+			failures.append("%s:variance" % asset_key)
+		if not edge_luma_gate:
+			failures.append("%s:edge_luma" % asset_key)
+		if not combined_luma_gate:
+			failures.append("%s:combined_luma" % asset_key)
+		if not mirror_gate:
+			failures.append("%s:mirror" % asset_key)
+		for edge_mean_ratio in [top_variance_mean_ratio, bottom_variance_mean_ratio]:
+			edge_variance_mean_ratio_min = minf(
+				edge_variance_mean_ratio_min,
+				float(edge_mean_ratio)
+			)
+			edge_variance_mean_ratio_max = maxf(
+				edge_variance_mean_ratio_max,
+				float(edge_mean_ratio)
+			)
+		for edge_p95_ratio in [top_variance_p95_ratio, bottom_variance_p95_ratio]:
+			edge_variance_p95_ratio_min = minf(
+				edge_variance_p95_ratio_min,
+				float(edge_p95_ratio)
+			)
+			edge_variance_p95_ratio_max = maxf(
+				edge_variance_p95_ratio_max,
+				float(edge_p95_ratio)
+			)
+		combined_variance_mean_ratio_max = maxf(
+			combined_variance_mean_ratio_max,
+			combined_variance_mean_ratio
+		)
+		combined_variance_p95_ratio_max = maxf(
+			combined_variance_p95_ratio_max,
+			combined_variance_p95_ratio
+		)
+		edge_luma_abs_delta_max = maxf(
+			edge_luma_abs_delta_max,
+			maxf(top_luma_abs_delta, bottom_luma_abs_delta)
+		)
+		combined_luma_abs_delta_max = maxf(
+			combined_luma_abs_delta_max,
+			combined_luma_abs_delta
+		)
+		mirror_excess_max = maxf(mirror_excess_max, mirror_excess)
+		mirror_abs_max = maxf(mirror_abs_max, absf(mirror_correlation))
+	return {
+		"ready": cases.size() == 6 and failures.is_empty(),
+		"asset_count": cases.size(),
+		"cases": cases,
+		"files": files,
+		"failures": failures,
+		"edge_variance_mean_ratio_min": edge_variance_mean_ratio_min,
+		"edge_variance_mean_ratio_max": edge_variance_mean_ratio_max,
+		"edge_variance_p95_ratio_min": edge_variance_p95_ratio_min,
+		"edge_variance_p95_ratio_max": edge_variance_p95_ratio_max,
+		"combined_variance_mean_ratio_max": combined_variance_mean_ratio_max,
+		"combined_variance_p95_ratio_max": combined_variance_p95_ratio_max,
+		"edge_luma_abs_delta_max": edge_luma_abs_delta_max,
+		"combined_luma_abs_delta_max": combined_luma_abs_delta_max,
+		"mirror_excess_max": mirror_excess_max,
+		"mirror_abs_max": mirror_abs_max,
+	}
+
+
+func _aggregate_raw_butt_variance_controls(
+	image: Image,
+	window_starts: PackedInt32Array,
+	window_height: int
+) -> Dictionary:
+	if window_starts.is_empty() or window_height <= 0:
+		return {"ready": false}
+	var means: Array[float] = []
+	var p95_values: Array[float] = []
+	for window_start in window_starts:
+		var probe := _measure_column_vertical_luma_variance(
+			image,
+			Rect2i(0, int(window_start), image.get_width(), window_height)
+		)
+		if not bool(probe.get("ready", false)):
+			return {
+				"ready": false,
+				"window_start": window_start,
+				"window_height": window_height,
+			}
+		means.append(float(probe.get("mean", INF)))
+		p95_values.append(float(probe.get("p95", INF)))
+	return {
+		"ready": true,
+		"mean": _median_float_values(means),
+		"p95": _median_float_values(p95_values),
+		"window_count": window_starts.size(),
+		"window_starts": window_starts,
+		"window_height": window_height,
+	}
+
+
+func _measure_column_vertical_luma_variance(image: Image, rect: Rect2i) -> Dictionary:
+	if (
+		image == null
+		or image.is_empty()
+		or not rect.has_area()
+		or rect.position.x < 0
+		or rect.position.y < 0
+		or rect.end.x > image.get_width()
+		or rect.end.y > image.get_height()
+	):
+		return {"ready": false}
+	var column_variances: Array[float] = []
+	for x in range(rect.position.x, rect.end.x):
+		var mean := 0.0
+		for y in range(rect.position.y, rect.end.y):
+			mean += _color_luma_255(image.get_pixel(x, y))
+		mean /= float(rect.size.y)
+		var variance := 0.0
+		for y in range(rect.position.y, rect.end.y):
+			var delta := _color_luma_255(image.get_pixel(x, y)) - mean
+			variance += delta * delta
+		column_variances.append(variance / float(rect.size.y))
+	return {
+		"ready": not column_variances.is_empty(),
+		"mean": _mean_float_values(column_variances),
+		"p95": _percentile_float_values(column_variances, 0.95),
+	}
+
+
+func _median_float_values(values: Array[float]) -> float:
+	if values.is_empty():
+		return INF
+	var sorted_values := values.duplicate()
+	sorted_values.sort()
+	var middle := int(sorted_values.size() / 2)
+	if sorted_values.size() % 2 == 0:
+		return (
+			float(sorted_values[middle - 1]) + float(sorted_values[middle])
+		) * 0.5
+	return float(sorted_values[middle])
+
+
+func _measure_rect_luma_stats(image: Image, rect: Rect2i) -> Dictionary:
+	if (
+		image == null
+		or image.is_empty()
+		or not rect.has_area()
+		or rect.position.x < 0
+		or rect.position.y < 0
+		or rect.end.x > image.get_width()
+		or rect.end.y > image.get_height()
+	):
+		return {"ready": false}
+	var sample_count := rect.size.x * rect.size.y
+	var total := 0.0
+	var square_total := 0.0
+	for y in range(rect.position.y, rect.end.y):
+		for x in range(rect.position.x, rect.end.x):
+			var luma := _color_luma_255(image.get_pixel(x, y))
+			total += luma
+			square_total += luma * luma
+	var mean := total / float(sample_count)
+	var variance := maxf(0.0, square_total / float(sample_count) - mean * mean)
+	return {
+		"ready": true,
+		"mean": mean,
+		"spatial_sd": sqrt(variance),
+	}
+
+
+func _raw_butt_metric_ratio(value: float, control: float) -> float:
+	if control <= 0.000001:
+		return 1.0 if value <= 0.000001 else INF
+	return value / control
+
+
+func _raw_butt_variance_ratio_is_sealed(ratio: float) -> bool:
+	return (
+		not is_inf(ratio)
+		and not is_nan(ratio)
+		and ratio >= BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MIN
+		and ratio <= BAND_SEAM_RAW_BUTT_VARIANCE_RATIO_MAX
+	)
 
 
 func _build_band_seam_probe(model: Dictionary) -> Dictionary:
@@ -1565,6 +2978,8 @@ func _build_band_seam_probe(model: Dictionary) -> Dictionary:
 				if seam_class == "different_art_forward"
 				else NAN
 			),
+			"body_native_size": chunk_rect.size / map_scale,
+			"entry_native_size": entry_rect.size / map_scale,
 			"probe_y": probe_y,
 			"probe_world_y": probe_world_y,
 			"wrap_y": wrap_y,
@@ -2169,11 +3584,363 @@ func _save_band_seam_probe(image: Image, seam_y: int, output_path: String) -> bo
 	return _save_any_size(crop, output_path)
 
 
+func _classify_different_art_phase_coverage(seams: Array) -> Dictionary:
+	var human_phase_seams: Array = []
+	var immortal_phase_seams: Array = []
+	var realm_boundary_seams: Array = []
+	var failures: Array[String] = []
+	for seam_variant in seams:
+		var seam := seam_variant as Dictionary
+		var previous_asset_key := str(seam.get("previous_asset_key", ""))
+		var asset_key := str(seam.get("asset_key", ""))
+		var previous_is_human := (
+			TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS.has(previous_asset_key)
+		)
+		var current_is_human := (
+			TowerMapScrollAssetCatalog.HUMAN_BAND_ASSET_KEYS.has(asset_key)
+		)
+		var previous_is_immortal := (
+			TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS.has(previous_asset_key)
+		)
+		var current_is_immortal := (
+			TowerMapScrollAssetCatalog.IMMORTAL_BAND_ASSET_KEYS.has(asset_key)
+		)
+		if previous_is_human and current_is_human:
+			human_phase_seams.append(seam)
+		elif previous_is_immortal and current_is_immortal:
+			immortal_phase_seams.append(seam)
+		elif previous_is_immortal and current_is_human:
+			realm_boundary_seams.append(seam)
+		else:
+			failures.append(
+				"%d:%s->%s"
+					% [int(seam.get("index", -1)), previous_asset_key, asset_key]
+			)
+	return {
+		"ready": (
+			failures.is_empty()
+			and human_phase_seams.size() == 8
+			and immortal_phase_seams.size() == 2
+			and realm_boundary_seams.size() == 1
+		),
+		"human_phase_seams": human_phase_seams,
+		"immortal_phase_seams": immortal_phase_seams,
+		"realm_boundary_seams": realm_boundary_seams,
+		"failures": failures,
+	}
+
+
+func _resolve_overview_subcover_probe_zoom(model: Dictionary) -> Dictionary:
+	var minimum_cover_zoom := float(model.get("minimum_cover_zoom", -1.0))
+	var minimum_fit_all_zoom := float(model.get("minimum_fit_all_zoom", -1.0))
+	if (
+		minimum_fit_all_zoom <= 0.0
+		or minimum_cover_zoom <= minimum_fit_all_zoom
+	):
+		return {
+			"ready": false,
+			"reason": "zoom_range",
+			"minimum_fit_all_zoom": minimum_fit_all_zoom,
+			"minimum_cover_zoom": minimum_cover_zoom,
+		}
+	var target_zoom := maxf(
+		minimum_fit_all_zoom,
+		minimum_cover_zoom - BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_MARGIN
+	)
+	if (
+		target_zoom + BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_EPSILON
+		>= minimum_cover_zoom
+	):
+		target_zoom = lerpf(minimum_fit_all_zoom, minimum_cover_zoom, 0.5)
+	return {
+		"ready": (
+			target_zoom >= minimum_fit_all_zoom
+			and target_zoom + BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_EPSILON
+				< minimum_cover_zoom
+		),
+		"target_zoom": target_zoom,
+		"minimum_fit_all_zoom": minimum_fit_all_zoom,
+		"minimum_cover_zoom": minimum_cover_zoom,
+	}
+
+
+func _merge_different_art_forward_probes(parts: Array) -> Dictionary:
+	var probes: Array = []
+	var seam_indices: Dictionary = {}
+	var coverage_counts := {
+		"human_phase_2_15": 0,
+		"immortal_phase_subcover_2_15": 0,
+		"realm_boundary_subcover": 0,
+	}
+	var worst_entry_body_raw_row_mean_jump := 0.0
+	var worst_entry_body_continuation_excess := 0.0
+	var worst_phase_start_hard_jump_excess := 0.0
+	var maximum_snapped_span_error_px := 0.0
+	var framebuffer_gutter_total_px := 0
+	var framebuffer_gutter_maximum_px := 0
+	var overview_subcover_zoom := -1.0
+	var forward_reference_counterproof_count := 0
+	for part_variant in parts:
+		var part := part_variant as Dictionary
+		if not bool(part.get("ready", false)):
+			return {"ready": false, "reason": "part", "part": part}
+		var coverage_kind := str(part.get("coverage_kind", ""))
+		if not coverage_counts.has(coverage_kind):
+			return {
+				"ready": false,
+				"reason": "coverage_kind",
+				"coverage_kind": coverage_kind,
+			}
+		coverage_counts[coverage_kind] = (
+			int(coverage_counts.get(coverage_kind, 0))
+			+ int(part.get("frame_count", 0))
+		)
+		if coverage_kind == "realm_boundary_subcover":
+			overview_subcover_zoom = float(part.get("zoom", -1.0))
+		for probe_variant in part.get("probes", []):
+			var probe := probe_variant as Dictionary
+			var seam_index := int(probe.get("seam", -1))
+			if seam_indices.has(seam_index):
+				return {
+					"ready": false,
+					"reason": "duplicate_seam",
+					"seam": seam_index,
+				}
+			seam_indices[seam_index] = true
+			probes.append(probe)
+		worst_entry_body_raw_row_mean_jump = maxf(
+			worst_entry_body_raw_row_mean_jump,
+			float(part.get("worst_entry_body_raw_row_mean_jump", INF))
+		)
+		worst_entry_body_continuation_excess = maxf(
+			worst_entry_body_continuation_excess,
+			float(part.get("worst_entry_body_continuation_excess", INF))
+		)
+		worst_phase_start_hard_jump_excess = maxf(
+			worst_phase_start_hard_jump_excess,
+			float(part.get("worst_phase_start_hard_jump_excess", INF))
+		)
+		maximum_snapped_span_error_px = maxf(
+			maximum_snapped_span_error_px,
+			float(part.get("maximum_snapped_span_error_px", INF))
+		)
+		framebuffer_gutter_total_px += int(
+			part.get("framebuffer_gutter_total_px", -1)
+		)
+		framebuffer_gutter_maximum_px = maxi(
+			framebuffer_gutter_maximum_px,
+			int(part.get("framebuffer_gutter_maximum_px", -1))
+		)
+		forward_reference_counterproof_count += int(
+			part.get("forward_reference_counterproof_count", 0)
+		)
+	var phase_local_count := (
+		int(coverage_counts.get("human_phase_2_15", 0))
+	)
+	var requested_2_15_count := (
+		phase_local_count
+		+ int(coverage_counts.get("immortal_phase_subcover_2_15", 0))
+	)
+	var subcover_count := (
+		int(coverage_counts.get("immortal_phase_subcover_2_15", 0))
+		+ int(coverage_counts.get("realm_boundary_subcover", 0))
+	)
+	var total_count := probes.size()
+	return {
+		"ready": (
+			parts.size() == 3
+			and int(coverage_counts.get("human_phase_2_15", 0)) == 8
+			and int(coverage_counts.get("immortal_phase_subcover_2_15", 0)) == 2
+			and int(coverage_counts.get("realm_boundary_subcover", 0)) == 1
+			and phase_local_count == 8
+			and requested_2_15_count == 10
+			and subcover_count == 3
+			and total_count == BAND_SEAM_EXPECTED_DIFFERENT_ART_SEAM_COUNT
+			and seam_indices.size() == BAND_SEAM_EXPECTED_DIFFERENT_ART_SEAM_COUNT
+			and forward_reference_counterproof_count == 1
+		),
+		"zoom": BAND_SEAM_FOLD_COMPARISON_ZOOM,
+		"phase_local_zoom": BAND_SEAM_FOLD_COMPARISON_ZOOM,
+		"overview_subcover_zoom": overview_subcover_zoom,
+		"frame_count": total_count,
+		"seam_count": seam_indices.size(),
+		"phase_local_frame_count": phase_local_count,
+		"requested_2_15_frame_count": requested_2_15_count,
+		"subcover_frame_count": subcover_count,
+		"human_phase_frame_count": int(
+			coverage_counts.get("human_phase_2_15", 0)
+		),
+		"immortal_phase_subcover_frame_count": int(
+			coverage_counts.get("immortal_phase_subcover_2_15", 0)
+		),
+		"overview_boundary_frame_count": int(
+			coverage_counts.get("realm_boundary_subcover", 0)
+		),
+		"probes": probes,
+		"worst_entry_body_raw_row_mean_jump": worst_entry_body_raw_row_mean_jump,
+		"worst_entry_body_continuation_excess": (
+			worst_entry_body_continuation_excess
+		),
+		"worst_phase_start_hard_jump_excess": worst_phase_start_hard_jump_excess,
+		"maximum_snapped_span_error_px": maximum_snapped_span_error_px,
+		"framebuffer_gutter_total_px": framebuffer_gutter_total_px,
+		"framebuffer_gutter_maximum_px": framebuffer_gutter_maximum_px,
+		"forward_reference_counterproof_count": (
+			forward_reference_counterproof_count
+		),
+	}
+
+
+func _capture_forward_phase_reference_frame(
+	fixture: Dictionary,
+	renderer: Object,
+	frame_model: Dictionary,
+	seam: Dictionary,
+	desired_body_phase_normalized: float,
+	reference_kind: String
+) -> Dictionary:
+	var flow: Object = fixture.get("flow", null)
+	var canvas: CanvasItem = fixture.get("canvas", null) as CanvasItem
+	var viewport: SubViewport = fixture.get("viewport", null) as SubViewport
+	var background: Dictionary = frame_model.get("scroll_background", {})
+	var draw_chunks: Array = background.get("draw_chunks", [])
+	var tiles: Array = background.get("tiles", [])
+	var identity := _find_different_art_frame_chunk(draw_chunks, tiles, seam)
+	if (
+		flow == null
+		or canvas == null
+		or viewport == null
+		or renderer == null
+		or not bool(identity.get("ready", false))
+		or is_nan(desired_body_phase_normalized)
+		or is_inf(desired_body_phase_normalized)
+		or desired_body_phase_normalized < 0.0
+		or reference_kind.is_empty()
+	):
+		return {
+			"ready": false,
+			"reason": "reference_fixture_or_identity",
+			"identity": identity,
+		}
+	var tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
+	var chunk := identity.get("chunk", {}) as Dictionary
+	var original_body_source_rect: Rect2 = chunk.get(
+		"normalized_source_rect",
+		Rect2()
+	)
+	var original_body_source_phase_world_px := float(
+		chunk.get("body_source_phase_world_px", NAN)
+	)
+	if (
+		not tile_rect.has_area()
+		or not original_body_source_rect.has_area()
+		or is_nan(original_body_source_phase_world_px)
+	):
+		return {"ready": false, "reason": "reference_source_geometry"}
+	var replacement_body_source_rect := original_body_source_rect
+	replacement_body_source_rect.position.y = desired_body_phase_normalized
+	var replacement_body_source_phase_world_px := (
+		desired_body_phase_normalized * tile_rect.size.y
+	)
+	chunk["normalized_source_rect"] = replacement_body_source_rect
+	chunk["body_source_phase_world_px"] = replacement_body_source_phase_world_px
+	var rebound_model: Dictionary = renderer.call(
+		"build_fullscreen_map_model",
+		flow,
+		VIEWPORT_RECT
+	)
+	var rebound_background: Dictionary = rebound_model.get("scroll_background", {})
+	var rebound_identity := _find_different_art_frame_chunk(
+		rebound_background.get("draw_chunks", []),
+		rebound_background.get("tiles", []),
+		seam
+	)
+	var rebound_chunk := rebound_identity.get("chunk", {}) as Dictionary
+	var rebound_source_rect: Rect2 = rebound_chunk.get(
+		"normalized_source_rect",
+		Rect2()
+	)
+	var cached_model_binding := (
+		bool(rebound_identity.get("ready", false))
+		and is_equal_approx(
+			rebound_source_rect.position.y,
+			desired_body_phase_normalized
+		)
+		and is_equal_approx(
+			float(rebound_chunk.get("body_source_phase_world_px", NAN)),
+			replacement_body_source_phase_world_px
+		)
+	)
+	var reference_frame: Image = null
+	if cached_model_binding:
+		reference_frame = await _capture_next_draw(canvas, viewport)
+	# GDScript has no exceptions. From the mutation above to this mandatory
+	# restoration block there is deliberately no return path; validation happens
+	# only after both exact values have been put back into the cached production model.
+	chunk["normalized_source_rect"] = original_body_source_rect
+	chunk["body_source_phase_world_px"] = original_body_source_phase_world_px
+	canvas.queue_redraw()
+	var restored_model: Dictionary = renderer.call(
+		"build_fullscreen_map_model",
+		flow,
+		VIEWPORT_RECT
+	)
+	var restored_background: Dictionary = restored_model.get("scroll_background", {})
+	var restored_identity := _find_different_art_frame_chunk(
+		restored_background.get("draw_chunks", []),
+		restored_background.get("tiles", []),
+		seam
+	)
+	var restored_chunk := restored_identity.get("chunk", {}) as Dictionary
+	var restored_source_rect: Rect2 = restored_chunk.get(
+		"normalized_source_rect",
+		Rect2()
+	)
+	var exact_restoration := (
+		bool(restored_identity.get("ready", false))
+		and restored_source_rect == original_body_source_rect
+		and is_equal_approx(
+			float(restored_chunk.get("body_source_phase_world_px", NAN)),
+			original_body_source_phase_world_px
+		)
+	)
+	if not cached_model_binding or not exact_restoration:
+		return {
+			"ready": false,
+			"reason": "cached_model_binding_or_restoration",
+			"cached_model_binding": cached_model_binding,
+			"exact_restoration": exact_restoration,
+			"reference_kind": reference_kind,
+		}
+	if reference_frame == null or reference_frame.is_empty():
+		return {
+			"ready": false,
+			"reason": "reference_frame",
+			"exact_restoration": exact_restoration,
+		}
+	return {
+		"ready": true,
+		"frame": reference_frame,
+		"reference_kind": reference_kind,
+		"desired_body_phase_normalized": desired_body_phase_normalized,
+		"cached_model_binding": cached_model_binding,
+		"exact_restoration": exact_restoration,
+		"production_canvas": true,
+		"production_cached_draw_model": true,
+	}
+
+
 func _capture_different_art_forward_probes(
 	fixture: Dictionary,
 	renderer: Object,
 	seams: Array,
-	output_dir: String
+	output_dir: String,
+	probe_file_pattern: String,
+	target_zoom: float,
+	expected_seam_count: int,
+	coverage_kind: String,
+	expected_phase_index: int,
+	expected_subcover_active: bool
 ) -> Dictionary:
 	var flow: Object = fixture.get("flow", null)
 	var canvas: CanvasItem = fixture.get("canvas", null) as CanvasItem
@@ -2186,7 +3953,10 @@ func _capture_different_art_forward_probes(
 		or renderer == null
 		or drag_state == null
 		or not drag_state.has_method("apply_zoom_override")
-		or seams.size() != BAND_SEAM_EXPECTED_DIFFERENT_ART_SEAM_COUNT
+		or seams.size() != expected_seam_count
+		or expected_seam_count <= 0
+		or target_zoom <= 0.0
+		or coverage_kind.is_empty()
 	):
 		return {"ready": false, "reason": "fixture_or_seam_count"}
 	var initial_model: Dictionary = renderer.call(
@@ -2196,27 +3966,55 @@ func _capture_different_art_forward_probes(
 	)
 	var initial_background: Dictionary = initial_model.get("scroll_background", {})
 	var initial_chunks: Array = initial_background.get("draw_chunks", [])
+	var initial_tiles: Array = initial_background.get("tiles", [])
 	var world_rect: Rect2 = initial_background.get("world_rect", Rect2())
-	if not world_rect.has_area():
+	if not world_rect.has_area() or initial_tiles.is_empty():
 		return {"ready": false, "reason": "world_geometry"}
-	var target_zoom := BAND_SEAM_FOLD_COMPARISON_ZOOM
+	var identity_counterproof := _probe_different_art_chunk_identity_counterproof(
+		initial_chunks,
+		initial_tiles,
+		seams
+	)
+	if not bool(identity_counterproof.get("ready", false)):
+		return {
+			"ready": false,
+			"reason": "chunk_identity_counterproof",
+			"counterproof": identity_counterproof,
+		}
+	print(
+		"[TowerMapBandFrameChunkIdentityCounterproof] coverage=%s source_index=%d shifted_index=%d prefix_removed=%d stable_match=true wrong_asset_rejected=true wrong_geometry_rejected=true texture_instance_identity_used=false"
+			% [
+				coverage_kind,
+				int(identity_counterproof.get("source_index", -1)),
+				int(identity_counterproof.get("shifted_index", -1)),
+				int(identity_counterproof.get("prefix_removed", -1)),
+			]
+	)
 	var focus_world_x := world_rect.get_center().x
 	var probes: Array[Dictionary] = []
 	var worst_entry_body_raw_row_mean_jump := 0.0
+	var worst_entry_body_continuation_excess := 0.0
 	var worst_phase_start_hard_jump_excess := 0.0
 	var maximum_snapped_span_error_px := 0.0
 	var framebuffer_gutter_total_px := 0
 	var framebuffer_gutter_maximum_px := 0
+	var forward_reference_counterproof_count := 0
 	for seam_variant in seams:
 		var seam := seam_variant as Dictionary
 		var seam_index := int(seam.get("index", -1))
-		if seam_index <= 0 or seam_index >= initial_chunks.size():
+		var initial_identity := _find_different_art_frame_chunk(
+			initial_chunks,
+			initial_tiles,
+			seam
+		)
+		if not bool(initial_identity.get("ready", false)):
 			return {
 				"ready": false,
-				"reason": "initial_chunk_index",
+				"reason": "initial_chunk_identity",
 				"seam": seam_index,
+				"identity": initial_identity,
 			}
-		var initial_chunk := initial_chunks[seam_index] as Dictionary
+		var initial_chunk := initial_identity.get("chunk", {}) as Dictionary
 		var initial_body_rect: Rect2 = initial_chunk.get("rect", Rect2())
 		if not initial_body_rect.has_area():
 			return {"ready": false, "reason": "initial_body", "seam": seam_index}
@@ -2233,14 +4031,60 @@ func _capture_different_art_forward_probes(
 		var camera: Dictionary = frame_model.get("camera", {})
 		var actual_zoom := float(camera.get("render_zoom_multiplier", -1.0))
 		var actual_offset: Vector2 = camera.get("offset", Vector2(INF, INF))
-		if not is_equal_approx(actual_zoom, target_zoom) or not actual_offset.is_finite():
+		var actual_phase_index := int(flow.call("get_active_graph_phase_index"))
+		var actual_subcover_active := bool(frame_model.get("subcover_active", false))
+		var minimum_cover_zoom := float(
+			frame_model.get(
+				"minimum_cover_zoom",
+				camera.get("minimum_cover_zoom", -1.0)
+			)
+		)
+		var derived_subcover_active := (
+			actual_zoom + BAND_SEAM_OVERVIEW_SUBCOVER_ZOOM_EPSILON
+				< minimum_cover_zoom
+		)
+		if (
+			not is_equal_approx(actual_zoom, target_zoom)
+			or not actual_offset.is_finite()
+			or actual_phase_index != expected_phase_index
+			or actual_subcover_active != expected_subcover_active
+			or actual_subcover_active != derived_subcover_active
+		):
 			return {
 				"ready": false,
-				"reason": "camera",
+				"reason": "camera_or_phase",
 				"seam": seam_index,
 				"zoom": actual_zoom,
 				"offset": actual_offset,
+				"requested_offset": requested_offset,
+				"phase_index": actual_phase_index,
+				"expected_phase_index": expected_phase_index,
+				"subcover_active": actual_subcover_active,
+				"expected_subcover_active": expected_subcover_active,
+				"derived_subcover_active": derived_subcover_active,
+				"minimum_cover_zoom": minimum_cover_zoom,
 			}
+		print(
+			"[TowerMapBandDifferentForwardCameraQA] coverage=%s seam=%02d phase_index=%d subcover=%s expected_subcover=%s derived_subcover=%s requested_zoom=%.4f actual_zoom=%.4f minimum_cover_zoom=%.4f requested_offset=%s actual_offset=%s clamp_x=%.3f..%.3f clamp_y=%.3f..%.3f visible_world=%s"
+				% [
+					coverage_kind,
+					seam_index,
+					actual_phase_index,
+					str(actual_subcover_active),
+					str(expected_subcover_active),
+					str(derived_subcover_active),
+					target_zoom,
+					actual_zoom,
+					minimum_cover_zoom,
+					str(requested_offset),
+					str(actual_offset),
+					float(camera.get("minimum_offset_x", NAN)),
+					float(camera.get("maximum_offset_x", NAN)),
+					float(camera.get("minimum_offset_y", NAN)),
+					float(camera.get("maximum_offset_y", NAN)),
+					str(camera.get("visible_world_rect", Rect2())),
+				]
+		)
 		var projection := _resolve_different_art_frame_projection(
 			renderer,
 			frame_model,
@@ -2289,6 +4133,134 @@ func _capture_different_art_forward_probes(
 				"entry_body_probe": entry_body_probe,
 				"phase_start_probe": phase_start_probe,
 			}
+		var expected_phase_normalized := float(
+			projection.get("expected_body_source_phase_normalized", NAN)
+		)
+		var expected_reference := await _capture_forward_phase_reference_frame(
+			fixture,
+			renderer,
+			frame_model,
+			seam,
+			expected_phase_normalized,
+			"authoritative_r_over_h"
+		)
+		if not bool(expected_reference.get("ready", false)):
+			return {
+				"ready": false,
+				"reason": "expected_continuation_reference",
+				"seam": seam_index,
+				"reference": expected_reference,
+			}
+		var expected_entry_body_probe := _measure_projected_seam_frame(
+			expected_reference.get("frame", null) as Image,
+			entry_body_row,
+			content_rect
+		)
+		if not bool(expected_entry_body_probe.get("ready", false)):
+			return {
+				"ready": false,
+				"reason": "expected_continuation_probe",
+				"seam": seam_index,
+				"probe": expected_entry_body_probe,
+			}
+		var observed_entry_body_delta := float(
+			entry_body_probe.get("raw_row_mean_delta", INF)
+		)
+		var expected_entry_body_delta := float(
+			expected_entry_body_probe.get("raw_row_mean_delta", INF)
+		)
+		var entry_body_continuation_excess := absf(
+			observed_entry_body_delta - expected_entry_body_delta
+		)
+		print(
+			"[TowerMapBandForwardContinuationReferenceQA] coverage=%s seam=%02d reference=production_cached_draw_model_authoritative_r_over_h desired_body_phase=%.8f cached_model_binding=%s exact_restoration=%s observed_signed_delta=%.4f expected_signed_delta=%.4f excess=%.4f limit=%.2f"
+				% [
+					coverage_kind,
+					seam_index,
+					expected_phase_normalized,
+					str(expected_reference.get("cached_model_binding", false)),
+					str(expected_reference.get("exact_restoration", false)),
+					observed_entry_body_delta,
+					expected_entry_body_delta,
+					entry_body_continuation_excess,
+					BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT,
+				]
+		)
+		if coverage_kind == "realm_boundary_subcover":
+			var wrong_phase_reference := await _capture_forward_phase_reference_frame(
+				fixture,
+				renderer,
+				frame_model,
+				seam,
+				0.0,
+				"wrong_body_phase_zero"
+			)
+			if not bool(wrong_phase_reference.get("ready", false)):
+				return {
+					"ready": false,
+					"reason": "wrong_phase_counterproof_reference",
+					"seam": seam_index,
+					"reference": wrong_phase_reference,
+				}
+			var wrong_phase_probe := _measure_projected_seam_frame(
+				wrong_phase_reference.get("frame", null) as Image,
+				entry_body_row,
+				content_rect
+			)
+			if not bool(wrong_phase_probe.get("ready", false)):
+				return {
+					"ready": false,
+					"reason": "wrong_phase_counterproof_probe",
+					"seam": seam_index,
+					"probe": wrong_phase_probe,
+				}
+			var wrong_phase_delta := float(
+				wrong_phase_probe.get("raw_row_mean_delta", INF)
+			)
+			var wrong_phase_raster_join_excess := absf(
+				wrong_phase_delta - expected_entry_body_delta
+			)
+			var wrong_phase_source_excess := absf(expected_phase_normalized)
+			var forced_zero_expected_excess := absf(observed_entry_body_delta)
+			var wrong_phase_red := (
+				wrong_phase_source_excess
+					> BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON
+			)
+			var forced_zero_red := (
+				forced_zero_expected_excess
+					> BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT
+			)
+			print(
+				"[TowerMapBandForwardContinuationCounterproof] coverage=%s seam=%02d authoritative_expected_signed_delta=%.4f wrong_body_phase=0.00000000 required_body_phase=%.8f wrong_source_phase_excess=%.8f source_phase_epsilon=%.8f wrong_phase_red=%s wrong_signed_delta=%.4f wrong_raster_join_excess=%.4f raster_join_diagnostic_only=true shared_join_vertex=true forced_expected_zero_excess=%.4f forced_zero_red=%s continuation_limit=%.2f cached_model_binding=%s exact_restoration=%s"
+					% [
+						coverage_kind,
+						seam_index,
+						expected_entry_body_delta,
+						expected_phase_normalized,
+						wrong_phase_source_excess,
+						BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON,
+						str(wrong_phase_red),
+						wrong_phase_delta,
+						wrong_phase_raster_join_excess,
+						forced_zero_expected_excess,
+						str(forced_zero_red),
+						BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT,
+						str(wrong_phase_reference.get("cached_model_binding", false)),
+						str(wrong_phase_reference.get("exact_restoration", false)),
+					]
+			)
+			if not wrong_phase_red or not forced_zero_red:
+				return {
+					"ready": false,
+					"reason": "continuation_counterproof_did_not_red",
+					"seam": seam_index,
+					"wrong_phase_source_excess": wrong_phase_source_excess,
+					"wrong_phase_raster_join_excess": (
+						wrong_phase_raster_join_excess
+					),
+					"forced_zero_expected_excess": forced_zero_expected_excess,
+				}
+			forward_reference_counterproof_count += 1
 		var entry_body_visuals := _measure_framebuffer_seam_visuals(
 			frame,
 			entry_body_row,
@@ -2317,7 +4289,7 @@ func _capture_different_art_forward_probes(
 			phase_start_row,
 			entry_body_row,
 			content_rect,
-			output_dir.path_join(BAND_SEAM_DIFFERENT_ART_PROBE_PATTERN % seam_index)
+			output_dir.path_join(probe_file_pattern % seam_index)
 		):
 			return {"ready": false, "reason": "probe_save", "seam": seam_index}
 		var forward_span_px := float(entry_body_row - phase_start_row)
@@ -2325,6 +4297,10 @@ func _capture_different_art_forward_probes(
 		var span_error_px := absf(forward_span_px - snapped_entry_span_px)
 		var probe := {
 			"seam": seam_index,
+			"frame_chunk_index": int(projection.get("chunk_index", -1)),
+			"coverage_kind": coverage_kind,
+			"phase_index": actual_phase_index,
+			"subcover_active": actual_subcover_active,
 			"floor": int(seam.get("floor", -1)),
 			"previous_asset_key": str(seam.get("previous_asset_key", "")),
 			"asset_key": str(seam.get("asset_key", "")),
@@ -2337,6 +4313,9 @@ func _capture_different_art_forward_probes(
 			"entry_body_raw_row_mean_jump": float(
 				entry_body_probe.get("raw_row_mean_jump", INF)
 			),
+			"entry_body_observed_signed_delta": observed_entry_body_delta,
+			"entry_body_expected_signed_delta": expected_entry_body_delta,
+			"entry_body_continuation_excess": entry_body_continuation_excess,
 			"entry_body_raw_mean_abs_luma_jump": float(
 				entry_body_probe.get("raw_mean_abs_luma_jump", INF)
 			),
@@ -2360,6 +4339,10 @@ func _capture_different_art_forward_probes(
 			worst_entry_body_raw_row_mean_jump,
 			float(probe.get("entry_body_raw_row_mean_jump", INF))
 		)
+		worst_entry_body_continuation_excess = maxf(
+			worst_entry_body_continuation_excess,
+			float(probe.get("entry_body_continuation_excess", INF))
+		)
 		worst_phase_start_hard_jump_excess = maxf(
 			worst_phase_start_hard_jump_excess,
 			float(probe.get("phase_start_hard_jump_excess", INF))
@@ -2375,19 +4358,26 @@ func _capture_different_art_forward_probes(
 				int(gutter_px)
 			)
 		print(
-			"[TowerMapBandDifferentForwardVulkanFrameQA] seam=%02d floor=%02d previous=%s current=%s zoom=%.3f phase_start_row=%d entry_body_row=%d native_entry_span=%.1f snapped_span_px=%.1f span_error_px=%.4f entry_body_raw_row_mean_jump=%.4f phase_start_raw_row_mean_jump=%.4f phase_start_control_max=%.4f phase_start_hard_jump_excess=%.4f entry_body_gutter_px=%d phase_start_gutter_px=%d"
+			"[TowerMapBandDifferentForwardVulkanFrameQA] coverage=%s seam=%02d frame_chunk=%02d floor=%02d previous=%s current=%s zoom=%.3f phase_index=%d subcover=%s phase_start_row=%d entry_body_row=%d native_entry_span=%.1f snapped_span_px=%.1f span_error_px=%.4f entry_body_raw_row_mean_jump=%.4f entry_body_observed_signed_delta=%.4f entry_body_expected_signed_delta=%.4f entry_body_continuation_excess=%.4f phase_start_raw_row_mean_jump=%.4f phase_start_control_max=%.4f phase_start_hard_jump_excess=%.4f entry_body_gutter_px=%d phase_start_gutter_px=%d"
 				% [
+					coverage_kind,
 					seam_index,
+					int(probe.get("frame_chunk_index", -1)),
 					int(probe.get("floor", -1)),
 					str(probe.get("previous_asset_key", "")),
 					str(probe.get("asset_key", "")),
 					actual_zoom,
+					actual_phase_index,
+					str(actual_subcover_active),
 					phase_start_row,
 					entry_body_row,
 					float(probe.get("native_entry_span", NAN)),
 					snapped_entry_span_px,
 					span_error_px,
 					float(probe.get("entry_body_raw_row_mean_jump", INF)),
+					float(probe.get("entry_body_observed_signed_delta", INF)),
+					float(probe.get("entry_body_expected_signed_delta", INF)),
+					float(probe.get("entry_body_continuation_excess", INF)),
 					float(probe.get("phase_start_raw_row_mean_jump", INF)),
 					float(probe.get("phase_start_control_max", INF)),
 					float(probe.get("phase_start_hard_jump_excess", INF)),
@@ -2398,27 +4388,41 @@ func _capture_different_art_forward_probes(
 	var result := {
 		"ready": false,
 		"zoom": target_zoom,
+		"coverage_kind": coverage_kind,
+		"phase_index": expected_phase_index,
+		"subcover_active": expected_subcover_active,
 		"frame_count": probes.size(),
 		"seam_count": seams.size(),
 		"probes": probes,
 		"worst_entry_body_raw_row_mean_jump": worst_entry_body_raw_row_mean_jump,
+		"worst_entry_body_continuation_excess": (
+			worst_entry_body_continuation_excess
+		),
 		"worst_phase_start_hard_jump_excess": worst_phase_start_hard_jump_excess,
 		"maximum_snapped_span_error_px": maximum_snapped_span_error_px,
 		"framebuffer_gutter_total_px": framebuffer_gutter_total_px,
 		"framebuffer_gutter_maximum_px": framebuffer_gutter_maximum_px,
+		"forward_reference_counterproof_count": (
+			forward_reference_counterproof_count
+		),
 	}
-	if probes.size() != BAND_SEAM_EXPECTED_DIFFERENT_ART_SEAM_COUNT:
+	if probes.size() != expected_seam_count:
 		result["reason"] = "frame_count"
 		return result
 	if maximum_snapped_span_error_px > BAND_SEAM_LIVE_FRAME_STEP_EPSILON_PX:
 		result["reason"] = "snapped_entry_span"
 		return result
 	if (
-		worst_entry_body_raw_row_mean_jump
-		> BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_JUMP
-			+ BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_EPSILON
+		worst_entry_body_continuation_excess
+		> BAND_SEAM_FORWARD_CONTINUATION_EXCESS_LIMIT
 	):
-		result["reason"] = "entry_body_raw_discontinuity_exceeds_reflected_A"
+		result["reason"] = "entry_body_continuation_excess"
+		return result
+	if (
+		coverage_kind == "realm_boundary_subcover"
+		and forward_reference_counterproof_count != 1
+	):
+		result["reason"] = "continuation_counterproof_count"
 		return result
 	if worst_phase_start_hard_jump_excess > BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_EPSILON:
 		result["reason"] = "phase_start_hard_jump"
@@ -2438,33 +4442,78 @@ func _resolve_different_art_frame_projection(
 	var background: Dictionary = frame_model.get("scroll_background", {})
 	var draw_chunks: Array = background.get("draw_chunks", [])
 	var tiles: Array = background.get("tiles", [])
-	var seam_index := int(seam.get("index", -1))
-	if seam_index <= 0 or seam_index >= draw_chunks.size() or tiles.is_empty():
-		return {"ready": false, "reason": "chunk_index"}
-	var previous_chunk := draw_chunks[seam_index - 1] as Dictionary
-	var chunk := draw_chunks[seam_index] as Dictionary
-	if (
-		str(chunk.get("seam_kind", "")) != "cross_asset_forward"
-		or str(previous_chunk.get("asset_key", ""))
-			!= str(seam.get("previous_asset_key", ""))
-		or str(chunk.get("asset_key", "")) != str(seam.get("asset_key", ""))
-	):
-		return {"ready": false, "reason": "chunk_identity"}
+	var identity := _find_different_art_frame_chunk(draw_chunks, tiles, seam)
+	if not bool(identity.get("ready", false)):
+		return {
+			"ready": false,
+			"reason": "chunk_identity",
+			"identity": identity,
+		}
+	var chunk := identity.get("chunk", {}) as Dictionary
 	var body_rect: Rect2 = chunk.get("rect", Rect2())
 	var entry_rect: Rect2 = chunk.get("seam_entry_rect", Rect2())
+	var body_source_rect: Rect2 = chunk.get("normalized_source_rect", Rect2())
+	var entry_source_rect: Rect2 = chunk.get("seam_entry_source_rect", Rect2())
 	var tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
 	var map_scale := tile_rect.size.x / 692.0
-	if not body_rect.has_area() or not entry_rect.has_area() or map_scale <= 0.0:
+	if (
+		not body_rect.has_area()
+		or not entry_rect.has_area()
+		or not body_source_rect.has_area()
+		or not entry_source_rect.has_area()
+		or map_scale <= 0.0
+	):
 		return {"ready": false, "reason": "chunk_geometry"}
 	var native_entry_span := entry_rect.size.y / map_scale
+	var native_forward_dissolve := float(
+		chunk.get("forward_dissolve_world_px", NAN)
+	) / map_scale
+	var native_body_source_phase := float(
+		chunk.get("body_source_phase_world_px", NAN)
+	) / map_scale
+	var expected_source_phase := (
+		BAND_SEAM_EXPECTED_FORWARD_DISSOLVE_WORLD_PX
+		/ BAND_SEAM_RAW_BUTT_SOURCE_SIZE.y
+	)
 	if not is_equal_approx(
 		native_entry_span,
+		BAND_SEAM_EXPECTED_FORWARD_DISSOLVE_WORLD_PX
+	) or not is_equal_approx(
+		native_forward_dissolve,
+		BAND_SEAM_EXPECTED_FORWARD_DISSOLVE_WORLD_PX
+	) or not is_equal_approx(
+		native_body_source_phase,
 		BAND_SEAM_EXPECTED_FORWARD_DISSOLVE_WORLD_PX
 	):
 		return {
 			"ready": false,
-			"reason": "native_entry_span",
-			"actual": native_entry_span,
+			"reason": "native_forward_geometry",
+			"entry_span": native_entry_span,
+			"forward_dissolve": native_forward_dissolve,
+			"body_source_phase": native_body_source_phase,
+		}
+	if (
+		not is_equal_approx(entry_rect.end.y, body_rect.position.y)
+		or absf(entry_source_rect.position.y)
+			> BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON
+		or absf(entry_source_rect.end.y - expected_source_phase)
+			> BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON
+		or absf(body_source_rect.position.y - expected_source_phase)
+			> BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON
+		or absf(entry_source_rect.end.y - body_source_rect.position.y)
+			> BAND_SEAM_FORWARD_SOURCE_PHASE_EPSILON
+		or chunk.has("reflected_tail_world_px")
+		or chunk.has("seam_tail_rect")
+		or chunk.has("seam_tail_source_rect")
+	):
+		return {
+			"ready": false,
+			"reason": "forward_source_c0",
+			"entry_world_end": entry_rect.end.y,
+			"body_world_start": body_rect.position.y,
+			"entry_source": entry_source_rect,
+			"body_source": body_source_rect,
+			"expected_source_phase": expected_source_phase,
 		}
 	var camera: Dictionary = frame_model.get("camera", {})
 	var projected_entry := _project_snapped_scroll_rect(renderer, camera, entry_rect)
@@ -2480,11 +4529,174 @@ func _resolve_different_art_frame_projection(
 		}
 	return {
 		"ready": true,
+		"chunk_index": int(identity.get("chunk_index", -1)),
 		"phase_start_row": int(round(projected_entry.position.y)),
 		"entry_body_row": int(round(projected_body.position.y)),
 		"snapped_entry_span_px": projected_entry.size.y,
 		"native_entry_span": native_entry_span,
+		"expected_body_source_phase_normalized": expected_source_phase,
 	}
+
+
+func _find_different_art_frame_chunk(
+	draw_chunks: Array,
+	tiles: Array,
+	seam: Dictionary
+) -> Dictionary:
+	if draw_chunks.is_empty() or tiles.is_empty():
+		return {"ready": false, "reason": "empty_model"}
+	var tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
+	var map_scale := tile_rect.size.x / BAND_SEAM_RAW_BUTT_SOURCE_SIZE.x
+	if map_scale <= 0.0:
+		return {"ready": false, "reason": "map_scale"}
+	var expected_asset_key := str(seam.get("asset_key", ""))
+	var expected_previous_asset_key := str(seam.get("previous_asset_key", ""))
+	var expected_floor := int(seam.get("floor", -1))
+	var expected_body_native_size: Vector2 = seam.get("body_native_size", Vector2())
+	var expected_entry_native_size: Vector2 = seam.get("entry_native_size", Vector2())
+	if (
+		expected_asset_key.is_empty()
+		or expected_previous_asset_key.is_empty()
+		or expected_floor < 0
+		or not expected_body_native_size.is_finite()
+		or not expected_entry_native_size.is_finite()
+		or expected_body_native_size.x <= 0.0
+		or expected_body_native_size.y <= 0.0
+		or expected_entry_native_size.x <= 0.0
+		or expected_entry_native_size.y <= 0.0
+	):
+		return {"ready": false, "reason": "expected_identity"}
+	var candidates: Array[Dictionary] = []
+	var asset_key_match_count := 0
+	var structural_match_count := 0
+	var chunk_ledger: Array[String] = []
+	for chunk_index in range(draw_chunks.size()):
+		var chunk := draw_chunks[chunk_index] as Dictionary
+		var asset_key := str(chunk.get("asset_key", ""))
+		chunk_ledger.append(
+			"%d:%d:%s:%s"
+				% [
+					chunk_index,
+					int(chunk.get("floor", -1)),
+					str(chunk.get("seam_kind", "")),
+					asset_key,
+				]
+		)
+		if asset_key != expected_asset_key:
+			continue
+		asset_key_match_count += 1
+		if (
+			str(chunk.get("seam_kind", "")) != "cross_asset_forward"
+			or int(chunk.get("floor", -1)) != expected_floor
+			or chunk_index <= 0
+			or str((draw_chunks[chunk_index - 1] as Dictionary).get("asset_key", ""))
+				!= expected_previous_asset_key
+		):
+			continue
+		structural_match_count += 1
+		var body_rect: Rect2 = chunk.get("rect", Rect2())
+		var entry_rect: Rect2 = chunk.get("seam_entry_rect", Rect2())
+		if not body_rect.has_area() or not entry_rect.has_area():
+			continue
+		var body_native_size := body_rect.size / map_scale
+		var entry_native_size := entry_rect.size / map_scale
+		if (
+			not _band_seam_vector2_is_equal_approx(
+				body_native_size,
+				expected_body_native_size
+			)
+			or not _band_seam_vector2_is_equal_approx(
+				entry_native_size,
+				expected_entry_native_size
+			)
+			or not is_equal_approx(entry_rect.position.x, body_rect.position.x)
+			or not is_equal_approx(entry_rect.size.x, body_rect.size.x)
+			or not is_equal_approx(entry_rect.end.y, body_rect.position.y)
+		):
+			continue
+		candidates.append({
+			"chunk_index": chunk_index,
+			"chunk": chunk,
+		})
+	if candidates.size() != 1:
+		return {
+			"ready": false,
+			"reason": "unique_stable_match",
+			"candidate_count": candidates.size(),
+			"asset_key_match_count": asset_key_match_count,
+			"structural_match_count": structural_match_count,
+			"expected_asset_key": expected_asset_key,
+			"expected_previous_asset_key": expected_previous_asset_key,
+			"expected_floor": expected_floor,
+			"expected_body_native_size": expected_body_native_size,
+			"expected_entry_native_size": expected_entry_native_size,
+			"chunk_ledger": chunk_ledger,
+		}
+	var selected := candidates[0]
+	return {
+		"ready": true,
+		"chunk_index": int(selected.get("chunk_index", -1)),
+		"chunk": selected.get("chunk", {}),
+		"asset_key_match_count": asset_key_match_count,
+		"structural_match_count": structural_match_count,
+	}
+
+
+func _probe_different_art_chunk_identity_counterproof(
+	draw_chunks: Array,
+	tiles: Array,
+	seams: Array
+) -> Dictionary:
+	if seams.is_empty():
+		return {"ready": false, "reason": "seams"}
+	var seam := seams[-1] as Dictionary
+	var full_match := _find_different_art_frame_chunk(draw_chunks, tiles, seam)
+	if not bool(full_match.get("ready", false)):
+		return {"ready": false, "reason": "full_match", "match": full_match}
+	var source_index := int(full_match.get("chunk_index", -1))
+	if source_index < 2:
+		return {"ready": false, "reason": "source_index", "index": source_index}
+	var prefix_removed := source_index - 1
+	var shifted_chunks: Array = []
+	for chunk_index in range(prefix_removed, mini(draw_chunks.size(), source_index + 2)):
+		shifted_chunks.append(draw_chunks[chunk_index])
+	var shifted_match := _find_different_art_frame_chunk(shifted_chunks, tiles, seam)
+	var wrong_asset_seam := seam.duplicate(true)
+	wrong_asset_seam["asset_key"] = "%s__wrong" % str(seam.get("asset_key", ""))
+	var wrong_asset_match := _find_different_art_frame_chunk(
+		draw_chunks,
+		tiles,
+		wrong_asset_seam
+	)
+	var wrong_geometry_seam := seam.duplicate(true)
+	wrong_geometry_seam["body_native_size"] = (
+		(seam.get("body_native_size", Vector2()) as Vector2) + Vector2(0.0, 1.0)
+	)
+	var wrong_geometry_match := _find_different_art_frame_chunk(
+		draw_chunks,
+		tiles,
+		wrong_geometry_seam
+	)
+	var ready := (
+		bool(shifted_match.get("ready", false))
+		and int(shifted_match.get("chunk_index", -1)) == 1
+		and not bool(wrong_asset_match.get("ready", false))
+		and not bool(wrong_geometry_match.get("ready", false))
+	)
+	return {
+		"ready": ready,
+		"source_index": source_index,
+		"shifted_index": int(shifted_match.get("chunk_index", -1)),
+		"prefix_removed": prefix_removed,
+		"repeated_asset_candidates": int(full_match.get("asset_key_match_count", 0)),
+		"wrong_asset_rejected": not bool(wrong_asset_match.get("ready", false)),
+		"wrong_geometry_rejected": not bool(wrong_geometry_match.get("ready", false)),
+		"shifted_match": shifted_match,
+	}
+
+
+func _band_seam_vector2_is_equal_approx(first: Vector2, second: Vector2) -> bool:
+	return is_equal_approx(first.x, second.x) and is_equal_approx(first.y, second.y)
 
 
 func _project_snapped_scroll_rect(
@@ -2510,7 +4722,10 @@ func _capture_live_seam_motion(
 	fixture: Dictionary,
 	renderer: Object,
 	river_seam: Dictionary,
-	output_dir: String
+	output_dir: String,
+	frame_file_pattern: String,
+	contact_file_name: String,
+	z13c_mist_bake: bool
 ) -> Dictionary:
 	var flow: Object = fixture.get("flow", null)
 	var canvas := fixture.get("canvas", null) as CanvasItem
@@ -2537,13 +4752,33 @@ func _capture_live_seam_motion(
 		initial_model,
 		river_seam
 	)
+	var initial_phase_index := int(flow.call("get_active_graph_phase_index"))
+	var initial_subcover_active := bool(initial_model.get("subcover_active", false))
 	var seam_world_y := float(initial_projection.get("wrap_world_y", NAN))
 	if (
 		not world_rect.has_area()
 		or not bool(initial_projection.get("ready", false))
 		or is_nan(seam_world_y)
+		or initial_phase_index != 0
+		or initial_subcover_active
 	):
-		return {"ready": false, "reason": "world_geometry"}
+		return {
+			"ready": false,
+			"reason": "world_geometry_or_phase",
+			"projection": initial_projection,
+			"phase_index": initial_phase_index,
+			"subcover_active": initial_subcover_active,
+		}
+	print(
+		"[TowerMapBandLiveMotionCoverageQA] structural_seam=%02d frame_chunk=%02d phase_index=%d subcover=%s target_zoom=%.2f production_canvas=true"
+			% [
+				int(river_seam.get("index", -1)),
+				int(initial_projection.get("chunk_index", -1)),
+				initial_phase_index,
+				str(initial_subcover_active),
+				BAND_SEAM_FOLD_COMPARISON_ZOOM,
+			]
+	)
 	var focus_world_x := world_rect.get_center().x
 	var target_zoom := BAND_SEAM_FOLD_COMPARISON_ZOOM
 	var frames: Array[Image] = []
@@ -2575,14 +4810,39 @@ func _capture_live_seam_motion(
 		var camera: Dictionary = frame_model.get("camera", {})
 		var actual_zoom := float(camera.get("render_zoom_multiplier", -1.0))
 		var actual_offset: Vector2 = camera.get("offset", Vector2(INF, INF))
-		if not is_equal_approx(actual_zoom, target_zoom) or not actual_offset.is_finite():
+		var actual_phase_index := int(flow.call("get_active_graph_phase_index"))
+		var actual_subcover_active := bool(frame_model.get("subcover_active", false))
+		if (
+			not is_equal_approx(actual_zoom, target_zoom)
+			or not actual_offset.is_finite()
+			or actual_phase_index != 0
+			or actual_subcover_active
+		):
 			return {
 				"ready": false,
-				"reason": "camera",
+				"reason": "camera_or_phase",
 				"frame": frame_index,
 				"zoom": actual_zoom,
 				"offset": actual_offset,
+				"requested_offset": requested_offset,
+				"phase_index": actual_phase_index,
+				"subcover_active": actual_subcover_active,
 			}
+		print(
+			"[TowerMapBandLiveMotionCameraQA] frame=%d phase_index=%d subcover=%s requested_offset=%s actual_offset=%s clamp_x=%.3f..%.3f clamp_y=%.3f..%.3f visible_world=%s"
+				% [
+					frame_index,
+					actual_phase_index,
+					str(actual_subcover_active),
+					str(requested_offset),
+					str(actual_offset),
+					float(camera.get("minimum_offset_x", NAN)),
+					float(camera.get("maximum_offset_x", NAN)),
+					float(camera.get("minimum_offset_y", NAN)),
+					float(camera.get("maximum_offset_y", NAN)),
+					str(camera.get("visible_world_rect", Rect2())),
+				]
+		)
 		var actual_camera_projected_y := seam_world_y * actual_zoom + actual_offset.y
 		var camera_raster_phase := fposmod(actual_camera_projected_y, 1.0)
 		var frame_projection := _resolve_same_art_frame_projection(
@@ -2664,7 +4924,7 @@ func _capture_live_seam_motion(
 		)
 		if not _save(
 			frame,
-			output_dir.path_join(BAND_SEAM_LIVE_FRAME_PATTERN % frame_index)
+			output_dir.path_join(frame_file_pattern % frame_index)
 		):
 			return {"ready": false, "reason": "frame_save", "frame": frame_index}
 		frames.append(frame)
@@ -2705,7 +4965,7 @@ func _capture_live_seam_motion(
 	if not _save_live_motion_contact_sheet(
 		frames,
 		seam_rows,
-		output_dir.path_join(BAND_SEAM_LIVE_CONTACT_NAME)
+		output_dir.path_join(contact_file_name)
 	):
 		return {"ready": false, "reason": "contact_save"}
 	var projected_step_px := PackedFloat32Array()
@@ -2841,7 +5101,7 @@ func _capture_live_seam_motion(
 		"framebuffer_mirror_excess_p95": framebuffer_mirror_excess_p95,
 	}
 	print(
-		"[TowerMapBandProjectedSeamVulkanGate] frames=%d metric=raw_abs_row_mean_luma values=%s worst=%.4f reflected_A=%.4f epsilon=%.4f range=%.4f gutter_total_px=%d gutter_maximum_px=%d mirror_mean=%.4f mirror_control_mean=%.4f mirror_excess_mean=%.4f mirror_excess_p95=%.4f changed_ratio=%s aligned_crop_rgb_mae=%s"
+		"[TowerMapBandProjectedSeamVulkanGate] frames=%d metric=raw_abs_row_mean_luma values=%s worst=%.4f reflected_A=%.4f epsilon=%.4f range=%.4f raw_jump_gate_active=%s gutter_total_px=%d gutter_maximum_px=%d mirror_mean=%.4f mirror_control_mean=%.4f mirror_excess_mean=%.4f mirror_excess_p95=%.4f changed_ratio=%s aligned_crop_rgb_mae=%s"
 			% [
 				frames.size(),
 				str(raw_row_mean_jump),
@@ -2849,6 +5109,7 @@ func _capture_live_seam_motion(
 				BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_JUMP,
 				BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_EPSILON,
 				raw_row_mean_jump_range,
+				str(not z13c_mist_bake),
 				framebuffer_gutter_total_px,
 				framebuffer_gutter_maximum_px,
 				framebuffer_mirror_mean,
@@ -2859,14 +5120,17 @@ func _capture_live_seam_motion(
 				str(aligned_crop_rgb_mae),
 			]
 	)
-	if (
+	if not z13c_mist_bake and (
 		worst_raw_row_mean_jump
 		> BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_JUMP
 			+ BAND_SEAM_REFLECTED_A_RAW_ROW_MEAN_EPSILON
 	):
 		result["reason"] = "raw_discontinuity_exceeds_reflected_A"
 		return result
-	if raw_row_mean_jump_range > BAND_SEAM_LIVE_MAX_RAW_JUMP_RANGE:
+	if (
+		not z13c_mist_bake
+		and raw_row_mean_jump_range > BAND_SEAM_LIVE_MAX_RAW_JUMP_RANGE
+	):
 		result["reason"] = "raw_discontinuity_unstable_across_motion"
 		return result
 	if framebuffer_gutter_maximum_px != 0:
@@ -2882,6 +5146,112 @@ func _capture_live_seam_motion(
 	return result
 
 
+func _find_same_art_frame_chunk(
+	draw_chunks: Array,
+	tiles: Array,
+	seam: Dictionary
+) -> Dictionary:
+	if draw_chunks.is_empty() or tiles.is_empty():
+		return {"ready": false, "reason": "empty_model"}
+	var tile_rect: Rect2 = (tiles[0] as Dictionary).get("rect", Rect2())
+	var map_scale := tile_rect.size.x / BAND_SEAM_RAW_BUTT_SOURCE_SIZE.x
+	if map_scale <= 0.0:
+		return {"ready": false, "reason": "map_scale"}
+	var expected_asset_key := str(seam.get("asset_key", ""))
+	var expected_floor := int(seam.get("floor", -1))
+	var expected_body_native_size: Vector2 = seam.get(
+		"body_native_size",
+		Vector2()
+	)
+	var expected_body_source_phase_world_px := float(
+		seam.get("body_source_phase_world_px", NAN)
+	)
+	if (
+		expected_asset_key.is_empty()
+		or expected_floor < 0
+		or not expected_body_native_size.is_finite()
+		or expected_body_native_size.x <= 0.0
+		or expected_body_native_size.y <= 0.0
+		or is_nan(expected_body_source_phase_world_px)
+	):
+		return {"ready": false, "reason": "expected_identity"}
+	var candidates: Array[Dictionary] = []
+	var asset_key_match_count := 0
+	var structural_match_count := 0
+	var chunk_ledger: Array[String] = []
+	for chunk_index in range(draw_chunks.size()):
+		var chunk := draw_chunks[chunk_index] as Dictionary
+		var asset_key := str(chunk.get("asset_key", ""))
+		chunk_ledger.append(
+			"%d:%d:%s:%s"
+				% [
+					chunk_index,
+					int(chunk.get("floor", -1)),
+					str(chunk.get("seam_kind", "")),
+					asset_key,
+				]
+		)
+		if asset_key != expected_asset_key:
+			continue
+		asset_key_match_count += 1
+		if (
+			str(chunk.get("seam_kind", "")) != "same_asset_butt"
+			or int(chunk.get("floor", -1)) != expected_floor
+			or chunk_index <= 0
+			or str((draw_chunks[chunk_index - 1] as Dictionary).get("asset_key", ""))
+				!= expected_asset_key
+		):
+			continue
+		structural_match_count += 1
+		var body_rect: Rect2 = chunk.get("paper_rect", chunk.get("rect", Rect2()))
+		var body_native_size := body_rect.size / map_scale
+		var body_source_phase_world_px := (
+			float(chunk.get("body_source_phase_world_px", NAN)) / map_scale
+		)
+		if (
+			not body_rect.has_area()
+			or not _band_seam_vector2_is_equal_approx(
+				body_native_size,
+				expected_body_native_size
+			)
+			or is_nan(body_source_phase_world_px)
+			or not is_equal_approx(
+				body_source_phase_world_px,
+				expected_body_source_phase_world_px
+			)
+		):
+			continue
+		candidates.append({
+			"chunk_index": chunk_index,
+			"chunk": chunk,
+			"previous_chunk": draw_chunks[chunk_index - 1],
+		})
+	if candidates.size() != 1:
+		return {
+			"ready": false,
+			"reason": "unique_stable_match",
+			"candidate_count": candidates.size(),
+			"asset_key_match_count": asset_key_match_count,
+			"structural_match_count": structural_match_count,
+			"expected_asset_key": expected_asset_key,
+			"expected_floor": expected_floor,
+			"expected_body_native_size": expected_body_native_size,
+			"expected_body_source_phase_world_px": (
+				expected_body_source_phase_world_px
+			),
+			"chunk_ledger": chunk_ledger,
+		}
+	var selected := candidates[0]
+	return {
+		"ready": true,
+		"chunk_index": int(selected.get("chunk_index", -1)),
+		"chunk": selected.get("chunk", {}),
+		"previous_chunk": selected.get("previous_chunk", {}),
+		"asset_key_match_count": asset_key_match_count,
+		"structural_match_count": structural_match_count,
+	}
+
+
 func _resolve_same_art_frame_projection(
 	renderer: Object,
 	frame_model: Dictionary,
@@ -2889,18 +5259,16 @@ func _resolve_same_art_frame_projection(
 ) -> Dictionary:
 	var background: Dictionary = frame_model.get("scroll_background", {})
 	var draw_chunks: Array = background.get("draw_chunks", [])
-	var seam_index := int(seam.get("index", -1))
-	if seam_index <= 0 or seam_index >= draw_chunks.size():
-		return {"ready": false, "reason": "chunk_index"}
-	var previous_chunk := draw_chunks[seam_index - 1] as Dictionary
-	var chunk := draw_chunks[seam_index] as Dictionary
-	var expected_asset_key := str(seam.get("asset_key", ""))
-	if (
-		str(chunk.get("seam_kind", "")) != "same_asset_butt"
-		or str(previous_chunk.get("asset_key", "")) != expected_asset_key
-		or str(chunk.get("asset_key", "")) != expected_asset_key
-	):
-		return {"ready": false, "reason": "chunk_identity"}
+	var tiles: Array = background.get("tiles", [])
+	var identity := _find_same_art_frame_chunk(draw_chunks, tiles, seam)
+	if not bool(identity.get("ready", false)):
+		return {
+			"ready": false,
+			"reason": "chunk_identity",
+			"identity": identity,
+		}
+	var previous_chunk := identity.get("previous_chunk", {}) as Dictionary
+	var chunk := identity.get("chunk", {}) as Dictionary
 	var previous_body_rect: Rect2 = previous_chunk.get("rect", Rect2())
 	var previous_source_rect: Rect2 = previous_chunk.get(
 		"normalized_source_rect",
@@ -2963,6 +5331,7 @@ func _resolve_same_art_frame_projection(
 	var seam_row := int(ceil(boundary_y - 0.5))
 	return {
 		"ready": true,
+		"chunk_index": int(identity.get("chunk_index", -1)),
 		"wrap_world_y": wrap_world_y,
 		"boundary_y": boundary_y,
 		"seam_row": seam_row,
@@ -3049,6 +5418,8 @@ func _measure_projected_seam_frame(
 	var sample_count := sample_end_x - sample_start_x
 	if sample_count <= 0:
 		return {"ready": false, "reason": "sample_count"}
+	var above_luma_mean := above_luma_total / float(sample_count)
+	var below_luma_mean := below_luma_total / float(sample_count)
 	var sample_rect := Rect2i(
 		sample_start_x,
 		crop_start_y,
@@ -3060,10 +5431,10 @@ func _measure_projected_seam_frame(
 		"seam_row": seam_row,
 		"sample_rect": sample_rect,
 		"crop": frame.get_region(sample_rect),
-		"raw_row_mean_jump": absf(
-			below_luma_total / float(sample_count)
-				- above_luma_total / float(sample_count)
-		),
+		"above_luma_mean": above_luma_mean,
+		"below_luma_mean": below_luma_mean,
+		"raw_row_mean_delta": below_luma_mean - above_luma_mean,
+		"raw_row_mean_jump": absf(below_luma_mean - above_luma_mean),
 		"raw_mean_abs_luma_jump": absolute_luma_total / float(sample_count),
 		"raw_p95_abs_luma_jump": _percentile_float_values(
 			absolute_luma_values,
@@ -3497,7 +5868,68 @@ func _save_candidate_live_compare(
 	return comparison.save_png(output_path) == OK
 
 
-func _dispose_fixture(fixture: Dictionary) -> void:
+func _normalized_absolute_path(path: String) -> String:
+	var normalized := path.strip_edges()
+	if normalized.is_empty():
+		return ""
+	return (
+		ProjectSettings.globalize_path(normalized)
+			.simplify_path()
+			.replace("\\", "/")
+			.trim_suffix("/")
+	)
+
+
+func _path_is_strictly_inside(path: String, root: String) -> bool:
+	if (
+		path.is_empty()
+		or root.is_empty()
+		or not path.is_absolute_path()
+		or not root.is_absolute_path()
+	):
+		return false
+	var folded_path := path.to_lower()
+	var folded_root := root.to_lower().trim_suffix("/")
+	return (
+		folded_path != folded_root
+		and folded_path.begins_with(folded_root + "/")
+	)
+
+
+func _remove_scoped_fixture_record(fixture: Dictionary) -> Dictionary:
+	if not bool(fixture.get("cleanup_record_on_dispose", false)):
+		return {"ready": true, "removed": false, "cleanup": false}
+	var record_path := _normalized_absolute_path(str(fixture.get("record_path", "")))
+	var cleanup_root := _normalized_absolute_path(
+		str(fixture.get("record_cleanup_root", ""))
+	)
+	if not _path_is_strictly_inside(record_path, cleanup_root):
+		return {
+			"ready": false,
+			"reason": "record_scope_escape",
+			"record_path": record_path,
+			"cleanup_root": cleanup_root,
+		}
+	var existed := FileAccess.file_exists(record_path)
+	if existed:
+		var remove_error := DirAccess.remove_absolute(record_path)
+		if remove_error != OK:
+			return {
+				"ready": false,
+				"reason": "record_remove_error",
+				"error": remove_error,
+				"record_path": record_path,
+			}
+	if FileAccess.file_exists(record_path):
+		return {
+			"ready": false,
+			"reason": "record_survived_remove",
+			"record_path": record_path,
+		}
+	return {"ready": true, "removed": existed, "cleanup": true}
+
+
+func _dispose_fixture(fixture: Dictionary) -> bool:
 	var flow: Object = fixture.get("flow", null)
 	if flow != null and flow.has_method("is_map_overlay_active") and flow.is_map_overlay_active():
 		flow.close_map_overlay()
@@ -3507,8 +5939,15 @@ func _dispose_fixture(fixture: Dictionary) -> void:
 	if viewport != null:
 		get_root().remove_child(viewport)
 		viewport.free()
+	var cleanup_probe := _remove_scoped_fixture_record(fixture)
+	if not bool(cleanup_probe.get("ready", false)):
+		_fail("Fixture record cleanup failed: %s" % str(cleanup_probe))
+		await process_frame
+		await process_frame
+		return false
 	await process_frame
 	await process_frame
+	return true
 
 
 func _fail(message: String) -> void:
