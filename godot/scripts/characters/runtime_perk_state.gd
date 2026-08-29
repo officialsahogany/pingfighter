@@ -50,6 +50,7 @@ const RuntimePerkModalInput := preload("res://scripts/characters/runtime_perk_mo
 const RuntimePerkDynamicEffects := preload("res://scripts/characters/runtime_perk_dynamic_effects.gd")
 const RuntimePerkDisplayProjectionState := preload("res://scripts/characters/runtime_perk_display_projection_state.gd")
 const RuntimePerkFusionRuntimeState := preload("res://scripts/characters/runtime_perk_fusion_runtime_state.gd")
+const RuntimePerkTowerRewardMutations := preload("res://scripts/characters/runtime_perk_tower_reward_mutations.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 const RuntimePerkMysticDiceRuntimeState := preload("res://scripts/characters/runtime_perk_mystic_dice_runtime_state.gd")
@@ -120,6 +121,7 @@ var item_perk_level_bonus := 0
 var viper_ignition_aura_active := false
 var viper_ignition_aura_owner_sync_dirty := false
 var tower_spring_prayer_count := 0
+var tower_bag_expansion_count := 0
 var pending_unlock_swap: Dictionary = {}
 var unlock_swap_selected_index := 0
 var choice_flight_effect: Dictionary = {}
@@ -248,6 +250,7 @@ var _modal_input: Object = RuntimePerkModalInput.new()
 var _dynamic_effects: Object = RuntimePerkDynamicEffects.new()
 var _display_projection_state: Object = RuntimePerkDisplayProjectionState.new()
 var _fusion_runtime_state: Object = RuntimePerkFusionRuntimeState.new()
+var _tower_reward_mutations: Object = RuntimePerkTowerRewardMutations.new()
 var _mystic_dice_runtime_state: Object = RuntimePerkMysticDiceRuntimeState.new()
 var _physique_training_runtime_state: Object = RuntimePerkPhysiqueTrainingRuntimeState.new()
 var _physique_training_catalog: Object:
@@ -306,6 +309,59 @@ func apply_perk_fusion_option_value(perk_id: String, option_key: String, base_va
 
 func get_perk_fusion_snapshot() -> Dictionary:
 	return _fusion_runtime_state.get_snapshot()
+
+
+func build_tower_reward_mutation_snapshot() -> Dictionary:
+	return _tower_reward_mutations.build_mutation_snapshot(self)
+
+
+func restore_tower_reward_mutation_snapshot(
+	snapshot: Dictionary,
+	owner: Object = null,
+	registry: Object = null,
+	catalog: Object = null
+) -> Dictionary:
+	return _tower_reward_mutations.restore_mutation_snapshot_from_runtime_state(
+		self,
+		snapshot,
+		owner,
+		registry,
+		catalog
+	)
+
+
+func build_tower_reward_mugong_replacement_plan(
+	target_token: Dictionary,
+	new_choice: Dictionary,
+	catalog: Object = null,
+	slot_context: Object = null
+) -> Dictionary:
+	return _tower_reward_mutations.build_replacement_plan_from_runtime_state(
+		self,
+		target_token,
+		new_choice,
+		catalog,
+		slot_context
+	)
+
+
+func apply_tower_reward_mugong_replacement(
+	target_token: Dictionary,
+	new_choice: Dictionary,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null,
+	apply_choice_override: Callable = Callable()
+) -> Dictionary:
+	return _tower_reward_mutations.apply_replacement_from_runtime_state(
+		self,
+		target_token,
+		new_choice,
+		owner,
+		registry,
+		catalog,
+		apply_choice_override
+	)
 
 
 func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
@@ -1489,9 +1545,10 @@ func build_unlock_save_snapshot() -> Dictionary:
 	# persisted snapshot for an inline owner sync payload.
 	var saved_levels: Dictionary = PerkConversionValues.sanitize_runtime_levels(runtime_skill_levels)
 	return {
-		"version": 2,
+		"version": 3,
 		"runtime_skill_levels": saved_levels,
 		"physique_training": get_physique_training_snapshot(),
+		"tower_bag_expansion_count": get_tower_bag_expansion_count(),
 	}
 
 
@@ -1501,6 +1558,10 @@ func apply_unlock_save_snapshot(snapshot: Dictionary, owner: Object = null, regi
 	var saved_levels := (snapshot.get("runtime_skill_levels", {}) as Dictionary).duplicate(true)
 	var retired_entry_count := PerkConversionValues.count_retired_runtime_level_entries(saved_levels)
 	runtime_skill_levels = PerkConversionValues.sanitize_runtime_levels(saved_levels)
+	tower_bag_expansion_count = maxi(
+		0,
+		int(snapshot.get("tower_bag_expansion_count", 0))
+	)
 	var training_snapshot_value: Variant = snapshot.get("physique_training", {})
 	if training_snapshot_value is Dictionary:
 		restore_physique_training_snapshot(training_snapshot_value as Dictionary)
@@ -1513,6 +1574,7 @@ func apply_unlock_save_snapshot(snapshot: Dictionary, owner: Object = null, regi
 	return {
 		"restored": true,
 		"runtime_skill_levels": restored_levels,
+		"tower_bag_expansion_count": get_tower_bag_expansion_count(),
 		"removed_retired_perks": retired_entry_count,
 	}
 
@@ -1847,6 +1909,18 @@ func get_tower_spring_prayer_flat_bonus(base_value: float) -> float:
 		self,
 		base_value
 	)
+
+
+func grant_tower_bag_expansion(amount: int = 1) -> bool:
+	var normalized_amount := maxi(0, amount)
+	if normalized_amount <= 0:
+		return false
+	tower_bag_expansion_count += normalized_amount
+	return true
+
+
+func get_tower_bag_expansion_count() -> int:
+	return maxi(0, tower_bag_expansion_count)
 
 
 func get_dash_recharge_frames(base_frames: float) -> float:

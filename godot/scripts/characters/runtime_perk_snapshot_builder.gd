@@ -24,6 +24,10 @@ func build(state: Object, starpoint_absorption: Object, deferred_instants: Objec
 		"item_gold_gain_multiplier": float(state.get("item_gold_gain_multiplier")),
 		"item_perk_level_bonus": int(state.get("item_perk_level_bonus")),
 		"viper_ignition_aura_active": bool(state.get("viper_ignition_aura_active")),
+		"tower_bag_expansion_count": RuntimePerkRuntimeStateAccess.call_int(
+			state,
+			"get_tower_bag_expansion_count"
+		),
 		"viper_ignition_aura_level_bonus": RuntimePerkRuntimeStateAccess.call_int(state, "get_viper_ignition_aura_level_bonus"),
 		"viper_ignition_aura_gold_bonus": RuntimePerkRuntimeStateAccess.call_int(state, "get_viper_ignition_aura_gold_bonus"),
 		"hyeonmun_charyeok": RuntimePerkRuntimeStateAccess.call_dict(state, "get_hyeonmun_charyeok_snapshot"),

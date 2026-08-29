@@ -6,11 +6,11 @@ const RuntimePerkCatalog := preload(
 const PerkFusionOfferPlanner := preload(
 	"res://scripts/characters/perk_fusion_offer_planner.gd"
 )
-const TowerAscentTrainingOfferBuilder := preload(
-	"res://scripts/tower_ascent/tower_ascent_training_offer_builder.gd"
-)
 const TowerAscentBossRewardCatalog := preload(
 	"res://scripts/tower_ascent/tower_ascent_boss_reward_catalog.gd"
+)
+const TowerAscentPerkCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
 )
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
@@ -22,31 +22,37 @@ const TowerRewardPickLocalization := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_localization.gd"
 )
 
-const OFFER_VERSION := "tower_reward_pick_v2"
+const OFFER_VERSION := "tower_reward_pick_v3"
 const CARD_COUNT := 4
+const BAG_EXPANSION_CHOICE_ID := "tower_bag_expansion"
+const REFRESH_CHOICE_ID := "common_refresh"
 const TEMP_MUGONG_COST := 2
 const TEMP_CHOSIK_COST := 3
 const TEMP_DASH_AMPLIFICATION_COST := 3
 const TEMP_FUSION_COST := 3
 const TEMP_VISION_COST := 3
 const TEMP_SUPREME_COST := 5
+const TEMP_BAG_EXPANSION_COST := 2
+const TEMP_REFRESH_COST := 1
 const TEMP_VISION_DROP_CHANCE := 0.20
 const TEMP_REWARD_CHOSIK_CHANCE := 0.25
+const TEMP_REFRESH_CHANCE := 0.15
 const TEMP_SUPREME_BASE_CHANCE := 0.05
 const TEMP_SUPREME_FLOOR_BONUS_PER_FLOOR := 0.005
 const TEMP_SUPREME_ELITE_BONUS := 0.03
 const TEMP_SUPREME_ENRAGED_BONUS := 0.05
 const TEMP_SUPREME_GATEKEEPER_BONUS := 0.04
 
-var _training_builder: Object = TowerAscentTrainingOfferBuilder.new()
 var _character_context: Object = RuntimePerkCharacterContext.new()
+var _perk_candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
 
 
 func build_offer(
 	context: Dictionary,
 	owner: Object,
 	registry: Object,
-	roll_overrides: Dictionary = {}
+	roll_overrides: Dictionary = {},
+	reroll_counter: int = 0
 ) -> Dictionary:
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
 	var catalog := _get_registry_instance(registry, "runtime_perk_catalog")
@@ -56,9 +62,14 @@ func build_offer(
 	var boss_slot_id := str(context.get("boss_slot_id", "")).strip_edges()
 	if resolution_id.is_empty() or boss_slot_id.is_empty():
 		return {"accepted": false, "reason": "missing_reward_pick_context"}
+	var offer_generation := maxi(0, reroll_counter)
 	var runtime_levels := _runtime_levels(runtime_state)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = absi(hash("%s:%s:%s" % [resolution_id, boss_slot_id, OFFER_VERSION]))
+	var seed_key := "%s:%s:%d:%s" % [
+		resolution_id,
+		boss_slot_id,
+		offer_generation,
+		OFFER_VERSION,
+	]
 	var choices: Array[Dictionary] = []
 	var seen: Dictionary = {}
 
@@ -75,7 +86,7 @@ func build_offer(
 		vision_roll = (
 			float(roll_overrides.get("vision", 1.0))
 			if roll_overrides.has("vision")
-			else rng.randf()
+			else _rng_for(seed_key, "vision_roll").randf()
 		)
 	if vision_roll_performed and vision_roll < TEMP_VISION_DROP_CHANCE:
 		_append_choice(choices, seen, vision_choice, TEMP_VISION_COST, "vision")
@@ -84,57 +95,81 @@ func build_offer(
 	var supreme_roll := (
 		float(roll_overrides.get("supreme", 1.0))
 		if roll_overrides.has("supreme")
-		else rng.randf()
+		else _rng_for(seed_key, "supreme_roll").randf()
 	)
 	var supreme_rolled := choices.size() < CARD_COUNT
 	if supreme_rolled and supreme_roll < supreme_chance:
-		var supreme := _build_supreme_choice(owner, registry, runtime_levels, catalog, rng)
+		var supreme := _build_supreme_choice(
+			owner,
+			registry,
+			runtime_levels,
+			catalog,
+			_rng_for(seed_key, "supreme_pick")
+		)
 		if not supreme.is_empty():
 			_append_choice(choices, seen, supreme, TEMP_SUPREME_COST, "supreme")
 
-	var basic_pools := _build_basic_pools(context, owner, registry, runtime_state, catalog, rng)
-	var basic_pool: Array[Dictionary] = basic_pools.get("basic", [])
+	var refresh_roll_performed := choices.size() < CARD_COUNT
+	var refresh_roll := 1.0
+	if refresh_roll_performed:
+		refresh_roll = (
+			float(roll_overrides.get("refresh", 1.0))
+			if roll_overrides.has("refresh")
+			else _rng_for(seed_key, "refresh_roll").randf()
+		)
+	if refresh_roll_performed and refresh_roll < TEMP_REFRESH_CHANCE:
+		_append_choice(
+			choices,
+			seen,
+			_build_refresh_choice(catalog),
+			TEMP_REFRESH_COST,
+			"refresh"
+		)
+
+	var basic_pools := _build_basic_pools(
+		owner,
+		registry,
+		runtime_state,
+		catalog,
+		_rng_for(seed_key, "fusion_icon")
+	)
+	var mugong_pool: Array[Dictionary] = basic_pools.get("mugong", [])
 	var chosik_pool: Array[Dictionary] = basic_pools.get("chosik", [])
-	var has_mugong_candidate := false
-	for basic_candidate: Dictionary in basic_pool:
-		if str(basic_candidate.get("reward_pick_kind", "mugong")) == "mugong":
-			has_mugong_candidate = true
-			break
+	var extra_pool: Array[Dictionary] = basic_pools.get("extras", [])
+	var has_mugong_candidate := not mugong_pool.is_empty()
 	var chosik_roll_performed := (
 		not chosik_pool.is_empty()
 		and has_mugong_candidate
 		and choices.size() <= CARD_COUNT - 2
 	)
 	var chosik_roll := 1.0
-	var chosik_appended := false
 	if chosik_roll_performed:
 		chosik_roll = (
 			float(roll_overrides.get("chosik", 1.0))
 			if roll_overrides.has("chosik")
-			else rng.randf()
+			else _rng_for(seed_key, "chosik_roll").randf()
 		)
 	if chosik_roll_performed and chosik_roll < TEMP_REWARD_CHOSIK_CHANCE:
-		_shuffle_with_rng(chosik_pool, rng)
+		_shuffle_with_rng(chosik_pool, _rng_for(seed_key, "chosik_order"))
 		_append_choice(choices, seen, chosik_pool[0], TEMP_CHOSIK_COST, "chosik")
-		chosik_appended = true
-	_shuffle_with_rng(basic_pool, rng)
-	# A Chosik may reserve at most one card and must never erase the ordinary
-	# Mugong route. Pick one shuffled Mugong before the remaining mixed pool.
-	if chosik_appended:
-		for basic_index in range(basic_pool.size()):
-			var required_mugong := basic_pool[basic_index]
-			if str(required_mugong.get("reward_pick_kind", "mugong")) != "mugong":
-				continue
-			_append_choice(
-				choices,
-				seen,
-				required_mugong,
-				resolve_basic_reward_pick_cost(required_mugong),
-				"mugong"
-			)
-			basic_pool.remove_at(basic_index)
-			break
-	for basic in basic_pool:
+	_shuffle_with_rng(mugong_pool, _rng_for(seed_key, "mugong_order"))
+	# Reward-pick upgrades now belong to the in-place owned-Mugong ledger. Keep
+	# one genuinely new Mugong on the board whenever stock exists, regardless of
+	# Chosik or special-card reservations.
+	if not mugong_pool.is_empty() and choices.size() < CARD_COUNT:
+		var required_mugong: Dictionary = mugong_pool.pop_front()
+		_append_choice(
+			choices,
+			seen,
+			required_mugong,
+			resolve_basic_reward_pick_cost(required_mugong),
+			"mugong"
+		)
+	var remainder_pool: Array[Dictionary] = []
+	remainder_pool.append_array(mugong_pool)
+	remainder_pool.append_array(extra_pool)
+	_shuffle_with_rng(remainder_pool, _rng_for(seed_key, "remainder_order"))
+	for basic in remainder_pool:
 		if choices.size() >= CARD_COUNT:
 			break
 		var kind := str(basic.get("reward_pick_kind", "mugong"))
@@ -152,10 +187,12 @@ func build_offer(
 		}
 	for index in range(choices.size()):
 		choices[index]["reward_pick_slot_index"] = index
+		choices[index]["reward_pick_offer_generation"] = offer_generation
 	return {
 		"accepted": true,
 		"reason": "generated",
 		"offer_version": OFFER_VERSION,
+		"offer_generation": offer_generation,
 		"node_resolution_id": resolution_id,
 		"boss_slot_id": boss_slot_id,
 		"vision_unlock_id": (
@@ -172,6 +209,10 @@ func build_offer(
 		"chosik_roll_performed": chosik_roll_performed,
 		"chosik_roll": chosik_roll,
 		"chosik_chance": TEMP_REWARD_CHOSIK_CHANCE,
+		"refresh_roll_performed": refresh_roll_performed,
+		"refresh_roll": refresh_roll,
+		"refresh_chance": TEMP_REFRESH_CHANCE,
+		"refresh_offered": _count_kind(choices, "refresh") > 0,
 		"requested_card_count": CARD_COUNT,
 		"actual_card_count": choices.size(),
 		"card_count_policy": "fixed" if choices.size() == CARD_COUNT else "available_stock",
@@ -181,6 +222,10 @@ func build_offer(
 
 static func resolve_basic_reward_pick_cost(choice: Dictionary) -> int:
 	var kind := str(choice.get("reward_pick_kind", "mugong"))
+	if kind == "refresh":
+		return TEMP_REFRESH_COST
+	if kind == "bag_expansion":
+		return TEMP_BAG_EXPANSION_COST
 	if kind == "fusion":
 		return TEMP_FUSION_COST
 	if kind == "chosik":
@@ -259,13 +304,9 @@ func _build_supreme_choice(
 	catalog: Object,
 	rng: RandomNumberGenerator
 ) -> Dictionary:
-	if not catalog.has_method("has_open_perk_slot") or not bool(catalog.call(
-		"has_open_perk_slot",
-		runtime_levels,
-		registry
-	)):
-		return {}
-	var character_type: String = str(_character_context.get_owner_character_type(owner))
+	var character_type: String = str(
+		_character_context.get_normalized_owner_character_type(owner)
+	)
 	var ids: Array[String] = []
 	for id_value in RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.keys():
 		var perk_id := str(id_value)
@@ -291,35 +332,37 @@ func _build_supreme_choice(
 	choice["next_level"] = 1
 	choice["offer_lane"] = "tower_reward_supreme"
 	choice["offer_protected"] = true
+	choice["reward_pick_mugong_acquisition"] = true
+	choice["reward_pick_replacement_eligible"] = true
 	return choice
 
 
 func _build_basic_pools(
-	context: Dictionary,
 	owner: Object,
 	registry: Object,
 	runtime_state: Object,
 	catalog: Object,
 	rng: RandomNumberGenerator
 ) -> Dictionary:
-	var generated: Dictionary = _training_builder.build_offer(
-		"reward_pick:%s" % str(context.get("node_resolution_id", "")),
-		int(context.get("map_seed", 0)),
+	var all_data: Dictionary = {}
+	if catalog.has_method("get_all_perk_data"):
+		var all_data_value: Variant = catalog.call("get_all_perk_data")
+		if all_data_value is Dictionary:
+			all_data = (all_data_value as Dictionary).duplicate(true)
+	var runtime_levels := _runtime_levels(runtime_state)
+	var mugong_result := _build_mugong_choices(
+		all_data,
 		owner,
 		registry,
-		TowerAscentTrainingOfferBuilder.OFFER_KIND_MIXED_REWARD
+		runtime_levels
 	)
-	var result: Array[Dictionary] = []
-	var chosik_result: Array[Dictionary] = []
-	if bool(generated.get("accepted", false)):
-		for value in generated.get("mugong_choices", []):
-			if value is Dictionary:
-				var mugong := (value as Dictionary).duplicate(true)
-				mugong["reward_pick_kind"] = "mugong"
-				result.append(mugong)
-		for value in generated.get("chosik_choices", []):
-			if value is Dictionary:
-				chosik_result.append((value as Dictionary).duplicate(true))
+	var chosik_result := _build_chosik_choices(
+		all_data,
+		owner,
+		registry,
+		runtime_levels
+	)
+	var extras: Array[Dictionary] = []
 	var fusion_candidates: Array = []
 	if runtime_state.has_method("get_perk_fusion_candidate_ids"):
 		var candidate_value: Variant = runtime_state.call("get_perk_fusion_candidate_ids", catalog)
@@ -335,11 +378,158 @@ func _build_basic_pools(
 			)
 			if not fusion.is_empty():
 				fusion["reward_pick_kind"] = "fusion"
-				result.append(fusion)
+				extras.append(fusion)
+	var bag_expansion := _build_bag_expansion_choice()
+	bag_expansion["reward_pick_kind"] = "bag_expansion"
+	extras.append(bag_expansion)
 	return {
-		"basic": result,
+		"mugong": mugong_result,
 		"chosik": chosik_result,
+		"extras": extras,
 	}
+
+
+func _build_mugong_choices(
+	all_data: Dictionary,
+	owner: Object,
+	registry: Object,
+	runtime_levels: Dictionary
+) -> Array[Dictionary]:
+	var character_type: String = str(
+		_character_context.get_normalized_owner_character_type(owner)
+	)
+	var sorted_ids: Array[String] = []
+	for id_value: Variant in all_data.keys():
+		sorted_ids.append(str(id_value))
+	sorted_ids.sort()
+	var result: Array[Dictionary] = []
+	for perk_id: String in sorted_ids:
+		if int(runtime_levels.get(perk_id, 0)) != 0:
+			continue
+		var data_value: Variant = all_data.get(perk_id, {})
+		if not (data_value is Dictionary):
+			continue
+		var choice := (data_value as Dictionary).duplicate(true)
+		choice["id"] = perk_id
+		if not _is_mugong_choice(choice):
+			continue
+		if not _perk_candidate_policy.is_mugong_candidate(
+			choice,
+			runtime_levels,
+			character_type,
+			registry,
+			false
+		):
+			continue
+		choice["current_level"] = 0
+		choice["next_level"] = 1
+		choice["max_level"] = maxi(1, int(choice.get("max_level", 1)))
+		var descriptions_value: Variant = choice.get("descriptions", {})
+		if descriptions_value is Dictionary:
+			var descriptions := descriptions_value as Dictionary
+			choice["description"] = str(descriptions.get(
+				1,
+				descriptions.get("1", choice.get("description", ""))
+			))
+		choice["offer_lane"] = "tower_reward_mugong"
+		choice["offer_protected"] = false
+		choice["reward_pick_kind"] = "mugong"
+		choice["reward_pick_mugong_acquisition"] = true
+		choice["reward_pick_replacement_eligible"] = true
+		result.append(choice)
+	return result
+
+
+func _build_chosik_choices(
+	all_data: Dictionary,
+	owner: Object,
+	registry: Object,
+	runtime_levels: Dictionary
+) -> Array[Dictionary]:
+	var character_type: String = str(
+		_character_context.get_normalized_owner_character_type(owner)
+	)
+	var skill_config_key: String = str(
+		_character_context.get_skill_config_key(character_type)
+	)
+	var skill_config := _get_registry_instance(registry, skill_config_key)
+	if (
+		skill_config == null
+		or not skill_config.has_method("is_shared_slot_full")
+		or bool(skill_config.call("is_shared_slot_full"))
+	):
+		return []
+	var sorted_ids: Array[String] = []
+	for id_value: Variant in all_data.keys():
+		sorted_ids.append(str(id_value))
+	sorted_ids.sort()
+	var result: Array[Dictionary] = []
+	for perk_id: String in sorted_ids:
+		var data_value: Variant = all_data.get(perk_id, {})
+		if not (data_value is Dictionary):
+			continue
+		var choice := (data_value as Dictionary).duplicate(true)
+		choice["id"] = perk_id
+		if not _perk_candidate_policy.is_chosik_candidate(
+			choice,
+			runtime_levels,
+			character_type,
+			registry,
+			skill_config
+		):
+			continue
+		choice["current_level"] = 0
+		choice["next_level"] = 1
+		result.append(choice)
+	return result
+
+
+func _build_refresh_choice(catalog: Object) -> Dictionary:
+	var choice: Dictionary = {}
+	if catalog != null and catalog.has_method("get_perk_data"):
+		var choice_value: Variant = catalog.call("get_perk_data", REFRESH_CHOICE_ID)
+		if choice_value is Dictionary:
+			choice = (choice_value as Dictionary).duplicate(true)
+	choice["id"] = REFRESH_CHOICE_ID
+	choice["name"] = TowerRewardPickLocalization.text("refresh_name")
+	choice["description"] = TowerRewardPickLocalization.text("refresh_description")
+	choice["detail"] = TowerRewardPickLocalization.text("refresh_detail")
+	choice["current_level"] = 0
+	choice["next_level"] = 0
+	choice["max_level"] = 0
+	choice["tree"] = "instant"
+	choice["is_instant"] = true
+	choice["offer_lane"] = "tower_reward_refresh"
+	choice["offer_protected"] = true
+	return choice
+
+
+func _build_bag_expansion_choice() -> Dictionary:
+	return {
+		"id": BAG_EXPANSION_CHOICE_ID,
+		"name": TowerRewardPickLocalization.text("bag_expansion_name"),
+		"description": TowerRewardPickLocalization.text("bag_expansion_description"),
+		"detail": TowerRewardPickLocalization.text("bag_expansion_detail"),
+		"current_level": 0,
+		"next_level": 0,
+		"max_level": 0,
+		"tree": "instant",
+		"is_instant": true,
+		"offer_lane": "tower_reward_special",
+		"offer_protected": false,
+	}
+
+
+func _is_mugong_choice(choice: Dictionary) -> bool:
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	if choice_id.is_empty() or choice_id == "convert_to_gold":
+		return false
+	if not str(choice.get("unlocks_skill", "")).strip_edges().is_empty():
+		return false
+	for excluded_flag in TowerAscentPerkCandidatePolicy.EXCLUDED_MUGONG_FLAGS:
+		if bool(choice.get(excluded_flag, false)):
+			return false
+	return true
 
 
 func _supreme_chance(context: Dictionary, runtime_state: Object) -> float:
@@ -410,6 +600,12 @@ func _shuffle_with_rng(values: Array[Dictionary], rng: RandomNumberGenerator) ->
 		var held := values[index]
 		values[index] = values[swap_index]
 		values[swap_index] = held
+
+
+func _rng_for(seed_key: String, domain: String) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(hash("%s:%s" % [seed_key, domain]))
+	return rng
 
 
 func _get_registry_instance(registry: Object, key: String) -> Object:

@@ -44,13 +44,17 @@ try {
     })
     $okMarker = "tower_reward_pick_visual_qa: ok"
     $stableSlotMarker = "tower_reward_pick_visual_qa: stable_slot_captures=3"
-    $captureMarker = "tower_reward_pick_visual_qa: captures=10"
+    $legacyCaptureMarker = "tower_reward_pick_visual_qa: legacy_captures=10"
+    $z16CaptureMarker = "tower_reward_pick_visual_qa: z16_captures=5"
+    $captureMarker = "tower_reward_pick_visual_qa: captures=15"
     $chosikHoverMarker = "tower_reward_pick_visual_qa: chosik_hover_target=five_orb_hud mugong_ledger_landing=-1"
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
         -or -not $outputText.Contains($okMarker) `
         -or -not $outputText.Contains($stableSlotMarker) `
+        -or -not $outputText.Contains($legacyCaptureMarker) `
+        -or -not $outputText.Contains($z16CaptureMarker) `
         -or -not $outputText.Contains($captureMarker) `
         -or -not $outputText.Contains($chosikHoverMarker)
     ) {
@@ -61,7 +65,7 @@ try {
         if ($seriousErrors.Count -gt 0) {
             throw "$qaPath emitted a Godot error despite exit code 0"
         }
-        throw "$qaPath did not emit its ten-capture Chosik-hover terminal markers"
+        throw "$qaPath did not emit its ten legacy plus five Z16 capture markers"
     }
     Remove-Item -LiteralPath $logPath -Force
     if (-not (Get-ChildItem -LiteralPath $logDir -Force)) {

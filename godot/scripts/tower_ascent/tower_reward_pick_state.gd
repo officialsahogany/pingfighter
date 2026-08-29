@@ -18,6 +18,9 @@ const RuntimePerkChoiceLayout := preload(
 const TowerCardAbsorptionTargetResolver := preload(
 	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
 )
+const RuntimePerkOverflowDescriptions := preload(
+	"res://scripts/characters/runtime_perk_overflow_descriptions.gd"
+)
 
 const VIEW_SIZE := Vector2(760.0, 750.0)
 const CONTINUE_SIZE := Vector2(220.0, 42.0)
@@ -26,6 +29,11 @@ const TEMP_REWARD_PICK_ABSORB_DURATION_SEC := 0.78
 const TEMP_REWARD_PICK_PANEL_GAP_PX := 32.0
 const DISABLED_REASON_INSUFFICIENT_MUHON := "insufficient_muhon"
 const DISABLED_REASON_PERK_SLOT_LIMIT := "perk_slot_limit"
+const UPGRADE_BASE_COST := 3
+const UPGRADE_COST_STEP := 1
+const MODE_BOARD := "board"
+const MODE_UPGRADE := "upgrade"
+const MODE_MUGONG_REPLACE := "mugong_replace"
 
 var active := false
 var animation_time := 0.0
@@ -60,6 +68,17 @@ var _current_perk_slot_status: Dictionary = {}
 var _perk_slot_status_dirty := false
 var _reward_session_id := 0
 var _absorption_target_resolver: Object = TowerCardAbsorptionTargetResolver.new()
+var _roll_overrides: Dictionary = {}
+var _reroll_counter := 0
+var _offered_vision_boss_slot_id := ""
+var _upgrade_purchase_count := 0
+var _mode := MODE_BOARD
+var _upgrade_perk_id := ""
+var _upgrade_show_all_levels := false
+var _replacement_slot_index := -1
+var _replacement_choice: Dictionary = {}
+var _replacement_candidates: Array[Dictionary] = []
+var _replacement_selected_index := 0
 
 
 func start(
@@ -77,7 +96,7 @@ func start(
 	var context: Dictionary = context_value if context_value is Dictionary else {}
 	if context.is_empty():
 		return false
-	var offer: Dictionary = _offer_builder.build_offer(context, owner, registry, roll_overrides)
+	var offer: Dictionary = _offer_builder.build_offer(context, owner, registry, roll_overrides, 0)
 	if not bool(offer.get("accepted", false)):
 		return false
 	_owner = owner
@@ -92,6 +111,12 @@ func start(
 		reset()
 		return false
 	_offer = offer.duplicate(true)
+	_roll_overrides = roll_overrides.duplicate(true)
+	_reroll_counter = maxi(0, int(offer.get("offer_generation", 0)))
+	_offered_vision_boss_slot_id = ""
+	_track_offered_vision(offer)
+	_upgrade_purchase_count = 0
+	_clear_inline_modal()
 	var margin_reward_value: Variant = context.get("victory_margin_reward", {})
 	_victory_margin_reward = (
 		(margin_reward_value as Dictionary).duplicate(true)
@@ -157,6 +182,26 @@ func reset() -> void:
 	_card_renderer = null
 	_icon_renderer = null
 	_chosik_tooltip_renderer = null
+	_roll_overrides.clear()
+	_reroll_counter = 0
+	_offered_vision_boss_slot_id = ""
+	_upgrade_purchase_count = 0
+	_clear_inline_modal()
+
+
+func _clear_inline_modal() -> void:
+	_mode = MODE_BOARD
+	_upgrade_perk_id = ""
+	_upgrade_show_all_levels = false
+	_replacement_slot_index = -1
+	_replacement_choice.clear()
+	_replacement_candidates.clear()
+	_replacement_selected_index = 0
+
+
+func _track_offered_vision(offer: Dictionary) -> void:
+	if not str(offer.get("vision_unlock_id", "")).strip_edges().is_empty():
+		_offered_vision_boss_slot_id = str(offer.get("boss_slot_id", "")).strip_edges()
 
 
 func update(delta: float) -> void:
@@ -172,7 +217,7 @@ func update(delta: float) -> void:
 				return
 	animation_time = minf(1.0, animation_time + maxf(0.0, delta))
 	_update_external_modal_return()
-	if not is_external_modal_active():
+	if _mode == MODE_BOARD and not is_external_modal_active():
 		_refresh_perk_slot_status_if_needed()
 		var had_absorption_effects := not purchase_absorption_effects.is_empty()
 		_update_purchase_absorption_effects(delta)
@@ -184,13 +229,17 @@ func update(delta: float) -> void:
 func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
 	if not active or is_external_modal_active():
 		return false
+	if _mode == MODE_UPGRADE:
+		return _handle_upgrade_input(event, view_size)
+	if _mode == MODE_MUGONG_REPLACE:
+		return _handle_mugong_replace_input(event, view_size)
 	if event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
 		reward_hover_mouse_pos = motion.position
 		var hover_index := get_card_index_at(motion.position, view_size)
 		if hover_index >= 0:
 			selected_index = hover_index
-		return hover_index >= 0
+		return hover_index >= 0 or not _get_status_cell_at(motion.position, view_size).is_empty()
 	if event is InputEventKey:
 		var key := event as InputEventKey
 		if not key.pressed or key.echo:
@@ -202,7 +251,7 @@ func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
 			_move_selection(1)
 			return true
 		if key.keycode in [KEY_ENTER, KEY_KP_ENTER] or key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
-			_purchase(selected_index)
+			_purchase(selected_index, view_size)
 			return true
 		if key.keycode in [KEY_SPACE, KEY_ESCAPE] or key.physical_keycode in [KEY_SPACE, KEY_ESCAPE]:
 			_finish()
@@ -214,7 +263,11 @@ func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
 		var index := get_card_index_at(mouse.position, view_size)
 		if index >= 0:
 			selected_index = index
-			_purchase(index)
+			_purchase(index, view_size)
+			return true
+		var status_cell := _get_status_cell_at(mouse.position, view_size)
+		if not status_cell.is_empty():
+			_open_upgrade_modal(status_cell)
 			return true
 		if get_continue_rect(view_size).has_point(mouse.position):
 			_finish()
@@ -226,7 +279,11 @@ func handle_input(event: InputEvent, view_size: Vector2 = VIEW_SIZE) -> bool:
 		var index := get_card_index_at(touch.position, view_size)
 		if index >= 0:
 			selected_index = index
-			_purchase(index)
+			_purchase(index, view_size)
+			return true
+		var status_cell := _get_status_cell_at(touch.position, view_size)
+		if not status_cell.is_empty():
+			_open_upgrade_modal(status_cell)
 			return true
 		if get_continue_rect(view_size).has_point(touch.position):
 			_finish()
@@ -290,7 +347,19 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		),
 		"reward_session_id": _reward_session_id,
 		"chosik_tooltip_context": _build_chosik_tooltip_context(),
+		"status_title": TowerRewardPickLocalization.text("owned_upgrade_title"),
+		"status_upgrade_cta": TowerRewardPickLocalization.text("owned_upgrade_cta"),
+		"status_max_rank_text": TowerRewardPickLocalization.text("upgrade_max_rank"),
+		"inline_modal": _build_inline_modal_model(view_size),
 	}
+
+
+func _build_inline_modal_model(view_size: Vector2) -> Dictionary:
+	if _mode == MODE_UPGRADE:
+		return _build_upgrade_modal_model(view_size)
+	if _mode == MODE_MUGONG_REPLACE:
+		return _build_mugong_replace_modal_model(view_size)
+	return {}
 
 
 func _get_victory_margin_reward_text() -> String:
@@ -340,6 +409,588 @@ func get_continue_rect(view_size: Vector2 = VIEW_SIZE) -> Rect2:
 	)
 
 
+func _get_status_interaction_model(view_size: Vector2) -> Dictionary:
+	if (
+		_card_renderer == null
+		or not _card_renderer.has_method("build_tower_reward_status_interaction_model")
+	):
+		return {}
+	var reward_layout := _build_reward_layout(view_size)
+	var panel_rect_value: Variant = reward_layout.get("panel_rect", Rect2())
+	var panel_rect: Rect2 = panel_rect_value if panel_rect_value is Rect2 else Rect2()
+	if not panel_rect.has_area():
+		return {}
+	var model_value: Variant = _card_renderer.call(
+		"build_tower_reward_status_interaction_model",
+		_runtime_state,
+		_catalog,
+		_build_reward_runtime_snapshot(),
+		panel_rect,
+		{}
+	)
+	return (
+		(model_value as Dictionary).duplicate(true)
+		if model_value is Dictionary
+		else {}
+	)
+
+
+func _get_status_cell_at(position: Vector2, view_size: Vector2) -> Dictionary:
+	if _card_renderer == null or not _card_renderer.has_method("get_tower_reward_status_cell_at"):
+		return {}
+	var cell_value: Variant = _card_renderer.call(
+		"get_tower_reward_status_cell_at",
+		_get_status_interaction_model(view_size),
+		position,
+		true
+	)
+	return (cell_value as Dictionary).duplicate(true) if cell_value is Dictionary else {}
+
+
+func _open_upgrade_modal(status_cell: Dictionary) -> void:
+	var perk_id := str(status_cell.get("canonical_id", "")).strip_edges()
+	if perk_id.is_empty() or _catalog == null or not _catalog.has_method("get_perk_data"):
+		return
+	var data_value: Variant = _catalog.call("get_perk_data", perk_id)
+	if not (data_value is Dictionary) or (data_value as Dictionary).is_empty():
+		return
+	_upgrade_perk_id = perk_id
+	_upgrade_show_all_levels = false
+	_mode = MODE_UPGRADE
+	_reset_auto_finish_hold()
+	reward_hover_mouse_pos = Vector2(-1.0, -1.0)
+
+
+func _handle_upgrade_input(event: InputEvent, view_size: Vector2) -> bool:
+	var modal_model := _build_upgrade_modal_model(view_size)
+	if modal_model.is_empty():
+		_clear_inline_modal()
+		return true
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed and not key.echo:
+			if key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE:
+				_clear_inline_modal()
+			elif key.keycode in [KEY_ENTER, KEY_KP_ENTER] or key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_try_purchase_upgrade()
+		return true
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed:
+			_handle_upgrade_action_at(mouse.position, view_size, modal_model)
+		return true
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_handle_upgrade_action_at(touch.position, view_size, modal_model)
+		return true
+	return true
+
+
+func _handle_upgrade_action_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> void:
+	if _card_renderer == null or not _card_renderer.has_method("get_tower_reward_upgrade_action_at"):
+		return
+	var action := str(_card_renderer.call(
+		"get_tower_reward_upgrade_action_at",
+		position,
+		view_size,
+		modal_model
+	))
+	match action:
+		"back_arrow", "back":
+			_clear_inline_modal()
+		"checkbox":
+			_upgrade_show_all_levels = not _upgrade_show_all_levels
+		"confirm":
+			_try_purchase_upgrade()
+
+
+func _build_upgrade_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
+	if (
+		_upgrade_perk_id.is_empty()
+		or _catalog == null
+		or not _catalog.has_method("get_perk_data")
+	):
+		return {}
+	var data_value: Variant = _catalog.call("get_perk_data", _upgrade_perk_id)
+	if not (data_value is Dictionary):
+		return {}
+	var perk_data := (data_value as Dictionary).duplicate(true)
+	if perk_data.is_empty():
+		return {}
+	perk_data["id"] = _upgrade_perk_id
+	var current_level := maxi(0, int(_get_runtime_skill_levels().get(_upgrade_perk_id, 0)))
+	var max_level := maxi(1, int(perk_data.get("max_level", 1)))
+	if current_level <= 0:
+		return {}
+	var effective_level := current_level
+	if _runtime_state != null and _runtime_state.has_method("get_runtime_skill_level"):
+		effective_level = maxi(
+			current_level,
+			int(_runtime_state.call("get_runtime_skill_level", _upgrade_perk_id))
+		)
+	var effective_bonus := maxi(0, effective_level - current_level)
+	var has_next_level := current_level < max_level
+	var target_level := mini(current_level + 1, max_level)
+	var slot_status := _get_choice_slot_status(perk_data, target_level)
+	var slot_accepted := bool(slot_status.get("accepted", false))
+	var cost := _get_current_upgrade_cost()
+	var affordable := int(_get_balances().get("muhon", 0)) >= cost
+	var cards := _build_upgrade_cards(
+		perk_data,
+		current_level,
+		max_level,
+		effective_bonus,
+		_upgrade_show_all_levels
+	)
+	var model := {
+		"kind": "upgrade",
+		"perk_id": _upgrade_perk_id,
+		"title": str(perk_data.get("name", _upgrade_perk_id)),
+		"base_level": current_level,
+		"effective_level": effective_level,
+		"max_level": max_level,
+		"target_level": target_level,
+		"has_next_level": has_next_level,
+		"can_upgrade": has_next_level,
+		"confirm_enabled": has_next_level and slot_accepted and affordable,
+		"show_all_levels": _upgrade_show_all_levels,
+		"cost": cost,
+		"cards": cards,
+		"slot_status": slot_status,
+		"affordable": affordable,
+		"show_all_text": TowerRewardPickLocalization.text("upgrade_show_all"),
+		"back_text": TowerRewardPickLocalization.text("upgrade_back"),
+		"confirm_text": TowerRewardPickLocalization.text("upgrade_confirm"),
+		"cost_text": TowerRewardPickLocalization.text("upgrade_cost", {"amount": cost}),
+		"max_rank_text": TowerRewardPickLocalization.text("upgrade_max_rank"),
+	}
+	if _card_renderer != null and _card_renderer.has_method("build_tower_reward_upgrade_layout"):
+		var layout_value: Variant = _card_renderer.call(
+			"build_tower_reward_upgrade_layout",
+			view_size,
+			model
+		)
+		if layout_value is Dictionary:
+			model["layout"] = (layout_value as Dictionary).duplicate(true)
+	return model
+
+
+func _build_upgrade_cards(
+	perk_data: Dictionary,
+	current_level: int,
+	max_level: int,
+	effective_bonus: int,
+	show_all_levels: bool
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if show_all_levels:
+		for level in range(1, max_level + 1):
+			result.append(_build_upgrade_card(
+				perk_data,
+				level,
+				effective_bonus,
+				"level",
+				level > current_level
+			))
+		return result
+	result.append(_build_upgrade_card(
+		perk_data,
+		current_level,
+		effective_bonus,
+		"current",
+		false
+	))
+	if current_level < max_level:
+		result.append(_build_upgrade_card(
+			perk_data,
+			current_level + 1,
+			effective_bonus,
+			"next",
+			true
+		))
+	return result
+
+
+func _build_upgrade_card(
+	perk_data: Dictionary,
+	base_level: int,
+	effective_bonus: int,
+	role: String,
+	cool_tone: bool
+) -> Dictionary:
+	var choice := perk_data.duplicate(true)
+	var descriptions_value: Variant = choice.get("descriptions", {})
+	var descriptions: Dictionary = descriptions_value if descriptions_value is Dictionary else {}
+	var display_level := base_level + effective_bonus
+	var perk_id := str(choice.get("id", _upgrade_perk_id))
+	var description := RuntimePerkOverflowDescriptions.resolve_stats_text_with_polish(
+		perk_id,
+		descriptions,
+		display_level,
+		_runtime_state
+	)
+	if description.is_empty():
+		description = str(descriptions.get(base_level, choice.get("description", "")))
+	var previous_description := ""
+	if base_level > 1 and role != "current":
+		previous_description = RuntimePerkOverflowDescriptions.resolve_stats_text_with_polish(
+			perk_id,
+			descriptions,
+			display_level - 1,
+			_runtime_state
+		)
+	choice["current_level"] = maxi(0, base_level - 1)
+	choice["next_level"] = base_level
+	choice["description"] = description
+	return {
+		"choice": choice,
+		"role": role,
+		"base_level": base_level,
+		"display_level": display_level,
+		"description": description,
+		"previous_description": previous_description,
+		"cool_tone": cool_tone,
+	}
+
+
+func _get_current_upgrade_cost() -> int:
+	return UPGRADE_BASE_COST + _upgrade_purchase_count * UPGRADE_COST_STEP
+
+
+func _try_purchase_upgrade() -> void:
+	var model := _build_upgrade_modal_model()
+	if model.is_empty() or not bool(model.get("has_next_level", false)):
+		return
+	if not bool(model.get("affordable", false)):
+		_status_text = TowerRewardPickLocalization.text("insufficient")
+		return
+	var slot_status_value: Variant = model.get("slot_status", {})
+	var slot_status: Dictionary = slot_status_value if slot_status_value is Dictionary else {}
+	if not bool(slot_status.get("accepted", false)):
+		_status_text = TowerRewardPickLocalization.text(DISABLED_REASON_PERK_SLOT_LIMIT)
+		return
+	var cards_value: Variant = model.get("cards", [])
+	var cards: Array = cards_value if cards_value is Array else []
+	var choice: Dictionary = {}
+	if _catalog != null and _catalog.has_method("get_perk_data"):
+		var choice_value: Variant = _catalog.call("get_perk_data", _upgrade_perk_id)
+		if choice_value is Dictionary:
+			choice = (choice_value as Dictionary).duplicate(true)
+	if choice.is_empty() or cards.is_empty():
+		return
+	choice["id"] = _upgrade_perk_id
+	var target_level := int(model.get("target_level", 0))
+	var cost := int(model.get("cost", _get_current_upgrade_cost()))
+	var result: Dictionary = _flow_owner.call(
+		"apply_reward_pick_upgrade",
+		_upgrade_purchase_count,
+		choice,
+		target_level,
+		cost,
+		Callable(self, "_grant_upgrade_choice").bind(choice, target_level),
+		Callable(self, "_rollback_choice")
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_status_text = str(result.get("reason", "reward_pick_upgrade_failed"))
+		return
+	_upgrade_purchase_count += 1
+	_pending_runtime_snapshot.clear()
+	_perk_slot_status_dirty = true
+	_refresh_perk_slot_status_if_needed()
+	_reward_session_id += 1
+	_status_text = TowerRewardPickLocalization.text("upgrade_confirm")
+
+
+func _grant_upgrade_choice(choice: Dictionary, target_level: int) -> bool:
+	if _runtime_state == null or not _runtime_state.has_method("apply_choice_at_target_level"):
+		return false
+	_capture_runtime_snapshot()
+	var previous_context: Dictionary = {}
+	var context_value: Variant = _runtime_state.get("current_choice_context")
+	if context_value is Dictionary:
+		previous_context = (context_value as Dictionary).duplicate(true)
+	_runtime_state.set("current_choice_context", {
+		"source": "tower_reward_pick_upgrade",
+		"grant_scope": "tower_run",
+	})
+	var accepted := bool(_runtime_state.call(
+		"apply_choice_at_target_level",
+		choice,
+		target_level,
+		_owner,
+		_registry
+	))
+	_runtime_state.set("current_choice_context", previous_context)
+	return accepted
+
+
+func _begin_mugong_replacement(
+	index: int,
+	choice: Dictionary,
+	view_size: Vector2
+) -> void:
+	var interaction_model := _get_status_interaction_model(view_size)
+	var cells_value: Variant = interaction_model.get("cells", [])
+	var cells: Array = cells_value if cells_value is Array else []
+	var candidates: Array[Dictionary] = []
+	for cell_value: Variant in cells:
+		if not (cell_value is Dictionary):
+			continue
+		var cell := (cell_value as Dictionary).duplicate(true)
+		if not bool(cell.get("replacement_eligible", false)):
+			continue
+		var entry_value: Variant = cell.get("entry", {})
+		var entry: Dictionary = entry_value if entry_value is Dictionary else {}
+		var target_kind := "fusion" if str(entry.get("tree", "")).to_lower() == "fusion" else "perk"
+		var target_token := {
+			"target_kind": target_kind,
+			"target_id": str(cell.get("canonical_id", "")),
+			"slot_cell_index": int(cell.get("slot_cell_index", 0)),
+		}
+		var plan_value: Variant = _runtime_state.call(
+			"build_tower_reward_mugong_replacement_plan",
+			target_token,
+			choice,
+			_catalog,
+			_registry
+		)
+		if not (plan_value is Dictionary) or not bool((plan_value as Dictionary).get(
+			"accepted",
+			false
+		)):
+			continue
+		cell["target_token"] = target_token
+		cell["replacement_plan"] = (plan_value as Dictionary).duplicate(true)
+		cell["name"] = str(entry.get("name", cell.get("canonical_id", "")))
+		cell["rank_text"] = str(entry.get("rank", entry.get("tier", "")))
+		candidates.append(cell)
+	if candidates.is_empty():
+		_status_text = TowerRewardPickLocalization.text(DISABLED_REASON_PERK_SLOT_LIMIT)
+		return
+	_replacement_slot_index = index
+	_replacement_choice = choice.duplicate(true)
+	_replacement_candidates = candidates
+	_replacement_selected_index = 0
+	_mode = MODE_MUGONG_REPLACE
+	_reset_auto_finish_hold()
+	reward_hover_mouse_pos = Vector2(-1.0, -1.0)
+
+
+func _handle_mugong_replace_input(event: InputEvent, view_size: Vector2) -> bool:
+	var modal_model := _build_mugong_replace_modal_model(view_size)
+	if modal_model.is_empty():
+		_clear_inline_modal()
+		return true
+	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		var hover_index := _get_mugong_swap_option_index_at(
+			motion.position,
+			view_size,
+			modal_model
+		)
+		if hover_index >= 0:
+			_replacement_selected_index = hover_index
+		return true
+	if event is InputEventKey:
+		var key := event as InputEventKey
+		if key.pressed and not key.echo:
+			if key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE:
+				_clear_inline_modal()
+			elif key.keycode in [KEY_LEFT, KEY_A] or key.physical_keycode in [KEY_LEFT, KEY_A]:
+				_move_replacement_selection(-1, 0, modal_model)
+			elif key.keycode in [KEY_RIGHT, KEY_D] or key.physical_keycode in [KEY_RIGHT, KEY_D]:
+				_move_replacement_selection(1, 0, modal_model)
+			elif key.keycode in [KEY_UP, KEY_W] or key.physical_keycode in [KEY_UP, KEY_W]:
+				_move_replacement_selection(0, -1, modal_model)
+			elif key.keycode in [KEY_DOWN, KEY_S] or key.physical_keycode in [KEY_DOWN, KEY_S]:
+				_move_replacement_selection(0, 1, modal_model)
+			elif key.keycode in [KEY_ENTER, KEY_KP_ENTER] or key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_confirm_mugong_replacement()
+		return true
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed:
+			_handle_mugong_replace_click(mouse.position, view_size, modal_model)
+		return true
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_handle_mugong_replace_click(touch.position, view_size, modal_model)
+		return true
+	return true
+
+
+func _handle_mugong_replace_click(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> void:
+	if (
+		_card_renderer != null
+		and _card_renderer.has_method("is_tower_reward_mugong_swap_cancel_at")
+		and bool(_card_renderer.call(
+			"is_tower_reward_mugong_swap_cancel_at",
+			position,
+			view_size,
+			modal_model
+		))
+	):
+		_clear_inline_modal()
+		return
+	var option_index := _get_mugong_swap_option_index_at(position, view_size, modal_model)
+	if option_index < 0:
+		return
+	_replacement_selected_index = option_index
+	_confirm_mugong_replacement()
+
+
+func _get_mugong_swap_option_index_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> int:
+	if (
+		_card_renderer == null
+		or not _card_renderer.has_method("get_tower_reward_mugong_swap_option_index_at")
+	):
+		return -1
+	return int(_card_renderer.call(
+		"get_tower_reward_mugong_swap_option_index_at",
+		position,
+		view_size,
+		modal_model
+	))
+
+
+func _move_replacement_selection(
+	horizontal: int,
+	vertical: int,
+	modal_model: Dictionary
+) -> void:
+	var count := _replacement_candidates.size()
+	if count <= 0:
+		return
+	if horizontal != 0:
+		_replacement_selected_index = posmod(
+			_replacement_selected_index + signi(horizontal),
+			count
+		)
+		return
+	var layout_value: Variant = modal_model.get("layout", {})
+	var layout: Dictionary = layout_value if layout_value is Dictionary else {}
+	var columns := maxi(1, int(layout.get("columns", 1)))
+	var candidate := _replacement_selected_index + signi(vertical) * columns
+	if candidate >= 0 and candidate < count:
+		_replacement_selected_index = candidate
+
+
+func _confirm_mugong_replacement() -> void:
+	if (
+		_replacement_slot_index < 0
+		or _replacement_slot_index >= choices.size()
+		or _replacement_selected_index < 0
+		or _replacement_selected_index >= _replacement_candidates.size()
+	):
+		return
+	var index := _replacement_slot_index
+	var choice := _replacement_choice.duplicate(true)
+	var candidate := _replacement_candidates[_replacement_selected_index]
+	var token_value: Variant = candidate.get("target_token", {})
+	var target_token: Dictionary = (
+		(token_value as Dictionary).duplicate(true)
+		if token_value is Dictionary
+		else {}
+	)
+	if target_token.is_empty():
+		return
+	var cost := maxi(0, int(choice.get("reward_pick_cost", 0)))
+	if int(_get_balances().get("muhon", 0)) < cost:
+		_status_text = TowerRewardPickLocalization.text("insufficient")
+		return
+	_pending_slot_index = index
+	var result: Dictionary = _flow_owner.call(
+		"apply_reward_pick_purchase",
+		index,
+		choice,
+		cost,
+		Callable(self, "_grant_mugong_replacement").bind(target_token, choice),
+		Callable(self, "_rollback_choice"),
+		_reroll_counter
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_restore_runtime_snapshot()
+		_pending_runtime_snapshot.clear()
+		_status_text = str(result.get("reason", "reward_pick_replacement_failed"))
+		return
+	_commit_purchased_slot(index, choice)
+	_clear_inline_modal()
+
+
+func _grant_mugong_replacement(
+	target_token: Dictionary,
+	choice: Dictionary
+) -> bool:
+	if _runtime_state == null or not _runtime_state.has_method(
+		"apply_tower_reward_mugong_replacement"
+	):
+		return false
+	_capture_runtime_snapshot()
+	var previous_context: Dictionary = {}
+	var context_value: Variant = _runtime_state.get("current_choice_context")
+	if context_value is Dictionary:
+		previous_context = (context_value as Dictionary).duplicate(true)
+	_runtime_state.set("current_choice_context", {
+		"source": "tower_reward_pick_replacement",
+		"grant_scope": "tower_run",
+	})
+	var replacement_value: Variant = _runtime_state.call(
+		"apply_tower_reward_mugong_replacement",
+		target_token,
+		choice,
+		_owner,
+		_registry,
+		_catalog
+	)
+	_runtime_state.set("current_choice_context", previous_context)
+	return (
+		replacement_value is Dictionary
+		and bool((replacement_value as Dictionary).get("accepted", false))
+		and bool((replacement_value as Dictionary).get("applied", false))
+	)
+
+
+func _build_mugong_replace_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
+	if _replacement_candidates.is_empty():
+		return {}
+	var model := {
+		"kind": MODE_MUGONG_REPLACE,
+		"candidates": _replacement_candidates.duplicate(true),
+		"selected_index": _replacement_selected_index,
+		"new_name": str(_replacement_choice.get("name", _replacement_choice.get("id", ""))),
+		"title": TowerRewardPickLocalization.text("mugong_swap_title"),
+		"new_label": TowerRewardPickLocalization.text(
+			"mugong_swap_new_label",
+			{"name": str(_replacement_choice.get("name", _replacement_choice.get("id", "")))}
+		),
+		"hint_text": TowerRewardPickLocalization.text("mugong_swap_hint"),
+		"cancel_text": TowerRewardPickLocalization.text("upgrade_back"),
+	}
+	if _card_renderer != null and _card_renderer.has_method("build_tower_reward_mugong_swap_layout"):
+		var layout_value: Variant = _card_renderer.call(
+			"build_tower_reward_mugong_swap_layout",
+			view_size,
+			model
+		)
+		if layout_value is Dictionary:
+			model["layout"] = (layout_value as Dictionary).duplicate(true)
+	return model
+
+
 func is_external_modal_active() -> bool:
 	var mythic_item_runtime := _get_registry_instance(_registry, "mythic_item_runtime")
 	if (
@@ -369,20 +1020,28 @@ func _move_selection(direction: int) -> void:
 	selected_index = posmod(selected_index + signi(direction), choices.size())
 
 
-func _purchase(index: int) -> void:
+func _purchase(index: int, view_size: Vector2 = VIEW_SIZE) -> void:
 	if index < 0 or index >= choices.size() or spent_flags[index]:
 		return
 	var choice := choices[index]
 	var cost := maxi(0, int(choice.get("reward_pick_cost", 0)))
 	var balances := _get_balances()
 	var slot_status := _get_choice_slot_status(choice)
-	if not bool(slot_status.get("accepted", false)):
+	var replacement_required := _is_mugong_replacement_required(choice, slot_status)
+	if not bool(slot_status.get("accepted", false)) and not replacement_required:
 		_status_text = TowerRewardPickLocalization.text(DISABLED_REASON_PERK_SLOT_LIMIT)
 		return
 	if int(balances.get("muhon", 0)) < cost:
 		_status_text = TowerRewardPickLocalization.text("insufficient")
 		return
-	if str(choice.get("reward_pick_kind", "")) == "vision" and bool(choice.get("vision_swap_required", false)):
+	var kind := str(choice.get("reward_pick_kind", ""))
+	if replacement_required:
+		_begin_mugong_replacement(index, choice, view_size)
+		return
+	if kind == "refresh":
+		_purchase_refresh(index, choice, cost)
+		return
+	if kind == "vision" and bool(choice.get("vision_swap_required", false)):
 		_begin_vision_swap(index, choice)
 		return
 	_pending_slot_index = index
@@ -392,7 +1051,8 @@ func _purchase(index: int) -> void:
 		choice,
 		cost,
 		Callable(self, "_grant_choice").bind(choice),
-		Callable(self, "_rollback_choice")
+		Callable(self, "_rollback_choice"),
+		_reroll_counter
 	)
 	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
 		_status_text = str(result.get("reason", "reward_pick_purchase_failed"))
@@ -404,6 +1064,11 @@ func _purchase(index: int) -> void:
 func _grant_choice(choice: Dictionary) -> bool:
 	_capture_runtime_snapshot()
 	var kind := str(choice.get("reward_pick_kind", ""))
+	if kind == "bag_expansion":
+		return (
+			_runtime_state.has_method("grant_tower_bag_expansion")
+			and bool(_runtime_state.call("grant_tower_bag_expansion"))
+		)
 	if kind == "fusion":
 		if not _runtime_state.has_method("begin_tower_reward_fusion_modal"):
 			return false
@@ -426,6 +1091,74 @@ func _grant_choice(choice: Dictionary) -> bool:
 	var accepted := bool(_runtime_state.call("apply_choice", choice, _owner, _registry))
 	_runtime_state.set("current_choice_context", previous_context)
 	return accepted
+
+
+func _purchase_refresh(index: int, choice: Dictionary, cost: int) -> void:
+	var next_generation := _reroll_counter + 1
+	var next_offer := _build_offer_for_generation(next_generation)
+	if not bool(next_offer.get("accepted", false)):
+		_status_text = str(next_offer.get("reason", "reward_pick_refresh_failed"))
+		return
+	var next_choices := _dictionary_array(next_offer.get("choices", []))
+	if next_choices.is_empty() or next_choices.size() > TowerRewardPickOfferBuilder.CARD_COUNT:
+		_status_text = "reward_pick_refresh_invalid_offer"
+		return
+	_pending_slot_index = index
+	var result: Dictionary = _flow_owner.call(
+		"apply_reward_pick_purchase",
+		index,
+		choice,
+		cost,
+		Callable(self, "_accept_existing_external_effect"),
+		Callable(),
+		_reroll_counter
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_status_text = str(result.get("reason", "reward_pick_refresh_failed"))
+		_pending_slot_index = -1
+		return
+	_install_refreshed_offer(next_offer, next_generation)
+
+
+func _build_offer_for_generation(generation: int) -> Dictionary:
+	if _flow_owner == null or not _flow_owner.has_method("get_reward_pick_context"):
+		return {"accepted": false, "reason": "reward_pick_context_unavailable"}
+	var context_value: Variant = _flow_owner.call("get_reward_pick_context")
+	if not (context_value is Dictionary):
+		return {"accepted": false, "reason": "reward_pick_context_unavailable"}
+	return _offer_builder.build_offer(
+		context_value as Dictionary,
+		_owner,
+		_registry,
+		_roll_overrides,
+		generation
+	)
+
+
+func _install_refreshed_offer(offer: Dictionary, generation: int) -> void:
+	var refreshed_choices := _dictionary_array(offer.get("choices", []))
+	if refreshed_choices.is_empty() or refreshed_choices.size() > TowerRewardPickOfferBuilder.CARD_COUNT:
+		return
+	_offer = offer.duplicate(true)
+	choices.assign(refreshed_choices)
+	spent_flags.clear()
+	for _index in range(choices.size()):
+		spent_flags.append(false)
+	_reroll_counter = maxi(0, generation)
+	_track_offered_vision(offer)
+	selected_index = 0
+	animation_time = 0.0
+	reward_hover_mouse_pos = Vector2(-1.0, -1.0)
+	purchase_absorption_effects.clear()
+	_pending_slot_index = -1
+	_pending_runtime_snapshot.clear()
+	_status_text = TowerRewardPickLocalization.text("hint")
+	_reset_auto_finish_hold()
+	_auto_finish_attempted = false
+	_perk_slot_status_dirty = true
+	_refresh_perk_slot_status_if_needed()
+	_reward_session_id += 1
+	_prewarm_card_assets()
 
 
 func _rollback_choice() -> void:
@@ -481,7 +1214,8 @@ func _update_external_modal_return() -> void:
 		choice,
 		int(choice.get("reward_pick_cost", 0)),
 		Callable(self, "_accept_existing_external_effect"),
-		Callable(self, "_restore_runtime_snapshot")
+		Callable(self, "_restore_runtime_snapshot"),
+		_reroll_counter
 	)
 	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
 		_commit_purchased_slot(index, choice)
@@ -553,6 +1287,7 @@ func _update_auto_finish_hold(delta: float, had_absorption_effects: bool) -> voi
 func _can_auto_finish() -> bool:
 	return (
 		active
+		and _mode == MODE_BOARD
 		and not is_external_modal_active()
 		and purchase_absorption_effects.is_empty()
 		and _has_no_affordable_unspent_card()
@@ -579,11 +1314,31 @@ func _get_purchase_disabled_reason(
 	if index < 0 or index >= spent_flags.size() or spent_flags[index]:
 		return "spent"
 	var slot_status := _get_choice_slot_status(choice)
-	if not bool(slot_status.get("accepted", false)):
+	if (
+		not bool(slot_status.get("accepted", false))
+		and not _is_mugong_replacement_required(choice, slot_status)
+	):
 		return DISABLED_REASON_PERK_SLOT_LIMIT
 	if int(balances.get("muhon", 0)) < maxi(0, int(choice.get("reward_pick_cost", 0))):
 		return DISABLED_REASON_INSUFFICIENT_MUHON
 	return ""
+
+
+func _is_mugong_replacement_required(
+	choice: Dictionary,
+	slot_status: Dictionary
+) -> bool:
+	if bool(slot_status.get("accepted", false)):
+		return false
+	if str(slot_status.get("blocked_reason", "")) != DISABLED_REASON_PERK_SLOT_LIMIT:
+		return false
+	if str(choice.get("reward_pick_kind", "")) not in ["mugong", "supreme"]:
+		return false
+	return (
+		_runtime_state != null
+		and _runtime_state.has_method("build_tower_reward_mugong_replacement_plan")
+		and _runtime_state.has_method("apply_tower_reward_mugong_replacement")
+	)
 
 
 func _get_choice_slot_status(choice: Dictionary, target_level: int = -1) -> Dictionary:
@@ -660,14 +1415,11 @@ func _select_next_available_slot(purchased_index: int) -> void:
 
 
 func _finish() -> void:
-	if not active or is_external_modal_active():
+	if not active or _mode != MODE_BOARD or is_external_modal_active():
 		return
-	var vision_boss_slot_id := ""
-	if not str(_offer.get("vision_unlock_id", "")).is_empty():
-		vision_boss_slot_id = str(_offer.get("boss_slot_id", ""))
 	var result: Dictionary = _flow_owner.call(
 		"finalize_reward_pick",
-		vision_boss_slot_id
+		_offered_vision_boss_slot_id
 	)
 	if not bool(result.get("accepted", false)):
 		_status_text = str(result.get("reason", "reward_pick_finish_failed"))
@@ -680,6 +1432,11 @@ func _finish() -> void:
 
 func _capture_runtime_snapshot() -> void:
 	_pending_runtime_snapshot.clear()
+	if _runtime_state != null and _runtime_state.has_method("build_tower_reward_mutation_snapshot"):
+		var mutation_value: Variant = _runtime_state.call("build_tower_reward_mutation_snapshot")
+		if mutation_value is Dictionary:
+			_pending_runtime_snapshot = (mutation_value as Dictionary).duplicate(true)
+			return
 	if _runtime_state != null and _runtime_state.has_method("build_unlock_save_snapshot"):
 		var value: Variant = _runtime_state.call("build_unlock_save_snapshot")
 		if value is Dictionary:
@@ -690,8 +1447,18 @@ func _restore_runtime_snapshot() -> void:
 	if (
 		_pending_runtime_snapshot.is_empty()
 		or _runtime_state == null
-		or not _runtime_state.has_method("apply_unlock_save_snapshot")
 	):
+		return
+	if _runtime_state.has_method("restore_tower_reward_mutation_snapshot"):
+		_runtime_state.call(
+			"restore_tower_reward_mutation_snapshot",
+			_pending_runtime_snapshot,
+			_owner,
+			_registry,
+			_catalog
+		)
+		return
+	if not _runtime_state.has_method("apply_unlock_save_snapshot"):
 		return
 	_runtime_state.call(
 		"apply_unlock_save_snapshot",

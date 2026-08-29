@@ -32,6 +32,7 @@ const PERK_ICON_PATHS := {
 	"item_caffeine": "res://assets/sprites/perks/item_caffeine_perk_icon.png",
 	"item_polish": "res://assets/sprites/perks/item_polish_perk_icon.png",
 	"item_recycle": "res://assets/sprites/perks/item_recycle_perk_icon.png",
+	"tower_bag_expansion": "res://assets/sprites/perks/item_bag_expansion_perk_icon.png",
 	"common_swiftness": "res://assets/sprites/perks/common_swiftness_perk_icon.png",
 	"common_expansion": "res://assets/sprites/perks/common_expansion_perk_icon.png",
 	"common_bulk_up": "res://assets/sprites/perks/common_bulk_up_perk_icon.png",

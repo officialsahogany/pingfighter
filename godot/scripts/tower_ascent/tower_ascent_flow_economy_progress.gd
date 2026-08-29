@@ -157,7 +157,8 @@ func apply_reward_pick_purchase(
 	choice: Dictionary,
 	cost: int,
 	effect_callback: Callable,
-	rollback_callback: Callable = Callable()
+	rollback_callback: Callable = Callable(),
+	offer_generation: int = -1
 ) -> Dictionary:
 	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _prepared:
 		return {"accepted": false, "applied": false, "reason": "reward_pick_unprepared"}
@@ -166,7 +167,20 @@ func apply_reward_pick_purchase(
 	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
 	if choice_id.is_empty():
 		return {"accepted": false, "applied": false, "reason": "invalid_reward_pick_choice"}
+	var generation := maxi(
+		0,
+		offer_generation if offer_generation >= 0 else int(choice.get(
+			"reward_pick_offer_generation",
+			choice.get("offer_generation", 0)
+		))
+	)
 	var resolution_id := "%s:reward_pick:slot_%d" % [_prepared_resolution_id, slot_index]
+	if generation > 0:
+		resolution_id = "%s:reward_pick:reroll_%d:slot_%d" % [
+			_prepared_resolution_id,
+			generation,
+			slot_index,
+		]
 	var result: Dictionary = _node_action_transaction.apply_once(
 		resolution_id,
 		{"muhon": maxi(0, cost)},
@@ -183,6 +197,50 @@ func apply_reward_pick_purchase(
 			"slot_index": slot_index,
 			"choice_id": choice_id,
 			"choice_kind": str(choice.get("reward_pick_kind", "")),
+			"cost": maxi(0, cost),
+			"offer_generation": generation,
+		}
+		_reward_pick_history.append(record)
+		result["record"] = record.duplicate(true)
+	return result
+
+
+func apply_reward_pick_upgrade(
+	upgrade_sequence: int,
+	choice: Dictionary,
+	target_level: int,
+	cost: int,
+	effect_callback: Callable,
+	rollback_callback: Callable = Callable()
+) -> Dictionary:
+	if not TowerAscentFeatureFlags.is_vertical_slice_enabled() or not _prepared:
+		return {"accepted": false, "applied": false, "reason": "reward_pick_unprepared"}
+	if upgrade_sequence < 0 or target_level <= 0:
+		return {"accepted": false, "applied": false, "reason": "invalid_reward_pick_upgrade"}
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	if choice_id.is_empty():
+		return {"accepted": false, "applied": false, "reason": "invalid_reward_pick_choice"}
+	var resolution_id := "%s:reward_pick:upgrade_%d" % [
+		_prepared_resolution_id,
+		upgrade_sequence,
+	]
+	var result: Dictionary = _node_action_transaction.apply_once(
+		resolution_id,
+		{"muhon": maxi(0, cost)},
+		{},
+		_run_state,
+		_resolution_ids,
+		effect_callback,
+		rollback_callback
+	)
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		var record := {
+			"node_id": _current_node_id,
+			"node_resolution_id": resolution_id,
+			"choice_id": choice_id,
+			"choice_kind": "upgrade",
+			"target_level": target_level,
+			"upgrade_sequence": upgrade_sequence,
 			"cost": maxi(0, cost),
 		}
 		_reward_pick_history.append(record)

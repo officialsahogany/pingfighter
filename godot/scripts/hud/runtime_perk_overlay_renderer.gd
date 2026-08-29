@@ -31,6 +31,15 @@ const TowerAscentTuning := preload("res://scripts/tower_ascent/tower_ascent_tuni
 const TowerAscentNodeModalLocalization := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
+const TowerRewardPickLocalization := preload(
+	"res://scripts/tower_ascent/tower_reward_pick_localization.gd"
+)
+const TowerRewardPickUpgradeLayout := preload(
+	"res://scripts/tower_ascent/tower_reward_pick_upgrade_layout.gd"
+)
+const TowerRewardPickMugongSwapLayout := preload(
+	"res://scripts/tower_ascent/tower_reward_pick_mugong_swap_layout.gd"
+)
 const TowerShopNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
 )
@@ -100,6 +109,7 @@ const CARD_SELECTION_SCALE := 0.028
 # 습득형의 범용 태그(고유 / 비급 / 절세무공)는 여기 넣지 않는다 -- 그건 TAB
 # 정보창의 넓은 셀 계약이고, 이 좁은 명패는 "무엇으로 얻은 칸인가"만 말한다.
 const STATUS_BADGE_TAG_TREES := ["fusion"]
+const STATUS_DEFAULT_HEADING := "◆ 현재 무공"
 const STATUS_BADGE_FONT_RATIO := 0.19
 const STATUS_BADGE_MIN_FONT := 9
 const STATUS_BADGE_VERTICAL_PADDING := 3.0
@@ -203,6 +213,8 @@ var _tower_reward_hover_effective_query_surface: Object = RuntimePerkEffectiveSt
 var _tower_reward_hover_landing_projection_count := 0
 var _tower_reward_landing_draw_count := 0
 var _tower_reward_material_draw_count := 0
+var _tower_reward_upgrade_layout: Object = TowerRewardPickUpgradeLayout.new()
+var _tower_reward_mugong_swap_layout: Object = TowerRewardPickMugongSwapLayout.new()
 var _tower_active_item_icon_renderer: Object = ActiveItemHudSlotIconRenderer.new()
 # prewarm_assets가 채우는 디스크리트 프리웜 캐시 — draw 핫패스는 조회만
 # 한다(미스 시 절차 폴백, 핫패스 로드 금지 트랩).
@@ -2020,10 +2032,14 @@ func draw_tower_reward_pick(
 	var layout: Dictionary = _get_dict(view_model.get("layout", {}))
 	var choices: Array = _get_array(view_model.get("choices", []))
 	var rects: Array = _get_array(view_model.get("card_rects", []))
+	var inline_modal: Dictionary = _get_dict(
+		view_model.get("inline_modal", view_model.get("modal", {}))
+	)
+	var board_mouse_pos := mouse_pos if inline_modal.is_empty() else Vector2(-1.0, -1.0)
 	var reward_hover_preview := _resolve_tower_reward_hover_preview(
 		choices,
 		rects,
-		mouse_pos,
+		board_mouse_pos,
 		snapshot
 	)
 	var absorption_by_slot: Dictionary = _tower_reward_absorption_by_slot(view_model)
@@ -2133,9 +2149,22 @@ func draw_tower_reward_pick(
 		_get_rect2(layout.get("panel_rect", Rect2())),
 		icon_renderer,
 		view_size,
-		mouse_pos,
+		board_mouse_pos,
 		int(view_model.get("reward_session_id", -1)),
-		reward_hover_preview
+		reward_hover_preview,
+		_get_dict(view_model.get("status_interaction_model", {})),
+		str(view_model.get(
+			"status_title",
+			TowerRewardPickLocalization.text("owned_upgrade_title")
+		)),
+		str(view_model.get(
+			"status_upgrade_cta",
+			TowerRewardPickLocalization.text("owned_upgrade_cta")
+		)),
+		str(view_model.get(
+			"status_max_rank_text",
+			TowerRewardPickLocalization.text("upgrade_max_rank")
+		))
 	)
 	_draw_stats_band(
 		canvas,
@@ -2144,7 +2173,7 @@ func draw_tower_reward_pick(
 		_get_rect2(layout.get("stats_rect", Rect2())),
 		view_size,
 		icon_renderer,
-		mouse_pos,
+		board_mouse_pos,
 		choices,
 		rects
 	)
@@ -2169,7 +2198,633 @@ func draw_tower_reward_pick(
 		14,
 		Color(0.82, 0.80, 0.72, alpha)
 	)
-	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, mouse_pos)
+	_draw_hovered_tower_chosik_tooltip(canvas, view_model, view_size, board_mouse_pos)
+	if not inline_modal.is_empty():
+		_draw_tower_reward_inline_modal(
+			canvas,
+			inline_modal,
+			icon_renderer,
+			view_size
+		)
+
+
+func build_tower_reward_upgrade_layout(
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> Dictionary:
+	var cards: Array = _get_array(modal_model.get("cards", []))
+	var show_all_levels := bool(modal_model.get("show_all_levels", false))
+	var has_next_level := bool(modal_model.get(
+		"has_next_level",
+		modal_model.get("can_upgrade", true)
+	))
+	var card_count: int = cards.size()
+	if show_all_levels:
+		card_count = maxi(card_count, int(modal_model.get("max_level", 1)))
+	else:
+		card_count = maxi(card_count, 2 if has_next_level else 1)
+	return _tower_reward_upgrade_layout.build_layout(
+		view_size,
+		card_count,
+		show_all_levels,
+		has_next_level
+	)
+
+
+func get_tower_reward_upgrade_action_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> String:
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_upgrade_layout(view_size, modal_model)
+	return str(_tower_reward_upgrade_layout.action_at(layout, position))
+
+
+func get_tower_reward_upgrade_card_index_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> int:
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_upgrade_layout(view_size, modal_model)
+	return int(_tower_reward_upgrade_layout.get_card_index_at(layout, position))
+
+
+func build_tower_reward_mugong_swap_layout(
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> Dictionary:
+	return _tower_reward_mugong_swap_layout.build_layout(
+		_get_array(modal_model.get("candidates", [])).size(),
+		view_size
+	)
+
+
+func get_tower_reward_mugong_swap_option_index_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> int:
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_mugong_swap_layout(view_size, modal_model)
+	return int(_tower_reward_mugong_swap_layout.get_option_index_at(layout, position))
+
+
+func is_tower_reward_mugong_swap_cancel_at(
+	position: Vector2,
+	view_size: Vector2,
+	modal_model: Dictionary
+) -> bool:
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_mugong_swap_layout(view_size, modal_model)
+	return bool(_tower_reward_mugong_swap_layout.is_cancel_at(layout, position))
+
+
+func build_tower_reward_upgrade_stat_rows(
+	previous_text: String,
+	current_text: String
+) -> Array[Dictionary]:
+	var previous_segments := _tower_reward_upgrade_stat_segments(previous_text)
+	var current_segments := _tower_reward_upgrade_stat_segments(current_text)
+	var rows: Array[Dictionary] = []
+	for index in range(current_segments.size()):
+		var current_segment := str(current_segments[index])
+		var delta_text := ""
+		if index < previous_segments.size():
+			var previous_percent: Variant = _tower_reward_first_percent(
+				str(previous_segments[index])
+			)
+			var current_percent: Variant = _tower_reward_first_percent(current_segment)
+			if previous_percent is float and current_percent is float:
+				var delta: float = absf(float(current_percent) - float(previous_percent))
+				if delta > 0.0001:
+					var delta_number := (
+						str(int(round(delta)))
+						if is_equal_approx(delta, round(delta))
+						else ("%.1f" % delta).trim_suffix("0").trim_suffix(".")
+					)
+					delta_text = "(▲%s%%)" % delta_number
+		rows.append({
+			"text": current_segment,
+			"delta": delta_text,
+		})
+	return rows
+
+
+func build_tower_reward_upgrade_card_content_layout(
+	card_model: Dictionary,
+	card_rect: Rect2
+) -> Dictionary:
+	var content_rect := Rect2(
+		card_rect.position + Vector2(card_rect.size.x * 0.08, card_rect.size.y * 0.585),
+		Vector2(card_rect.size.x * 0.84, card_rect.size.y * 0.35)
+	)
+	var preferred_font_size: int = clampi(int(round(card_rect.size.x * 0.046)), 10, 18)
+	var font_size := preferred_font_size
+	var packed_rows: Array[Dictionary] = []
+	var capacity := 1
+	while font_size >= 9:
+		var line_height: float = float(font_size + 5)
+		capacity = maxi(1, int(floor(content_rect.size.y / line_height)))
+		packed_rows = _pack_tower_reward_upgrade_card_rows(
+			card_model,
+			content_rect.size.x,
+			font_size
+		)
+		if packed_rows.size() <= capacity or font_size == 9:
+			var baseline_y: float = content_rect.position.y + float(font_size)
+			for row_index in range(packed_rows.size()):
+				(packed_rows[row_index] as Dictionary)["baseline"] = Vector2(
+					content_rect.position.x,
+					baseline_y + float(row_index) * line_height
+				)
+			return {
+				"content_rect": content_rect,
+				"font_size": font_size,
+				"line_height": line_height,
+				"rows": packed_rows,
+				"row_capacity": capacity,
+				"fits": packed_rows.size() <= capacity,
+				"last_baseline_y": (
+					baseline_y + float(maxi(0, packed_rows.size() - 1)) * line_height
+				),
+			}
+		font_size -= 1
+	return {}
+
+
+func draw_tower_reward_upgrade_modal(
+	canvas: CanvasItem,
+	modal_model: Dictionary,
+	icon_renderer: Object,
+	view_size: Vector2
+) -> bool:
+	if canvas == null:
+		return false
+	var cards: Array = _get_array(modal_model.get("cards", []))
+	if cards.is_empty():
+		return false
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_upgrade_layout(view_size, modal_model)
+	var panel_rect: Rect2 = _get_rect2(layout.get("panel_rect", Rect2()))
+	if not panel_rect.has_area():
+		return false
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 12.0 / 255.0, 0.78))
+	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, panel_rect, 1.0)
+	var title := str(modal_model.get("title", ""))
+	if not title.is_empty():
+		_draw_text_centered(
+			canvas,
+			title,
+			panel_rect.position + Vector2(panel_rect.size.x * 0.5, 72.0 * float(layout.get("reference_scale", 1.0))),
+			clampi(int(round(27.0 * float(layout.get("reference_scale", 1.0)))), 17, 30),
+			Color(1.0, 225.0 / 255.0, 142.0 / 255.0)
+		)
+	_draw_tower_reward_modal_back_arrow(
+		canvas,
+		_get_rect2(layout.get("back_arrow_rect", Rect2()))
+	)
+	var card_rects: Array = _get_array(layout.get("card_rects", []))
+	for index in range(mini(cards.size(), card_rects.size())):
+		if not (cards[index] is Dictionary) or not (card_rects[index] is Rect2):
+			continue
+		_draw_tower_reward_upgrade_card(
+			canvas,
+			cards[index] as Dictionary,
+			card_rects[index] as Rect2,
+			icon_renderer,
+			index
+		)
+	var arrow_rect: Rect2 = _get_rect2(layout.get("arrow_rect", Rect2()))
+	if arrow_rect.has_area():
+		_draw_tower_reward_upgrade_arrow(canvas, arrow_rect)
+	_draw_tower_reward_upgrade_checkbox(
+		canvas,
+		_get_rect2(layout.get("checkbox_rect", Rect2())),
+		bool(modal_model.get("show_all_levels", false)),
+		str(modal_model.get(
+			"show_all_text",
+			TowerRewardPickLocalization.text("upgrade_show_all")
+		))
+	)
+	_draw_tower_reward_modal_button(
+		canvas,
+		_get_rect2(layout.get("back_button_rect", Rect2())),
+		str(modal_model.get("back_text", TowerRewardPickLocalization.text("upgrade_back"))),
+		true,
+		false
+	)
+	var has_next_level := bool(modal_model.get(
+		"has_next_level",
+		modal_model.get("can_upgrade", true)
+	))
+	var confirm_enabled := bool(modal_model.get(
+		"confirm_enabled",
+		modal_model.get("can_upgrade", true)
+	))
+	var confirm_text := str(modal_model.get(
+		"confirm_text",
+		TowerRewardPickLocalization.text("upgrade_confirm")
+	))
+	var secondary_text := ""
+	if has_next_level:
+		secondary_text = str(modal_model.get(
+			"cost_text",
+			TowerRewardPickLocalization.text(
+				"upgrade_cost",
+				{"amount": maxi(0, int(modal_model.get("cost", 0)))}
+			)
+		))
+	else:
+		confirm_text = str(modal_model.get(
+			"max_rank_text",
+			TowerRewardPickLocalization.text("upgrade_max_rank")
+		))
+	_draw_tower_reward_modal_button(
+		canvas,
+		_get_rect2(layout.get("confirm_button_rect", Rect2())),
+		confirm_text,
+		confirm_enabled,
+		true,
+		secondary_text
+	)
+	return true
+
+
+func draw_tower_reward_mugong_swap_modal(
+	canvas: CanvasItem,
+	modal_model: Dictionary,
+	icon_renderer: Object,
+	view_size: Vector2
+) -> bool:
+	if canvas == null:
+		return false
+	var candidates: Array = _get_array(modal_model.get("candidates", []))
+	if candidates.is_empty():
+		return false
+	var layout: Dictionary = _get_dict(modal_model.get("layout", {}))
+	if layout.is_empty():
+		layout = build_tower_reward_mugong_swap_layout(view_size, modal_model)
+	var panel_rect: Rect2 = _get_rect2(layout.get("panel_rect", Rect2()))
+	if not panel_rect.has_area():
+		return false
+	canvas.draw_rect(Rect2(Vector2.ZERO, view_size), Color(0.0, 0.0, 12.0 / 255.0, 0.78))
+	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, panel_rect, 1.0)
+	var scale: float = float(layout.get("scale", 1.0))
+	_draw_text_centered(
+		canvas,
+		str(modal_model.get(
+			"title",
+			TowerRewardPickLocalization.text("mugong_swap_title")
+		)),
+		_get_vector2(layout.get("title_pos", panel_rect.get_center())),
+		clampi(int(round(24.0 * scale)), 16, 27),
+		Color(1.0, 225.0 / 255.0, 125.0 / 255.0)
+	)
+	var new_name := str(modal_model.get("new_name", ""))
+	_draw_text_centered(
+		canvas,
+		str(modal_model.get(
+			"new_label",
+			TowerRewardPickLocalization.text("mugong_swap_new_label", {"name": new_name})
+		)),
+		_get_vector2(layout.get("new_skill_pos", panel_rect.get_center())),
+		clampi(int(round(15.0 * scale)), 11, 17),
+		Color(210.0 / 255.0, 225.0 / 255.0, 240.0 / 255.0)
+	)
+	var selected_index: int = clampi(
+		int(modal_model.get("selected_index", 0)),
+		0,
+		candidates.size() - 1
+	)
+	var option_rects: Array = _get_array(layout.get("option_rects", []))
+	for index in range(mini(candidates.size(), option_rects.size())):
+		if not (candidates[index] is Dictionary) or not (option_rects[index] is Rect2):
+			continue
+		_draw_tower_reward_mugong_swap_option(
+			canvas,
+			candidates[index] as Dictionary,
+			option_rects[index] as Rect2,
+			index == selected_index,
+			icon_renderer
+		)
+	_draw_text_centered(
+		canvas,
+		str(modal_model.get(
+			"hint_text",
+			TowerRewardPickLocalization.text("mugong_swap_hint")
+		)),
+		_get_vector2(layout.get("hint_pos", panel_rect.end - Vector2(panel_rect.size.x * 0.5, 58.0))),
+		clampi(int(round(13.0 * scale)), 10, 15),
+		Color(170.0 / 255.0, 180.0 / 255.0, 210.0 / 255.0)
+	)
+	_draw_tower_reward_modal_button(
+		canvas,
+		_get_rect2(layout.get("cancel_rect", Rect2())),
+		str(modal_model.get("cancel_text", TowerRewardPickLocalization.text("upgrade_back"))),
+		true,
+		false
+	)
+	return true
+
+
+func _draw_tower_reward_inline_modal(
+	canvas: CanvasItem,
+	modal_model: Dictionary,
+	icon_renderer: Object,
+	view_size: Vector2
+) -> void:
+	match str(modal_model.get("kind", "")):
+		"upgrade":
+			draw_tower_reward_upgrade_modal(canvas, modal_model, icon_renderer, view_size)
+		"mugong_replace", "mugong_swap":
+			draw_tower_reward_mugong_swap_modal(canvas, modal_model, icon_renderer, view_size)
+
+
+func _tower_reward_upgrade_stat_segments(text: String) -> Array[String]:
+	var normalized := text.replace("\r\n", "\n").replace("\r", "\n")
+	var result: Array[String] = []
+	for line_value: Variant in normalized.split("\n", false):
+		for segment_value: Variant in str(line_value).split(",", false):
+			var segment := str(segment_value).strip_edges()
+			if not segment.is_empty():
+				result.append(segment)
+	return result
+
+
+func _tower_reward_first_percent(text: String) -> Variant:
+	var regex := RegEx.new()
+	if regex.compile("([+-]?\\d+(?:\\.\\d+)?)%") != OK:
+		return null
+	var match_result: RegExMatch = regex.search(text)
+	if match_result == null:
+		return null
+	return float(match_result.get_string(1))
+
+
+func _pack_tower_reward_upgrade_card_rows(
+	card_model: Dictionary,
+	max_width: float,
+	font_size: int
+) -> Array[Dictionary]:
+	var source_rows: Array = _get_array(card_model.get("stat_rows", []))
+	if source_rows.is_empty():
+		var choice: Dictionary = _get_dict(card_model.get("choice", card_model))
+		var description := str(card_model.get(
+			"description",
+			choice.get("description", "")
+		))
+		var previous_description := str(card_model.get("previous_description", ""))
+		if not previous_description.is_empty():
+			source_rows = build_tower_reward_upgrade_stat_rows(
+				previous_description,
+				description
+			)
+		else:
+			for segment: String in _tower_reward_upgrade_stat_segments(description):
+				source_rows.append({"text": segment, "delta": ""})
+	var packed: Array[Dictionary] = []
+	for source_value: Variant in source_rows:
+		var source: Dictionary = _get_dict(source_value)
+		var text := str(source.get("text", "")).strip_edges()
+		var delta := str(source.get("delta", "")).strip_edges()
+		if text.is_empty() and delta.is_empty():
+			continue
+		var wrapped: Array = _wrap_text_px(text, font_size, max_width, 12)
+		if wrapped.is_empty() and not text.is_empty():
+			wrapped.append(text)
+		for line_index in range(wrapped.size()):
+			packed.append({
+				"text": str(wrapped[line_index]),
+				"delta": delta if line_index == wrapped.size() - 1 else "",
+			})
+		if wrapped.is_empty() and not delta.is_empty():
+			packed.append({"text": "", "delta": delta})
+	return packed
+
+
+func _draw_tower_reward_upgrade_card(
+	canvas: CanvasItem,
+	card_model: Dictionary,
+	rect: Rect2,
+	icon_renderer: Object,
+	paper_variant: int
+) -> void:
+	var choice: Dictionary = _get_dict(card_model.get("choice", card_model)).duplicate(true)
+	var display_level: int = int(card_model.get(
+		"display_level",
+		card_model.get("level", choice.get("next_level", choice.get("level", 1)))
+	))
+	choice["next_level"] = display_level
+	choice["level"] = display_level
+	var role := str(card_model.get("role", "level"))
+	var cool_tone: bool = role == "next" or bool(card_model.get("cool_tone", false))
+	_draw_card(canvas, choice, rect, false, 1.0, icon_renderer, 0.0, paper_variant)
+	if cool_tone:
+		canvas.draw_rect(
+			rect.grow(-7.0),
+			Color(120.0 / 255.0, 195.0 / 255.0, 220.0 / 255.0, 0.12),
+			true
+		)
+		canvas.draw_rect(
+			rect.grow(-5.0),
+			Color(112.0 / 255.0, 196.0 / 255.0, 225.0 / 255.0, 0.88),
+			false,
+			2.0
+		)
+	var content_layout := build_tower_reward_upgrade_card_content_layout(card_model, rect)
+	var font_size: int = int(content_layout.get("font_size", 12))
+	var text_color := (
+		Color(22.0 / 255.0, 54.0 / 255.0, 65.0 / 255.0)
+		if cool_tone
+		else Color(50.0 / 255.0, 42.0 / 255.0, 34.0 / 255.0)
+	)
+	for row_value: Variant in _get_array(content_layout.get("rows", [])):
+		var row: Dictionary = _get_dict(row_value)
+		var baseline: Vector2 = row.get("baseline", Vector2.ZERO)
+		var row_text := str(row.get("text", ""))
+		_draw_text(canvas, "• %s" % row_text, baseline, font_size, text_color)
+		var delta := str(row.get("delta", ""))
+		if delta.is_empty():
+			continue
+		var text_width: float = _get_text_size(_get_font(), "• %s  " % row_text, font_size).x
+		_draw_text(
+			canvas,
+			delta,
+			baseline + Vector2(text_width, 0.0),
+			font_size,
+			Color(24.0 / 255.0, 112.0 / 255.0, 61.0 / 255.0)
+		)
+
+
+func _draw_tower_reward_upgrade_arrow(canvas: CanvasItem, rect: Rect2) -> void:
+	var center := rect.get_center()
+	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.007)
+	var color := Color(1.0, 194.0 / 255.0, 62.0 / 255.0, 0.82 + 0.18 * pulse)
+	var tail_left := Vector2(rect.position.x, center.y)
+	var head_base_x: float = rect.position.x + rect.size.x * 0.56
+	canvas.draw_line(tail_left, Vector2(head_base_x, center.y), color, maxf(3.0, rect.size.y * 0.09))
+	var points := PackedVector2Array([
+		Vector2(head_base_x, rect.position.y + rect.size.y * 0.18),
+		Vector2(rect.end.x, center.y),
+		Vector2(head_base_x, rect.end.y - rect.size.y * 0.18),
+	])
+	canvas.draw_colored_polygon(points, color)
+
+
+func _draw_tower_reward_upgrade_checkbox(
+	canvas: CanvasItem,
+	rect: Rect2,
+	checked: bool,
+	label: String
+) -> void:
+	if not rect.has_area():
+		return
+	var box_size: float = minf(rect.size.y * 0.52, 28.0)
+	var box := Rect2(
+		Vector2(rect.position.x, rect.get_center().y - box_size * 0.5),
+		Vector2.ONE * box_size
+	)
+	canvas.draw_rect(box, Color(8.0 / 255.0, 16.0 / 255.0, 25.0 / 255.0, 0.94))
+	canvas.draw_rect(box, Color(213.0 / 255.0, 170.0 / 255.0, 86.0 / 255.0, 0.90), false, 2.0)
+	if checked:
+		canvas.draw_line(
+			box.position + Vector2(box.size.x * 0.18, box.size.y * 0.54),
+			box.position + Vector2(box.size.x * 0.42, box.size.y * 0.80),
+			Color(1.0, 224.0 / 255.0, 132.0 / 255.0),
+			3.0
+		)
+		canvas.draw_line(
+			box.position + Vector2(box.size.x * 0.42, box.size.y * 0.80),
+			box.position + Vector2(box.size.x * 0.84, box.size.y * 0.18),
+			Color(1.0, 224.0 / 255.0, 132.0 / 255.0),
+			3.0
+		)
+	_draw_text_fitted(
+		canvas,
+		label,
+		Vector2(box.end.x + 12.0, rect.get_center().y + 7.0),
+		clampi(int(round(rect.size.y * 0.34)), 12, 22),
+		Color(235.0 / 255.0, 219.0 / 255.0, 178.0 / 255.0),
+		maxf(1.0, rect.end.x - box.end.x - 12.0),
+		10
+	)
+
+
+func _draw_tower_reward_modal_back_arrow(canvas: CanvasItem, rect: Rect2) -> void:
+	if not rect.has_area():
+		return
+	var center := rect.get_center()
+	var radius: float = minf(rect.size.x, rect.size.y) * 0.42
+	canvas.draw_circle(center, radius, Color(12.0 / 255.0, 22.0 / 255.0, 31.0 / 255.0, 0.97))
+	canvas.draw_arc(center, radius, 0.0, TAU, 32, Color(201.0 / 255.0, 157.0 / 255.0, 76.0 / 255.0, 0.95), 2.0)
+	var left := center - Vector2(radius * 0.50, 0.0)
+	var right := center + Vector2(radius * 0.43, 0.0)
+	canvas.draw_line(left, right, Color(1.0, 232.0 / 255.0, 177.0 / 255.0), 4.0)
+	canvas.draw_line(left, center - Vector2(radius * 0.12, radius * 0.36), Color(1.0, 232.0 / 255.0, 177.0 / 255.0), 4.0)
+	canvas.draw_line(left, center + Vector2(-radius * 0.12, radius * 0.36), Color(1.0, 232.0 / 255.0, 177.0 / 255.0), 4.0)
+
+
+func _draw_tower_reward_modal_button(
+	canvas: CanvasItem,
+	rect: Rect2,
+	label: String,
+	enabled: bool,
+	primary: bool,
+	secondary: String = ""
+) -> void:
+	if not rect.has_area():
+		return
+	var fill := Color(18.0 / 255.0, 29.0 / 255.0, 39.0 / 255.0, 0.98)
+	if primary:
+		fill = Color(21.0 / 255.0, 91.0 / 255.0, 105.0 / 255.0, 0.98)
+	if not enabled:
+		fill = Color(34.0 / 255.0, 40.0 / 255.0, 46.0 / 255.0, 0.94)
+	canvas.draw_rect(rect, fill, true)
+	canvas.draw_rect(
+		rect,
+		Color(218.0 / 255.0, 168.0 / 255.0, 74.0 / 255.0, 0.92 if enabled else 0.42),
+		false,
+		2.5
+	)
+	var label_center := rect.get_center() + Vector2(0.0, -7.0 if not secondary.is_empty() else 1.0)
+	_draw_text_centered_fitted(
+		canvas,
+		label,
+		label_center,
+		clampi(int(round(rect.size.y * 0.31)), 13, 25),
+		Color(247.0 / 255.0, 234.0 / 255.0, 198.0 / 255.0, 1.0 if enabled else 0.55),
+		rect.size.x - 24.0,
+		11
+	)
+	if not secondary.is_empty():
+		_draw_text_centered_fitted(
+			canvas,
+			secondary,
+			rect.get_center() + Vector2(0.0, rect.size.y * 0.22),
+			clampi(int(round(rect.size.y * 0.17)), 9, 14),
+			Color(230.0 / 255.0, 205.0 / 255.0, 143.0 / 255.0, 0.92),
+			rect.size.x - 20.0,
+			8
+		)
+
+
+func _draw_tower_reward_mugong_swap_option(
+	canvas: CanvasItem,
+	candidate_model: Dictionary,
+	rect: Rect2,
+	selected: bool,
+	icon_renderer: Object
+) -> void:
+	var entry: Dictionary = _get_dict(
+		candidate_model.get("entry", candidate_model)
+	).duplicate(true)
+	var draw_id := str(candidate_model.get(
+		"draw_key",
+		entry.get("id", entry.get("_draw_id", ""))
+	))
+	entry["id"] = draw_id
+	var pulse: float = 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.006)
+	if selected:
+		canvas.draw_rect(
+			rect.grow(6.0),
+			Color(1.0, 190.0 / 255.0, 80.0 / 255.0, 0.18 + 0.10 * pulse),
+			false,
+			2.0
+		)
+	canvas.draw_rect(rect, Color(24.0 / 255.0, 31.0 / 255.0, 46.0 / 255.0, 0.96))
+	canvas.draw_rect(
+		rect,
+		Color(1.0, 205.0 / 255.0, 90.0 / 255.0, 0.90 if selected else 0.42),
+		false,
+		2.0 if selected else 1.2
+	)
+	var content_layout := build_unlock_swap_option_content_layout(rect)
+	var icon_rect: Rect2 = _get_rect2(content_layout.get("icon_rect", Rect2()))
+	canvas.draw_rect(icon_rect, Color(10.0 / 255.0, 14.0 / 255.0, 24.0 / 255.0, 0.88))
+	_draw_icon(canvas, icon_renderer, entry, icon_rect.grow(-4.0), 1.0)
+	var label := str(candidate_model.get("name", entry.get("name", draw_id)))
+	var rank_text := str(candidate_model.get(
+		"rank_text",
+		entry.get("_level_text", "")
+	))
+	if not rank_text.is_empty():
+		label = "%s  %s" % [label, rank_text]
+	_draw_text_fitted(
+		canvas,
+		label,
+		_get_vector2(content_layout.get("label_baseline", rect.end - Vector2(rect.size.x - 12.0, 8.0))),
+		int(content_layout.get("label_font_size", 14)),
+		Color(0.94, 0.97, 1.0),
+		rect.size.x - 24.0,
+		10
+	)
 
 
 func _draw_hovered_tower_chosik_tooltip(
@@ -3980,6 +4635,116 @@ func _append_clip_ellipsis(font: Font, line: String, font_size: int, max_px: flo
 	return trimmed + suffix
 
 
+func build_tower_reward_status_interaction_model(
+	runtime_state: Object,
+	catalog: Object,
+	snapshot: Dictionary,
+	panel_rect: Rect2,
+	reward_hover_preview: Dictionary = {}
+) -> Dictionary:
+	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
+	var slot_status: Dictionary = _get_dict(snapshot.get("perk_slot_status", {}))
+	if (
+		slot_status.is_empty()
+		and not bool(snapshot.get("perk_slot_status_cached", false))
+		and catalog != null
+		and catalog.has_method("get_perk_slot_status")
+	):
+		# Keep the runtime state in the slot context so fusion refunds and other
+		# projection-owned adjustments stay identical to the painted ledger.
+		slot_status = _get_dict(catalog.call(
+			"get_perk_slot_status",
+			levels,
+			runtime_state
+		))
+	var acquired: Array = _build_acquired_perks_for_snapshot(
+		levels,
+		catalog,
+		runtime_state,
+		snapshot
+	)
+	var slot_limit: int = max(1, int(slot_status.get("limit", 6)))
+	var grid_entries: Array = _build_status_slot_grid(
+		acquired,
+		slot_limit,
+		reward_hover_preview
+	)
+	var display_slots: int = max(1, grid_entries.size())
+	var cells: Array[Dictionary] = []
+	for index in range(display_slots):
+		var entry: Dictionary = _get_dict(grid_entries[index])
+		var is_empty := bool(entry.get("_empty_slot", false))
+		var canonical_id := str(entry.get("_sort_id", entry.get("id", "")))
+		var tree := str(entry.get("tree", "")).to_lower()
+		var base_level: int = int(entry.get(
+			"base_level",
+			levels.get(canonical_id, entry.get("level", 0))
+		))
+		var effective_level: int = int(entry.get("level", base_level))
+		var max_level: int = maxi(1, int(entry.get("max_level", 1)))
+		var slot_cell_index: int = int(entry.get(
+			"_slot_cell_index",
+			entry.get("slot_cell_index", 0)
+		))
+		var is_projected_non_mugong := tree in ["fusion", "mystic_dice"]
+		var upgrade_inspectable := (
+			not is_empty
+			and not canonical_id.is_empty()
+			and levels.has(canonical_id)
+			and not is_projected_non_mugong
+		)
+		var target_key := ""
+		if not canonical_id.is_empty():
+			target_key = "fusion:%s" % canonical_id if tree == "fusion" else (
+				"perk:%s:cell:%d" % [canonical_id, slot_cell_index]
+			)
+		cells.append({
+			"index": index,
+			"rect": _get_status_slot_rect(panel_rect, index, display_slots),
+			"entry": entry,
+			"draw_key": str(entry.get("id", entry.get("_draw_id", ""))),
+			"canonical_id": canonical_id,
+			"target_key": target_key,
+			"base_level": base_level,
+			"effective_level": effective_level,
+			"max_level": max_level,
+			"slot_cell_index": slot_cell_index,
+			"is_empty": is_empty,
+			"upgrade_inspectable": upgrade_inspectable,
+			"can_upgrade": upgrade_inspectable and base_level < max_level,
+			"replacement_eligible": (
+				not is_empty
+				and not bool(entry.get("_slot_free_cell", false))
+				and not canonical_id.is_empty()
+			),
+		})
+	return {
+		"panel_rect": panel_rect,
+		"levels": levels,
+		"slot_status": slot_status,
+		"slot_limit": slot_limit,
+		"acquired": acquired,
+		"grid_entries": grid_entries,
+		"display_slots": display_slots,
+		"cells": cells,
+	}
+
+
+func get_tower_reward_status_cell_at(
+	interaction_model: Dictionary,
+	position: Vector2,
+	require_upgrade_inspectable: bool = true
+) -> Dictionary:
+	for cell_value: Variant in _get_array(interaction_model.get("cells", [])):
+		var cell: Dictionary = _get_dict(cell_value)
+		if require_upgrade_inspectable and not bool(cell.get("upgrade_inspectable", false)):
+			continue
+		var rect: Rect2 = _get_rect2(cell.get("rect", Rect2()))
+		if rect.has_point(position):
+			return cell.duplicate(true)
+	return {}
+
+
 func _draw_status_panel(
 	canvas: CanvasItem,
 	runtime_state: Object,
@@ -3990,11 +4755,27 @@ func _draw_status_panel(
 	view_size: Vector2 = Vector2.ZERO,
 	mouse_pos_override: Variant = null,
 	reward_session_id: int = -1,
-	reward_hover_preview: Dictionary = {}
+	reward_hover_preview: Dictionary = {},
+	interaction_model: Dictionary = {},
+	title_text: String = "",
+	upgrade_cta_text: String = "",
+	max_rank_text: String = ""
 ) -> void:
 	RuntimePerkTraditionalChrome.draw_status_ledger(canvas, rect)
 
-	var levels: Dictionary = _get_dict(snapshot.get("runtime_skill_levels", {}))
+	# The shared interaction builder is now the sole owner of
+	# `_build_status_slot_grid(...)`; its cells preserve the assembler's
+	# `_empty_slot` flag for both drawing and hit testing.
+	var status_model := interaction_model
+	if status_model.is_empty():
+		status_model = build_tower_reward_status_interaction_model(
+			runtime_state,
+			catalog,
+			snapshot,
+			rect,
+			reward_hover_preview
+		)
+	var levels: Dictionary = _get_dict(status_model.get("levels", {}))
 	var pending: int = int(snapshot.get("pending_skill_choices", 0))
 	var gold: int = int(snapshot.get("gold_from_perks", 0))
 	# 배율 기준값은 RuntimePerkChoiceLayout의 원장 기준 높이(142)와 짝이다 --
@@ -4002,7 +4783,12 @@ func _draw_status_panel(
 	var status_scale: float = clamp(rect.size.y / 142.0, 0.72, 1.32)
 	var status_font_size: int = clampi(int(round(13.0 * status_scale)), 11, 17)
 
-	_draw_text(canvas, "◆ 현재 무공", rect.position + Vector2(17.0 * status_scale, 28.0 * status_scale), clampi(int(round(16.0 * status_scale)), 13, 21), Color(220.0 / 255.0, 185.0 / 255.0, 105.0 / 255.0))
+	var resolved_heading := (
+		"◆ %s" % title_text
+		if not title_text.is_empty()
+		else STATUS_DEFAULT_HEADING
+	)
+	_draw_text(canvas, resolved_heading, rect.position + Vector2(17.0 * status_scale, 28.0 * status_scale), clampi(int(round(16.0 * status_scale)), 13, 21), Color(220.0 / 255.0, 185.0 / 255.0, 105.0 / 255.0))
 	var counter_rect: Rect2 = _get_status_counter_rect(rect)
 	RuntimePerkTraditionalChrome.draw_status_counter_board(canvas, counter_rect)
 	var counter_x: float = counter_rect.end.x - 10.0 * status_scale
@@ -4010,15 +4796,7 @@ func _draw_status_panel(
 	_draw_text_right(canvas, "선택 대기: %d" % pending, Vector2(counter_x, counter_rect.position.y + counter_step), status_font_size, Color(214.0 / 255.0, 209.0 / 255.0, 185.0 / 255.0))
 	_draw_text_right(canvas, "무공 골드: %d" % gold, Vector2(counter_x, counter_rect.position.y + counter_step * 2.0), status_font_size, Color(229.0 / 255.0, 192.0 / 255.0, 107.0 / 255.0))
 
-	var slot_status: Dictionary = _get_dict(snapshot.get("perk_slot_status", {}))
-	if (
-		slot_status.is_empty()
-		and not bool(snapshot.get("perk_slot_status_cached", false))
-		and catalog != null
-		and catalog.has_method("get_perk_slot_status")
-	):
-		# 융합 슬롯 환급 반영: runtime_state 자체를 slot context로 관통.
-		slot_status = _get_dict(catalog.get_perk_slot_status(levels, runtime_state))
+	var slot_status: Dictionary = _get_dict(status_model.get("slot_status", {}))
 	if not slot_status.is_empty():
 		var slot_count: int = int(slot_status.get("count", 0))
 		var slot_limit: int = int(slot_status.get("limit", 0))
@@ -4034,7 +4812,7 @@ func _draw_status_panel(
 	# live in the 5-orb skill HUD and do not consume a perk slot. 실경로 fold:
 	# 스냅샷의 융합 projection을 소비하는 4인자 빌더가 정본 — 융합 소스 퍽은
 	# 개별 아이콘으로 재등장하지 않고 재료쌍 합성 셀 하나로 접힌다.
-	var acquired: Array = _build_acquired_perks_for_snapshot(levels, catalog, runtime_state, snapshot)
+	var acquired: Array = _get_array(status_model.get("acquired", []))
 	var reward_highlight_keys: Array[String] = []
 	if reward_session_id >= 0:
 		var current_slot_keys := _collect_perk_slot_keys(acquired)
@@ -4056,13 +4834,12 @@ func _draw_status_panel(
 	# acquired.size()가 아니라 프레젠터 공용 조립기를 관통한다 — 슬롯 비소모
 	# 퍽(_slot_free_cell)이 빈칸을 잠식하면 카운터(5/7)와 그리드 빈칸 수가
 	# 어긋난다(코덱스 v1 P1).
-	var slot_limit_for_grid: int = max(1, int(slot_status.get("limit", 6)))
-	var grid_entries: Array = _build_status_slot_grid(
-		acquired,
-		slot_limit_for_grid,
-		reward_hover_preview
-	)
-	var display_slots: int = max(1, grid_entries.size())
+	var grid_entries: Array = _get_array(status_model.get("grid_entries", []))
+	var cells: Array = _get_array(status_model.get("cells", []))
+	var display_slots: int = max(1, int(status_model.get(
+		"display_slots",
+		grid_entries.size()
+	)))
 	var reward_hover_material_keys: Dictionary = _get_dict(
 		reward_hover_preview.get("material_keys", {})
 	)
@@ -4080,10 +4857,16 @@ func _draw_status_panel(
 	var hovered_skill: Dictionary = {}
 	var hovered_icon_rect := Rect2()
 	var hovered_skill_key := ""
+	var hovered_cell: Dictionary = {}
 
 	for idx in range(display_slots):
-		var slot_rect: Rect2 = _get_status_slot_rect(rect, idx, display_slots)
-		var skill: Dictionary = _get_dict(grid_entries[idx])
+		var cell: Dictionary = _get_dict(cells[idx]) if idx < cells.size() else {}
+		var slot_rect: Rect2 = _get_rect2(
+			cell.get("rect", _get_status_slot_rect(rect, idx, display_slots))
+		)
+		var skill: Dictionary = _get_dict(
+			cell.get("entry", grid_entries[idx] if idx < grid_entries.size() else {})
+		)
 		if bool(skill.get("_empty_slot", false)):
 			# Empty slot: a recessed talisman board and seal, not a modern plus button.
 			RuntimePerkTraditionalChrome.draw_talisman_slot(canvas, slot_rect, false, Color.WHITE)
@@ -4097,6 +4880,7 @@ func _draw_status_panel(
 			hovered_skill = skill
 			hovered_icon_rect = slot_rect
 			hovered_skill_key = skill_key
+			hovered_cell = cell
 		var color: Color = _get_color(skill.get("icon_color", Color(100.0 / 255.0, 150.0 / 255.0, 1.0)))
 		if reward_highlight_keys.has(skill_key):
 			var acquire_pulse := 0.5 + 0.5 * sin(float(_get_draw_msec()) * 0.008)
@@ -4143,7 +4927,22 @@ func _draw_status_panel(
 		and _get_perk_slot_key(hovered_skill) == hovered_skill_key
 		and view_size.x > 0.0
 	):
-		_draw_perk_status_tooltip(canvas, hovered_skill, hovered_icon_rect, view_size, runtime_state, icon_renderer)
+		var action_hint := ""
+		if bool(hovered_cell.get("upgrade_inspectable", false)):
+			action_hint = (
+				upgrade_cta_text
+				if bool(hovered_cell.get("can_upgrade", false))
+				else max_rank_text
+			)
+		_draw_perk_status_tooltip(
+			canvas,
+			hovered_skill,
+			hovered_icon_rect,
+			view_size,
+			runtime_state,
+			icon_renderer,
+			action_hint
+		)
 
 
 static func resolve_tower_reward_slot_highlight_keys(
@@ -5074,7 +5873,8 @@ func _draw_perk_status_tooltip(
 	anchor_rect: Rect2,
 	view_size: Vector2,
 	runtime_state: Object = null,
-	icon_renderer_override: Object = null
+	icon_renderer_override: Object = null,
+	action_hint: String = ""
 ) -> void:
 	var name := str(skill.get("name", ""))
 	var detail := str(skill.get("detail", ""))
@@ -5117,7 +5917,8 @@ func _draw_perk_status_tooltip(
 	var line_h := 20.0
 	var left_w := 300.0
 	var body_lines: Array = _wrap_text_px(left_body, 15, left_w - pad * 2.0, 6)
-	var left_h: float = 20.0 + 22.0 + (19.0 if level_text != "" else 2.0) + float(body_lines.size()) * line_h + 8.0
+	var action_height: float = 30.0 if not action_hint.is_empty() else 0.0
+	var left_h: float = 20.0 + 22.0 + (19.0 if level_text != "" else 2.0) + float(body_lines.size()) * line_h + 8.0 + action_height
 
 	var has_right: bool = not stat_entries.is_empty()
 	var right_w := 214.0
@@ -5163,6 +5964,23 @@ func _draw_perk_status_tooltip(
 	for line in body_lines:
 		_draw_text(canvas, str(line), Vector2(tx, ty), 15, Color(0.86, 0.91, 0.98))
 		ty += line_h
+	if not action_hint.is_empty():
+		var action_y: float = left_rect.end.y - 25.0
+		canvas.draw_line(
+			Vector2(left_rect.position.x + pad, action_y - 12.0),
+			Vector2(left_rect.end.x - pad, action_y - 12.0),
+			Color(accent.r, accent.g, accent.b, 0.46),
+			1.0
+		)
+		_draw_text_centered_fitted(
+			canvas,
+			action_hint,
+			Vector2(left_rect.get_center().x, action_y),
+			14,
+			Color(1.0, 218.0 / 255.0, 116.0 / 255.0),
+			left_rect.size.x - pad * 2.0,
+			10
+		)
 
 	if not has_right:
 		return

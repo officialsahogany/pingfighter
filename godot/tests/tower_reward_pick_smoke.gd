@@ -274,7 +274,7 @@ class FakeCatalog:
 		}
 
 	func get_all_perk_data() -> Dictionary:
-		return {
+		var result := {
 			"unlock_ghost_shot": {
 				"name": "Ghost Shot Manual",
 				"max_level": 1,
@@ -283,6 +283,29 @@ class FakeCatalog:
 				"unlocks_skill": "ghost_shot",
 			},
 		}
+		var candidates: Array = (
+			choices_override.duplicate(true)
+			if choices_override_enabled
+			else [
+				{"id": "common_expansion", "name": "Retired Expansion", "max_level": 5},
+				{"id": "mugong_a", "name": "Mugong A", "max_level": 5},
+				{"id": "mugong_b", "name": "Mugong B", "max_level": 5},
+				{"id": "mugong_c", "name": "Mugong C", "max_level": 5},
+				{"id": "mugong_d", "name": "Mugong D", "max_level": 5},
+				{"id": "mugong_e", "name": "Mugong E", "max_level": 5},
+				{"id": "mugong_f", "name": "Mugong F", "max_level": 5},
+			]
+		)
+		for choice_value: Variant in candidates:
+			if not (choice_value is Dictionary):
+				continue
+			var choice := (choice_value as Dictionary).duplicate(true)
+			var choice_id := str(choice.get("id", ""))
+			if choice_id.is_empty():
+				continue
+			choice.erase("id")
+			result[choice_id] = choice
+		return result
 
 	func get_perk_slot_status(runtime_levels: Dictionary, _slot_context: Object = null) -> Dictionary:
 		slot_status_calls += 1
@@ -448,9 +471,13 @@ class FakeFlowOwner:
 		_choice: Dictionary,
 		cost: int,
 		effect_callback: Callable,
-		rollback_callback: Callable = Callable()
+		rollback_callback: Callable = Callable(),
+		offer_generation: int = 0
 	) -> Dictionary:
-		var resolution_id := "slot_%d" % slot_index
+		var resolution_id := "generation_%d:slot_%d" % [
+			maxi(0, offer_generation),
+			slot_index,
+		]
 		if resolution_ids.has(resolution_id):
 			return {"accepted": true, "applied": false, "reason": "already_committed"}
 		if int(balances.get("muhon", 0)) < cost:
@@ -484,7 +511,8 @@ class FakeOfferBuilder:
 		_context: Dictionary,
 		_owner: Object,
 		_registry: Object,
-		_roll_overrides: Dictionary = {}
+		_roll_overrides: Dictionary = {},
+		_reroll_counter: int = 0
 	) -> Dictionary:
 		return offer.duplicate(true)
 
@@ -696,7 +724,7 @@ func _verify_shell_owner_preserves_character_specific_training_candidate() -> vo
 
 
 func _verify_offer_order_eligibility_and_prices() -> void:
-	_expect(TowerRewardPickOfferBuilder.OFFER_VERSION == "tower_reward_pick_v2", "reward offer version must advance after RNG consumption changes")
+	_expect(TowerRewardPickOfferBuilder.OFFER_VERSION == "tower_reward_pick_v3", "reward offer version must advance after RNG consumption changes")
 	_expect(TowerRewardPickOfferBuilder.TEMP_MUGONG_COST == 2, "Mugong reward card must cost two Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_CHOSIK_COST == 3, "Chosik reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_DASH_AMPLIFICATION_COST == 3, "Glide Orb reward card must cost three Muhon")
@@ -1101,8 +1129,9 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 	)
 	var saturated_choices: Array = saturated_offer.get("choices", [])
 	_expect(bool(saturated_offer.get("accepted", false)), "all-maxed Mugong fallback must remain accepted")
-	_expect(saturated_choices.size() == 1, "all-maxed Mugong fallback must shrink to its one fusion card")
+	_expect(saturated_choices.size() == 2, "all-maxed Mugong fallback must keep fusion plus reward-only bag expansion")
 	_expect(_count_kind(saturated_choices, "fusion") == 1, "all-maxed Mugong fallback must preserve the existing fusion route")
+	_expect(_count_kind(saturated_choices, "bag_expansion") == 1, "all-maxed Mugong fallback must preserve the new slot-free bag card")
 	_expect(_count_kind(saturated_choices, "training") == 0, "all-maxed Mugong fallback must not revive training")
 	_expect(
 		str(saturated_offer.get("card_count_policy", "")) == "available_stock",
@@ -1110,8 +1139,8 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 	)
 	_expect(
 		int(saturated_offer.get("requested_card_count", 0)) == 4
-		and int(saturated_offer.get("actual_card_count", 0)) == 1,
-		"all-maxed Mugong fallback must report the four-to-one stock contraction"
+		and int(saturated_offer.get("actual_card_count", 0)) == 2,
+		"all-maxed Mugong fallback must report the four-to-two stock contraction"
 	)
 	var saturated_state := TowerRewardPickState.new()
 	_expect(
@@ -1124,8 +1153,8 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 		"all-maxed Mugong fallback must open a non-empty reward screen"
 	)
 	_expect(
-		saturated_state.choices.size() == 1,
-		"all-maxed Mugong reward screen must expose the one available fusion card"
+		saturated_state.choices.size() == 2,
+		"all-maxed Mugong reward screen must expose fusion and bag expansion"
 	)
 	print(
 		"tower_reward_pick_saturated_fallback: accepted=%s cards=%d training=%d policy=%s"
@@ -1254,8 +1283,8 @@ func _verify_slot_limit_rechecks_each_purchase() -> void:
 	var blocked_choices: Array = blocked_model.get("choices", [])
 	for index in range(1, blocked_choices.size()):
 		var blocked_choice := blocked_choices[index] as Dictionary
-		_expect(not bool(blocked_choice.get("reward_pick_enabled", true)), "remaining new reward card %d must disable immediately at 6/6" % index)
-		_expect(str(blocked_choice.get("reward_pick_disabled_reason", "")) == "perk_slot_limit", "disabled reward card must expose the slot-limit reason")
+		_expect(bool(blocked_choice.get("reward_pick_enabled", false)), "remaining new reward card %d must stay enabled for replacement at 6/6" % index)
+		_expect(str(blocked_choice.get("reward_pick_disabled_reason", "")).is_empty(), "replacement-routed reward card must not expose a disabled reason")
 	_expect(str(blocked_model.get("status_text", "")) == TowerRewardPickLocalization.text("perk_slot_limit"), "blocked click must show the localized slot-limit message")
 	state.reset()
 
@@ -1294,7 +1323,7 @@ func _verify_slot_limit_rechecks_each_purchase() -> void:
 	var full_choices: Array = full_state.build_view_model().get("choices", [])
 	_expect(bool((full_choices[0] as Dictionary).get("reward_pick_enabled", false)), "owned unit-slot upgrade must remain enabled at 6/6")
 	_expect(bool((full_choices[1] as Dictionary).get("reward_pick_enabled", false)), "slot-free fusion must remain enabled at 6/6")
-	_expect(not bool((full_choices[2] as Dictionary).get("reward_pick_enabled", true)), "new unit-slot perk must be disabled at 6/6")
+	_expect(bool((full_choices[2] as Dictionary).get("reward_pick_enabled", false)), "new unit-slot perk must stay enabled for replacement at 6/6")
 	full_state.reset()
 
 

@@ -14,6 +14,7 @@ const RuntimePerkAngelBlessingProjection := preload("res://scripts/characters/ru
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const SmasherDashActiveMotionResolver := preload("res://scripts/characters/smasher_dash_active_motion_resolver.gd")
 const SmasherDashState := preload("res://scripts/characters/smasher_dash_state.gd")
+const TowerRewardPickLocalization := preload("res://scripts/tower_ascent/tower_reward_pick_localization.gd")
 
 # 능력치 툴팁 소스별 증감 내역(breakdown) 상수.
 # 0.5% 미만 기여는 표시하지 않는다 (반올림 시 0%가 되는 줄 방지).
@@ -751,6 +752,18 @@ static func active_item_slot_breakdown(runtime_state: Object, mythic_item_runtim
 	var entries: Array = []
 	var perk_capacity: int = base_count
 	if runtime_state != null:
+		if runtime_state.has_method("get_tower_bag_expansion_count"):
+			var tower_bag_bonus := maxi(
+				0,
+				int(runtime_state.get_tower_bag_expansion_count())
+			)
+			if tower_bag_bonus > 0:
+				perk_capacity += tower_bag_bonus
+				entries.append({
+					"label": TowerRewardPickLocalization.text("bag_expansion_name"),
+					"text": _signed_int_text(tower_bag_bonus),
+					"icon_id": "tower_bag_expansion",
+				})
 		if runtime_state.has_method("get_perk_fusion_active_item_slot_bonus_breakdown"):
 			var fusion_breakdown: Dictionary = runtime_state.get_perk_fusion_active_item_slot_bonus_breakdown()
 			for byproduct_id: String in ["linked_arsenal"]:

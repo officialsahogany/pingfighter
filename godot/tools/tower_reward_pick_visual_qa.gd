@@ -37,6 +37,7 @@ class CaptureRuntimeState:
 		"common_swiftness": 2,
 		"megingjord": 1,
 	}
+	var effective_level_bonus := 0
 	var current_choice_context: Dictionary = {}
 	var _stats_owner: Object = null
 	var _stats_registry_ref: WeakRef = null
@@ -64,9 +65,17 @@ class CaptureRuntimeState:
 	func get_physique_training_snapshot() -> Dictionary:
 		return {"power": 1, "guard": 1}
 
+	func get_runtime_skill_level(perk_id: String) -> int:
+		return int(runtime_skill_levels.get(perk_id, 0)) + effective_level_bonus
+
 	func get_snapshot() -> Dictionary:
+		var effective_levels := runtime_skill_levels.duplicate(true)
+		for perk_id_value: Variant in effective_levels.keys():
+			var perk_id := str(perk_id_value)
+			effective_levels[perk_id] = get_runtime_skill_level(perk_id)
 		return {
 			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"effective_runtime_skill_levels": effective_levels,
 			"pending_skill_choices": 0,
 			"gold_from_perks": 0,
 			"current_choices": [],
@@ -103,6 +112,24 @@ class CaptureFlowOwner:
 		_choice: Dictionary,
 		cost: int,
 		effect_callback: Callable,
+		rollback_callback: Callable = Callable(),
+		_offer_generation: int = 0
+	) -> Dictionary:
+		if int(balances.get("muhon", 0)) < cost:
+			return {"accepted": false, "applied": false, "reason": "insufficient_muhon"}
+		if not bool(effect_callback.call()):
+			if rollback_callback.is_valid():
+				rollback_callback.call()
+			return {"accepted": false, "applied": false, "reason": "effect_rejected"}
+		balances["muhon"] = int(balances.get("muhon", 0)) - cost
+		return {"accepted": true, "applied": true, "balances": balances.duplicate(true)}
+
+	func apply_reward_pick_upgrade(
+		_sequence: int,
+		_choice: Dictionary,
+		_target_level: int,
+		cost: int,
+		effect_callback: Callable,
 		rollback_callback: Callable = Callable()
 	) -> Dictionary:
 		if int(balances.get("muhon", 0)) < cost:
@@ -113,6 +140,64 @@ class CaptureFlowOwner:
 			return {"accepted": false, "applied": false, "reason": "effect_rejected"}
 		balances["muhon"] = int(balances.get("muhon", 0)) - cost
 		return {"accepted": true, "applied": true, "balances": balances.duplicate(true)}
+
+
+class CaptureReplacementRuntimeState:
+	extends RefCounted
+
+	var runtime_skill_levels: Dictionary = {}
+	var current_choice_context: Dictionary = {}
+	var _stats_owner: Object = null
+	var _stats_registry_ref: WeakRef = null
+
+	func capture_stats_context(owner: Object, registry: Object) -> bool:
+		_stats_owner = owner
+		_stats_registry_ref = weakref(registry) if registry != null else null
+		return owner != null and registry != null
+
+	func get_stats_context_owner() -> Object:
+		return _stats_owner
+
+	func get_stats_context_registry() -> Object:
+		return _stats_registry_ref.get_ref() if _stats_registry_ref != null else null
+
+	func get_status_hover_mouse_pos() -> Vector2:
+		return Vector2(-1.0, -1.0)
+
+	func get_physique_training_snapshot() -> Dictionary:
+		return {"power": 1, "guard": 1}
+
+	func get_snapshot() -> Dictionary:
+		return {
+			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"effective_runtime_skill_levels": runtime_skill_levels.duplicate(true),
+			"pending_skill_choices": 0,
+			"gold_from_perks": 0,
+			"current_choices": [],
+			"particles": [],
+			"physique_training": get_physique_training_snapshot(),
+		}
+
+	func build_tower_reward_mugong_replacement_plan(
+		target_token: Dictionary,
+		new_choice: Dictionary,
+		_catalog: Object = null,
+		_slot_context: Object = null
+	) -> Dictionary:
+		return {
+			"accepted": not target_token.is_empty() and not new_choice.is_empty(),
+			"applied": false,
+			"target_token": target_token.duplicate(true),
+		}
+
+	func apply_tower_reward_mugong_replacement(
+		_target_token: Dictionary,
+		_new_choice: Dictionary,
+		_owner: Object,
+		_registry: Object,
+		_catalog: Object = null
+	) -> Dictionary:
+		return {"accepted": true, "applied": true}
 
 
 class CaptureRegistry:
@@ -136,7 +221,8 @@ class CaptureOfferBuilder:
 		_context: Dictionary,
 		_owner: Object,
 		_registry: Object,
-		_roll_overrides: Dictionary = {}
+		_roll_overrides: Dictionary = {},
+		_reroll_counter: int = 0
 	) -> Dictionary:
 		return offer.duplicate(true)
 
@@ -263,10 +349,14 @@ func _run() -> void:
 		2
 	):
 		return
+	if not await _capture_z16_upgrade_and_replacement_states(output_dir):
+		return
 	LanguageSettings.set_test_locale_override("")
 	print("tower_reward_pick_visual_qa: evidence=%s" % output_dir)
 	print("tower_reward_pick_visual_qa: stable_slot_captures=3")
-	print("tower_reward_pick_visual_qa: captures=10")
+	print("tower_reward_pick_visual_qa: legacy_captures=10")
+	print("tower_reward_pick_visual_qa: z16_captures=5")
+	print("tower_reward_pick_visual_qa: captures=15")
 	print("tower_reward_pick_visual_qa: ok")
 	quit(0)
 
@@ -408,6 +498,228 @@ func _capture_offer(
 	viewport.queue_free()
 	await process_frame
 	return true
+
+
+func _capture_z16_upgrade_and_replacement_states(output_dir: String) -> bool:
+	var upgrade_fixture := _build_z16_capture_fixture(
+		_build_general_choices(),
+		{"common_swiftness": 2, "megingjord": 1},
+		false,
+		1
+	)
+	if upgrade_fixture.is_empty():
+		return _capture_fixture_error("Z16 upgrade comparison fixture could not start")
+	var upgrade_state: Object = upgrade_fixture.get("reward_state", null)
+	var upgrade_cell := _find_status_cell(upgrade_state, "common_swiftness")
+	if upgrade_cell.is_empty():
+		return _capture_fixture_error("Z16 upgrade fixture could not resolve its owned status cell")
+	upgrade_state.call("_open_upgrade_modal", upgrade_cell)
+	var compare_model: Dictionary = upgrade_state.build_view_model(Vector2(GAME_SIZE))
+	var compare_modal: Dictionary = compare_model.get("inline_modal", {})
+	if (
+		str(compare_modal.get("kind", "")) != "upgrade"
+		or (compare_modal.get("cards", []) as Array).size() != 2
+		or not bool(compare_modal.get("has_next_level", false))
+		or int(compare_modal.get("base_level", -1)) != 2
+		or int(compare_modal.get("effective_level", -1)) != 3
+	):
+		return _capture_fixture_error("Z16 comparison fixture did not expose current/next effective levels")
+	if not await _save_reward_state_capture(
+		upgrade_state,
+		"upgrade_comparison.png",
+		output_dir
+	):
+		return false
+	upgrade_state.set("_upgrade_show_all_levels", true)
+	var all_levels_model: Dictionary = upgrade_state.build_view_model(Vector2(GAME_SIZE))
+	var all_levels_modal: Dictionary = all_levels_model.get("inline_modal", {})
+	if (
+		not bool(all_levels_modal.get("show_all_levels", false))
+		or (all_levels_modal.get("cards", []) as Array).size() != 5
+	):
+		return _capture_fixture_error("Z16 all-level fixture did not enumerate the catalog maximum")
+	if not await _save_reward_state_capture(
+		upgrade_state,
+		"upgrade_all_levels.png",
+		output_dir
+	):
+		return false
+	upgrade_state.reset()
+
+	var max_fixture := _build_z16_capture_fixture(
+		_build_general_choices(),
+		{"common_swiftness": 5, "megingjord": 1}
+	)
+	if max_fixture.is_empty():
+		return _capture_fixture_error("Z16 maximum-rank fixture could not start")
+	var max_state: Object = max_fixture.get("reward_state", null)
+	var max_cell := _find_status_cell(max_state, "common_swiftness")
+	var max_cell_rect_value: Variant = max_cell.get("rect", Rect2())
+	var max_cell_rect: Rect2 = (
+		max_cell_rect_value as Rect2
+		if max_cell_rect_value is Rect2
+		else Rect2()
+	)
+	if max_cell.is_empty() or bool(max_cell.get("can_upgrade", true)) or not max_cell_rect.has_area():
+		return _capture_fixture_error("Z16 maximum-rank fixture did not resolve a read-only owned cell")
+	max_state.reward_hover_mouse_pos = max_cell_rect.get_center()
+	if not await _save_reward_state_capture(
+		max_state,
+		"upgrade_max_rank_hover.png",
+		output_dir
+	):
+		return false
+	max_state.call("_open_upgrade_modal", max_cell)
+	var max_model: Dictionary = max_state.build_view_model(Vector2(GAME_SIZE))
+	var max_modal: Dictionary = max_model.get("inline_modal", {})
+	var max_layout_value: Variant = max_modal.get("layout", {})
+	var max_layout: Dictionary = max_layout_value if max_layout_value is Dictionary else {}
+	if (
+		str(max_modal.get("kind", "")) != "upgrade"
+		or bool(max_modal.get("has_next_level", true))
+		or bool(max_modal.get("confirm_enabled", true))
+		or (max_modal.get("cards", []) as Array).size() != 1
+		or (max_layout.get("arrow_rect", Rect2()) as Rect2).has_area()
+	):
+		return _capture_fixture_error("Z16 maximum-rank modal was not a one-card read-only view")
+	if not await _save_reward_state_capture(
+		max_state,
+		"upgrade_max_rank_read_only.png",
+		output_dir
+	):
+		return false
+	max_state.reset()
+
+	var replacement_fixture := _build_z16_capture_fixture(
+		_build_full_slot_choices(),
+		_full_slot_levels(),
+		true
+	)
+	if replacement_fixture.is_empty():
+		return _capture_fixture_error("Z16 full-slot replacement fixture could not start")
+	var replacement_state: Object = replacement_fixture.get("reward_state", null)
+	replacement_state.call("_purchase", 2, Vector2(GAME_SIZE))
+	var replacement_model: Dictionary = replacement_state.build_view_model(Vector2(GAME_SIZE))
+	var replacement_modal: Dictionary = replacement_model.get("inline_modal", {})
+	var candidates: Array = replacement_modal.get("candidates", [])
+	if str(replacement_modal.get("kind", "")) != "mugong_replace" or candidates.size() < 6:
+		return _capture_fixture_error("Z16 full-slot purchase did not open the atomic replacement picker")
+	replacement_state.set("_replacement_selected_index", mini(2, candidates.size() - 1))
+	if not await _save_reward_state_capture(
+		replacement_state,
+		"full_slot_mugong_replacement.png",
+		output_dir
+	):
+		return false
+	replacement_state.reset()
+	return true
+
+
+func _build_z16_capture_fixture(
+	choices: Array[Dictionary],
+	runtime_levels: Dictionary,
+	use_replacement_runtime: bool = false,
+	effective_level_bonus: int = 0
+) -> Dictionary:
+	var flow := CaptureFlowOwner.new()
+	var renderer := RuntimePerkOverlayRenderer.new()
+	var icon_renderer := RuntimePerkIconRenderer.new()
+	var registry := CaptureRegistry.new()
+	var runtime_state: Object = (
+		CaptureReplacementRuntimeState.new()
+		if use_replacement_runtime
+		else CaptureRuntimeState.new()
+	)
+	runtime_state.set("runtime_skill_levels", runtime_levels.duplicate(true))
+	if not use_replacement_runtime:
+		runtime_state.set("effective_level_bonus", maxi(0, effective_level_bonus))
+	registry.instances = {
+		"tower_ascent_flow_owner": flow,
+		"runtime_perk_state": runtime_state,
+		"runtime_perk_catalog": RuntimePerkCatalog.new(),
+		"runtime_perk_overlay_renderer": renderer,
+		"runtime_perk_icon_renderer": icon_renderer,
+	}
+	var offer_builder := CaptureOfferBuilder.new()
+	offer_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"offer_generation": 0,
+		"choices": choices,
+	}
+	var reward_state := TowerRewardPickState.new()
+	reward_state.set("_offer_builder", offer_builder)
+	if not reward_state.start(CaptureOwner.new(), registry, Callable()):
+		return {}
+	reward_state.update(1.0)
+	return {
+		"flow": flow,
+		"registry": registry,
+		"renderer": renderer,
+		"runtime_state": runtime_state,
+		"reward_state": reward_state,
+	}
+
+
+func _find_status_cell(reward_state: Object, perk_id: String) -> Dictionary:
+	if reward_state == null:
+		return {}
+	var status_model_value: Variant = reward_state.call(
+		"_get_status_interaction_model",
+		Vector2(GAME_SIZE)
+	)
+	var status_model: Dictionary = (
+		status_model_value as Dictionary
+		if status_model_value is Dictionary
+		else {}
+	)
+	for cell_value: Variant in status_model.get("cells", []):
+		if cell_value is Dictionary and str((cell_value as Dictionary).get(
+			"canonical_id",
+			""
+		)) == perk_id:
+			return (cell_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _save_reward_state_capture(
+	reward_state: Object,
+	file_name: String,
+	output_dir: String
+) -> bool:
+	var viewport := SubViewport.new()
+	viewport.size = GAME_SIZE
+	viewport.transparent_bg = false
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	get_root().add_child(viewport)
+	var canvas := RewardCanvas.new(reward_state)
+	viewport.add_child(canvas)
+	canvas.queue_redraw()
+	for _frame_index in range(8):
+		await process_frame
+	var image: Image = viewport.get_texture().get_image()
+	var output_path := output_dir.path_join(file_name)
+	if (
+		image == null
+		or image.is_empty()
+		or image.get_size() != GAME_SIZE
+		or image.save_png(output_path) != OK
+	):
+		push_error("reward-pick Z16 visual QA capture failed: %s" % output_path)
+		quit(1)
+		return false
+	print("[TowerRewardPickVisualQA] %s" % output_path)
+	get_root().remove_child(viewport)
+	viewport.queue_free()
+	await process_frame
+	return true
+
+
+func _capture_fixture_error(message: String) -> bool:
+	push_error(message)
+	quit(1)
+	return false
 
 
 func _build_general_choices() -> Array[Dictionary]:

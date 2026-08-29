@@ -39,9 +39,17 @@ func _init() -> void:
 	_expect(icon_source.find("Vector2(pad, pad)") < 0, "active-item icon draw should avoid temporary pad vectors")
 
 	var perk_state: Object = RuntimePerkState.new()
-	perk_state.runtime_skill_levels["item_bag_expansion"] = 2
+	_expect(
+		perk_state.grant_tower_bag_expansion(2),
+		"the reward-only bag contract must accept a two-slot run bonus"
+	)
+	_expect(
+		not perk_state.runtime_skill_levels.has("tower_bag_expansion")
+		and not perk_state.runtime_skill_levels.has("item_bag_expansion"),
+		"bag expansion must remain outside both current and retired Mugong level maps"
+	)
 	var capacity: int = int(perk_state.get_active_item_slot_capacity(3))
-	_expect(capacity == 5, "bag expansion Lv.2 should raise active item capacity to five")
+	_expect(capacity == 5, "two Tower bag expansions should raise active item capacity to five")
 
 	var layout_builder: Object = ActiveItemHudLayout.new()
 	var empty_layout: Dictionary = layout_builder.build_layout(
@@ -68,7 +76,7 @@ func _init() -> void:
 		4,
 		capacity
 	)
-	_expect(int(filled_layout.get("overflow_count", -1)) == 0, "four items should fit inside bag-expanded main slots")
+	_expect(int(filled_layout.get("overflow_count", -1)) == 0, "four items should fit inside Tower-bag-expanded main slots")
 	_expect(_array_size(filled_layout.get("slot_rects", [])) == 5, "one expanded empty slot should stay visible after four items")
 
 	var overflow_layout: Dictionary = layout_builder.build_layout(
@@ -97,7 +105,7 @@ func _init() -> void:
 			registry,
 			Callable(policy, "can_store_item")
 		),
-		"slot controller should accept a fourth item after bag expansion"
+		"slot controller should accept a fourth item after Tower bag expansion"
 	)
 	_expect(active_slots.size() == 4, "fourth item should be stored in the expanded slot")
 
@@ -108,7 +116,7 @@ func _init() -> void:
 			registry,
 			Callable(policy, "can_store_item")
 		),
-		"slot controller should accept a fifth item when bag expansion exposes five slots"
+		"slot controller should accept a fifth item when Tower bag expansion exposes five slots"
 	)
 	_expect(active_slots.size() == 5, "fifth item should fill the last expanded slot")
 	_expect(str(active_slots[4].get("name", "")) == "soap", "fifth item should occupy the last expanded slot")

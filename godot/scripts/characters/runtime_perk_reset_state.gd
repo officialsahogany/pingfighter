@@ -45,6 +45,7 @@ func build_reset_state_update() -> Dictionary:
 		"item_perk_level_bonus": 0,
 		"viper_ignition_aura_active": false,
 		"viper_ignition_aura_owner_sync_dirty": false,
+		"tower_bag_expansion_count": 0,
 		"clear_pending_unlock_swap": true,
 		"unlock_swap_selected_index": 0,
 		"gamepad_choice_horizontal_latch": 0,
@@ -99,6 +100,11 @@ func apply_state_update(runtime_state: Object, update: Dictionary) -> Dictionary
 		runtime_state.set(
 			"viper_ignition_aura_owner_sync_dirty",
 			bool(update.get("viper_ignition_aura_owner_sync_dirty", false))
+		)
+	if update.has("tower_bag_expansion_count"):
+		runtime_state.set(
+			"tower_bag_expansion_count",
+			maxi(0, int(update.get("tower_bag_expansion_count", 0)))
 		)
 	if bool(update.get("clear_pending_unlock_swap", false)):
 		_clear_dictionary_field(runtime_state, "pending_unlock_swap")

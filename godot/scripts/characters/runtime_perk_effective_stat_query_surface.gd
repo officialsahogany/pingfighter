@@ -477,6 +477,10 @@ func get_active_item_use_gauge_bonus(effective_levels: Object, runtime_state: Ob
 
 
 func get_active_item_slot_capacity(_effective_levels: Object, runtime_state: Object, base_slots: int) -> int:
+	var tower_bag_bonus := RuntimePerkRuntimeStateAccess.call_int(
+		runtime_state,
+		"get_tower_bag_expansion_count"
+	)
 	var fusion_byproduct_bonus := RuntimePerkRuntimeStateAccess.call_int(
 		runtime_state,
 		"get_perk_fusion_active_item_slot_bonus"
@@ -484,6 +488,7 @@ func get_active_item_slot_capacity(_effective_levels: Object, runtime_state: Obj
 	return maxi(
 		1,
 		base_slots
+		+ maxi(0, tower_bag_bonus)
 		+ maxi(0, fusion_byproduct_bonus)
 		+ maxi(0, int(roundf(_get_physique_training_bonus(runtime_state, "active_item_slot_bonus"))))
 	)
