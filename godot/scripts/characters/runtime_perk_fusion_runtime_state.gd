@@ -2,11 +2,11 @@ extends RefCounted
 
 const RuntimePerkRuntimeStateAccess := preload("res://scripts/characters/runtime_perk_runtime_state_access.gd")
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
-const PerkConversionValues := preload("res://scripts/characters/perk_conversion_values.gd")
 const RuntimePerkProgression := preload("res://scripts/characters/runtime_perk_progression.gd")
 
 const DOWSING_GOGGLES_PERK_ID := "dowsing_goggles"
-const DOWSING_GOGGLES_BYPRODUCT_CHANCE_KEY := "fusion_byproduct_chance_pct"
+const DOWSING_GOGGLES_RARE_SLOT_BONUS_KEY := "fusion_rare_slot_bonus_pct"
+const DOWSING_GOGGLES_COUNT_SHIFT_KEY := "fusion_byproduct_count_shift_pct"
 
 var _fusion_state: Object = null
 var _byproduct_runtime: Object = null
@@ -324,7 +324,8 @@ func build_commit_result_from_runtime_state(
 	)
 	context["core_stabilize_armed"] = bool(tokens.get("core_stabilize_armed", false))
 	context["dual_catalyst_armed"] = bool(tokens.get("dual_catalyst_armed", false))
-	context["byproduct_chance_bonus_percent"] = get_byproduct_chance_bonus_percent(runtime_state)
+	context["rare_slot_chance_bonus_percent"] = get_rare_slot_bonus_percent(runtime_state)
+	context["byproduct_count_shift_percent"] = get_byproduct_count_shift_percent(runtime_state)
 	context["penalty_lanes"] = lane_builder.build(source_ids, runtime_state, catalog)
 	var effective_rolls: Dictionary = rolls
 	if effective_rolls.is_empty():
@@ -342,10 +343,21 @@ func build_commit_result_from_runtime_state(
 	return result_builder.build_result(context, effective_rolls)
 
 
-func get_byproduct_chance_bonus_percent(runtime_state: Object) -> float:
+func get_rare_slot_bonus_percent(runtime_state: Object) -> float:
+	return _get_dowsing_fusion_value(runtime_state, DOWSING_GOGGLES_RARE_SLOT_BONUS_KEY)
+
+
+func get_byproduct_count_shift_percent(runtime_state: Object) -> float:
+	return _get_dowsing_fusion_value(runtime_state, DOWSING_GOGGLES_COUNT_SHIFT_KEY)
+
+
+func _get_dowsing_fusion_value(runtime_state: Object, option_key: String) -> float:
 	if not PerkConversionFlags.is_enabled() or runtime_state == null:
 		return 0.0
-	if not runtime_state.has_method("get_converted_perk_effect_level"):
+	if (
+		not runtime_state.has_method("get_converted_perk_effect_level")
+		or not runtime_state.has_method("get_converted_perk_option_value")
+	):
 		return 0.0
 	var effective_level := maxi(
 		0,
@@ -353,15 +365,11 @@ func get_byproduct_chance_bonus_percent(runtime_state: Object) -> float:
 	)
 	if effective_level <= 0:
 		return 0.0
-	return maxf(
-		0.0,
-		PerkConversionValues.get_value(
-			DOWSING_GOGGLES_PERK_ID,
-			DOWSING_GOGGLES_BYPRODUCT_CHANCE_KEY,
-			effective_level,
-			runtime_state
-		)
-	)
+	return maxf(0.0, float(runtime_state.call(
+		"get_converted_perk_option_value",
+		DOWSING_GOGGLES_PERK_ID,
+		option_key
+	)))
 
 
 func finish_modal_from_runtime_state(

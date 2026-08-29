@@ -169,6 +169,10 @@ func get_downtown_treasure_map_vision_box_chance_from_runtime_state(runtime_stat
 	return get_downtown_treasure_map_vision_box_chance(_get_effective_levels(runtime_state), runtime_state, base_chance)
 
 
+func get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state(runtime_state: Object, base_cost: int) -> int:
+	return get_downtown_treasure_map_fusion_muhon_cost(_get_effective_levels(runtime_state), runtime_state, base_cost)
+
+
 func get_player_speed_multiplier_from_runtime_state(runtime_state: Object) -> float:
 	return get_player_speed_multiplier(_get_effective_levels(runtime_state), runtime_state)
 
@@ -546,6 +550,28 @@ func get_downtown_treasure_map_vision_box_chance_bonus(effective_levels: Object,
 
 func get_downtown_treasure_map_vision_box_chance(effective_levels: Object, runtime_state: Object, base_chance: float) -> float:
 	return _call_effective_float(effective_levels, runtime_state, "get_downtown_treasure_map_vision_box_chance", [base_chance], clamp(float(base_chance), 0.0, 1.0))
+
+
+func get_downtown_treasure_map_fusion_muhon_cost(
+	effective_levels: Object,
+	runtime_state: Object,
+	base_cost: int
+) -> int:
+	var safe_base_cost := maxi(0, base_cost)
+	if effective_levels == null or not effective_levels.has_method("get_downtown_treasure_map_fusion_muhon_cost"):
+		return safe_base_cost
+	var args := [
+		_get_runtime_skill_levels_with_all_fusion_bonuses(runtime_state),
+		_get_item_perk_level_bonus(runtime_state),
+		RuntimePerkRuntimeStateAccess.get_bool(runtime_state, "viper_ignition_aura_active"),
+		safe_base_cost,
+	]
+	return maxi(0, RuntimePerkRuntimeStateAccess.call_int(
+		effective_levels,
+		"get_downtown_treasure_map_fusion_muhon_cost",
+		args,
+		safe_base_cost
+	))
 
 
 func get_player_speed_multiplier(effective_levels: Object, runtime_state: Object) -> float:

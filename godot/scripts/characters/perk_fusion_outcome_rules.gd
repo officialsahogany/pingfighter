@@ -14,6 +14,9 @@ const BASE_BYPRODUCT_PERCENT := 70.0
 const BYPRODUCT_COUNT_1_SHARE := 4.0 / 7.0
 const BYPRODUCT_COUNT_2_SHARE := 2.0 / 7.0
 const BYPRODUCT_COUNT_3_SHARE := 1.0 / 7.0
+const BYPRODUCT_COUNT_1_MIN_SHARE := 0.20
+const BYPRODUCT_SHIFT_TO_COUNT_2_RATIO := 2.0 / 3.0
+const BYPRODUCT_SHIFT_TO_COUNT_3_RATIO := 1.0 / 3.0
 const DUAL_CATALYST_BYPRODUCT_BONUS_PERCENT := 15.0
 const EMPTY_POOL_SUCCESS_PERCENT := 90.0
 const EMPTY_POOL_SIDE_EFFECT_PERCENT := 10.0
@@ -25,29 +28,28 @@ const SIDE_EFFECT_MAX_MAGNITUDE := 0.30
 
 static func build_outcome_weights(
 	dual_catalyst_armed: bool = false,
-	byproduct_chance_bonus_percent: float = 0.0,
+	byproduct_count_shift_percent: float = 0.0,
 	max_byproduct_count: int = 3
 ) -> Dictionary:
 	var catalyst_bonus: float = DUAL_CATALYST_BYPRODUCT_BONUS_PERCENT if dual_catalyst_armed else 0.0
-	var total_byproduct_bonus := clampf(
-		catalyst_bonus + maxf(0.0, byproduct_chance_bonus_percent),
-		0.0,
-		BASE_SUCCESS_PERCENT
-	)
-	var byproduct_percent := BASE_BYPRODUCT_PERCENT + total_byproduct_bonus
+	var byproduct_percent := BASE_BYPRODUCT_PERCENT + catalyst_bonus
 	var weights := {
-		OUTCOME_SUCCESS: BASE_SUCCESS_PERCENT - total_byproduct_bonus,
+		OUTCOME_SUCCESS: BASE_SUCCESS_PERCENT - catalyst_bonus,
 		OUTCOME_SIDE_EFFECT: BASE_SIDE_EFFECT_PERCENT,
 		OUTCOME_BYPRODUCT: byproduct_percent,
 	}
-	weights.merge(build_byproduct_count_weights(byproduct_percent, max_byproduct_count))
+	weights.merge(build_byproduct_count_weights(
+		byproduct_percent,
+		max_byproduct_count,
+		byproduct_count_shift_percent
+	))
 	return weights
 
 
 static func build_final_outcome_weights(
 	byproduct_pool_is_empty: bool,
 	dual_catalyst_armed: bool = false,
-	byproduct_chance_bonus_percent: float = 0.0,
+	byproduct_count_shift_percent: float = 0.0,
 	available_byproduct_count: int = -1
 ) -> Dictionary:
 	if byproduct_pool_is_empty:
@@ -61,19 +63,35 @@ static func build_final_outcome_weights(
 	var max_byproduct_count := 3 if available_byproduct_count < 0 else available_byproduct_count
 	return build_outcome_weights(
 		dual_catalyst_armed,
-		byproduct_chance_bonus_percent,
+		byproduct_count_shift_percent,
 		max_byproduct_count
 	)
 
 
 static func build_byproduct_count_weights(
 	byproduct_percent: float,
-	max_byproduct_count: int = 3
+	max_byproduct_count: int = 3,
+	byproduct_count_shift_percent: float = 0.0
 ) -> Dictionary:
 	var safe_byproduct_percent := maxf(0.0, byproduct_percent)
-	var count_1_percent := safe_byproduct_percent * BYPRODUCT_COUNT_1_SHARE
-	var count_2_percent := safe_byproduct_percent * BYPRODUCT_COUNT_2_SHARE
-	var count_3_percent := safe_byproduct_percent * BYPRODUCT_COUNT_3_SHARE
+	var max_shift_share := BYPRODUCT_COUNT_1_SHARE - BYPRODUCT_COUNT_1_MIN_SHARE
+	var safe_shift_share := clampf(
+		maxf(0.0, byproduct_count_shift_percent) / 100.0,
+		0.0,
+		max_shift_share
+	)
+	var count_1_share := BYPRODUCT_COUNT_1_SHARE - safe_shift_share
+	var count_2_share := (
+		BYPRODUCT_COUNT_2_SHARE
+		+ safe_shift_share * BYPRODUCT_SHIFT_TO_COUNT_2_RATIO
+	)
+	var count_3_share := (
+		BYPRODUCT_COUNT_3_SHARE
+		+ safe_shift_share * BYPRODUCT_SHIFT_TO_COUNT_3_RATIO
+	)
+	var count_1_percent := safe_byproduct_percent * count_1_share
+	var count_2_percent := safe_byproduct_percent * count_2_share
+	var count_3_percent := safe_byproduct_percent * count_3_share
 	match clampi(max_byproduct_count, 0, 3):
 		0:
 			count_1_percent = 0.0

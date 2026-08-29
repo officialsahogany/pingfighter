@@ -1,8 +1,9 @@
 extends RefCounted
 
-## Canonical numeric progression for the 37 three-star Mugong. Authored values
-## use the approved 0.25 / 0.58 / 1.00 late-weighted curve, while overflow keeps
-## the legacy one-level slope: new Lv.4-10 therefore equal legacy Lv.6-12.
+## Canonical numeric progression for the 37 three-star Mugong plus explicitly
+## registered non-target converted perks. Target authored values use the
+## approved 0.25 / 0.58 / 1.00 late-weighted curve, while overflow keeps the
+## legacy one-level slope: new Lv.4-10 therefore equal legacy Lv.6-12.
 ##
 ## Hot-path contract (GRT-032): PROGRESSIONS is a script-load-time static
 ## index. Runtime reads are O(1), return scalars, and never duplicate nested
@@ -20,6 +21,12 @@ const OVERFLOW_STAIRCASE := "staircase"
 const AUTHORED_MAX_LEVEL := 3
 const LEGACY_AUTHORED_MAX_LEVEL := 5
 const AUTHORED_RATIOS := [0.25, 0.58, 1.00]
+
+const DOWSING_GOGGLES_CHOICE_VALUES := [40.0, 70.0, 100.0]
+const DOWSING_GOGGLES_RARE_SLOT_BONUS_VALUES := [5.0, 10.0, 15.0]
+const DOWSING_GOGGLES_COUNT_SHIFT_VALUES := [6.0, 12.0, 18.0]
+const DOWSING_GOGGLES_RARE_SLOT_BONUS_MAX := 45.0
+const DOWSING_GOGGLES_COUNT_SHIFT_MAX := (4.0 / 7.0 - 0.20) * 100.0
 
 const TARGET_PERK_IDS := {
 	"dash_acceleration": true,
@@ -103,6 +110,11 @@ static var PROGRESSIONS: Dictionary = {
 	"downtown_treasure_map": {"primary_runtime_lane": "mythic_offer_bonus", "lanes": {
 		"mythic_offer_bonus": _lane([1.875, 4.35, 7.50], TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL),
 		"vision_box_chance_bonus": _lane([0.0375, 0.087, 0.15], TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL),
+		"fusion_muhon_cost_reduction": _hold_lane(
+			[1.0, 3.0, 3.0],
+			POLARITY_STRUCTURAL,
+			{"free": 3}
+		),
 	}},
 	"training_mastery": {"primary_runtime_lane": "training_amplify", "lanes": {
 		"training_amplify": _lane([0.25, 0.58, 1.00], TRAINING_MASTERY_AMPLIFY_PER_LEVEL),
@@ -165,6 +177,23 @@ static var PROGRESSIONS: Dictionary = {
 		"knockback_bonus_pct": _hold_lane([38.0, 87.0, 150.0]),
 		"magazine_size": _lane([5.0, 6.0, 7.0], 1.0, INF, -INF, POLARITY_STRUCTURAL, {"first_upgrade": 2, "second_upgrade": 3}),
 	}},
+
+	# Converted Mugong. Dowsing Goggles remains outside TARGET_PERK_IDS so the
+	# fixed 37-perk migration and Elixir family stay unchanged, while its Z15
+	# numeric lanes still use this canonical progression owner.
+	"dowsing_goggles": _converted({
+		"bonus_perk_chance": _converted_lane(DOWSING_GOGGLES_CHOICE_VALUES, 30.0, 100.0),
+		"fusion_rare_slot_bonus_pct": _converted_lane(
+			DOWSING_GOGGLES_RARE_SLOT_BONUS_VALUES,
+			5.0,
+			DOWSING_GOGGLES_RARE_SLOT_BONUS_MAX
+		),
+		"fusion_byproduct_count_shift_pct": _converted_lane(
+			DOWSING_GOGGLES_COUNT_SHIFT_VALUES,
+			6.0,
+			DOWSING_GOGGLES_COUNT_SHIFT_MAX
+		),
+	}),
 
 	# Converted target Mugong. Their current Lv.6+ rule is the authored-table
 	# average step, made explicit here so shrinking the table in S3 cannot

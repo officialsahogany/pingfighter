@@ -90,8 +90,8 @@ const CONVERTED_TEMPLATES := {
 	},
 	"dowsing_pendulum": {"format": "필드 아이템·무혼 흡인 범위 %spx", "keys": ["attraction_range"]},
 	"dowsing_goggles": {
-		"format": "무공 선택지 보너스 발동 확률 %s%%, 무공 합일 상승무공 발현 확률 +%s%%p",
-		"keys": ["bonus_perk_chance", "fusion_byproduct_chance_pct"],
+		"format": "무공 선택지 보너스 발동 확률 %s%%, 합일 희귀 슬롯 확률 +%s%%p, 상승무공 1개 비중 %s%%p를 2개와 3개로 이동",
+		"keys": ["bonus_perk_chance", "fusion_rare_slot_bonus_pct", "fusion_byproduct_count_shift_pct"],
 	},
 	"chargebag": {"format": "벽 반사 기력 +%s%%", "keys": ["chargebag_pct"]},
 	"battery": {"format": "스테이지 전환 기력 보존 %s%%", "keys": ["gauge_preserve_pct"]},
@@ -441,9 +441,24 @@ static func _converted_template_text(skill_id: String, level: int) -> String:
 # 절세무공 확률: runtime_perk_effective_levels TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
 # (1.50 = +150%/lv) → tower_reward_pick_offer_builder의 절세무공 카드 확률.
 static func _treasure_map_text(level: int) -> String:
-	return "승리 보상 픽 절세무공 등장 확률 +%d%%" % (
+	var text := "승리 보상 픽 절세무공 등장 확률 +%d%%" % (
 		_round_display_int(RuntimePerkProgression.get_value("downtown_treasure_map", "mythic_offer_bonus", level) * 100.0)
 	)
+	var free_level := RuntimePerkProgression.get_milestone_level(
+		"downtown_treasure_map",
+		"fusion_muhon_cost_reduction",
+		"free"
+	)
+	if free_level > 0 and level >= free_level:
+		return text + ", 무공 합일 무혼 비용 없음"
+	var cost_reduction := RuntimePerkProgression.get_int_value(
+		"downtown_treasure_map",
+		"fusion_muhon_cost_reduction",
+		level
+	)
+	if cost_reduction > 0:
+		return text + ", 무공 합일 무혼 비용 -%d" % cost_reduction
+	return text
 
 
 # drive_curve and the initial-boost decay reduction reach their authored caps

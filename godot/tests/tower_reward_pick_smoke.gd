@@ -135,6 +135,7 @@ class FakeRuntimeState:
 	var stats_context_owner: Object = null
 	var stats_context_registry_ref: WeakRef = null
 	var snapshot_calls := 0
+	var fusion_cost_query_calls := 0
 	var physique_training := {"power": 1}
 	var fusion_candidate_ids: Array[String] = ["mugong_a", "mugong_b"]
 
@@ -177,6 +178,15 @@ class FakeRuntimeState:
 
 	func get_downtown_treasure_map_mythic_multiplier() -> float:
 		return 1.0
+
+	func get_downtown_treasure_map_fusion_muhon_cost(base_cost: int) -> int:
+		fusion_cost_query_calls += 1
+		return RuntimePerkEffectiveLevels.new().get_downtown_treasure_map_fusion_muhon_cost(
+			runtime_skill_levels,
+			0,
+			false,
+			base_cost
+		)
 
 	func apply_choice(choice: Dictionary, _owner: Object, _registry: Object) -> bool:
 		apply_calls += 1
@@ -594,6 +604,7 @@ func _run() -> void:
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_shell_owner_preserves_character_specific_training_candidate()
 	_verify_offer_order_eligibility_and_prices()
+	_verify_treasure_map_fusion_cost_offer_and_debit()
 	_verify_vision_and_chosik_probability_contracts()
 	_verify_vision_identity_fail_closed_and_legacy_parity()
 	_verify_no_training_seed_sweep_and_saturated_fallback()
@@ -812,6 +823,108 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 	_expect(bool(full_choice.get("vision_swap_required", false)), "full Chosik slots must keep Vision eligible through a swap route")
 	_expect(not (full_choice.get("vision_swap_candidates", []) as Array).is_empty(), "full-slot Vision card must carry explicit swap candidates")
 	_expect(_count_kind(full_offer.get("choices", []), "chosik") == 0, "full Chosik orbs must fail closed until reward-pick owns a replacement flow")
+
+
+func _verify_treasure_map_fusion_cost_offer_and_debit() -> void:
+	const PERK_ID := "downtown_treasure_map"
+	var expected_costs := [3, 2, 0, 0]
+	for level in range(expected_costs.size()):
+		var expected_cost := int(expected_costs[level])
+		var runtime := FakeRuntimeState.new()
+		if level > 0:
+			runtime.runtime_skill_levels[PERK_ID] = level
+		var catalog := FakeCatalog.new()
+		catalog.choices_override_enabled = true
+		catalog.choices_override = []
+		var registry := _build_registry(runtime, FakeSkillConfig.new(), null)
+		registry.instances["runtime_perk_catalog"] = catalog
+		var offer: Dictionary = TowerRewardPickOfferBuilder.new().build_offer(
+			{
+				"node_resolution_id": "treasure-map-fusion-cost-%d" % level,
+				"boss_slot_id": "floor_01_dalji",
+				"floor": 1,
+				"map_seed": 7100 + level,
+				"skipped_boss_ids": ["floor_01_dalji"],
+				"burned_vision_boss_ids": [],
+			},
+			FakeOwner.new(),
+			registry,
+			{"supreme": 1.0, "chosik": 1.0}
+		)
+		var choices: Array = offer.get("choices", [])
+		_expect(bool(offer.get("accepted", false)), "Treasure Map Lv.%d fusion-only production offer must generate" % level)
+		var fusion_indices: Array[int] = []
+		for choice_index in range(choices.size()):
+			var candidate: Dictionary = choices[choice_index]
+			if str(candidate.get("reward_pick_kind", "")) == "fusion":
+				fusion_indices.append(choice_index)
+		_expect(fusion_indices.size() == 1, "Treasure Map Lv.%d fixture must expose exactly one fusion card" % level)
+		if fusion_indices.size() != 1:
+			continue
+		var fusion_index := fusion_indices[0]
+		var fusion_card: Dictionary = choices[fusion_index]
+		_expect(int(fusion_card.get("reward_pick_cost", -1)) == TowerRewardPickOfferBuilder.TEMP_FUSION_COST, "Treasure Map Lv.%d production offer must retain the base fusion cost" % level)
+		_expect(
+			str(fusion_card.get("reward_pick_price_text", ""))
+				== TowerRewardPickLocalization.text("price", {"amount": TowerRewardPickOfferBuilder.TEMP_FUSION_COST}),
+			"Treasure Map Lv.%d materialized offer must retain the base price text" % level
+		)
+		_expect(runtime.fusion_cost_query_calls == 0, "Treasure Map Lv.%d offer generation must not freeze the live discount" % level)
+
+		var flow := FakeFlowOwner.new()
+		flow.balances["muhon"] = expected_cost
+		var state_registry := _build_registry(runtime, FakeSkillConfig.new(), flow)
+		state_registry.instances["runtime_perk_catalog"] = catalog
+		state_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+		state_registry.instances["runtime_perk_icon_renderer"] = FakeIconRenderer.new()
+		var offer_builder := FakeOfferBuilder.new()
+		offer_builder.offer = offer
+		var state := TowerRewardPickState.new()
+		state.set("_offer_builder", offer_builder)
+		_expect(state.start(FakeOwner.new(), state_registry, Callable(self, "_on_finish")), "Treasure Map Lv.%d offer must enter the production reward state" % level)
+		var view_choices: Array = state.build_view_model().get("choices", [])
+		var live_card: Dictionary = view_choices[fusion_index] if fusion_index < view_choices.size() else {}
+		_expect(int(live_card.get("reward_pick_cost", -1)) == expected_cost, "Treasure Map Lv.%d live view cost must be %d" % [level, expected_cost])
+		_expect(str(live_card.get("reward_pick_price_text", "")) == TowerRewardPickLocalization.text("price", {"amount": expected_cost}), "Treasure Map Lv.%d live price text must show %d" % [level, expected_cost])
+		_expect(bool(live_card.get("reward_pick_enabled", false)), "Treasure Map Lv.%d fusion card must be enabled at its exact live balance" % level)
+		var queries_after_view := runtime.fusion_cost_query_calls
+		_expect(queries_after_view >= 2, "Treasure Map Lv.%d display and affordability must query the live cost" % level)
+		state.call("_purchase", fusion_index)
+		_expect(int(flow.balances.get("muhon", -1)) == 0, "Treasure Map Lv.%d reward state must debit exactly %d" % [level, expected_cost])
+		_expect(state.is_external_modal_active(), "Treasure Map Lv.%d purchase, including free, must open the Fusion modal" % level)
+		_expect(runtime.fusion_cost_query_calls > queries_after_view, "Treasure Map Lv.%d purchase must requery immediately before debit" % level)
+		print("tower_reward_pick_smoke: treasure_map_fusion_cost level=%d cost=%d debit=%d query_calls=%d" % [
+			level,
+			expected_cost,
+			expected_cost - int(flow.balances.get("muhon", -1)),
+			runtime.fusion_cost_query_calls,
+		])
+
+	# A reward screen can stay open across multiple buys. Acquiring Treasure Map
+	# first must immediately make the still-unspent Fusion card cheaper.
+	var changing_runtime := FakeRuntimeState.new()
+	var changing_flow := FakeFlowOwner.new()
+	changing_flow.balances["muhon"] = 2
+	var changing_registry := _build_registry(changing_runtime, FakeSkillConfig.new(), changing_flow)
+	changing_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	changing_registry.instances["runtime_perk_icon_renderer"] = FakeIconRenderer.new()
+	var changing_builder := FakeOfferBuilder.new()
+	changing_builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"vision_unlock_id": "",
+		"choices": [_card("fusion", "fusion_live_cost", 3)],
+	}
+	var changing_state := TowerRewardPickState.new()
+	changing_state.set("_offer_builder", changing_builder)
+	_expect(changing_state.start(FakeOwner.new(), changing_registry, Callable()), "same-screen Treasure Map cost fixture must start")
+	var before_card: Dictionary = (changing_state.build_view_model().get("choices", []) as Array)[0]
+	_expect(int(before_card.get("reward_pick_cost", -1)) == 3 and not bool(before_card.get("reward_pick_enabled", true)), "unowned Treasure Map must leave the base-3 Fusion card unaffordable at 2 Muhon")
+	changing_runtime.runtime_skill_levels[PERK_ID] = 1
+	var after_card: Dictionary = (changing_state.build_view_model().get("choices", []) as Array)[0]
+	_expect(int(after_card.get("reward_pick_cost", -1)) == 2 and bool(after_card.get("reward_pick_enabled", false)), "buying Treasure Map on the same screen must refresh Fusion to cost 2")
+	changing_state.call("_purchase", 0)
+	_expect(int(changing_flow.balances.get("muhon", -1)) == 0, "same-screen refreshed Fusion must debit exactly 2 Muhon")
 
 
 func _verify_vision_and_chosik_probability_contracts() -> void:

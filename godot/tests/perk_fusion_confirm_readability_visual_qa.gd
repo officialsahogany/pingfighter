@@ -1,6 +1,7 @@
 extends SceneTree
 
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
+const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const PerkFusionOverlayRenderer := preload("res://scripts/hud/perk_fusion_overlay_renderer.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 const RuntimePerkDisplayProjectionState := preload("res://scripts/characters/runtime_perk_display_projection_state.gd")
@@ -33,19 +34,21 @@ func _run() -> void:
 		print("perk_fusion_confirm_readability_visual_qa: ok")
 		quit(0)
 		return
+	PerkConversionFlags.debug_set_enabled(true)
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://.tmp"))
 	var runtime_state := RuntimePerkState.new()
 	runtime_state.runtime_skill_levels = {
-		"gold_digger": 5,
-		"master": 5,
+		"dowsing_goggles": 3,
+		"dash_jump": 5,
+		"item_polish": 3,
 	}
 	var catalog := RuntimePerkCatalog.new()
 	var snapshot: Dictionary = RuntimePerkDisplayProjectionState.new().merge_perk_fusion_modal_preview(
 		runtime_state,
 		{
 			"phase": "confirm",
-			"selected_source_ids": ["gold_digger", "master"],
+			"selected_source_ids": ["dowsing_goggles", "dash_jump"],
 		},
 		catalog
 	)
@@ -73,6 +76,7 @@ func _run() -> void:
 		quit(1)
 		return
 	LanguageSettings.set_test_locale_override("")
+	PerkConversionFlags.debug_set_enabled(false)
 	print("perk_fusion_confirm_readability_visual_qa: ok")
 	print(ProjectSettings.globalize_path(CAPTURE_PATH))
 	quit(0)

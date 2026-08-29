@@ -368,8 +368,12 @@ func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
 	return _fusion_runtime_state.get_effective_level_bonus(perk_id)
 
 
-func get_perk_fusion_byproduct_chance_bonus_percent() -> float:
-	return _fusion_runtime_state.get_byproduct_chance_bonus_percent(self)
+func get_perk_fusion_rare_slot_bonus_percent() -> float:
+	return _fusion_runtime_state.get_rare_slot_bonus_percent(self)
+
+
+func get_perk_fusion_byproduct_count_shift_percent() -> float:
+	return _fusion_runtime_state.get_byproduct_count_shift_percent(self)
 
 
 func get_perk_fusion_owned_byproduct_ids() -> Array[String]:
@@ -1995,6 +1999,10 @@ func get_downtown_treasure_map_vision_box_chance_bonus() -> float:
 
 func get_downtown_treasure_map_vision_box_chance(base_chance: float) -> float:
 	return _effective_stat_queries.get_downtown_treasure_map_vision_box_chance_from_runtime_state(self, base_chance)
+
+
+func get_downtown_treasure_map_fusion_muhon_cost(base_cost: int) -> int:
+	return _effective_stat_queries.get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state(self, base_cost)
 
 
 func get_player_speed_multiplier() -> float:

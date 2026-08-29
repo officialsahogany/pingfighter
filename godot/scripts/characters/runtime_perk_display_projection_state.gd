@@ -119,10 +119,17 @@ func merge_perk_fusion_modal_preview(
 	var revision := 0
 	if runtime_state.has_method("get_perk_fusion_revision"):
 		revision = int(runtime_state.call("get_perk_fusion_revision"))
+	var runtime_skill_levels: Dictionary = _get_dictionary(runtime_state.get("runtime_skill_levels"))
+	var token_snapshot := _call_dictionary(runtime_state, "get_perk_fusion_token_snapshot")
 	var preview_key := hash([
 		snapshot.get("selected_source_ids", []),
 		str(snapshot.get("phase", "")),
 		revision,
+		runtime_skill_levels.hash(),
+		int(runtime_state.get("item_perk_level_bonus")),
+		int(bool(runtime_state.get("viper_ignition_aura_active"))),
+		token_snapshot.hash(),
+		catalog.get_instance_id() if catalog != null else 0,
 	])
 	if preview_key != _modal_preview_cache_key or _modal_preview_cache.is_empty():
 		_modal_preview_cache = _build_modal_preview(runtime_state, snapshot, catalog)
@@ -172,7 +179,7 @@ func _store_projection_signature(
 
 
 func _build_modal_preview(runtime_state: Object, snapshot: Dictionary, catalog: Object) -> Dictionary:
-	var outcome_rules: Object = load("res://scripts/characters/perk_fusion_outcome_rules.gd")
+	var result_builder: Object = load("res://scripts/characters/perk_fusion_result_builder.gd")
 	var conversion_values: Object = load("res://scripts/characters/perk_conversion_values.gd")
 	var tokens: Dictionary = _call_dictionary(runtime_state, "get_perk_fusion_token_snapshot")
 	var source_ids: Array = _get_array(snapshot.get("selected_source_ids", []))
@@ -190,17 +197,22 @@ func _build_modal_preview(runtime_state: Object, snapshot: Dictionary, catalog: 
 		PerkConversionFlags.is_enabled()
 	))
 	var dual_catalyst_armed := bool(tokens.get("dual_catalyst_armed", false))
-	var byproduct_chance_bonus_percent := 0.0
-	if runtime_state.has_method("get_perk_fusion_byproduct_chance_bonus_percent"):
-		byproduct_chance_bonus_percent = maxf(
+	var rare_slot_chance_bonus_percent := 0.0
+	if runtime_state.has_method("get_perk_fusion_rare_slot_bonus_percent"):
+		rare_slot_chance_bonus_percent = maxf(
 			0.0,
-			float(runtime_state.call("get_perk_fusion_byproduct_chance_bonus_percent"))
+			float(runtime_state.call("get_perk_fusion_rare_slot_bonus_percent"))
 		)
-	var weights: Dictionary = outcome_rules.build_final_outcome_weights(
-		available.is_empty(),
+	var byproduct_count_shift_percent := 0.0
+	if runtime_state.has_method("get_perk_fusion_byproduct_count_shift_percent"):
+		byproduct_count_shift_percent = maxf(
+			0.0,
+			float(runtime_state.call("get_perk_fusion_byproduct_count_shift_percent"))
+		)
+	var weights: Dictionary = result_builder.build_weight_table(
+		available.size(),
 		dual_catalyst_armed,
-		byproduct_chance_bonus_percent,
-		available.size()
+		byproduct_count_shift_percent
 	)
 	var runtime_skill_levels: Dictionary = _get_dictionary(runtime_state.get("runtime_skill_levels"))
 	var source_previews: Array = []
@@ -231,7 +243,13 @@ func _build_modal_preview(runtime_state: Object, snapshot: Dictionary, catalog: 
 		"outcome_preview": {
 			"core_stabilize_armed": bool(tokens.get("core_stabilize_armed", false)),
 			"side_effect_effective_outcome": "stable" if bool(tokens.get("core_stabilize_armed", false)) else "side_effect",
-			"byproduct_chance_bonus_percent": byproduct_chance_bonus_percent,
+			"rare_slot_chance_bonus_percent": rare_slot_chance_bonus_percent,
+			"byproduct_count_shift_percent": byproduct_count_shift_percent,
+			"rare_slot_chance_percent_by_count": {
+				1: float(result_builder.resolve_rare_slot_chance(1, rare_slot_chance_bonus_percent)) * 100.0,
+				2: float(result_builder.resolve_rare_slot_chance(2, rare_slot_chance_bonus_percent)) * 100.0,
+				3: float(result_builder.resolve_rare_slot_chance(3, rare_slot_chance_bonus_percent)) * 100.0,
+			},
 			"weights": weights.duplicate(true),
 		},
 		"source_previews": source_previews,

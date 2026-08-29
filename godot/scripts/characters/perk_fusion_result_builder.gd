@@ -7,6 +7,7 @@ const DELETE_CHANCE := 0.20
 # 희귀 슬롯 완화(2026-08-12): +3개 롤은 마지막 슬롯 확정 희귀(기존 유지),
 # +1/+2개 롤도 마지막 슬롯이 아래 확률로 희귀 승격된다. 롤은 확정 시점 1회.
 const RARE_SLOT_CHANCE_BY_COUNT := {1: 0.15, 2: 0.25}
+const RARE_SLOT_MAX_CHANCE := 0.60
 const RARE_BYPRODUCT_IDS := {
 	"core_stabilize": true,
 	"limit_break": true,
@@ -31,14 +32,18 @@ static func build_result(context: Dictionary, rolls: Dictionary) -> Dictionary:
 	var core_stabilize_armed := bool(context.get("core_stabilize_armed", false))
 	var dual_catalyst_armed := bool(context.get("dual_catalyst_armed", false))
 	var dual_catalyst_consumed := dual_catalyst_armed and not byproduct_pool.is_empty()
-	var byproduct_chance_bonus_percent := maxf(
+	var byproduct_count_shift_percent := maxf(
 		0.0,
-		float(context.get("byproduct_chance_bonus_percent", 0.0))
+		float(context.get("byproduct_count_shift_percent", 0.0))
 	)
-	var weights: Dictionary = _build_weights(
+	var rare_slot_chance_bonus_percent := maxf(
+		0.0,
+		float(context.get("rare_slot_chance_bonus_percent", 0.0))
+	)
+	var weights: Dictionary = build_weight_table(
 		byproduct_pool.size(),
 		dual_catalyst_consumed,
-		byproduct_chance_bonus_percent
+		byproduct_count_shift_percent
 	)
 	var raw_outcome := _resolve_weighted_outcome(float(rolls.get("outcome", 0.0)), weights)
 	var outcome := raw_outcome
@@ -77,7 +82,8 @@ static func build_result(context: Dictionary, rolls: Dictionary) -> Dictionary:
 			byproduct_pool,
 			limit_break_sources,
 			weights,
-			rolls
+			rolls,
+			rare_slot_chance_bonus_percent
 		)
 		result["outcome"] = str(byproduct_result.get("outcome", outcome))
 		result["byproducts"] = byproduct_result.get("byproducts", [])
@@ -109,16 +115,27 @@ static func _build_source_options(context: Dictionary, source_ids: Array[String]
 	return result
 
 
-static func _build_weights(
+static func build_weight_table(
 	available_byproduct_count: int,
 	dual_catalyst_consumed: bool,
-	byproduct_chance_bonus_percent: float
+	byproduct_count_shift_percent: float = 0.0
 ) -> Dictionary:
 	return PerkFusionOutcomeRules.build_final_outcome_weights(
 		available_byproduct_count <= 0,
 		dual_catalyst_consumed,
-		byproduct_chance_bonus_percent,
+		byproduct_count_shift_percent,
 		available_byproduct_count
+	)
+
+
+static func resolve_rare_slot_chance(requested_count: int, bonus_percent: float = 0.0) -> float:
+	if requested_count >= 3:
+		return 1.0
+	var base_chance := float(RARE_SLOT_CHANCE_BY_COUNT.get(clampi(requested_count, 1, 2), 0.0))
+	return clampf(
+		base_chance + maxf(0.0, bonus_percent) / 100.0,
+		0.0,
+		RARE_SLOT_MAX_CHANCE
 	)
 
 
@@ -299,7 +316,8 @@ static func _build_byproduct_result(
 	byproduct_pool: Array[String],
 	limit_break_sources: Array[String],
 	weights: Dictionary,
-	rolls: Dictionary
+	rolls: Dictionary,
+	rare_slot_bonus_percent: float = 0.0
 ) -> Dictionary:
 	var count_roll := clampf(float(rolls.get("byproduct_count", 0.0)), 0.0, 1.0)
 	var requested_count := PerkFusionOutcomeRules.resolve_byproduct_count(count_roll, weights)
@@ -307,7 +325,8 @@ static func _build_byproduct_result(
 		byproduct_pool,
 		requested_count,
 		_array_or_empty(rolls.get("byproduct_selection", [])),
-		clampf(float(rolls.get("rare_slot", 1.0)), 0.0, 1.0)
+		clampf(float(rolls.get("rare_slot", 1.0)), 0.0, 1.0),
+		rare_slot_bonus_percent
 	)
 	var resolved_outcome := PerkFusionOutcomeRules.OUTCOME_BYPRODUCT
 	if byproducts.is_empty():
@@ -326,7 +345,8 @@ static func _select_byproducts_with_rare_slot(
 	byproduct_pool: Array[String],
 	requested_count: int,
 	selection_rolls: Array,
-	rare_slot_roll: float = 1.0
+	rare_slot_roll: float = 1.0,
+	rare_slot_bonus_percent: float = 0.0
 ) -> Array[String]:
 	var general: Array[String] = []
 	var rare: Array[String] = []
@@ -338,7 +358,7 @@ static func _select_byproducts_with_rare_slot(
 	var resolved_count: int = mini(clampi(requested_count, 1, 3), general.size() + rare.size())
 	var last_slot_rare: bool = requested_count >= 3
 	if not last_slot_rare:
-		var rare_chance := float(RARE_SLOT_CHANCE_BY_COUNT.get(clampi(requested_count, 1, 2), 0.0))
+		var rare_chance := resolve_rare_slot_chance(requested_count, rare_slot_bonus_percent)
 		last_slot_rare = rare_slot_roll < rare_chance
 	var slot_types: Array[String] = []
 	for slot_index in range(resolved_count):

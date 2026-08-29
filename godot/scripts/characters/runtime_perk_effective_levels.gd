@@ -29,6 +29,8 @@ const MIN_ITEM_SPAWN_DELAY_MSEC := 1
 const DOWNTOWN_TREASURE_MAP_ID := "downtown_treasure_map"
 const TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL := RuntimePerkProgression.TREASURE_MAP_MYTHIC_BONUS_PER_LEVEL
 const TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL := RuntimePerkProgression.TREASURE_MAP_VISION_BOX_CHANCE_BONUS_PER_LEVEL
+const TREASURE_MAP_FUSION_COST_REDUCTION_LANE := "fusion_muhon_cost_reduction"
+const TREASURE_MAP_FUSION_FREE_MILESTONE := "free"
 const PERK_POLISH_AMPLIFIABLE_BONUS_IDS := {
 	"dash_lightweight": true,
 	"dash_module_control": true,
@@ -533,6 +535,40 @@ func get_downtown_treasure_map_vision_box_chance(
 		0.0,
 		1.0
 	)
+
+
+func get_downtown_treasure_map_fusion_muhon_cost(
+	runtime_skill_levels: Dictionary,
+	item_perk_level_bonus: int,
+	viper_ignition_aura_active: bool,
+	base_cost: int
+) -> int:
+	var safe_base_cost := maxi(0, base_cost)
+	var raw_level := int(runtime_skill_levels.get(
+		DOWNTOWN_TREASURE_MAP_ID,
+		runtime_skill_levels.get(StringName(DOWNTOWN_TREASURE_MAP_ID), 0)
+	))
+	if raw_level <= 0:
+		return safe_base_cost
+	var level := get_runtime_skill_level(
+		runtime_skill_levels,
+		item_perk_level_bonus,
+		viper_ignition_aura_active,
+		DOWNTOWN_TREASURE_MAP_ID
+	)
+	var free_level := RuntimePerkProgression.get_milestone_level(
+		DOWNTOWN_TREASURE_MAP_ID,
+		TREASURE_MAP_FUSION_COST_REDUCTION_LANE,
+		TREASURE_MAP_FUSION_FREE_MILESTONE
+	)
+	if free_level > 0 and level >= free_level:
+		return 0
+	var reduction := maxi(0, RuntimePerkProgression.get_int_value(
+		DOWNTOWN_TREASURE_MAP_ID,
+		TREASURE_MAP_FUSION_COST_REDUCTION_LANE,
+		level
+	))
+	return maxi(0, safe_base_cost - reduction)
 
 
 func get_player_speed_multiplier(

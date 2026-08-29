@@ -326,14 +326,15 @@ func _verify_all_converted_numeric_values_amplify() -> void:
 		"sensor": 1,
 		"shrapnel_armor": 1,
 	}
-	_expect_close(state.get_perk_amplify_multiplier("dowsing_goggles"), 1.10, "converted Mugong should receive the shared Polish multiplier")
-	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 1, state), 44.0, "Polish should raise Tianan Art choice chance")
-	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "fusion_byproduct_chance_pct", 1, state), 3.3, "Polish should raise Tianan Art fusion chance")
-	_expect_close(PerkConversionValues.get_value("gold_digger", "gold_bonus_pct", 1, state), 16.5, "Polish should raise Chwigeum Art gold and vigor gain")
-	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 1, state), 170.0 / 1.10, "Polish should improve lower-is-better cost lanes")
-	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 1, state), 30.0 / 1.10, "Polish should improve lower-is-better cooldown lanes")
+	_expect_close(state.get_perk_amplify_multiplier("dowsing_goggles"), 1.145, "converted Mugong should receive the canonical Lv.2 Polish multiplier")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 1, state), 45.8, "Polish should raise Tianan Art choice chance")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "fusion_rare_slot_bonus_pct", 1, state), 5.725, "Polish should raise Tianan Art rare-slot chance")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "fusion_byproduct_count_shift_pct", 1, state), 6.87, "Polish should raise Tianan Art multi-result share")
+	_expect_close(PerkConversionValues.get_value("gold_digger", "gold_bonus_pct", 1, state), 14.0 * 1.145, "Polish should raise Chwigeum Art gold and vigor gain")
+	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 1, state), 166.0 / 1.145, "Polish should improve lower-is-better cost lanes")
+	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 1, state), 29.0 / 1.145, "Polish should improve lower-is-better cooldown lanes")
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_token_count", 1, state), 1.0, "Polish should preserve integer count structure")
-	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "shard_count", 1, state), 4.0, "Polish should preserve shard-count structure")
+	_expect_close(PerkConversionValues.get_value("shrapnel_armor", "shard_count", 1, state), 2.0, "Polish should preserve shard-count structure")
 	var scalable_lane_count := 0
 	for perk_id_value: Variant in PerkConversionValues.CONVERTED_PERK_VALUES.keys():
 		var perk_id := str(perk_id_value)
@@ -350,7 +351,7 @@ func _verify_all_converted_numeric_values_amplify() -> void:
 				_expect(polished_value < base_value, "Polish must improve every lower-is-better lane: %s.%s" % [perk_id, option_key])
 			else:
 				_expect(polished_value > base_value, "Polish must improve every higher-is-better lane: %s.%s" % [perk_id, option_key])
-	_expect(scalable_lane_count >= 38, "converted Polish coverage should include every current scalable lane")
+	_expect(scalable_lane_count >= 39, "converted Polish coverage should include every current scalable lane")
 
 	var catalog := RuntimePerkCatalog.new()
 	var dowsing: Dictionary = catalog.get_perk_data("dowsing_goggles")
@@ -361,11 +362,11 @@ func _verify_all_converted_numeric_values_amplify() -> void:
 		state
 	)
 	_expect(
-		dowsing_text == "무공 선택지 보너스 발동 확률 40 (+4)%, 무공 합일 상승무공 발현 확률 +3 (+0.3)%p",
+		dowsing_text == "무공 선택지 보너스 발동 확률 40 (+5.8)%, 합일 희귀 슬롯 확률 +5 (+0.72)%p, 상승무공 1개 비중 6 (+0.87)%p를 2개와 3개로 이동",
 		"converted Mugong tooltip should expose every Polish delta: %s" % dowsing_text
 	)
 	_expect(
-		RuntimePerkOverflowDescriptions.get_polish_status_text("gold_digger", state) == "개광결 +10% 적용",
+		RuntimePerkOverflowDescriptions.get_polish_status_text("gold_digger", state) == "개광결 +14.5% 적용",
 		"converted owned-Mugong tooltip should mark Polish as applied"
 	)
 

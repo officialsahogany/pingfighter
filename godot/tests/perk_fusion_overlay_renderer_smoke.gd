@@ -120,6 +120,26 @@ func _verify_renderer_contract() -> void:
 	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_1", 0.0)), 0.40), "overlay should expose the one-art final probability")
 	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_2", 0.0)), 0.20), "overlay should expose the two-art final probability")
 	_expect(is_equal_approx(float(canonical_probabilities.get("byproduct_count_3", 0.0)), 0.10), "overlay should expose the three-art final probability")
+	var shifted_probabilities: Dictionary = renderer._get_probabilities({
+		"outcome_preview": {
+			"weights": {
+				"success": 20.0,
+				"side_effect": 10.0,
+				"byproduct": 70.0,
+				"byproduct_count_1": 27.4,
+				"byproduct_count_2": 28.4,
+				"byproduct_count_3": 14.2,
+			},
+			"rare_slot_chance_percent_by_count": {1: 30.0, 2: 40.0, 3: 100.0},
+		},
+	})
+	_expect(is_equal_approx(float(shifted_probabilities.get("byproduct_count_1", 0.0)), 27.4), "overlay must render the shifted count-1 weight without rebuilding 4:2:1")
+	_expect(is_equal_approx(float(shifted_probabilities.get("byproduct_count_2", 0.0)), 28.4), "overlay must render the shifted count-2 weight without rebuilding 4:2:1")
+	_expect(is_equal_approx(float(shifted_probabilities.get("byproduct_count_3", 0.0)), 14.2), "overlay must render the shifted count-3 weight without rebuilding 4:2:1")
+	var rare_preview := {"rare_slot_chance_percent_by_count": {1: 30.0, 2: 40.0, 3: 100.0}}
+	_expect(renderer._rare_slot_probability_label(rare_preview, 1).contains("30%"), "count-1 probability column must show its rare-slot chance")
+	_expect(renderer._rare_slot_probability_label(rare_preview, 2).contains("40%"), "count-2 probability column must show its rare-slot chance")
+	_expect(renderer._rare_slot_probability_label(rare_preview, 3).contains("100%"), "count-3 probability column must show its guaranteed rare slot")
 	var fallback_probabilities: Dictionary = renderer._get_probabilities({})
 	var authored_weights := PerkFusionOutcomeRules.build_final_outcome_weights(false)
 	_expect(fallback_probabilities == authored_weights, "missing preview weights should fall back to the production outcome-rules owner")

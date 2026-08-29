@@ -19,7 +19,7 @@ const LINEAR := "linear"
 const HOLD := "hold"
 const STAIRCASE := "staircase"
 
-# These five max_level=1 catalog choices are route/meta systems added beside
+# These six max_level=1 catalog choices are route/meta systems added beside
 # the 40 unlock-only Bigeup/Firearm/Mythic entries; they were never five-star
 # Mugong and are outside the user's 40-entry exclusion count.
 const NON_MUGONG_SINGLE_LEVEL_CHOICES := {
@@ -27,7 +27,17 @@ const NON_MUGONG_SINGLE_LEVEL_CHOICES := {
 	"unlock_dalji_vision_chain_top": true,
 	"unlock_cheongringwi_vision_dragon_torrent": true,
 	"unlock_yeonmyo_vision_bonghongwe": true,
+	"unlock_gaksital_vision_fan_throw": true,
 	"lingpet_guardian_enhance": true,
+}
+
+# Additive post-migration lanes are intentionally outside the frozen five-star
+# fixture. They must be present in the owner without changing the exact 37-id
+# migration family or retroactively rewriting its legacy/S3 evidence tables.
+const POST_MIGRATION_ADDITIVE_LANES := {
+	"downtown_treasure_map": {
+		"fusion_muhon_cost_reduction": true,
+	},
 }
 
 # Ratio/rounding fixture classification. Every non-structural lane is checked
@@ -281,6 +291,7 @@ func _init() -> void:
 func _run() -> void:
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
 	_test_exact_target_and_lane_sets()
+	_test_post_migration_additive_lanes()
 	_test_catalog_population_boundaries()
 	_test_authored_curve_and_ceiling()
 	_test_overflow_mapping()
@@ -309,7 +320,13 @@ func _test_exact_target_and_lane_sets() -> void:
 	for perk_id_value in LEGACY_LANES.keys():
 		var perk_id := str(perk_id_value)
 		var expected_lanes: Dictionary = LEGACY_LANES[perk_id]
-		_expect(_string_set(RuntimePerkProgression.get_lane_ids(perk_id)) == _string_set(expected_lanes.keys()), "%s lane ids must match the frozen baseline" % perk_id)
+		var owner_lanes := _string_set(RuntimePerkProgression.get_lane_ids(perk_id))
+		var additive_lanes: Dictionary = POST_MIGRATION_ADDITIVE_LANES.get(perk_id, {})
+		for additive_lane_value in additive_lanes.keys():
+			var additive_lane := str(additive_lane_value)
+			_expect(owner_lanes.has(additive_lane), "%s must retain additive lane %s" % [perk_id, additive_lane])
+			owner_lanes.erase(additive_lane)
+		_expect(owner_lanes == _string_set(expected_lanes.keys()), "%s frozen lane ids must remain unchanged after additive lanes are removed" % perk_id)
 		_expect(_string_set((S3_AUTHORED[perk_id] as Dictionary).keys()) == _string_set(expected_lanes.keys()), "%s S3 lane ids must match the frozen baseline" % perk_id)
 		for lane_id_value in expected_lanes.keys():
 			var lane_id := str(lane_id_value)
@@ -317,6 +334,24 @@ func _test_exact_target_and_lane_sets() -> void:
 			_expect(owner_lane.has("overflow"), "%s/%s must declare overflow" % [perk_id, lane_id])
 			_expect(owner_lane.has("milestones"), "%s/%s must declare milestones" % [perk_id, lane_id])
 			_expect(owner_lane.has("polarity"), "%s/%s must declare polarity" % [perk_id, lane_id])
+
+
+func _test_post_migration_additive_lanes() -> void:
+	const PERK_ID := "downtown_treasure_map"
+	const LANE_ID := "fusion_muhon_cost_reduction"
+	var lane: Dictionary = (RuntimePerkProgression.PROGRESSIONS[PERK_ID]["lanes"] as Dictionary).get(LANE_ID, {})
+	var overflow: Dictionary = lane.get("overflow", {})
+	_expect(not lane.is_empty(), "Treasure Map fusion-cost lane must be registered")
+	_expect(RuntimePerkProgression.TARGET_PERK_IDS.size() == 37, "additive Treasure Map lane must not change the frozen 37-id family")
+	_expect(RuntimePerkProgression.get_authored_level_count(PERK_ID, LANE_ID) == 3, "Treasure Map fusion-cost lane must keep three authored stars")
+	_expect_close(RuntimePerkProgression.get_value(PERK_ID, LANE_ID, 0), 0.0, "Treasure Map unowned fusion-cost reduction")
+	_expect_close(RuntimePerkProgression.get_value(PERK_ID, LANE_ID, 1), 1.0, "Treasure Map fusion-cost reduction Lv.1")
+	_expect_close(RuntimePerkProgression.get_value(PERK_ID, LANE_ID, 2), 3.0, "Treasure Map fusion-cost reduction Lv.2")
+	_expect_close(RuntimePerkProgression.get_value(PERK_ID, LANE_ID, 3), 3.0, "Treasure Map fusion-cost reduction Lv.3")
+	_expect_close(RuntimePerkProgression.get_value(PERK_ID, LANE_ID, 4), 3.0, "Treasure Map fusion-cost reduction overflow must hold")
+	_expect(RuntimePerkProgression.get_lane_polarity(PERK_ID, LANE_ID) == RuntimePerkProgression.POLARITY_STRUCTURAL, "Treasure Map fusion-cost lane must remain structural")
+	_expect(RuntimePerkProgression.get_milestone_level(PERK_ID, LANE_ID, "free") == 3, "Treasure Map hard-free milestone must remain Lv.3")
+	_expect(str(overflow.get("mode", "")) == HOLD, "Treasure Map fusion-cost overflow must hold at the authored ceiling")
 
 
 func _test_catalog_population_boundaries() -> void:

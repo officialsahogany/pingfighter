@@ -38,7 +38,11 @@ const EXPECTED_OVERFLOW_BOUNDS := {
 	"soul_burst": {"soul_burst_gauge_cost": {"min": 0.0}},
 	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
 	"venom_mist_gauntlet": {"mist_trigger_chance_pct": {"max": 100.0}},
-	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
+	"dowsing_goggles": {
+		"bonus_perk_chance": {"max": 100.0},
+		"fusion_rare_slot_bonus_pct": {"max": 45.0},
+		"fusion_byproduct_count_shift_pct": {"max": (4.0 / 7.0 - 0.20) * 100.0},
+	},
 }
 
 var _failures: Array[String] = []
@@ -96,6 +100,8 @@ func _verify_overflow_respects_domain_bounds() -> void:
 	_expect_close(PerkConversionValues.get_value("battery", "gauge_preserve_pct", 6), 100.0, "gauge preserve must cap at 100% (raw extrapolation would be 115)")
 	_expect_close(PerkConversionValues.get_value("venom_mist_gauntlet", "mist_trigger_chance_pct", 12), 100.0, "trigger chance must cap at 100%")
 	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "bonus_perk_chance", 10), 100.0, "bonus perk chance must cap at 100%")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "fusion_rare_slot_bonus_pct", 20), 45.0, "rare-slot bonus must cap at 45 points")
+	_expect_close(PerkConversionValues.get_value("dowsing_goggles", "fusion_byproduct_count_shift_pct", 20), (4.0 / 7.0 - 0.20) * 100.0, "count shift must preserve a 20% one-result floor")
 	_expect_close(PerkConversionValues.get_value("soul_burst", "soul_burst_gauge_cost", 12), 0.0, "cost lanes must floor at 0, never negative")
 	_expect_close(PerkConversionValues.get_value("sensor", "auto_dash_cooldown_sec", 12), 1.0, "sensor auto-dash cooldown must floor at 1s")
 	# 감소 계열 4레인은 소비 코드 실효 한도와 정합(레거시 패리티 —

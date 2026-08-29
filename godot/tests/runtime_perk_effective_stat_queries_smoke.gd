@@ -2,6 +2,7 @@ extends SceneTree
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkEffectiveLevels := preload("res://scripts/characters/runtime_perk_effective_levels.gd")
+const RuntimePerkEffectiveStatQuerySurface := preload("res://scripts/characters/runtime_perk_effective_stat_query_surface.gd")
 const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 
 var _failures: Array[String] = []
@@ -31,6 +32,7 @@ func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(false)
 
 	_verify_helper_derived_stat_queries()
+	_verify_treasure_map_fusion_cost_queries()
 	_verify_helper_state_applications()
 	_verify_state_wrappers_delegate_to_helper()
 	_verify_source_contract()
@@ -91,6 +93,48 @@ func _verify_helper_derived_stat_queries() -> void:
 		2040.0,
 		"helper should map S3 effective Lv.6 to legacy Lv.8"
 	)
+
+
+func _verify_treasure_map_fusion_cost_queries() -> void:
+	const PERK_ID := "downtown_treasure_map"
+	var helper := RuntimePerkEffectiveLevels.new()
+
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({}, 0, false, 7) == 7, "unowned Treasure Map must preserve a seven-Muhon base cost")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 1}, 0, false, 7) == 6, "Treasure Map Lv.1 must subtract one Muhon")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 2}, 0, false, 7) == 4, "Treasure Map Lv.2 must subtract three Muhon")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 3}, 0, false, 7) == 0, "Treasure Map Lv.3 must hard-fix fusion cost at zero")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 4}, 0, false, 7) == 0, "Treasure Map overflow must retain the hard-free milestone")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 2}, 0, false, 1) == 0, "Treasure Map reduction must floor a small base cost at zero")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({"downtown_treasure_map": 3}, 0, false, 99) == 0, "Treasure Map hard-free must survive future base-cost increases")
+	_expect(helper.get_downtown_treasure_map_fusion_muhon_cost({}, 9, true, 7) == 7, "item and aura bonuses must not fabricate unowned Treasure Map cost reduction")
+
+	var expected_production_costs := [3, 2, 0, 0]
+	for level in range(expected_production_costs.size()):
+		var levels: Dictionary = {} if level == 0 else {"downtown_treasure_map": level}
+		_expect(
+			helper.get_downtown_treasure_map_fusion_muhon_cost(levels, 0, false, 3)
+				== int(expected_production_costs[level]),
+			"Treasure Map production base cost Lv.%d must resolve to %d" % [level, int(expected_production_costs[level])]
+		)
+
+	var query_surface := RuntimePerkEffectiveStatQuerySurface.new()
+	var state := RuntimePerkState.new()
+	state.runtime_skill_levels = {}
+	state.item_perk_level_bonus = 9
+	state.viper_ignition_aura_active = true
+	_expect(query_surface.get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state(state, 7) == 7, "query surface must preserve an unowned Treasure Map base cost")
+	_expect(state.get_downtown_treasure_map_fusion_muhon_cost(7) == 7, "real state facade must preserve an unowned Treasure Map base cost")
+	state.item_perk_level_bonus = 0
+	state.viper_ignition_aura_active = false
+	for level in range(expected_production_costs.size()):
+		state.runtime_skill_levels = {} if level == 0 else {"downtown_treasure_map": level}
+		var expected_cost := int(expected_production_costs[level])
+		_expect(query_surface.get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state(state, 3) == expected_cost, "query surface production cost Lv.%d" % level)
+		_expect(state.get_downtown_treasure_map_fusion_muhon_cost(3) == expected_cost, "real state facade production cost Lv.%d" % level)
+	state.runtime_skill_levels = {"downtown_treasure_map": 2}
+	_expect(query_surface.get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state(state, 7) == 4, "query surface must preserve the Lv.2 subtraction against a raised base")
+	state.runtime_skill_levels = {"downtown_treasure_map": 3}
+	_expect(state.get_downtown_treasure_map_fusion_muhon_cost(99) == 0, "real state facade must preserve hard-free against a raised base")
 
 
 func _verify_helper_state_applications() -> void:
@@ -163,12 +207,15 @@ func _verify_source_contract() -> void:
 	_expect(helper_source.find("func get_dash_recharge_frames") >= 0, "effective-level helper should expose derived dash stat queries")
 	_expect(helper_source.find("func get_active_item_duration_frames") >= 0, "effective-level helper should expose derived item stat queries")
 	_expect(helper_source.find("func get_player_skill_cooldown_multiplier") >= 0, "effective-level helper should expose derived common stat queries")
+	_expect(helper_source.find("func get_downtown_treasure_map_fusion_muhon_cost") >= 0, "effective-level helper should expose Treasure Map fusion-cost math")
 	_expect(query_surface_source.find("func get_dash_recharge_frames") >= 0, "effective query surface should expose derived dash stat queries")
 	_expect(query_surface_source.find("func get_active_item_duration_frames") >= 0, "effective query surface should expose derived item stat queries")
 	_expect(query_surface_source.find("func get_player_skill_cooldown_multiplier") >= 0, "effective query surface should expose derived common stat queries")
+	_expect(query_surface_source.find("func get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state") >= 0, "effective query surface should expose the Treasure Map fusion-cost runtime query")
 	_expect(state_source.find("_effective_stat_queries.get_dash_recharge_frames") >= 0, "state should delegate dash recharge query to query surface")
 	_expect(state_source.find("_effective_stat_queries.get_active_item_duration_frames") >= 0, "state should delegate item duration query to query surface")
 	_expect(state_source.find("_effective_stat_queries.get_player_skill_cooldown_multiplier") >= 0, "state should delegate cooldown query to query surface")
+	_expect(state_source.find("_effective_stat_queries.get_downtown_treasure_map_fusion_muhon_cost_from_runtime_state") >= 0, "state should delegate Treasure Map fusion cost to the query surface")
 	_expect(state_source.find("_effective_levels.get_dash_recharge_frames") < 0, "state should not project dash recharge query parameters inline")
 	_expect(state_source.find("_effective_levels.get_active_item_duration_frames") < 0, "state should not project item duration query parameters inline")
 	_expect(state_source.find("_effective_levels.get_player_skill_cooldown_multiplier") < 0, "state should not project cooldown query parameters inline")

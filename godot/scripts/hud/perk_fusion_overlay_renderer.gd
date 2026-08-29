@@ -285,6 +285,18 @@ func _draw_probabilities(canvas: CanvasItem, rect: Rect2, snapshot: Dictionary) 
 			maxf(1.0, column_width - 4.0),
 			9
 		)
+		if column >= 2:
+			var rare_slot_label := _rare_slot_probability_label(preview, column - 1)
+			if not rare_slot_label.is_empty():
+				_draw_text_fitted_centered(
+					canvas,
+					rare_slot_label,
+					Vector2(center_x, label_y + 15.0),
+					11,
+					Color(0.95, 0.83, 0.48),
+					maxf(1.0, column_width - 4.0),
+					7
+				)
 		var medallion_rect := Rect2(
 			Vector2(center_x, medallion_center_y) - Vector2.ONE * medallion_span * 0.5,
 			Vector2.ONE * medallion_span
@@ -739,6 +751,20 @@ func _get_probabilities(snapshot: Dictionary) -> Dictionary:
 			count_weights.get(PerkFusionOutcomeRules.OUTCOME_BYPRODUCT_COUNT_3, 0.0)
 		),
 	}
+
+
+func _rare_slot_probability_label(preview: Dictionary, byproduct_count: int) -> String:
+	var rare_by_count := _as_dict(preview.get("rare_slot_chance_percent_by_count", {}))
+	var chance_value: Variant = rare_by_count.get(
+		byproduct_count,
+		rare_by_count.get(str(byproduct_count), null)
+	)
+	if chance_value == null:
+		return ""
+	return PerkFusionLocalization.format(
+		"prob_rare_slot",
+		[int(round(float(chance_value)))]
+	)
 
 
 func _animation_progress(snapshot: Dictionary) -> float:

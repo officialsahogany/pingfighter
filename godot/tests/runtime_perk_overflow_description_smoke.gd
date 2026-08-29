@@ -132,7 +132,8 @@ func _test_converted_overflow_single_sourced() -> void:
 
 func _test_special_overflow_values() -> void:
 	# S3 Lv.5 is legacy Lv.7 for migrated Mugong.
-	_expect_text("downtown_treasure_map", 5, "승리 보상 픽 절세무공 등장 확률 +1050%")
+	_expect_text("downtown_treasure_map", 4, "승리 보상 픽 절세무공 등장 확률 +900%, 무공 합일 무혼 비용 없음")
+	_expect_text("downtown_treasure_map", 5, "승리 보상 픽 절세무공 등장 확률 +1050%, 무공 합일 무혼 비용 없음")
 	_expect_text(
 		"combo_amplifier_chip", 5,
 		"콤보 효과 증폭: 벽력타 공속+630%, 커브+15%(캡), 천뢰격 공속+315%, 초기부스트 감쇄 -50%(캡)"

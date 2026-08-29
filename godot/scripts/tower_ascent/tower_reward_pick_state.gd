@@ -315,8 +315,14 @@ func build_view_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 	var model_choices: Array[Dictionary] = []
 	for index in range(choices.size()):
 		var choice := choices[index].duplicate(true)
+		var live_cost := _get_effective_reward_pick_cost(choice)
 		var absorption: Dictionary = _get_purchase_absorption_for_slot(index)
 		var disabled_reason := _get_purchase_disabled_reason(index, choice, balances)
+		choice["reward_pick_cost"] = live_cost
+		choice["reward_pick_price_text"] = TowerRewardPickLocalization.text(
+			"price",
+			{"amount": live_cost}
+		)
 		choice["reward_pick_spent"] = spent_flags[index]
 		choice["reward_pick_absorbing"] = not absorption.is_empty()
 		choice["reward_pick_empty"] = spent_flags[index] and absorption.is_empty()
@@ -1024,7 +1030,7 @@ func _purchase(index: int, view_size: Vector2 = VIEW_SIZE) -> void:
 	if index < 0 or index >= choices.size() or spent_flags[index]:
 		return
 	var choice := choices[index]
-	var cost := maxi(0, int(choice.get("reward_pick_cost", 0)))
+	var cost := _get_effective_reward_pick_cost(choice)
 	var balances := _get_balances()
 	var slot_status := _get_choice_slot_status(choice)
 	var replacement_required := _is_mugong_replacement_required(choice, slot_status)
@@ -1319,7 +1325,7 @@ func _get_purchase_disabled_reason(
 		and not _is_mugong_replacement_required(choice, slot_status)
 	):
 		return DISABLED_REASON_PERK_SLOT_LIMIT
-	if int(balances.get("muhon", 0)) < maxi(0, int(choice.get("reward_pick_cost", 0))):
+	if int(balances.get("muhon", 0)) < _get_effective_reward_pick_cost(choice):
 		return DISABLED_REASON_INSUFFICIENT_MUHON
 	return ""
 
@@ -1339,6 +1345,21 @@ func _is_mugong_replacement_required(
 		and _runtime_state.has_method("build_tower_reward_mugong_replacement_plan")
 		and _runtime_state.has_method("apply_tower_reward_mugong_replacement")
 	)
+
+
+func _get_effective_reward_pick_cost(choice: Dictionary) -> int:
+	var base_cost := maxi(0, int(choice.get("reward_pick_cost", 0)))
+	if str(choice.get("reward_pick_kind", "")) != "fusion":
+		return base_cost
+	if (
+		_runtime_state == null
+		or not _runtime_state.has_method("get_downtown_treasure_map_fusion_muhon_cost")
+	):
+		return base_cost
+	return maxi(0, int(_runtime_state.call(
+		"get_downtown_treasure_map_fusion_muhon_cost",
+		base_cost
+	)))
 
 
 func _get_choice_slot_status(choice: Dictionary, target_level: int = -1) -> Dictionary:

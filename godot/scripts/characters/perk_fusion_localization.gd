@@ -23,6 +23,7 @@ const EN := {
 	"prob_core_stable": "Core-stabilized",
 	"prob_byproduct": "Superior Martial Art",
 	"prob_byproduct_count": "Superior Martial Art +%d",
+	"prob_rare_slot": "Rare slot %d%%",
 	"animation_title": "Fusing...",
 	"animation_subtitle": "Calculating the committed result.",
 	"material_a": "Material A",
@@ -89,6 +90,7 @@ const KO := {
 	"prob_core_stable": "합일 안정화",
 	"prob_byproduct": "상승무공",
 	"prob_byproduct_count": "상승무공 +%d개",
+	"prob_rare_slot": "희귀 슬롯 %d%%",
 	"animation_title": "합일 중...",
 	"animation_subtitle": "확정된 결과를 계산하고 있습니다.",
 	"material_a": "무공 A",
@@ -201,6 +203,8 @@ const OPTION_LABEL_KO := {
 	"auto_dash_cooldown_sec": "자동 활주 재사용시간",
 	"attraction_range": "끌어당김 범위",
 	"bonus_perk_chance": "추가 무공 확률",
+	"fusion_rare_slot_bonus_pct": "합일 희귀 슬롯 확률",
+	"fusion_byproduct_count_shift_pct": "합일 다중 상승무공 비중",
 	"chargebag_pct": "충전 가방 보너스",
 	"gauge_preserve_pct": "기력 보존량",
 	"wall_length_pct": "벽 길이",
@@ -248,6 +252,8 @@ const OPTION_LABEL_EN := {
 	"auto_dash_cooldown_sec": "Auto-dash cooldown",
 	"attraction_range": "Attraction range",
 	"bonus_perk_chance": "Bonus perk chance",
+	"fusion_rare_slot_bonus_pct": "Fusion rare-slot chance",
+	"fusion_byproduct_count_shift_pct": "Fusion multi-result share",
 	"chargebag_pct": "Charge bag bonus",
 	"gauge_preserve_pct": "Gauge preserved",
 	"wall_length_pct": "Wall length",
@@ -296,6 +302,11 @@ const PERCENT_OPTION_KEYS := {
 	"stun_resist_pct": true, "knockback_resist_pct": true, "posture_correction_pct": true,
 	"mist_trigger_chance_pct": true, "sage_speed_penalty_pct": true,
 	"sage_body_penalty_pct": true,
+}
+
+const PERCENT_POINT_OPTION_KEYS := {
+	"fusion_rare_slot_bonus_pct": true,
+	"fusion_byproduct_count_shift_pct": true,
 }
 
 const STAT_HEADER_PREFIX := "[[fusion:header]]"
@@ -347,6 +358,8 @@ static func option_label(option_key: String) -> String:
 static func option_value_text(option_key: String, value: Variant) -> String:
 	var number := float(value)
 	var formatted := _format_number(number)
+	if bool(PERCENT_POINT_OPTION_KEYS.get(option_key, false)):
+		return "+%s%%p" % formatted
 	var unit := _option_unit(option_key)
 	if unit.is_empty() or unit == "%":
 		return formatted + unit

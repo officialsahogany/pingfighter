@@ -111,8 +111,8 @@ func _init() -> void:
 	)
 	_expect_close(
 		polish_runtime.get_dowsing_goggles_bonus_perk_chance_pct(),
-		62.0,
-		"Polish should boost Dowsing Goggles bonus-perk chance through the shared roll helper"
+		67.4,
+		"Polish should boost Dowsing Goggles bonus-perk chance through the canonical Lv.2 roll multiplier"
 	)
 
 	PerkConversionFlags.debug_set_enabled(true)
@@ -122,8 +122,8 @@ func _init() -> void:
 	converted_runtime.runtime_perk_state_ref = converted_state
 	_expect_close(
 		converted_runtime.get_dowsing_goggles_bonus_perk_chance_pct(),
-		44.0,
-		"live converted Tianan Art chance should receive the shared 10% Polish multiplier"
+		45.8,
+		"live converted Tianan Art chance should receive the canonical Lv.2 14.5% Polish multiplier"
 	)
 	PerkConversionFlags.debug_set_enabled(false)
 

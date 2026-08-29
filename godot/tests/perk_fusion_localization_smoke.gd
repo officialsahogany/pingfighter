@@ -12,7 +12,7 @@ var _failures: Array[String] = []
 func _init() -> void:
 	var required_keys: Array[String] = [
 		"card_name", "card_description", "materials_title", "confirm_title",
-		"prob_success", "prob_side", "prob_byproduct", "prob_byproduct_count", "animation_title",
+		"prob_success", "prob_side", "prob_byproduct", "prob_byproduct_count", "prob_rare_slot", "animation_title",
 		"prob_core_stable", "continue", "outcome_success", "result_side", "result_byproduct",
 		"level_fusion", "max_level",
 	]

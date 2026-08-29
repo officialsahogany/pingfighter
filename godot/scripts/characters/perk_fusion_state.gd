@@ -29,6 +29,13 @@ const RESTORED_OPTION_ALIASES := {
 	"spiked_helmet": {"knockback_resist_pct": "posture_correction_pct"},
 }
 
+# Removed numeric lanes are pruned rather than remapped. A historical fusion
+# scar for the retired Dowsing total-chance lane must not penalize either new
+# Z15 lane or remain as a raw-key ghost in TAB/result displays.
+const RETIRED_RESTORED_OPTION_KEYS := {
+	"dowsing_goggles": {"fusion_byproduct_chance_pct": true},
+}
+
 var _records: Array[Dictionary] = []
 var _next_fusion_index := 0
 var _revision := 0
@@ -396,6 +403,8 @@ func _migrate_restored_source_options(source_options: Dictionary) -> Dictionary:
 		for option_value: Variant in raw_options.keys():
 			var raw_option_key := str(option_value)
 			var option_key := _restored_option_key(raw_source_id, raw_option_key)
+			if option_key.is_empty():
+				continue
 			options[option_key] = raw_options[option_value]
 		migrated[source_id] = options
 	return migrated
@@ -444,8 +453,12 @@ func _restored_source_id(source_id: String) -> String:
 
 
 func _restored_option_key(source_id: String, option_key: String) -> String:
-	var aliases: Dictionary = RESTORED_OPTION_ALIASES.get(source_id.strip_edges(), {})
+	var clean_source_id := source_id.strip_edges()
 	var clean_key := option_key.strip_edges()
+	var retired_keys: Dictionary = RETIRED_RESTORED_OPTION_KEYS.get(clean_source_id, {})
+	if bool(retired_keys.get(clean_key, false)):
+		return ""
+	var aliases: Dictionary = RESTORED_OPTION_ALIASES.get(clean_source_id, {})
 	return str(aliases.get(clean_key, clean_key))
 
 

@@ -72,10 +72,6 @@ const NON_TARGET_CONVERTED_PERK_VALUES := {
 	"gravitybelt": {
 		"gravitybelt_instant_movement": [1.0],
 	},
-	"dowsing_goggles": {
-		"bonus_perk_chance": [40.0, 70.0, 100.0],
-		"fusion_byproduct_chance_pct": [3.0, 6.0, 9.0],
-	},
 	"fuel_pouch": {
 		"fuel_bonus_flat": [40.0, 65.0, 90.0, 115.0, 140.0],
 	},
@@ -90,9 +86,9 @@ const NON_TARGET_CONVERTED_PERK_VALUES := {
 	},
 }
 
-# Compatibility inspection surface used by fusion/tests. The 19 target tables
-# are mirrored once from RuntimePerkProgression at script load; gameplay reads
-# those targets directly from the owner below.
+# Compatibility inspection surface used by fusion/tests. Converted target and
+# adjunct tables are mirrored once from RuntimePerkProgression at script load;
+# gameplay reads those registered lanes directly from the owner below.
 static var CONVERTED_PERK_VALUES: Dictionary = _build_converted_perk_values()
 
 # 개광결은 전환 일반무공의 연속 수치 레인 전체를 증폭한다. 정수 횟수와
@@ -169,7 +165,7 @@ const CONVERTED_MYTHIC_VALUES := {
 static func _build_converted_perk_values() -> Dictionary:
 	# One script-load-time compatibility index. No per-frame merge or copy.
 	var index: Dictionary = NON_TARGET_CONVERTED_PERK_VALUES.duplicate(true)
-	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+	for perk_id_value: Variant in RuntimePerkProgression.PROGRESSIONS.keys():
 		var perk_id := str(perk_id_value)
 		if not RuntimePerkProgression.is_converted_perk(perk_id):
 			continue
@@ -183,7 +179,7 @@ static func _build_converted_perk_values() -> Dictionary:
 
 static func _build_polish_structural_option_keys() -> Dictionary:
 	var index: Dictionary = NON_TARGET_POLISH_STRUCTURAL_OPTION_KEYS.duplicate(true)
-	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+	for perk_id_value: Variant in RuntimePerkProgression.PROGRESSIONS.keys():
 		var perk_id := str(perk_id_value)
 		if not RuntimePerkProgression.is_converted_perk(perk_id):
 			continue
@@ -199,7 +195,7 @@ static func _build_polish_structural_option_keys() -> Dictionary:
 
 static func _build_overflow_value_bounds() -> Dictionary:
 	var index: Dictionary = NON_TARGET_OVERFLOW_VALUE_BOUNDS.duplicate(true)
-	for perk_id_value: Variant in RuntimePerkProgression.TARGET_PERK_IDS.keys():
+	for perk_id_value: Variant in RuntimePerkProgression.PROGRESSIONS.keys():
 		var perk_id := str(perk_id_value)
 		if not RuntimePerkProgression.is_converted_perk(perk_id):
 			continue
@@ -344,7 +340,6 @@ static func has_polish_amplifiable_option(perk_id: String) -> bool:
 # invested Lv.1-3 table and never extrapolates from another level-buff source.
 const NON_TARGET_OVERFLOW_VALUE_BOUNDS := {
 	"bulletproof_hat": {"posture_correction_pct": {"max": 100.0}},
-	"dowsing_goggles": {"bonus_perk_chance": {"max": 100.0}},
 }
 
 static var OVERFLOW_VALUE_BOUNDS: Dictionary = _build_overflow_value_bounds()
