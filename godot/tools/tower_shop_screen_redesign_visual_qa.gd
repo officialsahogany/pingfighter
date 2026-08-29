@@ -16,7 +16,8 @@ const TowerAscentTuning := preload(
 
 const VIEW_SIZE := Vector2i(1456, 1086)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_shop_screen_redesign"
-const OUTPUT_NAME := "tower_shop_screen_redesign_1456x1086.png"
+const OUTPUT_NAME_BEFORE := "tower_shop_lucky_pouch_before_1456x1086.png"
+const OUTPUT_NAME_AFTER := "tower_shop_lucky_pouch_after_1456x1086.png"
 const SHOP_BACKGROUND_PATH := (
 	"res://assets/sprites/tower/noncombat/shop_arena_background_imagegen_v1.png"
 )
@@ -119,11 +120,11 @@ func _run() -> void:
 		"tower-shop-visual-qa",
 		"shop",
 		{"gold": 830, "muhon": 42},
-		_build_actions()
+		_build_actions(false)
 	)
-	modal.set_shop_owned_items(_build_owned_slots())
+	modal.set_shop_owned_items(_build_owned_slots(false))
 	var model: Dictionary = modal.build_view_model(Vector2(VIEW_SIZE))
-	if not _verify_model(model):
+	if not _verify_model(model, false):
 		_fail("stacked shop structure contract failed")
 		return
 
@@ -148,24 +149,40 @@ func _run() -> void:
 	canvas.flow = flow
 	canvas.renderer = renderer
 	viewport.add_child(canvas)
-	canvas.queue_redraw()
-	for _frame_index in range(4):
-		await process_frame
-	var image := viewport.get_texture().get_image()
-	var output_path := output_dir.path_join(OUTPUT_NAME)
-	if image == null or image.is_empty() or image.save_png(output_path) != OK:
-		_fail("Vulkan capture save failed")
+	var before_path := output_dir.path_join(OUTPUT_NAME_BEFORE)
+	if not await _capture_frame(viewport, canvas, before_path):
+		_fail("pre-purchase Vulkan capture save failed")
 		return
 	var debug: Dictionary = renderer.get_tower_shop_draw_debug_state_for_tests()
-	if (
-		int(debug.get("product_count", -1)) != 8
-		or int(debug.get("owned_slot_count", -1)) != 5
-		or int(debug.get("currency_entry_count", -1)) != 2
-		or not bool(debug.get("within_ceiling", false))
-	):
+	if not _verify_draw_debug(debug):
 		_fail("captured draw path lost product, slot, currency, or draw-budget contract")
 		return
-	print("tower_shop_screen_redesign_visual_qa: evidence=%s" % output_path)
+
+	var purchased_modal := TowerAscentNodeModalState.new()
+	purchased_modal.open(
+		"tower-shop-visual-qa",
+		"shop",
+		{"gold": 630, "muhon": 42},
+		_build_actions(true)
+	)
+	purchased_modal.set_shop_owned_items(_build_owned_slots(true))
+	var purchased_model := purchased_modal.build_view_model(Vector2(VIEW_SIZE))
+	if not _verify_model(purchased_model, true):
+		_fail("post-purchase stacked shop structure contract failed")
+		return
+	flow.model = purchased_model
+	var after_path := output_dir.path_join(OUTPUT_NAME_AFTER)
+	if not await _capture_frame(viewport, canvas, after_path):
+		_fail("post-purchase Vulkan capture save failed")
+		return
+	debug = renderer.get_tower_shop_draw_debug_state_for_tests()
+	if not _verify_draw_debug(debug):
+		_fail("post-purchase draw path lost product, slot, currency, or draw-budget contract")
+		return
+	print("tower_shop_screen_redesign_visual_qa: evidence_before=%s" % before_path)
+	print("tower_shop_screen_redesign_visual_qa: evidence_after=%s" % after_path)
+	print("tower_shop_screen_redesign_visual_qa: before_question_mark=ok")
+	print("tower_shop_screen_redesign_visual_qa: after_item_reveal=ok")
 	print("tower_shop_screen_redesign_visual_qa: structure=8+5+exit")
 	print("tower_shop_screen_redesign_visual_qa: currencies=gold+muhon")
 	print("tower_shop_screen_redesign_visual_qa: vulkan=ok")
@@ -173,7 +190,7 @@ func _run() -> void:
 	quit(0)
 
 
-func _build_actions() -> Array[Dictionary]:
+func _build_actions(purchased: bool) -> Array[Dictionary]:
 	var catalog := ActiveItemCatalog.new()
 	var actions: Array[Dictionary] = []
 	for index in range(PRODUCT_ITEM_NAMES.size()):
@@ -191,17 +208,20 @@ func _build_actions() -> Array[Dictionary]:
 		})
 	actions.append({
 		"id": "shop_purchase:visual-capsule",
-		"label": "액티브 캡슐",
-		"cost_gold": 80,
-		"cost_text": "80 금화",
-		"enabled": true,
+		"label": "복주머니",
+		"cost_gold": 200,
+		"cost_text": "매진" if purchased else "200 금화",
+		"enabled": not purchased,
+		"unavailable_reason": "매진" if purchased else "",
 		"payload": {"choice": {
 			"id": "capsule",
-			"name": "액티브 캡슐",
-			"description": "봉인된 액티브 아이템 하나를 획득합니다.",
-			"level_text": "액티브 물자",
+			"name": "복주머니",
+			"description": "복주머니를 열어 무작위 액티브 아이템 하나를 획득합니다.",
+			"level_text": "행운 물자",
+			"rarity": "unknown",
 			"card_content_kind": "capsule",
 			"icon_color": Color(0.88, 0.55, 0.22),
+			"item_data": {},
 		}},
 	})
 	actions.append({
@@ -230,11 +250,11 @@ func _visual_item_data() -> Array[Dictionary]:
 	return result
 
 
-func _build_owned_slots() -> Array[Dictionary]:
+func _build_owned_slots(purchased: bool) -> Array[Dictionary]:
 	var catalog := ActiveItemCatalog.new()
 	var result: Array[Dictionary] = []
 	for slot_index in range(5):
-		if slot_index < 3:
+		if slot_index < 3 or (purchased and slot_index == 3):
 			result.append(_active_item_choice(
 				catalog.build_item_by_name(PRODUCT_ITEM_NAMES[slot_index])
 			))
@@ -255,7 +275,7 @@ func _active_item_choice(item_data: Dictionary) -> Dictionary:
 	}
 
 
-func _verify_model(model: Dictionary) -> bool:
+func _verify_model(model: Dictionary, purchased: bool) -> bool:
 	var actions: Array = model.get("actions", [])
 	var action_rects: Array = model.get("action_rects", [])
 	var product_rects: Array = model.get("shop_stock_card_rects", [])
@@ -266,11 +286,52 @@ func _verify_model(model: Dictionary) -> bool:
 		return false
 	if str((actions[8] as Dictionary).get("label", "")) != "상점 나가기":
 		return false
+	var pouch_action: Dictionary = actions[6]
+	var pouch_choice: Dictionary = pouch_action.get("payload", {}).get("choice", {})
+	if (
+		str(pouch_action.get("label", "")) != "복주머니"
+		or int(pouch_action.get("cost_gold", -1)) != 200
+		or bool(pouch_action.get("enabled", false)) == purchased
+		or str(pouch_choice.get("card_content_kind", "")) != "capsule"
+		or not (pouch_choice.get("item_data", {}) as Dictionary).is_empty()
+	):
+		return false
 	var owned_panel: Rect2 = model.get("shop_owned_panel_rect", Rect2())
 	for rect_value in owned_rects:
 		if not (rect_value is Rect2) or not owned_panel.encloses(rect_value as Rect2):
 			return false
+	var revealed_slot: Dictionary = (model.get("shop_owned_items", []) as Array)[3]
+	if purchased:
+		if str(revealed_slot.get("item_data", {}).get("name", "")) != PRODUCT_ITEM_NAMES[3]:
+			return false
+	elif not bool(revealed_slot.get("empty_slot", false)):
+		return false
 	return true
+
+
+func _verify_draw_debug(debug: Dictionary) -> bool:
+	return (
+		int(debug.get("product_count", -1)) == 8
+		and int(debug.get("owned_slot_count", -1)) == 5
+		and int(debug.get("currency_entry_count", -1)) == 2
+		and bool(debug.get("within_ceiling", false))
+	)
+
+
+func _capture_frame(
+	viewport: SubViewport,
+	canvas: CanvasItem,
+	output_path: String
+) -> bool:
+	canvas.queue_redraw()
+	for _frame_index in range(4):
+		await process_frame
+	var image := viewport.get_texture().get_image()
+	return (
+		image != null
+		and not image.is_empty()
+		and image.save_png(output_path) == OK
+	)
 
 
 func _fail(message: String) -> void:

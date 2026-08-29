@@ -3,6 +3,7 @@ extends SceneTree
 const LingpetItemOfferPolicy := preload(
 	"res://scripts/lingpet/lingpet_item_offer_policy.gd"
 )
+const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const TowerAscentActiveItemAcquisitionPolicy := preload(
 	"res://scripts/tower_ascent/tower_ascent_active_item_acquisition_policy.gd"
 )
@@ -165,7 +166,9 @@ class MissingPriceShelfBuilder:
 
 func _init() -> void:
 	_verify_candidate_shelves_exclude_guardian_products_and_obey_offer_gate()
+	_verify_lucky_pouch_locales()
 	_verify_inventory_contract_purchase_and_snapshot()
+	_verify_lucky_pouch_purchase_debit_and_grant()
 	_verify_unpriced_inventory_remains_closed_through_modal_snapshot_restore()
 	_verify_insufficient_funds_and_capacity_fail_without_transaction()
 	_verify_chance_gem_cap_blocks_payment()
@@ -212,6 +215,50 @@ func _verify_candidate_shelves_exclude_guardian_products_and_obey_offer_gate() -
 	_expect(str(inventory.get("inventory_version", "")) == TowerAscentShopInventory.INVENTORY_VERSION, "shop inventory must publish the bumped seeded-pool generation")
 
 
+func _verify_lucky_pouch_locales() -> void:
+	var expected_labels := {
+		LanguageSettings.LANGUAGE_KOREAN: "복주머니",
+		LanguageSettings.LANGUAGE_ENGLISH: "Lucky Pouch",
+		LanguageSettings.LANGUAGE_CHINESE: "福袋",
+		LanguageSettings.LANGUAGE_JAPANESE: "福袋",
+		LanguageSettings.LANGUAGE_SPANISH: "Bolsa de la suerte",
+		LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: "Bolsa da Sorte",
+		LanguageSettings.LANGUAGE_RUSSIAN: "Мешочек удачи",
+	}
+	for locale: String in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(locale)
+		var label := TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE
+		)
+		var description := TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE_DESCRIPTION
+		)
+		var rank := TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE_RANK
+		)
+		_expect(
+			label == str(expected_labels.get(locale, "")),
+			"%s shop random-pull label must use its Lucky Pouch translation" % locale
+		)
+		_expect(
+			not description.is_empty()
+			and not rank.is_empty()
+			and not description.to_lower().contains("capsule")
+			and not rank.to_lower().contains("capsule")
+			and not description.contains("캡슐")
+			and not rank.contains("캡슐"),
+			"%s Lucky Pouch description and rank must match the renamed product" % locale
+		)
+		if locale == LanguageSettings.LANGUAGE_KOREAN:
+			_expect(
+				not label.contains("—")
+				and not description.contains("—")
+				and not rank.contains("—"),
+				"Korean Lucky Pouch copy must not use an em dash"
+			)
+	LanguageSettings.set_test_locale_override("")
+
+
 func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var active_runtime := FakeActiveItemRuntime.new()
@@ -230,12 +277,17 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	_expect(inventories.size() == 1, "opening one shop must generate exactly one node-owned inventory")
 	var inventory: Dictionary = inventories[0]
 	var stock: Array = inventory.get("stock", [])
+	var capsule_stock := _find_stock_by_kind(stock, "capsule")
 	_expect(stock.size() == 8, "shop stock must contain regular 5, premium 1, capsule 1, and chance gem 1")
 	var kind_counts := _count_stock_kinds(stock)
 	_expect(int(kind_counts.get("regular", 0)) == 5, "shop must expose exactly five regular active items")
 	_expect(int(kind_counts.get("premium", 0)) == 1, "shop must expose exactly one premium active item")
 	_expect(int(kind_counts.get("capsule", 0)) == 1, "shop must expose exactly one capsule pull")
 	_expect(int(kind_counts.get("chance_gem", 0)) == 1, "shop must expose exactly one chance gem")
+	_expect(
+		TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE == 200,
+		"the Lucky Pouch canonical price must be 200 Gold"
+	)
 	for stock_value in stock:
 		var entry := stock_value as Dictionary
 		if str(entry.get("kind", "")) == "regular":
@@ -253,7 +305,12 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 				"premium price must use the same per-item Z18 table instead of rarity"
 			)
 		elif str(entry.get("kind", "")) == "capsule":
-			_expect(int(entry.get("price", -1)) == TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE, "capsule price must use the Phase C tuning constant")
+			_expect(
+				int(entry.get("price", -1)) == 200
+				and int(entry.get("price", -1))
+				== TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE,
+				"Lucky Pouch price must follow the 200-Gold tuning constant"
+			)
 		elif str(entry.get("kind", "")) == "chance_gem":
 			_expect(int(entry.get("price", -1)) == TowerAscentTuning.TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE, "chance-gem price must use the high-price contract")
 	var model := flow.get_node_modal_view_model()
@@ -269,7 +326,7 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 		_expect(bool((owned_value as Dictionary).get("empty_slot", false)), "an unfilled active-item capacity slot must be explicit")
 	_expect(not (model.get("shop_player_panel_rect", Rect2()) as Rect2).intersects(model.get("shop_stock_panel_rect", Rect2())), "owned and stock panels must not overlap")
 	_expect(str((actions[8] as Dictionary).get("label", "")) == "상점 나가기", "shop footer must use the explicit shop-exit copy")
-	_expect(_has_action_label(actions, "액티브 캡슐"), "capsule stock must stay concealed until purchase")
+	_expect(_has_action_label(actions, "복주머니"), "the random-pull stock must use the Lucky Pouch label")
 	var card_kind_counts: Dictionary = {}
 	for action_value in actions:
 		if not (action_value is Dictionary) or str((action_value as Dictionary).get("id", "")) == "end_work":
@@ -284,8 +341,31 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 		if card_kind == "active_item":
 			_expect(not str(choice.get("item_data", {}).get("icon_path", "")).is_empty(), "active-item cards must project their canonical icon path")
 	_expect(int(card_kind_counts.get("active_item", 0)) == 6, "five regular and one premium stock must use active-item card icons")
-	_expect(int(card_kind_counts.get("capsule", 0)) == 1, "capsule stock must use the concealed supply-card symbol")
+	_expect(int(card_kind_counts.get("capsule", 0)) == 1, "Lucky Pouch stock must use the concealed question-mark symbol")
 	_expect(int(card_kind_counts.get("chance_gem", 0)) == 1, "chance gem stock must use the run-supply card symbol")
+	var capsule_action := _find_action(
+		actions,
+		"shop_purchase:%s" % str(capsule_stock.get("stock_id", ""))
+	)
+	var capsule_choice: Dictionary = capsule_action.get("payload", {}).get("choice", {})
+	_expect(
+		str(capsule_action.get("label", "")) == "복주머니"
+		and int(capsule_action.get("cost_gold", -1)) == 200
+		and str(capsule_choice.get("id", ""))
+		== str(capsule_stock.get("stock_id", ""))
+		and str(capsule_choice.get("name", "")) == "복주머니"
+		and str(capsule_choice.get("rarity", "")) == "unknown"
+		and (capsule_choice.get("item_data", {}) as Dictionary).is_empty(),
+		"the pre-purchase Lucky Pouch surface must expose only generic product metadata"
+	)
+	var capsule_surface := var_to_str(capsule_action)
+	for concealed_key in ["item_name", "display_name", "icon_path", "icon_sheet_path"]:
+		var concealed_value := str(capsule_stock.get(concealed_key, "")).strip_edges()
+		if not concealed_value.is_empty():
+			_expect(
+				not capsule_surface.contains(concealed_value),
+				"Lucky Pouch surface must conceal its actual %s before purchase" % concealed_key
+			)
 
 	var pre_purchase_snapshot := flow.export_persistable_snapshot()
 	var restored := TowerAscentFlowOwner.new()
@@ -314,6 +394,78 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	_expect((post_purchase_snapshot.get("build_state", {}) as Dictionary).get("active_items", []).size() == 1, "purchased active item must be part of build-state snapshot ownership")
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
+
+
+func _verify_lucky_pouch_purchase_debit_and_grant() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var active_runtime := FakeActiveItemRuntime.new()
+	var owner := FakeOwner.new()
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "shop-lucky-pouch-purchase",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "shop",
+		"run_state": {"gold": 500, "muhon": 0, "chance_gems": 0},
+		"registry": _build_registry(active_runtime),
+	}), "Lucky Pouch purchase fixture must enter through the real Tower flow")
+	_expect(
+		TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "shop", owner),
+		"Lucky Pouch purchase fixture must arrive through the production shop route"
+	)
+	var stock: Array = flow.get_generated_shop_inventory()[0].get("stock", [])
+	var capsule_stock := _find_stock_by_kind(stock, "capsule")
+	var stock_id := str(capsule_stock.get("stock_id", ""))
+	var actual_item_name := str(capsule_stock.get("item_name", ""))
+	var before_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var before_action := _find_action(
+		before_actions,
+		"shop_purchase:%s" % stock_id
+	)
+	_expect(
+		int(before_action.get("cost_gold", -1)) == 200
+		and str(before_action.get("label", "")) == "복주머니",
+		"the production Lucky Pouch action must expose a generic label and 200-Gold cost"
+	)
+	var purchase_result := flow.execute_node_action(
+		"shop_purchase:%s" % stock_id,
+		"shop-lucky-pouch-purchase:commit"
+	)
+	_expect(
+		bool(purchase_result.get("accepted", false))
+		and bool(purchase_result.get("applied", false)),
+		"an affordable Lucky Pouch purchase must commit atomically"
+	)
+	_expect(
+		int(flow.get_run_state_snapshot().get("gold", -1)) == 300,
+		"Lucky Pouch purchase must debit exactly 200 Gold"
+	)
+	_expect(
+		active_runtime.grant_calls == 1
+		and owner.active_item_slots.size() == 1
+		and str((owner.active_item_slots[0] as Dictionary).get("name", ""))
+		== actual_item_name,
+		"Lucky Pouch purchase must grant the concealed inventory item unchanged"
+	)
+	var after_model := flow.get_node_modal_view_model()
+	var after_owned: Array = after_model.get("shop_owned_items", [])
+	_expect(
+		after_owned.size() == 3
+		and str((after_owned[0] as Dictionary).get("item_data", {}).get("name", ""))
+		== actual_item_name,
+		"the purchased item may reveal its real identity only in the owned-item row"
+	)
+	var after_gold := int(flow.get_run_state_snapshot().get("gold", -1))
+	var duplicate := flow.execute_node_action(
+		"shop_purchase:%s" % stock_id,
+		"shop-lucky-pouch-purchase:duplicate"
+	)
+	_expect(
+		not bool(duplicate.get("accepted", true))
+		and int(flow.get_run_state_snapshot().get("gold", -1)) == after_gold
+		and active_runtime.grant_calls == 1,
+		"a sold Lucky Pouch must neither debit nor grant twice"
+	)
+	_finish_flow(flow, owner)
 
 
 func _verify_unpriced_inventory_remains_closed_through_modal_snapshot_restore() -> void:
@@ -514,6 +666,7 @@ func _verify_flag_off_is_untouched() -> void:
 func _verify_source_contract() -> void:
 	var flow_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_economy_progress.gd")
 	var inventory_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_shop_inventory.gd")
+	var tuning_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_tuning.gd")
 	var renderer_source := FileAccess.get_file_as_string("res://scripts/tower_ascent/tower_ascent_flow_renderer.gd")
 	var card_source := FileAccess.get_file_as_string("res://scripts/hud/runtime_perk_overlay_renderer.gd")
 	_expect(flow_source.find("grant_item_to_slot") >= 0, "shop purchase must call the existing active-item grant path")
@@ -526,6 +679,19 @@ func _verify_source_contract() -> void:
 	_expect(card_source.find("func draw_tower_shop_product_card(") >= 0, "shop must use the shared stacked product-card renderer")
 	_expect(card_source.find("func prewarm_tower_shop_cells(") >= 0, "shop prewarm must remain owned by the shared card renderer")
 	_expect(card_source.find("func _draw_shop_card(") < 0, "shop must not fork a private card drawer")
+	_expect(
+		tuning_source.contains("TEMP_PHASE_C_SHOP_CAPSULE_PRICE := 200"),
+		"the one canonical Lucky Pouch tuning constant must be 200 Gold"
+	)
+	_expect(
+		inventory_source.count("TEMP_PHASE_C_SHOP_CAPSULE_PRICE") == 2,
+		"both initial-build and restore inventory consumers must follow the tuning constant"
+	)
+	_expect(
+		card_source.contains('const SHOP_LUCKY_POUCH_GLYPH := "?"')
+		and card_source.contains("SHOP_LUCKY_POUCH_GLYPH"),
+		"the shop card renderer must own a procedural Lucky Pouch question-mark glyph"
+	)
 
 
 func _build_registry(active_runtime: Object) -> FakeRegistry:

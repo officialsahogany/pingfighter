@@ -493,7 +493,7 @@ func _verify_localization_and_retired_probability_copy() -> void:
 	var timing_keys: Array[String] = [
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_BADGE,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_BADGE,
-		TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE,
+		TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_RUN_LIMIT,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_PROMPT,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CANCELLED,
 		TowerAscentNodeModalLocalization.KEY_TRAINING_TIMING_CRITICAL,

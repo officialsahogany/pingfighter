@@ -41,7 +41,9 @@ const KEY_TRAINING_COMPLETED := "tower_ascent.node_modal.training.completed"
 const KEY_TRAINING_TIMING_BADGE := "tower_ascent.node_modal.training.timing_badge"
 const KEY_TRAINING_JUDGMENT_MAX_BADGE := "tower_ascent.node_modal.training.judgment_max_badge"
 const KEY_TRAINING_STORAGE_BADGE := "tower_ascent.node_modal.training.storage_badge"
-const KEY_TRAINING_VISIT_COMPLETE := "tower_ascent.node_modal.training.visit_complete"
+const KEY_TRAINING_STORAGE_RUN_LIMIT := (
+	"tower_ascent.node_modal.training.storage_run_limit"
+)
 const KEY_TRAINING_BASE_RECEIPT := "tower_ascent.node_modal.training.base_receipt"
 const KEY_TRAINING_TIMING_PROMPT := "tower_ascent.node_modal.training.timing_prompt"
 const KEY_TRAINING_TIMING_CANCELLED := "tower_ascent.node_modal.training.timing_cancelled"
@@ -149,12 +151,12 @@ const TEXT_BY_LOCALE := {
 		KEY_COST_GOLD: "{amount} 금화",
 		KEY_INSUFFICIENT_GOLD: "금화 {required} 필요, {shortfall} 부족",
 		KEY_SHOP_PREMIUM_ITEM: "귀물 진열: {name}",
-		KEY_SHOP_CAPSULE: "액티브 캡슐",
+		KEY_SHOP_CAPSULE: "복주머니",
 		KEY_SHOP_CHANCE_GEM: "기회의 보석",
-		KEY_SHOP_CAPSULE_DESCRIPTION: "봉인된 액티브 아이템 하나를 획득합니다.",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "복주머니를 열어 무작위 액티브 아이템 하나를 획득합니다.",
 		KEY_SHOP_CHANCE_GEM_DESCRIPTION: "패배 후 도전을 이어갈 때 쓰는 보석을 1개 얻습니다.",
 		KEY_SHOP_ACTIVE_RANK: "{rarity} 액티브",
-		KEY_SHOP_CAPSULE_RANK: "액티브 물자",
+		KEY_SHOP_CAPSULE_RANK: "행운 물자",
 		KEY_SHOP_RUN_SUPPLY_RANK: "탑 물자",
 		KEY_SHOP_SOLD_OUT: "매진",
 		KEY_SHOP_SLOT_FULL: "액티브 슬롯이 가득 찼습니다.",
@@ -170,7 +172,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "행운 판정 폭 {width}% · 최대 효과 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "판정 성공 시 최대 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "회심 +2칸, 그 외 +1칸",
-		KEY_TRAINING_VISIT_COMPLETE: "이번 수련 완료",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "수납술은 탑 등반 중 한 번만 수련할 수 있습니다.",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 적용",
 		KEY_TRAINING_TIMING_PROMPT: "움직이는 중심추를 클릭하여 멈추세요.",
 		KEY_TRAINING_TIMING_CANCELLED: "수련을 취소했습니다. 무혼은 소모되지 않았습니다.",
@@ -249,6 +251,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.common_shell.description": "전투가 멎은 사이, 다음 행로를 정비합니다.",
 	},
 	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_SHOP_CAPSULE: "Lucky Pouch",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "Open the Lucky Pouch to receive one random active item.",
+		KEY_SHOP_CAPSULE_RANK: "Lucky Supply",
 		KEY_SPRING_PALM_CONFIRM: "Learn the Soul Summoning Art technique?",
 		KEY_SPRING_EXIT: "Leave the spring",
 		KEY_SPRING_PALM_OPTION: "Place your palm",
@@ -302,7 +307,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "Luck window {width}% · Max effect +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Up to {effect} on judgment success",
 		KEY_TRAINING_STORAGE_BADGE: "Perfect +2 slots, otherwise +1",
-		KEY_TRAINING_VISIT_COMPLETE: "Training visit complete",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "Storage Art can be trained only once per Tower run.",
 		KEY_TRAINING_BASE_RECEIPT: "Applied {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Click to stop the moving marker.",
 		KEY_TRAINING_TIMING_CANCELLED: "Training cancelled. No Mugong Soul spent.",
@@ -313,6 +318,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Refine your body through focused training.",
 	},
 	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_SHOP_CAPSULE: "福袋",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "打开福袋，获得一个随机主动道具。",
+		KEY_SHOP_CAPSULE_RANK: "幸运物资",
 		KEY_SPRING_PALM_CONFIRM: "要学习灵魂召唤术招式吗？",
 		KEY_SPRING_EXIT: "离开泉边",
 		KEY_SPRING_PALM_OPTION: "将手掌贴上去",
@@ -366,7 +374,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "幸运判定宽度 {width}% · 最大效果 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功时最多 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "会心 +2 格，其他 +1 格",
-		KEY_TRAINING_VISIT_COMPLETE: "本次训练已完成",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "收纳术每次登塔只能修炼一次。",
 		KEY_TRAINING_BASE_RECEIPT: "已应用 {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "点击停止移动的指针。",
 		KEY_TRAINING_TIMING_CANCELLED: "训练已取消，未消耗武魂。",
@@ -377,6 +385,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "锤炼体魄，精进根基。",
 	},
 	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_SHOP_CAPSULE: "福袋",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "福袋を開け、ランダムなアクティブアイテムを1つ獲得します。",
+		KEY_SHOP_CAPSULE_RANK: "幸運の物資",
 		KEY_SPRING_PALM_CONFIRM: "魂召喚術の初式を習得しますか？",
 		KEY_SPRING_EXIT: "泉を離れる",
 		KEY_SPRING_PALM_OPTION: "手のひらを当てる",
@@ -430,7 +441,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "幸運判定幅 {width}% · 最大効果 +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "判定成功時は最大 {effect}",
 		KEY_TRAINING_STORAGE_BADGE: "会心 +2枠、その他 +1枠",
-		KEY_TRAINING_VISIT_COMPLETE: "今回の修練は完了",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "収納術は塔の攻略中に一度だけ修練できます。",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} 適用",
 		KEY_TRAINING_TIMING_PROMPT: "クリックして動く指針を止めてください。",
 		KEY_TRAINING_TIMING_CANCELLED: "修練を中止しました。武魂は消費されません。",
@@ -441,6 +452,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "身体を鍛え、基礎を磨きます。",
 	},
 	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_SHOP_CAPSULE: "Bolsa de la suerte",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "Abre la Bolsa de la suerte para recibir un objeto activo aleatorio.",
+		KEY_SHOP_CAPSULE_RANK: "Suministro de la suerte",
 		KEY_SPRING_EXIT: "Abandonar el manantial",
 		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "No se sabe qué concederá la roca.",
 		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "La devoción eleva la energía.",
@@ -468,7 +482,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "Zona de suerte {width}% · Efecto máx. +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Hasta {effect} al acertar el juicio",
 		KEY_TRAINING_STORAGE_BADGE: "Perfecto +2 espacios, otros +1",
-		KEY_TRAINING_VISIT_COMPLETE: "Entrenamiento completado",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "El Entrenamiento de Almacenamiento solo puede realizarse una vez por ascenso a la torre.",
 		KEY_TRAINING_BASE_RECEIPT: "Se aplicó {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Haz clic para detener el marcador móvil.",
 		KEY_TRAINING_TIMING_CANCELLED: "Entrenamiento cancelado. No se gastó alma marcial.",
@@ -479,6 +493,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortalece el cuerpo mediante el entrenamiento.",
 	},
 	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_SHOP_CAPSULE: "Bolsa da Sorte",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "Abra a Bolsa da Sorte para receber um item ativo aleatório.",
+		KEY_SHOP_CAPSULE_RANK: "Suprimento da Sorte",
 		KEY_SPRING_EXIT: "Deixar a fonte",
 		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "Não se sabe o que a rocha concederá.",
 		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "A devoção eleva a energia.",
@@ -506,7 +523,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "Faixa de sorte {width}% · Efeito máx. +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "Até {effect} ao acertar o julgamento",
 		KEY_TRAINING_STORAGE_BADGE: "Perfeito +2 espaços, outros +1",
-		KEY_TRAINING_VISIT_COMPLETE: "Treino concluído",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "O Treino de Armazenamento só pode ser realizado uma vez por subida da torre.",
 		KEY_TRAINING_BASE_RECEIPT: "{applied} aplicado",
 		KEY_TRAINING_TIMING_PROMPT: "Clique para parar o marcador em movimento.",
 		KEY_TRAINING_TIMING_CANCELLED: "Treino cancelado. Nenhuma alma marcial foi gasta.",
@@ -517,6 +534,9 @@ const TEXT_BY_LOCALE := {
 		"tower_ascent.node_modal.training.description": "Fortaleça o corpo por meio do treinamento.",
 	},
 	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_SHOP_CAPSULE: "Мешочек удачи",
+		KEY_SHOP_CAPSULE_DESCRIPTION: "Откройте Мешочек удачи, чтобы получить один случайный активный предмет.",
+		KEY_SHOP_CAPSULE_RANK: "Счастливый припас",
 		KEY_SPRING_EXIT: "Покинуть источник",
 		KEY_SPRING_FIRST_VISIT_PALM_DESCRIPTION: "Неизвестно, что дарует камень.",
 		KEY_SPRING_FIRST_VISIT_PRAYER_DESCRIPTION: "Искренняя молитва усиливает энергию.",
@@ -544,7 +564,7 @@ const TEXT_BY_LOCALE := {
 		KEY_TRAINING_TIMING_BADGE: "Ширина удачи {width}% · Макс. эффект +{effect}%",
 		KEY_TRAINING_JUDGMENT_MAX_BADGE: "До {effect} при успешной оценке",
 		KEY_TRAINING_STORAGE_BADGE: "Идеально +2 ячейки, иначе +1",
-		KEY_TRAINING_VISIT_COMPLETE: "Тренировка завершена",
+		KEY_TRAINING_STORAGE_RUN_LIMIT: "Искусство Хранения можно тренировать только один раз за прохождение башни.",
 		KEY_TRAINING_BASE_RECEIPT: "Применено: {applied}",
 		KEY_TRAINING_TIMING_PROMPT: "Нажмите, чтобы остановить бегущий маркер.",
 		KEY_TRAINING_TIMING_CANCELLED: "Тренировка отменена. Душа боя не потрачена.",

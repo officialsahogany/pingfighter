@@ -318,7 +318,7 @@ func _actions(node_kind: String, disabled_first: bool) -> Array:
 	var card_count := 4 if node_kind == "training" else 6
 	for index in range(card_count):
 		var display_name: String = (
-			["탕약", "폭화탄", "환광탄", "요술 회중시계", "액티브 캡슐", "기회의 보석"][index]
+			["탕약", "폭화탄", "환광탄", "요술 회중시계", "복주머니", "기회의 보석"][index]
 			if node_kind == "shop"
 			else ["철산공", "유운보", "태허심법", "격기심법", "순환결", "비천보"][index]
 		)

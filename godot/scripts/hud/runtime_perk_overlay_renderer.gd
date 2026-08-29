@@ -44,6 +44,7 @@ const TowerShopNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
 )
 
+const SHOP_LUCKY_POUCH_GLYPH := "?"
 const CARD_RADIUS := 8.0
 const PANEL_RADIUS := 8.0
 const CHOICE_MODAL_PARTICLE_DRAW_LIMIT := 10
@@ -1983,19 +1984,28 @@ func _draw_tower_supply_symbol(
 			1.2
 		)
 		return
-	var capsule_rect := Rect2(
-		center - Vector2(radius * 0.54, radius),
-		Vector2(radius * 1.08, radius * 2.0)
+	canvas.draw_circle(
+		center,
+		radius,
+		Color(0.16, 0.11, 0.06, 0.92)
 	)
-	var capsule_top := Vector2(center.x, capsule_rect.position.y + capsule_rect.size.x * 0.5)
-	var capsule_bottom := Vector2(center.x, capsule_rect.end.y - capsule_rect.size.x * 0.5)
-	canvas.draw_line(capsule_top, capsule_bottom, Color(0.94, 0.85, 0.62), capsule_rect.size.x + 3.0, true)
-	canvas.draw_line(capsule_top, capsule_bottom, Color(color, 0.82), capsule_rect.size.x, true)
-	canvas.draw_line(
-		Vector2(capsule_rect.position.x, center.y),
-		Vector2(capsule_rect.end.x, center.y),
-		Color(0.19, 0.12, 0.08, 0.76),
-		1.4
+	canvas.draw_arc(
+		center,
+		radius,
+		0.0,
+		TAU,
+		24,
+		Color(color, 0.94),
+		2.0
+	)
+	_draw_text_centered_fitted(
+		canvas,
+		SHOP_LUCKY_POUCH_GLYPH,
+		center + Vector2(0.0, radius * 0.18),
+		maxi(18, int(round(radius * 1.15))),
+		Color(1.0, 0.94, 0.70),
+		radius * 1.2,
+		14
 	)
 
 

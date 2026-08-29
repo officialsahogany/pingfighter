@@ -383,6 +383,10 @@ func _shop_card_choice(stock: Dictionary) -> Dictionary:
 		},
 	}
 	if stock_kind == "capsule":
+		choice["id"] = str(stock.get("stock_id", "capsule"))
+		choice["rarity"] = "unknown"
+		choice["is_unique"] = false
+		choice["icon_color"] = Color(0.82, 0.64, 0.28)
 		choice["description"] = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_CAPSULE_DESCRIPTION
 		)
@@ -672,7 +676,6 @@ func _build_training_actions() -> Array[Dictionary]:
 		return []
 	var balances: Dictionary = _run_state.export_economy()
 	var cost := _get_current_training_cost()
-	var visit_complete := _is_training_visit_complete(offer)
 	var result: Array[Dictionary] = []
 	for choice_value in offer.get("stat_choices", []):
 		if choice_value is Dictionary:
@@ -680,8 +683,7 @@ func _build_training_actions() -> Array[Dictionary]:
 				"stat",
 				choice_value as Dictionary,
 				cost,
-				balances,
-				visit_complete
+				balances
 			))
 	return result
 
@@ -708,38 +710,27 @@ func _get_current_training_cost() -> int:
 	)
 
 
-func _training_offer_contains_storage(offer: Dictionary) -> bool:
-	for choice_value in offer.get("stat_choices", []):
+func _is_storage_training_used_this_run() -> bool:
+	for record_value in _training_history:
 		if (
-			choice_value is Dictionary
-			and str((choice_value as Dictionary).get("id", "")).strip_edges()
+			record_value is Dictionary
+			and str((record_value as Dictionary).get("choice_id", "")).strip_edges()
 			== TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
 		):
 			return true
 	return false
 
 
-func _is_training_visit_complete(offer: Dictionary = {}) -> bool:
-	var current_offer := offer
-	if current_offer.is_empty():
-		current_offer = _get_or_create_training_offer()
-	return (
-		_get_current_training_success_count() > 0
-		and _training_offer_contains_storage(current_offer)
-	)
-
-
-func _training_visit_complete_message() -> String:
+func _training_storage_run_limit_message() -> String:
 	return TowerAscentNodeModalLocalization.text(
-		TowerAscentNodeModalLocalization.KEY_TRAINING_VISIT_COMPLETE
+		TowerAscentNodeModalLocalization.KEY_TRAINING_STORAGE_RUN_LIMIT
 	)
 
 func _build_training_action(
 	choice_kind: String,
 	choice: Dictionary,
 	cost: int,
-	balances: Dictionary,
-	visit_complete: bool = false
+	balances: Dictionary
 ) -> Dictionary:
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
@@ -753,13 +744,17 @@ func _build_training_action(
 	)).strip_edges()
 	var action_id := "training_%s:%s" % [choice_kind, choice_id]
 	var affordable := int(balances.get("muhon", 0)) >= cost
+	var storage_run_limited := (
+		choice_id == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
+		and _is_storage_training_used_this_run()
+	)
 	var at_maximum: bool = bool(_training_offer_builder.is_live_choice_at_maximum(
 		choice_kind,
 		live_choice,
 		runtime_state,
 		_active_registry
 	))
-	var enabled: bool = not visit_complete and not at_maximum and affordable
+	var enabled: bool = not storage_run_limited and not at_maximum and affordable
 	live_choice["training_timing_luck_percent"] = (
 		TowerTrainingTimingJudgmentPolicy.BASE_LUCK_PERCENT
 	)
@@ -780,9 +775,9 @@ func _build_training_action(
 		)
 	var unavailable_reason := ""
 	var disabled_reason := ""
-	if visit_complete:
-		disabled_reason = "training_visit_complete"
-		unavailable_reason = _training_visit_complete_message()
+	if storage_run_limited:
+		disabled_reason = "training_storage_run_limit"
+		unavailable_reason = _training_storage_run_limit_message()
 	elif at_maximum:
 		disabled_reason = "training_maximum_reached"
 		unavailable_reason = _training_maximum_message(live_choice)
@@ -895,14 +890,17 @@ func _prepare_training_timing_action(
 			"reason": "already_committed",
 			"node_resolution_id": requested_resolution,
 		}
-	if _is_training_visit_complete():
-		var visit_message := _training_visit_complete_message()
-		_refresh_training_modal(visit_message)
+	if (
+		choice_id == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
+		and _is_storage_training_used_this_run()
+	):
+		var storage_limit_message := _training_storage_run_limit_message()
+		_refresh_training_modal(storage_limit_message)
 		return {
 			"accepted": false,
 			"prepared": false,
-			"reason": "training_visit_complete",
-			"message": visit_message,
+			"reason": "training_storage_run_limit",
+			"message": storage_limit_message,
 		}
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(
@@ -988,13 +986,16 @@ func _execute_training_action(
 			"reason": "already_committed",
 			"node_resolution_id": requested_resolution,
 		}
-	if _is_training_visit_complete():
-		var visit_message := _training_visit_complete_message()
-		_refresh_training_modal(visit_message)
+	if (
+		choice_id == TowerTrainingTimingJudgmentPolicy.STORAGE_TRAINING_ID
+		and _is_storage_training_used_this_run()
+	):
+		var storage_limit_message := _training_storage_run_limit_message()
+		_refresh_training_modal(storage_limit_message)
 		return {
 			"accepted": false,
-			"reason": "training_visit_complete",
-			"message": visit_message,
+			"reason": "training_storage_run_limit",
+			"message": storage_limit_message,
 		}
 	var runtime_state := _get_registry_instance(_active_registry, "runtime_perk_state")
 	var live_choice: Dictionary = _training_offer_builder.build_live_choice_projection(

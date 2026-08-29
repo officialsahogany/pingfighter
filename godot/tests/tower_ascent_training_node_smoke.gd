@@ -182,8 +182,8 @@ class FakeRegistry:
 
 func _init() -> void:
 	PerkConversionFlags.debug_set_enabled(true)
-	_verify_training_only_four_cards_repeated_choice_and_snapshot()
-	_verify_storage_offer_limits_the_whole_visit()
+	_verify_no_storage_offer_repeated_choice_cost_curve_and_snapshot()
+	_verify_storage_offer_keeps_nonstorage_training_repeatable()
 	_verify_finite_maximum_rejection_is_no_op()
 	_verify_unlimited_physique_level_contract()
 	_verify_saturated_fallback_and_candidate_shortage_boundary()
@@ -203,7 +203,7 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_training_only_four_cards_repeated_choice_and_snapshot() -> void:
+func _verify_no_storage_offer_repeated_choice_cost_curve_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
 	var perk_catalog := FakeRuntimePerkCatalog.new()
@@ -230,6 +230,10 @@ func _verify_training_only_four_cards_repeated_choice_and_snapshot() -> void:
 	var offer: Dictionary = generated[0]
 	var stat_choices: Array = offer.get("stat_choices", [])
 	_expect(stat_choices.size() == 4, "training must present exactly four training cards")
+	_expect(
+		not _choice_ids(stat_choices).has("physique_storage"),
+		"the no-storage fixture must seal repeated training without the storage-only gate"
+	)
 	_expect((offer.get("mugong_choices", []) as Array).is_empty(), "training must present zero Mugong cards")
 	for choice_value in stat_choices:
 		_expect(
@@ -342,7 +346,7 @@ func _verify_training_only_four_cards_repeated_choice_and_snapshot() -> void:
 	_finish_flow(restored, null)
 
 
-func _verify_storage_offer_limits_the_whole_visit() -> void:
+func _verify_storage_offer_keeps_nonstorage_training_repeatable() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var runtime_state := FakeRuntimePerkState.new()
 	var unlock_store := FakeUnlockStore.new()
@@ -355,48 +359,129 @@ func _verify_storage_offer_limits_the_whole_visit() -> void:
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
-		"run_id": "training-storage-visit",
+		"run_id": "training-storage-run-contract",
 		"map_seed": _initial_route_seed,
 		"node_modal_kind": "training",
-		"run_state": {"muhon": 10},
+		"run_state": {"muhon": 20},
 		"registry": _build_registry(runtime_state, FakeRuntimePerkCatalog.new(), unlock_store),
-	}), "storage visit fixture must open")
-	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "storage visit fixture must arrive at training")
+	}), "storage-offer fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "training", owner), "storage-offer fixture must arrive at training")
 	var opening_actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var first_action := _find_unlimited_stat_action(opening_actions)
-	_expect(not first_action.is_empty(), "storage visit fixture must expose a non-storage training card")
+	var storage_action := _find_action_by_id(
+		opening_actions,
+		"training_stat:physique_storage"
+	)
+	var nonstorage_actions := _find_nonstorage_training_actions(opening_actions)
+	_expect(not storage_action.is_empty(), "storage-offer fixture must expose the storage card")
+	_expect(nonstorage_actions.size() == 3, "storage-offer fixture must expose three non-storage cards")
+	var first_action: Dictionary = (
+		nonstorage_actions[0] if nonstorage_actions.size() > 0 else {}
+	)
+	var different_action: Dictionary = (
+		nonstorage_actions[1] if nonstorage_actions.size() > 1 else {}
+	)
 	var first_result := flow.execute_node_action(
 		str(first_action.get("id", "")),
-		"training-storage-visit:first"
+		"training-storage-run:first"
 	)
-	_expect(bool(first_result.get("applied", false)), "the first successful training in a storage offer must commit")
-	var after_first_actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var blocked_count := 0
-	var second_action_id := ""
-	for action_value in after_first_actions:
-		if not (action_value is Dictionary):
-			continue
-		var action := action_value as Dictionary
-		if not str(action.get("id", "")).begins_with("training_stat:"):
-			continue
-		blocked_count += int(
-			not bool(action.get("enabled", true))
-			and str(action.get("disabled_reason", "")) == "training_visit_complete"
-		)
-		if str(action.get("id", "")) != str(first_action.get("id", "")):
-			second_action_id = str(action.get("id", ""))
-	_expect(blocked_count == 4, "storage in the offer must disable all four cards after one success")
-	var balance_after_first := int(flow.get_run_state_snapshot().get("muhon", -1))
-	var second_result := flow.execute_node_action(
-		second_action_id,
-		"training-storage-visit:second"
-	)
-	_expect(str(second_result.get("reason", "")) == "training_visit_complete", "direct execution must enforce the whole-visit storage limit")
 	_expect(
-		runtime_state.apply_calls == 1
-		and flow.get_training_history().size() == 1
-		and int(flow.get_run_state_snapshot().get("muhon", -1)) == balance_after_first,
-		"a blocked second training must not grant, debit, or append history"
+		bool(first_result.get("applied", false))
+		and int(first_result.get("training", {}).get("cost", -1)) == 1,
+		"the first non-storage training in a storage offer must commit for one Muhon"
+	)
+	var after_first_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	_expect(
+		_count_enabled_training_actions(after_first_actions) == 4,
+		"one arbitrary success must leave every affordable storage-offer card enabled"
+	)
+	var second_result := flow.execute_node_action(
+		str(different_action.get("id", "")),
+		"training-storage-run:different"
+	)
+	_expect(
+		bool(second_result.get("applied", false))
+		and int(second_result.get("training", {}).get("cost", -1)) == 1,
+		"remaining Muhon must allow a different training after the first success"
+	)
+	var repeated_result := flow.execute_node_action(
+		str(first_action.get("id", "")),
+		"training-storage-run:repeat"
+	)
+	_expect(
+		bool(repeated_result.get("applied", false))
+		and int(repeated_result.get("training", {}).get("cost", -1)) == 2,
+		"remaining Muhon must allow the same training to repeat at the next arithmetic cost"
+	)
+	var pre_storage_history: Array[Dictionary] = flow.get_training_history()
+	_expect(
+		pre_storage_history.size() == 3
+		and int(pre_storage_history[0].get("cost", -1)) == 1
+		and int(pre_storage_history[1].get("cost", -1)) == 1
+		and int(pre_storage_history[2].get("cost", -1)) == 2,
+		"storage-offer successes must advance the shared 1, 1, 2 cost curve"
+	)
+	var storage_result := flow.execute_node_action(
+		str(storage_action.get("id", "")),
+		"training-storage-run:storage"
+	)
+	_expect(
+		bool(storage_result.get("applied", false))
+		and int(storage_result.get("training", {}).get("cost", -1)) == 2,
+		"storage training must remain available until its one run-wide use commits"
+	)
+	var after_storage_actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var storage_after_use := _find_action_by_id(
+		after_storage_actions,
+		"training_stat:physique_storage"
+	)
+	_expect(
+		not bool(storage_after_use.get("enabled", true))
+		and str(storage_after_use.get("disabled_reason", ""))
+		== "training_storage_run_limit",
+		"only the storage card must disable after its run-wide use"
+	)
+	_expect(
+		_count_enabled_training_actions(after_storage_actions) == 3,
+		"using storage must leave all three non-storage cards enabled"
+	)
+	var prepared_rejection: Dictionary = flow.call(
+		"_prepare_training_timing_action",
+		"training_stat:physique_storage",
+		"training-storage-run:prepared-block"
+	)
+	_expect(
+		not bool(prepared_rejection.get("prepared", true))
+		and str(prepared_rejection.get("reason", ""))
+		== "training_storage_run_limit",
+		"the timing prepare path must reject a stale second storage-card use"
+	)
+	var balance_before_storage_rejection := int(
+		flow.get_run_state_snapshot().get("muhon", -1)
+	)
+	var storage_rejection := flow.execute_node_action(
+		"training_stat:physique_storage",
+		"training-storage-run:execute-block"
+	)
+	_expect(
+		str(storage_rejection.get("reason", "")) == "training_storage_run_limit",
+		"direct execution must reject only a second storage-card use"
+	)
+	_expect(
+		runtime_state.apply_calls == 4
+		and flow.get_training_history().size() == 4
+		and int(flow.get_run_state_snapshot().get("muhon", -1))
+		== balance_before_storage_rejection,
+		"a rejected second storage use must not grant, debit, or append history"
+	)
+	var after_storage_repeat := flow.execute_node_action(
+		str(first_action.get("id", "")),
+		"training-storage-run:after-storage"
+	)
+	_expect(
+		bool(after_storage_repeat.get("applied", false))
+		and int(after_storage_repeat.get("training", {}).get("cost", -1)) == 3
+		and int(flow.get_run_state_snapshot().get("muhon", -1)) == 11,
+		"non-storage training must continue after storage at the fifth-success cost"
 	)
 	var snapshot := flow.export_persistable_snapshot()
 	var restored_runtime := FakeRuntimePerkState.new()
@@ -406,15 +491,18 @@ func _verify_storage_offer_limits_the_whole_visit() -> void:
 		Callable(),
 		FakeOwner.new(),
 		_build_registry(restored_runtime, FakeRuntimePerkCatalog.new(), unlock_store)
-	), "storage visit snapshot must restore")
-	var restored_action := _find_action_with_prefix(
-		restored.get_node_modal_view_model().get("actions", []),
-		"training_stat:"
+	), "storage-run snapshot must restore")
+	var restored_actions: Array = restored.get_node_modal_view_model().get("actions", [])
+	var restored_storage := _find_action_by_id(
+		restored_actions,
+		"training_stat:physique_storage"
 	)
 	_expect(
-		not bool(restored_action.get("enabled", true))
-		and str(restored_action.get("disabled_reason", "")) == "training_visit_complete",
-		"restoring the same storage visit must preserve its one-success limit"
+		not bool(restored_storage.get("enabled", true))
+		and str(restored_storage.get("disabled_reason", ""))
+		== "training_storage_run_limit"
+		and _count_enabled_training_actions(restored_actions) == 3,
+		"snapshot restore must preserve only the run-wide storage-card gate"
 	)
 	var legacy_snapshot := snapshot.duplicate(true)
 	var legacy_offer: Dictionary = (
@@ -443,7 +531,7 @@ func _verify_storage_offer_limits_the_whole_visit() -> void:
 		Callable(),
 		FakeOwner.new(),
 		_build_registry(FakeRuntimePerkState.new(), FakeRuntimePerkCatalog.new(), unlock_store)
-	), "legacy six-card storage visit snapshot must restore")
+	), "legacy six-card storage-offer snapshot must restore")
 	var migrated_offers := legacy_restored.get_generated_training_offers()
 	var migrated_offer: Dictionary = migrated_offers[0] if migrated_offers.size() == 1 else {}
 	_expect(
@@ -452,19 +540,20 @@ func _verify_storage_offer_limits_the_whole_visit() -> void:
 		and str(migrated_offer.get("migration", "")) == "legacy_v2_four_card"
 		and (migrated_offer.get("stat_choices", []) as Array).size() == 4
 		and _choice_ids(migrated_offer.get("stat_choices", [])).has("physique_storage"),
-		"legacy v2 six-card visit must migrate without rerolling away its storage presence"
+		"legacy v2 six-card offer must migrate without rerolling away its storage presence"
 	)
-	var legacy_blocked_count := 0
-	for action_value: Variant in legacy_restored.get_node_modal_view_model().get("actions", []):
-		if (
-			action_value is Dictionary
-			and str((action_value as Dictionary).get("id", "")).begins_with("training_stat:")
-			and not bool((action_value as Dictionary).get("enabled", true))
-			and str((action_value as Dictionary).get("disabled_reason", ""))
-			== "training_visit_complete"
-		):
-			legacy_blocked_count += 1
-	_expect(legacy_blocked_count == 4, "legacy storage presence must keep all four migrated cards blocked after the saved success")
+	var legacy_actions: Array = legacy_restored.get_node_modal_view_model().get("actions", [])
+	var legacy_storage := _find_action_by_id(
+		legacy_actions,
+		"training_stat:physique_storage"
+	)
+	_expect(
+		not bool(legacy_storage.get("enabled", true))
+		and str(legacy_storage.get("disabled_reason", ""))
+		== "training_storage_run_limit"
+		and _count_enabled_training_actions(legacy_actions) == 3,
+		"legacy offer migration must keep only the previously used storage card blocked"
+	)
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
 	_finish_flow(legacy_restored, null)
@@ -497,12 +586,12 @@ func _verify_finite_maximum_rejection_is_no_op() -> void:
 	var final_purchase := flow.execute_node_action(action_id, "training-maximum:final")
 	_expect(bool(final_purchase.get("accepted", false)) and bool(final_purchase.get("applied", false)), "finite training final level must commit")
 	var maximum_action := _find_action_by_id(flow.get_node_modal_view_model().get("actions", []), action_id)
-	_expect(not bool(maximum_action.get("enabled", true)), "storage training must disable after the visit's first success")
-	_expect(str(maximum_action.get("disabled_reason", "")) == "training_visit_complete", "storage visit completion must take precedence after the successful final level")
+	_expect(not bool(maximum_action.get("enabled", true)), "storage training must disable after its run-wide use")
+	_expect(str(maximum_action.get("disabled_reason", "")) == "training_storage_run_limit", "the storage-only run gate must take precedence after the successful final level")
 	_expect(str(maximum_action.get("payload", {}).get("choice", {}).get("level_text", "")) == "5/5", "finite training maximum card must show current and maximum")
 	var muhon_before_rejection := int(flow.get_run_state_snapshot().get("muhon", -1))
 	var rejected := flow.execute_node_action(action_id, "training-maximum:blocked")
-	_expect(str(rejected.get("reason", "")) == "training_visit_complete", "direct execution must reject after the storage visit succeeds")
+	_expect(str(rejected.get("reason", "")) == "training_storage_run_limit", "direct execution must reject a second storage use in the same run")
 	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == muhon_before_rejection and runtime_state.apply_calls == 1, "finite-maximum rejection must not grant or debit")
 	_finish_flow(flow, owner)
 
@@ -664,7 +753,16 @@ func _verify_source_contract() -> void:
 	_expect(flow_source.find('var prefix := "training_stat:"') >= 0 and flow_source.find('"training_mugong:"') < 0, "training execution must accept only stat action ids")
 	_expect(tuning_source.contains("TEMP_PHASE_C_TRAINING_STAT_BASE_COST := 1"), "training cost must retain its Tower tuning base")
 	_expect(tuning_source.contains("TEMP_PHASE_C_TRAINING_STAT_COST_STEP_SUCCESSES := 2"), "training cost must advance every two successes")
-	_expect(flow_source.contains("_is_training_visit_complete") and flow_source.contains("training_visit_complete"), "display and execution paths must share the storage-offer visit gate")
+	_expect(
+		flow_source.contains("_is_storage_training_used_this_run")
+		and flow_source.contains("training_storage_run_limit"),
+		"display, prepare, and execution paths must share the storage-only run gate"
+	)
+	_expect(
+		not flow_source.contains("_is_training_visit_complete")
+		and not flow_source.contains("training_visit_complete"),
+		"the defective whole-visit completion concept must stay removed"
+	)
 
 
 func _build_registry(
@@ -711,6 +809,33 @@ func _find_unlimited_stat_action(actions: Array) -> Dictionary:
 		):
 			return action
 	return {}
+
+
+func _find_nonstorage_training_actions(actions: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for action_value in actions:
+		if not (action_value is Dictionary):
+			continue
+		var action := action_value as Dictionary
+		var action_id := str(action.get("id", ""))
+		if (
+			action_id.begins_with("training_stat:")
+			and action_id != "training_stat:physique_storage"
+		):
+			result.append(action)
+	return result
+
+
+func _count_enabled_training_actions(actions: Array) -> int:
+	var result := 0
+	for action_value in actions:
+		if (
+			action_value is Dictionary
+			and str((action_value as Dictionary).get("id", "")).begins_with("training_stat:")
+			and bool((action_value as Dictionary).get("enabled", false))
+		):
+			result += 1
+	return result
 
 
 func _choice_ids(choices: Array) -> Array[String]:

@@ -48,7 +48,7 @@ try {
         -or -not $outputText.Contains("tower_training_relayout_visual_qa: captures=8") `
         -or -not $outputText.Contains("tower_training_relayout_visual_qa: four_clicks=ok") `
         -or -not $outputText.Contains("tower_training_relayout_visual_qa: stats_same_frame=ok") `
-        -or -not $outputText.Contains("tower_training_relayout_visual_qa: storage_visit=ok") `
+        -or -not $outputText.Contains("tower_training_relayout_visual_qa: storage_run_limit=ok") `
         -or -not $outputText.Contains("tower_training_relayout_visual_qa: comparison=ok") `
         -or -not $outputText.Contains("tower_training_relayout_visual_qa: ok")
     ) {

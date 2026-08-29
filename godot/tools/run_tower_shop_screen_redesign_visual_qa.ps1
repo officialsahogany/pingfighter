@@ -45,6 +45,8 @@ try {
     if (
         $exitCode -ne 0 `
         -or $seriousErrors.Count -gt 0 `
+        -or -not $outputText.Contains("tower_shop_screen_redesign_visual_qa: before_question_mark=ok") `
+        -or -not $outputText.Contains("tower_shop_screen_redesign_visual_qa: after_item_reveal=ok") `
         -or -not $outputText.Contains("tower_shop_screen_redesign_visual_qa: structure=8+5+exit") `
         -or -not $outputText.Contains("tower_shop_screen_redesign_visual_qa: currencies=gold+muhon") `
         -or -not $outputText.Contains("tower_shop_screen_redesign_visual_qa: vulkan=ok") `

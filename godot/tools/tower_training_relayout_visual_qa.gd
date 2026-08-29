@@ -307,7 +307,7 @@ func _run() -> void:
 	):
 		_fail("mockup-direction comparison save failed")
 	if not _failed:
-		var storage_capture_ok := await _capture_storage_visit(
+		var storage_capture_ok := await _capture_storage_run_limit(
 			viewport,
 			canvas,
 			owner,
@@ -325,7 +325,7 @@ func _run() -> void:
 	print("tower_training_relayout_visual_qa: captures=%d" % _capture_count)
 	print("tower_training_relayout_visual_qa: four_clicks=ok")
 	print("tower_training_relayout_visual_qa: stats_same_frame=ok")
-	print("tower_training_relayout_visual_qa: storage_visit=ok")
+	print("tower_training_relayout_visual_qa: storage_run_limit=ok")
 	print("tower_training_relayout_visual_qa: comparison=ok")
 	print("tower_training_relayout_visual_qa: ok")
 	quit(0)
@@ -346,7 +346,7 @@ func _capture_frame(
 	return image
 
 
-func _capture_storage_visit(
+func _capture_storage_run_limit(
 	viewport: SubViewport,
 	canvas: CaptureCanvas,
 	owner: CaptureOwner,
@@ -377,6 +377,7 @@ func _capture_storage_visit(
 	var opening_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
 	var opening_actions: Array = opening_model.get("actions", [])
 	var storage_seen := false
+	var storage_action_id := ""
 	var non_storage_action_id := ""
 	for action_value: Variant in opening_actions:
 		if not (action_value is Dictionary):
@@ -384,6 +385,7 @@ func _capture_storage_visit(
 		var action: Dictionary = action_value
 		var action_id := str(action.get("id", ""))
 		if action_id == "training_stat:physique_storage":
+			storage_action_id = action_id
 			storage_seen = (
 				str(action.get("payload", {}).get("choice", {}).get(
 					"bonus_badge_text",
@@ -406,26 +408,50 @@ func _capture_storage_visit(
 	)
 	if not bool(result.get("applied", false)):
 		return false
-	var completed_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
-	var completed_actions: Array = completed_model.get("actions", [])
-	var completed_count := 0
-	for action_value: Variant in completed_actions:
+	var repeated_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var repeated_actions: Array = repeated_model.get("actions", [])
+	var enabled_count := 0
+	for action_value: Variant in repeated_actions:
 		if not (action_value is Dictionary):
 			continue
 		var action: Dictionary = action_value
 		if not str(action.get("id", "")).begins_with("training_stat:"):
 			continue
-		completed_count += int(
-			not bool(action.get("enabled", true))
-			and str(action.get("disabled_reason", "")) == "training_visit_complete"
-			and not str(action.get("unavailable_reason", "")).is_empty()
-		)
-	if completed_count != 4:
+		enabled_count += int(bool(action.get("enabled", false)))
+	if enabled_count != 4:
+		return false
+	var storage_result: Dictionary = flow.execute_node_action(
+		storage_action_id,
+		"training-storage-visual:storage"
+	)
+	if not bool(storage_result.get("applied", false)):
+		return false
+	var limited_model: Dictionary = flow.get_node_modal_view_model(Vector2(VIEW_SIZE))
+	var limited_actions: Array = limited_model.get("actions", [])
+	var storage_limited_count := 0
+	var nonstorage_enabled_count := 0
+	for action_value: Variant in limited_actions:
+		if not (action_value is Dictionary):
+			continue
+		var action: Dictionary = action_value
+		var action_id := str(action.get("id", ""))
+		if not action_id.begins_with("training_stat:"):
+			continue
+		if action_id == storage_action_id:
+			storage_limited_count += int(
+				not bool(action.get("enabled", true))
+				and str(action.get("disabled_reason", ""))
+				== "training_storage_run_limit"
+				and not str(action.get("unavailable_reason", "")).is_empty()
+			)
+		else:
+			nonstorage_enabled_count += int(bool(action.get("enabled", false)))
+	if storage_limited_count != 1 or nonstorage_enabled_count != 3:
 		return false
 	return await _capture_frame(
 		viewport,
 		canvas,
-		output_dir.path_join("training_relayout_07_storage_visit_complete.png")
+		output_dir.path_join("training_relayout_07_storage_run_limit.png")
 	) != null
 
 
