@@ -1168,6 +1168,14 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 	var registry := _build_registry(runtime, FakeSkillConfig.new(), null)
 	registry.instances["runtime_perk_catalog"] = RuntimePerkCatalog.new()
 	var builder := TowerRewardPickOfferBuilder.new()
+	var migrated_ids: Array[String] = []
+	var migrated_hit_counts: Dictionary = {}
+	for perk_id_value: Variant in RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.keys():
+		var perk_id := str(perk_id_value)
+		migrated_ids.append(perk_id)
+		migrated_hit_counts[perk_id] = 0
+	migrated_ids.sort()
+	_expect(migrated_ids.size() == 10, "reward seed sweep must cover all ten migrated IDs")
 	var four_card_count := 0
 	var failure_count := 0
 	var total_cost := 0
@@ -1200,7 +1208,11 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 		)
 		for choice_value in choices:
 			if choice_value is Dictionary:
-				total_cost += int((choice_value as Dictionary).get("reward_pick_cost", 0))
+				var choice := choice_value as Dictionary
+				var choice_id := str(choice.get("id", ""))
+				if migrated_hit_counts.has(choice_id):
+					migrated_hit_counts[choice_id] = int(migrated_hit_counts.get(choice_id, 0)) + 1
+				total_cost += int(choice.get("reward_pick_cost", 0))
 				total_cards += 1
 	_expect(failure_count == 0, "128-seed reward sweep must have zero offer failures")
 	_expect(four_card_count == 128, "128-seed reward sweep must fill all four cards")
@@ -1209,11 +1221,90 @@ func _verify_no_training_seed_sweep_and_saturated_fallback() -> void:
 		"128-seed result rewards must collect zero training cards, got %d"
 		% training_card_count
 	)
+	var migrated_total_hits := 0
+	for perk_id in migrated_ids:
+		var perk_hits := int(migrated_hit_counts.get(perk_id, 0))
+		migrated_total_hits += perk_hits
+		_expect(
+			perk_hits == 0,
+			"128-seed v3 rewards must offer migrated ID %s zero times, got %d"
+			% [perk_id, perk_hits]
+		)
 	var average_cost := float(total_cost) / float(maxi(1, total_cards))
 	print(
-		"tower_reward_pick_no_training_seed_sweep: seeds=128 four_card=%d failures=%d training=%d average_cost=%.4f"
-		% [four_card_count, failure_count, training_card_count, average_cost]
+		"tower_reward_pick_no_training_seed_sweep: seeds=128 migrated_ids=%d four_card=%d failures=%d training=%d migrated_hits=%d average_cost=%.4f"
+		% [
+			migrated_ids.size(),
+			four_card_count,
+			failure_count,
+			training_card_count,
+			migrated_total_hits,
+			average_cost,
+		]
 	)
+
+	var refresh_runtime := FakeRuntimeState.new()
+	var refresh_flow := FakeFlowOwner.new()
+	refresh_flow.context = {
+		"node_resolution_id": "training-migrated-refresh",
+		"boss_slot_id": "floor_01_dalji",
+		"floor": 7,
+		"map_seed": 53053,
+		"skipped_boss_ids": ["floor_01_dalji"],
+		"burned_vision_boss_ids": [],
+	}
+	var refresh_registry := _build_registry(
+		refresh_runtime,
+		FakeSkillConfig.new(),
+		refresh_flow
+	)
+	refresh_registry.instances["runtime_perk_catalog"] = RuntimePerkCatalog.new()
+	refresh_registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	refresh_registry.instances["runtime_perk_icon_renderer"] = FakeIconRenderer.new()
+	var refresh_state := TowerRewardPickState.new()
+	_expect(
+		refresh_state.start(
+			FakeOwner.new(),
+			refresh_registry,
+			Callable(),
+			{"vision": 1.0, "supreme": 1.0, "refresh": 0.0, "chosik": 1.0}
+		),
+		"training-migrated refresh fixture must start through production state"
+	)
+	var refresh_index := -1
+	for index in range(refresh_state.choices.size()):
+		if str(refresh_state.choices[index].get("reward_pick_kind", "")) == "refresh":
+			refresh_index = index
+			break
+	_expect(refresh_index >= 0, "production refresh fixture must expose a refresh card")
+	if refresh_index >= 0:
+		refresh_state.call("_purchase", refresh_index)
+	var refreshed_migrated_hits := 0
+	for choice in refresh_state.choices:
+		if RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.has(str(choice.get("id", ""))):
+			refreshed_migrated_hits += 1
+	_expect(
+		int(refresh_state.get("_reroll_counter")) == 1,
+		"production refresh purchase must install generation one"
+	)
+	_expect(
+		int(refresh_flow.balances.get("muhon", -1)) == 9,
+		"production refresh purchase must commit its one-Muhon transaction"
+	)
+	_expect(
+		refreshed_migrated_hits == 0,
+		"production refresh reroll must keep all migrated IDs excluded, got %d"
+		% refreshed_migrated_hits
+	)
+	print(
+		"tower_reward_pick_training_migrated_refresh: generation=%d cards=%d migrated_hits=%d"
+		% [
+			int(refresh_state.get("_reroll_counter")),
+			refresh_state.choices.size(),
+			refreshed_migrated_hits,
+		]
+	)
+	refresh_state.reset()
 
 	var saturated_runtime := FakeRuntimeState.new()
 	saturated_runtime.runtime_skill_levels = {

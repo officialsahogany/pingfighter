@@ -6,6 +6,9 @@ const RuntimePerkCharacterContext := preload(
 const PerkConversionFlags := preload(
 	"res://scripts/characters/perk_conversion_flags.gd"
 )
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
@@ -35,7 +38,13 @@ func is_mugong_candidate(
 	var perk_id := str(data.get("id", data.get("perk_id", ""))).strip_edges()
 	if perk_id.is_empty() or str(data.get("rarity", "")).to_lower() == "mythic":
 		return false
-	if PerkConversionFlags.is_enabled() and RETIRED_FLAG_ON_MUGONG_IDS.has(perk_id):
+	if (
+		PerkConversionFlags.is_enabled()
+		and (
+			RETIRED_FLAG_ON_MUGONG_IDS.has(perk_id)
+			or RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.has(perk_id)
+		)
+	):
 		return false
 	if not TowerAscentUnlockFilter.is_content_unlocked(
 		registry,

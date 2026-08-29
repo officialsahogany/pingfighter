@@ -3,8 +3,14 @@ extends SceneTree
 const PerkConversionFlags := preload(
 	"res://scripts/characters/perk_conversion_flags.gd"
 )
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
 const TowerAscentFeatureFlags := preload(
 	"res://scripts/tower_ascent/tower_ascent_feature_flags.gd"
+)
+const TowerAscentPerkCandidatePolicy := preload(
+	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
 )
 const TowerRewardPickOfferBuilder := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_offer_builder.gd"
@@ -12,6 +18,7 @@ const TowerRewardPickOfferBuilder := preload(
 
 const BOSS_SLOT_ID := "floor_01_dalji"
 const SAMPLE_COUNT := 512
+const MIGRATED_SWEEP_COUNT := 256
 
 var _failures: Array[String] = []
 
@@ -68,9 +75,19 @@ class FakeCatalog:
 	var get_all_calls := 0
 	var get_choices_calls := 0
 	var has_open_calls := 0
+	var training_migrated_raw_only := false
 
 	func get_all_perk_data() -> Dictionary:
 		get_all_calls += 1
+		if training_migrated_raw_only:
+			var migrated_raw: Dictionary = {}
+			for perk_id_value: Variant in RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.keys():
+				var perk_id := str(perk_id_value)
+				migrated_raw[perk_id] = {
+					"name": "Raw migrated %s" % perk_id,
+					"max_level": 5,
+				}
+			return migrated_raw
 		return {
 			"owned_mugong": {
 				"name": "Owned Mugong",
@@ -156,6 +173,7 @@ func _run() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	PerkConversionFlags.debug_set_enabled(true)
 	_verify_v3_constants_and_unowned_full_slot_pool()
+	_verify_training_migrated_candidate_gate_and_v3_sweep()
 	_verify_refresh_chosik_supreme_and_generation()
 	_verify_builder_owns_every_rng_draw()
 	_verify_refresh_distribution()
@@ -168,6 +186,94 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _verify_training_migrated_candidate_gate_and_v3_sweep() -> void:
+	var migrated_ids: Array[String] = []
+	for perk_id_value: Variant in RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.keys():
+		migrated_ids.append(str(perk_id_value))
+	migrated_ids.sort()
+	_expect(migrated_ids.size() == 10, "training-migrated candidate seal must cover all ten IDs")
+	var catalog := FakeCatalog.new()
+	catalog.training_migrated_raw_only = true
+	var runtime := FakeRuntimeState.new()
+	var registry := _build_registry(runtime, catalog)
+	var raw_catalog := catalog.get_all_perk_data()
+	var policy := TowerAscentPerkCandidatePolicy.new()
+
+	PerkConversionFlags.debug_set_enabled(false)
+	var legacy_eligible := 0
+	for perk_id in migrated_ids:
+		var raw_entry: Dictionary = (raw_catalog.get(perk_id, {}) as Dictionary).duplicate(true)
+		raw_entry["id"] = perk_id
+		_expect(
+			not raw_entry.has("is_physique_training"),
+			"raw v3 fixture must omit is_physique_training for %s" % perk_id
+		)
+		if policy.is_mugong_candidate(raw_entry, {}, "smasher", registry):
+			legacy_eligible += 1
+	_expect(
+		legacy_eligible == migrated_ids.size(),
+		"flag-OFF legacy policy must keep all ten migrated IDs eligible, got %d"
+		% legacy_eligible
+	)
+
+	PerkConversionFlags.debug_set_enabled(true)
+	var flag_on_rejected := 0
+	for perk_id in migrated_ids:
+		var raw_entry: Dictionary = (raw_catalog.get(perk_id, {}) as Dictionary).duplicate(true)
+		raw_entry["id"] = perk_id
+		if not policy.is_mugong_candidate(raw_entry, {}, "smasher", registry):
+			flag_on_rejected += 1
+	_expect(
+		flag_on_rejected == migrated_ids.size(),
+		"flag-ON policy must reject all ten migrated IDs, got %d"
+		% flag_on_rejected
+	)
+
+	var hit_counts: Dictionary = {}
+	for perk_id in migrated_ids:
+		hit_counts[perk_id] = 0
+	var offer_failures := 0
+	var builder := TowerRewardPickOfferBuilder.new()
+	for sample_index in range(MIGRATED_SWEEP_COUNT):
+		var offer := builder.build_offer(
+			_build_context("training-migrated-%03d" % sample_index),
+			FakeOwner.new(),
+			registry,
+			{"vision": 1.0, "supreme": 1.0, "refresh": 1.0, "chosik": 1.0},
+			sample_index % 4
+		)
+		if not bool(offer.get("accepted", false)):
+			offer_failures += 1
+			continue
+		for choice_value: Variant in offer.get("choices", []):
+			if not (choice_value is Dictionary):
+				continue
+			var choice_id := str((choice_value as Dictionary).get("id", ""))
+			if hit_counts.has(choice_id):
+				hit_counts[choice_id] = int(hit_counts.get(choice_id, 0)) + 1
+	var total_hits := 0
+	for perk_id in migrated_ids:
+		var perk_hits := int(hit_counts.get(perk_id, 0))
+		total_hits += perk_hits
+		_expect(
+			perk_hits == 0,
+			"flag-ON v3 sweep must offer migrated ID %s zero times, got %d"
+			% [perk_id, perk_hits]
+		)
+	_expect(offer_failures == 0, "training-migrated v3 sweep must keep offers available")
+	print(
+		"tower_reward_pick_v3_training_migrated_sweep: ids=%d samples=%d failures=%d hits=%d legacy_eligible=%d flag_on_rejected=%d"
+		% [
+			migrated_ids.size(),
+			MIGRATED_SWEEP_COUNT,
+			offer_failures,
+			total_hits,
+			legacy_eligible,
+			flag_on_rejected,
+		]
+	)
 
 
 func _verify_v3_constants_and_unowned_full_slot_pool() -> void:
