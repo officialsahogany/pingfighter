@@ -26,11 +26,13 @@ func build_skills(
 	var clone_active: bool = bool(clone_state.casting)
 	var shuriken_active: bool = bool(shuriken_state.casting)
 
-	var clone_blocked := (
+	var clone_blocked: bool = motion_state.has_scripted_skill_conflict_fields(
+		"clone",
+		escape_active,
+		cloud_active,
+		superspeed_active,
+		clone_active,
 		shuriken_active
-		or cloud_active
-		or escape_active
-		or superspeed_active
 	)
 	var shuriken_blocked := (
 		clone_active

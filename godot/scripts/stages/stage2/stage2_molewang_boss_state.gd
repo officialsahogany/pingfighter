@@ -130,7 +130,7 @@ func register_boss_hit(ball_vel: Vector2, context: Dictionary, deps: Dictionary 
 	boss_special_gauge = minf(GAUGE_MAX, boss_special_gauge + GAUGE_GAIN_ON_HIT)
 	hit_emerge_timer = 0.65
 	var triggered := false
-	if not tunnel_active and spinning_claw_cooldown <= 0.0 and boss_special_gauge >= SPINNING_CLAW_COST:
+	if can_activate_spinning_claw():
 		boss_special_gauge -= SPINNING_CLAW_COST
 		spinning_claw_timer = SPINNING_CLAW_DURATION_SEC
 		spinning_claw_cooldown = SPINNING_CLAW_COOLDOWN_SEC
@@ -183,7 +183,7 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage2_boss_skill_hud_skills": [
 			_build_skill("tunnel_raid", "지맥잠행", tunnel_active, tunnel_cooldown, TUNNEL_COOLDOWN_SEC, Color(0.72, 0.43, 0.20)),
-			_build_skill("spinning_claw", "선조율풍", spinning_claw_timer > 0.0, spinning_claw_cooldown, SPINNING_CLAW_COOLDOWN_SEC, Color(0.96, 0.78, 0.28), "time", BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT),
+			_build_spinning_claw_skill(),
 			_build_skill("friend_moles", "지굴원군", friend_moles_active, _get_friend_moles_hud_cooldown_sec(), float(FRIEND_MOLES_COOLDOWN_TICKS) / float(PHYSICS_TICKS_PER_SECOND), Color(0.94, 0.72, 0.16), "event_cycle"),
 		],
 	}
@@ -196,6 +196,14 @@ func get_pressure_snapshot(_context: Dictionary = {}) -> Dictionary:
 		"boss_gauge_progress": get_boss_gauge_progress(),
 		"boss_gauge_gain_on_hit": GAUGE_GAIN_ON_HIT,
 	}
+
+
+func can_activate_spinning_claw() -> bool:
+	return (
+		not tunnel_active
+		and spinning_claw_cooldown <= 0.0
+		and boss_special_gauge >= SPINNING_CLAW_COST
+	)
 
 
 func get_actor_draw_context() -> Dictionary:
@@ -597,6 +605,29 @@ func _build_skill(
 		"progress": progress,
 		"color": color,
 	}
+
+
+func _build_spinning_claw_skill() -> Dictionary:
+	var active := spinning_claw_timer > 0.0
+	var skill := _build_skill(
+		"spinning_claw",
+		"선조율풍",
+		active,
+		spinning_claw_cooldown,
+		SPINNING_CLAW_COOLDOWN_SEC,
+		Color(0.96, 0.78, 0.28),
+		"time",
+		BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT
+	)
+	var ready := can_activate_spinning_claw()
+	var gauge_progress := clampf(boss_special_gauge / SPINNING_CLAW_COST, 0.0, 1.0)
+	skill["ready"] = ready
+	skill["status"] = "casting" if active else ("ready" if ready else "charging")
+	skill["progress"] = 1.0 if active else minf(float(skill["cooldown_progress"]), gauge_progress)
+	skill["activation_gauge_current"] = boss_special_gauge
+	skill["activation_gauge_cost"] = SPINNING_CLAW_COST
+	skill["activation_gauge_progress"] = gauge_progress
+	return skill
 
 
 func _play_audio(deps: Dictionary, method_name: String) -> void:

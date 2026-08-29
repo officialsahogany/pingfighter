@@ -302,9 +302,11 @@ func _verify_arachne_skill_routes() -> void:
 	_expect(float(size_result.get("boss_paddle_width", 0.0)) == 130.0 and float(size_result.get("boss_hitbox_height", 0.0)) == 52.0, "production update must keep Arachne collision size on the owner result route")
 	_verify_hud_skill_key_contract(state)
 	state.arachne_state.web_trap_cooldown = 0.0
-	state.arachne_state.boss_special_gauge = 440.0
+	state.arachne_state.boss_special_gauge = 500.0
+	var ready_before_hit := _find_hud_skill(state.get_hud_context(), "web_trap")
+	_expect(bool(ready_before_hit.get("ready", false)), "all three Web Trap gates must publish ready before the triggering boss hit")
 	var hit_result: Dictionary = state.register_boss_hit(Vector2(3.0, 8.0), context, deps)
-	_expect(bool(hit_result.get("arachne_web_trap_triggered", false)), "boss contact must add 60 then trigger the 500-cost Web Trap")
+	_expect(bool(hit_result.get("arachne_web_trap_triggered", false)), "ready Web Trap must trigger on the next boss hit")
 	_expect(state.get_boss_special_gauge() <= 0.001 and audio.net_count == 1, "Web Trap must consume the full gauge and route the original net sound")
 	for _index in range(12):
 		state.update(0.05, context, deps)
@@ -468,8 +470,13 @@ func _verify_hud_skill_key_contract(state: Object) -> void:
 	_expect(float(reset_skill.get("cooldown_remaining", 0.0)) > 0.0 and float(reset_skill.get("cooldown_total", 0.0)) > 0.0, "reset Web Trap must publish a positive cooldown rail")
 	_expect(str(reset_skill.get("cooldown_contract", "")) == "time" and not bool(reset_skill.get("initial_ready_allowed", true)), "Web Trap must declare the standard non-ready time contract")
 	state.arachne_state.web_trap_cooldown = 0.0
+	state.arachne_state.boss_special_gauge = 0.0
+	var gauge_starved_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
+	_expect(str(gauge_starved_skill.get("status", "")) == "charging" and not bool(gauge_starved_skill.get("ready", true)), "zero-cooldown Web Trap must remain charging while its activation gauge is empty")
+	_expect(is_zero_approx(float(gauge_starved_skill.get("progress", -1.0))) and is_zero_approx(float(gauge_starved_skill.get("activation_gauge_progress", -1.0))), "gauge-starved Web Trap must expose zero activation progress instead of a full card")
+	state.arachne_state.boss_special_gauge = 500.0
 	var ready_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
-	_expect(str(ready_skill.get("status", "")) == "ready" and bool(ready_skill.get("ready", false)) and is_equal_approx(float(ready_skill.get("progress", -1.0)), 1.0), "zero-cooldown inactive Web Trap must render as ready at 100 percent")
+	_expect(str(ready_skill.get("status", "")) == "ready" and bool(ready_skill.get("ready", false)) and is_equal_approx(float(ready_skill.get("progress", -1.0)), 1.0), "cooldown, projectile, and gauge gates together must publish Web Trap ready")
 	state.arachne_state.web_trap_cooldown = 7.5
 	var charging_skill := _find_hud_skill(state.get_hud_context(), "web_trap")
 	_expect(str(charging_skill.get("status", "")) == "charging" and not bool(charging_skill.get("ready", true)), "cooling Web Trap must render as charging and not ready")

@@ -13,7 +13,7 @@ const OUTPUT_PATH := (
 	+ "skill_names_four_variants_ko.png"
 )
 const EXPECTED_LABELS := {
-	"arachne": {"web_trap": "천라주망", "web_rescue": "견사회수", "spider_rage": "혈주망진"},
+	"arachne": {"web_trap": "거미줄발사", "web_rescue": "실공묶기", "spider_rage": "연쇄거미줄발사"},
 	"molewang": {"tunnel_raid": "지맥잠행", "spinning_claw": "선조율풍", "friend_moles": "지굴원군"},
 	"alice": {"mirror_world": "경화수월", "size_shift": "여의변화", "rabbit_projectile": "옥토비탄"},
 	"teddy_bear": {"cotton_throw": "면운산화", "cotton_bomb": "면화폭뢰", "deadly_hug": "사혼포옹", "heart_beam": "심광충파"},

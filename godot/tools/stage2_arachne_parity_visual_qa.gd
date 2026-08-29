@@ -60,11 +60,12 @@ func _run() -> void:
 
 	await _capture("01_rescue_shoot", _build_rescue_context("shoot", 0.62), false)
 	await _capture("02_rescue_strike", _build_rescue_context("strike", 0.42), false)
-	await _capture("03_hud_progress", _build_hud_progress_context(), true)
-	await _capture("04_rage_non_overlap", _build_rage_non_overlap_context(), false)
-	await _capture("05_gait_hit_venom", _build_gait_hit_context(), false)
-	if _saved_paths.size() != 5:
-		_fail("expected five Arachne parity captures, saved %d" % _saved_paths.size())
+	await _capture("03_hud_web_trap_gauge_starved", _build_web_trap_hud_context(0.0, false), true)
+	await _capture("04_hud_web_trap_gauge_ready", _build_web_trap_hud_context(Stage2ArachneBossState.WEB_TRAP_COST, true), true)
+	await _capture("05_rage_non_overlap", _build_rage_non_overlap_context(), false)
+	await _capture("06_gait_hit_venom", _build_gait_hit_context(), false)
+	if _saved_paths.size() != 6:
+		_fail("expected six Arachne parity captures, saved %d" % _saved_paths.size())
 		return
 	print("[Stage2ArachneParityVisualQA] resolution=%dx%d captures=%d" % [VIEW_SIZE.x, VIEW_SIZE.y, _saved_paths.size()])
 	for path in _saved_paths:
@@ -138,15 +139,28 @@ func _build_rescue_context(phase: String, progress: float) -> Dictionary:
 	return context
 
 
-func _build_hud_progress_context() -> Dictionary:
+func _build_web_trap_hud_context(gauge: float, expected_ready: bool) -> Dictionary:
 	var state: Object = Stage2ArachneBossState.new()
 	var context := _build_base_context(state)
-	state.web_trap_cooldown = 7.5
+	state.web_trap_cooldown = 0.0
+	state.boss_special_gauge = gauge
 	state.web_rescue_cooldown = 18.75
-	var hud_context: Dictionary = state.get_hud_context()
+	var hud_context: Dictionary = state.get_hud_context(null, context)
 	var skills: Array = hud_context.get("stage2_boss_skill_hud_skills", [])
-	if skills.size() < 2 or not is_equal_approx(float(skills[0].get("progress", -1.0)), 0.5):
-		_fail("HUD producer did not expose the expected 50-percent Arachne progress")
+	if skills.size() < 2:
+		_fail("HUD producer did not expose the Arachne skill cards")
+		return context
+	var web_trap: Dictionary = skills[0]
+	if bool(web_trap.get("ready", not expected_ready)) != expected_ready:
+		_fail("Web Trap HUD ready state did not match gauge %.1f" % gauge)
+		return context
+	var expected_status := "ready" if expected_ready else "charging"
+	if str(web_trap.get("status", "")) != expected_status:
+		_fail("Web Trap HUD status did not read %s at gauge %.1f" % [expected_status, gauge])
+		return context
+	var expected_progress := 1.0 if expected_ready else 0.0
+	if not is_equal_approx(float(web_trap.get("progress", -1.0)), expected_progress):
+		_fail("Web Trap HUD progress did not expose %.1f at gauge %.1f" % [expected_progress, gauge])
 		return context
 	context.merge(state.get_actor_draw_context(), true)
 	context.merge(hud_context, true)

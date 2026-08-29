@@ -1282,11 +1282,7 @@ func _try_start_clone_cast(
 	bypass_cooldown: bool = false
 ) -> bool:
 	var blocked_by_other_skill: bool = (
-		_superspeed_active
-		or _shuriken_state.casting
-		or _cloud_state.dash_active
-		or _escape_state.active
-		or _external_scripted_motion_active
+		_has_scripted_skill_conflict("clone")
 		or bool(context.get("lingpet_puppet_grab_active", false))
 	)
 	if not _clone_state.try_start_cast(

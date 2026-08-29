@@ -191,7 +191,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 	hit_direction = 1 if ball_pos.x + ball_size * 0.5 > boss_pos.x + boss_width * 0.5 else -1
 	_spawn_venom_particles()
 	var triggered := false
-	if web_trap_cooldown <= 0.0 and web_trap_projectile.is_empty() and boss_special_gauge >= WEB_TRAP_COST:
+	if can_activate_web_trap():
 		boss_special_gauge -= WEB_TRAP_COST
 		_activate_web_trap(context, deps)
 		triggered = true
@@ -232,9 +232,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage2_boss_skill_hud_boss_gauge_max": GAUGE_MAX,
 		"stage2_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage2_boss_skill_hud_skills": [
-			_build_skill("web_trap", "천라주망", not web_trap_projectile.is_empty(), web_trap_cooldown, WEB_TRAP_COOLDOWN_SEC, Color(0.78, 0.73, 0.68), "time", BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT),
-			_build_skill("web_rescue", "견사회수", web_rescue_active, web_rescue_cooldown, WEB_RESCUE_COOLDOWN_SEC, Color(0.88, 0.88, 0.96)),
-			_build_skill("spider_rage", "혈주망진", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16), "score_latched"),
+			_build_web_trap_skill(),
+			_build_skill("web_rescue", "실공묶기", web_rescue_active, web_rescue_cooldown, WEB_RESCUE_COOLDOWN_SEC, Color(0.88, 0.88, 0.96)),
+			_build_skill("spider_rage", "연쇄거미줄발사", rage_active, 0.0 if rage_active else 1.0, 1.0, Color(0.88, 0.18, 0.16), "score_latched"),
 		],
 	}
 
@@ -246,6 +246,14 @@ func get_pressure_snapshot(_context: Dictionary = {}) -> Dictionary:
 		"boss_gauge_progress": get_boss_gauge_progress(),
 		"boss_gauge_gain_on_hit": GAUGE_GAIN_ON_HIT,
 	}
+
+
+func can_activate_web_trap() -> bool:
+	return (
+		web_trap_cooldown <= 0.0
+		and web_trap_projectile.is_empty()
+		and boss_special_gauge >= WEB_TRAP_COST
+	)
 
 
 func get_actor_draw_context() -> Dictionary:
@@ -869,6 +877,29 @@ func _build_skill(
 		"progress": progress,
 		"color": color,
 	}
+
+
+func _build_web_trap_skill() -> Dictionary:
+	var active := not web_trap_projectile.is_empty()
+	var skill := _build_skill(
+		"web_trap",
+		"거미줄발사",
+		active,
+		web_trap_cooldown,
+		WEB_TRAP_COOLDOWN_SEC,
+		Color(0.78, 0.73, 0.68),
+		"time",
+		BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT
+	)
+	var ready := can_activate_web_trap()
+	var gauge_progress := clampf(boss_special_gauge / WEB_TRAP_COST, 0.0, 1.0)
+	skill["ready"] = ready
+	skill["status"] = "casting" if active else ("ready" if ready else "charging")
+	skill["progress"] = 1.0 if active else minf(float(skill["cooldown_progress"]), gauge_progress)
+	skill["activation_gauge_current"] = boss_special_gauge
+	skill["activation_gauge_cost"] = WEB_TRAP_COST
+	skill["activation_gauge_progress"] = gauge_progress
+	return skill
 
 
 func _play_audio(deps: Dictionary, method_name: String) -> void:

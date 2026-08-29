@@ -141,7 +141,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		BOSS_GAUGE_MAX,
 		_tear_shower_state,
 		_curse_chest_state,
-		_psychoball_state
+		_psychoball_state,
+		"yeonmyo",
+		_psychoball_state.can_trigger(_context, kuromi_awakening)
 	)
 
 

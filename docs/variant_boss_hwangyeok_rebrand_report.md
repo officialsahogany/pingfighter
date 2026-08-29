@@ -86,9 +86,9 @@ HEAD 위에 그 두 선행 커밋을 보존한 뒤 S1을 별도 커밋으로 쌓
 
 | ko | en | zh | ja | es | pt-BR | ru |
 |---|---|---|---|---|---|---|
-| 천라주망 | Heavenly Spiderweb Snare | 天罗蛛网 | 天羅蛛網 | Trampa de telaraña celestial | Armadilha de Teia Celestial | Небесная паутина |
-| 견사회수 | Silken Retrieval | 绢丝回收 | 絹糸回収 | Recuperación de hilo de seda | Resgate de Fio de Seda | Возврат шёлковой нитью |
-| 혈주망진 | Bloodweb Formation | 血蛛网阵 | 血蛛網陣 | Formación de telaraña sangrienta | Formação da Teia Sangrenta | Кровавый паутинный строй |
+| 거미줄발사 | Web Shot | 蛛网发射 | クモの巣発射 | Disparo de telaraña | Disparo de Teia | Выстрел паутиной |
+| 실공묶기 | Silken Ball Bind | 蛛丝缚球 | 糸でボール縛り | Atadura de bola con hilo | Amarra de Bola com Fio | Опутывание мяча нитью |
+| 연쇄거미줄발사 | Chain Web Shot | 连锁蛛网发射 | 連続クモの巣発射 | Disparo encadenado de telaraña | Disparo em Cadeia de Teia | Цепной выстрел паутиной |
 | 지맥잠행 | Earthvein Burrow | 地脉潜行 | 地脈潜行 | Acecho por la vena terrestre | Esgueira pela Veia da Terra | Ход земной жилой |
 | 선조율풍 | Whirling Claw Gale | 旋爪律风 | 旋爪律風 | Vendaval de garra giratoria | Vendaval da Garra Giratória | Вихрь вращающихся когтей |
 | 지굴원군 | Burrow Reinforcements | 地窟援军 | 地窟援軍 | Refuerzos de la madriguera | Reforços da Toca | Подземное подкрепление |
@@ -190,7 +190,7 @@ S1 touched 11-script warning scan은 별도로 완주했다.
 | S3 씰 | `PASS=7`, `SCRIPT ERROR` 0건 |
 | 관련 회귀 묶음 | `PASS=7 FAIL=0 TOTAL=7` |
 | 배치 종단선 | `All Godot smoke tests passed.` |
-| RED 반증 | `견사회수`를 승인 전 후보인 `주사견인`으로 임시 복귀하자 exact label 레그가 RED |
+| RED 반증 | `실공묶기`를 승인 전 후보인 `주사견인`으로 임시 복귀하자 exact label 레그가 RED |
 | RED 원복 | 원복 뒤 S3 씰 `PASS=7`, 단독 배치 `PASS=1 FAIL=0 TOTAL=1` |
 | touched warning scan | 7 scripts, 경고 0건 |
 | headless load | `Godot headless load check passed.` |
@@ -218,9 +218,9 @@ S3 전용 7로케일 exact-text 씰과 관련 회귀 7종은 별도로 완주했
 
 | 보스 | skill id | 구 표시 이름 | 확정 표시 이름 | 한자와 의도 |
 |---|---|---|---|---|
-| 거미각시 | `web_trap` | 거미줄 장판 | 천라주망 | 天羅蛛網, 하늘 그물처럼 펼치는 거미줄 진 |
-| 거미각시 | `web_rescue` | 거미줄 구출 | 견사회수 | 絹絲回收, 견사로 공을 되가져오는 기술 |
-| 거미각시 | `spider_rage` | 분노 거미줄 | 혈주망진 | 血蛛網陣, 분노 상태의 붉은 거미줄 진 |
+| 거미각시 | `web_trap` | 거미줄 장판 | 거미줄발사 | 거미줄을 발사하는 기술 |
+| 거미각시 | `web_rescue` | 거미줄 구출 | 실공묶기 | 실로 공을 묶는 기술 |
+| 거미각시 | `spider_rage` | 분노 거미줄 | 연쇄거미줄발사 | 거미줄을 연쇄 발사하는 기술 |
 | 지굴왕 | `tunnel_raid` | 땅굴 습격 | 지맥잠행 | 地脈潛行, 땅속 지맥을 타고 기습함 |
 | 지굴왕 | `spinning_claw` | 회전발톱 | 선조율풍 | 旋爪律風, 회전 발톱의 흐름을 바람으로 잇는 기술 |
 | 지굴왕 | `friend_moles` | 친구두더지 | 지굴원군 | 地窟援軍, 지굴왕을 돕는 두더지 원군 |

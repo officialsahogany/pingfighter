@@ -125,6 +125,28 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	}
 
 
+func can_trigger_mirror_world() -> bool:
+	return not mirror_active and mirror_cooldown <= 0.0 and boss_special_gauge >= MIRROR_COST
+
+
+func can_trigger_size_shift() -> bool:
+	return (
+		boss_special_gauge >= SIZE_SHIFT_COST
+		and not size_shift_active
+		and size_shift_cooldown <= 0.0
+		and not mirror_active
+	)
+
+
+func can_trigger_rabbit_projectile() -> bool:
+	return (
+		boss_special_gauge >= RABBIT_COST
+		and not rabbit_active
+		and rabbit_windup <= 0.0
+		and rabbit_cooldown <= 0.0
+	)
+
+
 func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if not _is_alice_context(context):
 		return {}
@@ -135,16 +157,11 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 	var rabbit_triggered := false
 	# Legacy order is significant: a full-gauge mirror consumes everything and
 	# makes the same-contact size check ineligible.
-	if not mirror_active and mirror_cooldown <= 0.0 and boss_special_gauge >= MIRROR_COST:
+	if can_trigger_mirror_world():
 		_activate_mirror(deps)
 		boss_special_gauge = 0.0
 		mirror_triggered = true
-	if (
-		boss_special_gauge >= SIZE_SHIFT_COST
-		and not size_shift_active
-		and size_shift_cooldown <= 0.0
-		and not mirror_active
-	):
+	if can_trigger_size_shift():
 		var effective_chance := minf(
 			1.0,
 			SIZE_SHIFT_CHANCE * (1.0 + float(size_shift_pity_failures))
@@ -156,12 +173,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 			size_triggered = true
 		else:
 			size_shift_pity_failures += 1
-	if (
-		boss_special_gauge >= RABBIT_COST
-		and not rabbit_active
-		and rabbit_windup <= 0.0
-		and rabbit_cooldown <= 0.0
-	):
+	if can_trigger_rabbit_projectile():
 		var effective_chance := minf(
 			1.0,
 			RABBIT_CHANCE * (1.0 + float(rabbit_pity_failures))
@@ -399,9 +411,9 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage3_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage3_boss_skill_hud_show_boss_gauge": true,
 		"stage3_boss_skill_hud_skills": [
-			_build_skill("mirror_world", "경화수월", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, MIRROR_COST, Color("c8d9ff")),
-			_build_skill("size_shift", "여의변화", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, SIZE_SHIFT_COST, Color("79e7ff")),
-			_build_skill("rabbit_projectile", "옥토비탄", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, RABBIT_COST, Color("ffc2df")),
+			_build_skill("mirror_world", "경화수월", mirror_active, mirror_cooldown, MIRROR_COOLDOWN_SEC, MIRROR_COST, Color("c8d9ff"), can_trigger_mirror_world()),
+			_build_skill("size_shift", "여의변화", size_shift_active, size_shift_cooldown, SIZE_SHIFT_COOLDOWN_SEC, SIZE_SHIFT_COST, Color("79e7ff"), can_trigger_size_shift()),
+			_build_skill("rabbit_projectile", "옥토비탄", rabbit_active or rabbit_windup > 0.0, rabbit_cooldown, RABBIT_COOLDOWN_SEC, RABBIT_COST, Color("ffc2df"), can_trigger_rabbit_projectile()),
 		],
 	}
 
@@ -445,10 +457,9 @@ func _get_mirror_fade_ratio() -> float:
 	return minf(1.0, minf(mirror_elapsed / MIRROR_FADE_SEC, mirror_timer / MIRROR_FADE_SEC))
 
 
-func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, gauge_cost: float, color: Color) -> Dictionary:
+func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, gauge_cost: float, color: Color, ready: bool) -> Dictionary:
 	var cooldown_progress := clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0)
 	var gauge_progress := clampf(boss_special_gauge / maxf(gauge_cost, 0.001), 0.0, 1.0)
-	var ready := not active and cooldown <= 0.0 and boss_special_gauge >= gauge_cost
 	var skill_status := "casting" if active else ("ready" if ready else "charging")
 	return {
 		"id": id,

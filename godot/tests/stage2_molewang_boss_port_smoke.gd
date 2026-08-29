@@ -235,7 +235,8 @@ func _verify_molewang_production_state() -> void:
 	_expect(hud_skills.size() == 3, "Molewang HUD producer must publish all three skill cards")
 	_expect(str(hud_skills[0].get("status", "")) == "charging" and not bool(hud_skills[0].get("ready", true)), "Tunnel Raid HUD card must expose charging and not-ready")
 	_expect(is_equal_approx(float(hud_skills[0].get("progress", -1.0)), 0.5), "Tunnel Raid HUD progress must track its live cooldown")
-	_expect(is_equal_approx(float(hud_skills[1].get("progress", -1.0)), 0.5), "Spinning Claw HUD progress must track its live cooldown")
+	_expect(is_zero_approx(float(hud_skills[1].get("progress", -1.0))), "Spinning Claw HUD progress must remain empty while its activation gauge is empty")
+	_expect(is_zero_approx(float(hud_skills[1].get("activation_gauge_progress", -1.0))), "Spinning Claw HUD must publish its gauge-starved activation progress")
 	_expect(is_equal_approx(float(hud_skills[2].get("progress", -1.0)), 0.0), "inactive Friend Moles HUD progress must begin at zero")
 	state.molewang_state.friend_moles_active = true
 	hud_skills = state.get_hud_context().get("stage2_boss_skill_hud_skills", [])

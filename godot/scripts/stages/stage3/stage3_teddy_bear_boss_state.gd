@@ -170,6 +170,46 @@ func update(delta: float, context: Dictionary, deps: Dictionary = {}) -> Diction
 	return result
 
 
+func can_trigger_cotton_throw() -> bool:
+	return (
+		boss_special_gauge >= COTTON_THROW_COST
+		and cotton_throw_projectiles.is_empty()
+		and cotton_throw_windup <= 0.0
+		and cotton_throw_cooldown <= 0.0
+	)
+
+
+func can_trigger_cotton_bomb() -> bool:
+	return (
+		boss_special_gauge >= COTTON_BOMB_COST
+		and cotton_bombs.is_empty()
+		and cotton_bomb_windup <= 0.0
+		and cotton_bomb_cooldown <= 0.0
+		and cotton_throw_projectiles.is_empty()
+		and cotton_throw_windup <= 0.0
+	)
+
+
+func can_trigger_deadly_hug() -> bool:
+	return (
+		boss_special_gauge >= DEADLY_HUG_COST
+		and deadly_hug_timer <= 0.0
+		and not deadly_hug_rush_active
+		and deadly_hug_cooldown <= 0.0
+		and cotton_throw_projectiles.is_empty()
+	)
+
+
+func can_trigger_heart_beam() -> bool:
+	return (
+		boss_special_gauge >= HEART_BEAM_COST
+		and heart_projectile.is_empty()
+		and heart_knockback_timer <= 0.0
+		and heart_beam_cooldown <= 0.0
+		and deadly_hug_timer <= 0.0
+	)
+
+
 func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary = {}) -> Dictionary:
 	if int(context.get("current_stage", STAGE_ID)) != STAGE_ID or str(context.get("stage_boss_variant", "")) != VARIANT_ID:
 		return {}
@@ -181,12 +221,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 		"deadly_hug": false,
 		"heart_beam": false,
 	}
-	if (
-		boss_special_gauge >= COTTON_THROW_COST
-		and cotton_throw_projectiles.is_empty()
-		and cotton_throw_windup <= 0.0
-		and cotton_throw_cooldown <= 0.0
-	):
+	if can_trigger_cotton_throw():
 		var effective_chance := minf(
 			1.0,
 			COTTON_THROW_CHANCE * (1.0 + float(cotton_throw_pity_failures))
@@ -198,14 +233,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 			triggered["cotton_throw"] = true
 		else:
 			cotton_throw_pity_failures += 1
-	if (
-		boss_special_gauge >= COTTON_BOMB_COST
-		and cotton_bombs.is_empty()
-		and cotton_bomb_windup <= 0.0
-		and cotton_bomb_cooldown <= 0.0
-		and cotton_throw_projectiles.is_empty()
-		and cotton_throw_windup <= 0.0
-	):
+	if can_trigger_cotton_bomb():
 		var effective_chance := minf(
 			1.0,
 			COTTON_BOMB_CHANCE * (1.0 + float(cotton_bomb_pity_failures))
@@ -217,13 +245,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 			triggered["cotton_bomb"] = true
 		else:
 			cotton_bomb_pity_failures += 1
-	if (
-		boss_special_gauge >= DEADLY_HUG_COST
-		and deadly_hug_timer <= 0.0
-		and not deadly_hug_rush_active
-		and deadly_hug_cooldown <= 0.0
-		and cotton_throw_projectiles.is_empty()
-	):
+	if can_trigger_deadly_hug():
 		var effective_chance := minf(
 			1.0,
 			DEADLY_HUG_CHANCE * (1.0 + float(deadly_hug_pity_failures))
@@ -235,13 +257,7 @@ func register_boss_hit(_ball_vel: Vector2, context: Dictionary, deps: Dictionary
 			triggered["deadly_hug"] = true
 		else:
 			deadly_hug_pity_failures += 1
-	if (
-		boss_special_gauge >= HEART_BEAM_COST
-		and heart_projectile.is_empty()
-		and heart_knockback_timer <= 0.0
-		and heart_beam_cooldown <= 0.0
-		and deadly_hug_timer <= 0.0
-	):
+	if can_trigger_heart_beam():
 		var effective_chance := minf(
 			1.0,
 			HEART_BEAM_CHANCE * (1.0 + float(heart_beam_pity_failures))
@@ -627,10 +643,10 @@ func get_hud_context(_stage_background: Object = null, _context: Dictionary = {}
 		"stage3_boss_skill_hud_boss_gauge_progress": get_boss_gauge_progress(),
 		"stage3_boss_skill_hud_show_boss_gauge": true,
 		"stage3_boss_skill_hud_skills": [
-			_build_skill("cotton_throw", "면운산화", cotton_throw_windup > 0.0 or not cotton_throw_projectiles.is_empty(), cotton_throw_cooldown, COTTON_THROW_COOLDOWN_SEC, COTTON_THROW_COST, Color("fff0ed")),
-			_build_skill("cotton_bomb", "면화폭뢰", cotton_bomb_windup > 0.0 or not cotton_bombs.is_empty(), cotton_bomb_cooldown, COTTON_BOMB_COOLDOWN_SEC, COTTON_BOMB_COST, Color("ffc7dd")),
-			_build_skill("deadly_hug", "사혼포옹", deadly_hug_rush_active or deadly_hug_timer > 0.0, deadly_hug_cooldown, DEADLY_HUG_COOLDOWN_SEC, DEADLY_HUG_COST, Color("a86f54")),
-			_build_skill("heart_beam", "심광충파", not heart_projectile.is_empty() or heart_knockback_timer > 0.0, heart_beam_cooldown, HEART_BEAM_COOLDOWN_SEC, HEART_BEAM_COST, Color("ff609c")),
+			_build_skill("cotton_throw", "면운산화", cotton_throw_windup > 0.0 or not cotton_throw_projectiles.is_empty(), cotton_throw_cooldown, COTTON_THROW_COOLDOWN_SEC, COTTON_THROW_COST, Color("fff0ed"), can_trigger_cotton_throw()),
+			_build_skill("cotton_bomb", "면화폭뢰", cotton_bomb_windup > 0.0 or not cotton_bombs.is_empty(), cotton_bomb_cooldown, COTTON_BOMB_COOLDOWN_SEC, COTTON_BOMB_COST, Color("ffc7dd"), can_trigger_cotton_bomb()),
+			_build_skill("deadly_hug", "사혼포옹", deadly_hug_rush_active or deadly_hug_timer > 0.0, deadly_hug_cooldown, DEADLY_HUG_COOLDOWN_SEC, DEADLY_HUG_COST, Color("a86f54"), can_trigger_deadly_hug()),
+			_build_skill("heart_beam", "심광충파", not heart_projectile.is_empty() or heart_knockback_timer > 0.0, heart_beam_cooldown, HEART_BEAM_COOLDOWN_SEC, HEART_BEAM_COST, Color("ff609c"), can_trigger_heart_beam()),
 		],
 	}
 
@@ -684,10 +700,9 @@ func _get_blackout_ratio() -> float:
 	return clampf(blackout_timer / (COTTON_BLACKOUT_DURATION_SEC - COTTON_BLACKOUT_FULL_SEC), 0.0, 1.0)
 
 
-func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, gauge_cost: float, color: Color) -> Dictionary:
+func _build_skill(id: String, label: String, active: bool, cooldown: float, total: float, gauge_cost: float, color: Color, ready: bool) -> Dictionary:
 	var cooldown_progress := clampf(1.0 - cooldown / maxf(total, 0.001), 0.0, 1.0)
 	var gauge_progress := clampf(boss_special_gauge / maxf(gauge_cost, 0.001), 0.0, 1.0)
-	var ready := not active and cooldown <= 0.0 and boss_special_gauge >= gauge_cost
 	var skill_status := "casting" if active else ("ready" if ready else "charging")
 	return {
 		"id": id,

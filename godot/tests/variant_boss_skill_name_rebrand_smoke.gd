@@ -16,11 +16,11 @@ const TARGETS := {
 		"boss_name": "거미각시",
 		"source_path": "res://scripts/stages/stage2/stage2_arachne_boss_state.gd",
 		"skills": {
-			"web_trap": "천라주망",
-			"web_rescue": "견사회수",
-			"spider_rage": "혈주망진",
+			"web_trap": "거미줄발사",
+			"web_rescue": "실공묶기",
+			"spider_rage": "연쇄거미줄발사",
 		},
-		"legacy_labels": ["거미줄 장판", "거미줄 구출", "분노 거미줄"],
+		"legacy_labels": ["거미줄 장판", "거미줄 구출", "분노 거미줄", "천라" + "주망", "견사" + "회수", "혈주" + "망진"],
 	},
 	"molewang": {
 		"stage": 2,
@@ -59,43 +59,43 @@ const TARGETS := {
 }
 const EXPECTED_LOCALIZED_NAMES := {
 	"ko": {
-		"천라주망": "천라주망", "견사회수": "견사회수", "혈주망진": "혈주망진",
+		"거미줄발사": "거미줄발사", "실공묶기": "실공묶기", "연쇄거미줄발사": "연쇄거미줄발사",
 		"지맥잠행": "지맥잠행", "선조율풍": "선조율풍", "지굴원군": "지굴원군",
 		"경화수월": "경화수월", "여의변화": "여의변화", "옥토비탄": "옥토비탄",
 		"면운산화": "면운산화", "면화폭뢰": "면화폭뢰", "사혼포옹": "사혼포옹", "심광충파": "심광충파",
 	},
 	"en": {
-		"천라주망": "Heavenly Spiderweb Snare", "견사회수": "Silken Retrieval", "혈주망진": "Bloodweb Formation",
+		"거미줄발사": "Web Shot", "실공묶기": "Silken Ball Bind", "연쇄거미줄발사": "Chain Web Shot",
 		"지맥잠행": "Earthvein Burrow", "선조율풍": "Whirling Claw Gale", "지굴원군": "Burrow Reinforcements",
 		"경화수월": "Flowers in a Mirror, Moon on Water", "여의변화": "Willed Transformation", "옥토비탄": "Jade Rabbit Missile",
 		"면운산화": "Cottoncloud Scatterbloom", "면화폭뢰": "Cottonflower Thunderbomb", "사혼포옹": "Dead Soul Embrace", "심광충파": "Heartlight Shockwave",
 	},
 	"zh": {
-		"천라주망": "天罗蛛网", "견사회수": "绢丝回收", "혈주망진": "血蛛网阵",
+		"거미줄발사": "蛛网发射", "실공묶기": "蛛丝缚球", "연쇄거미줄발사": "连锁蛛网发射",
 		"지맥잠행": "地脉潜行", "선조율풍": "旋爪律风", "지굴원군": "地窟援军",
 		"경화수월": "镜花水月", "여의변화": "如意变化", "옥토비탄": "玉兔飞弹",
 		"면운산화": "绵云散花", "면화폭뢰": "绵花爆雷", "사혼포옹": "死魂抱拥", "심광충파": "心光冲波",
 	},
 	"ja": {
-		"천라주망": "天羅蛛網", "견사회수": "絹糸回収", "혈주망진": "血蛛網陣",
+		"거미줄발사": "クモの巣発射", "실공묶기": "糸でボール縛り", "연쇄거미줄발사": "連続クモの巣発射",
 		"지맥잠행": "地脈潜行", "선조율풍": "旋爪律風", "지굴원군": "地窟援軍",
 		"경화수월": "鏡花水月", "여의변화": "如意変化", "옥토비탄": "玉兎飛弾",
 		"면운산화": "綿雲散花", "면화폭뢰": "綿花爆雷", "사혼포옹": "死魂抱擁", "심광충파": "心光衝波",
 	},
 	"es": {
-		"천라주망": "Trampa de telaraña celestial", "견사회수": "Recuperación de hilo de seda", "혈주망진": "Formación de telaraña sangrienta",
+		"거미줄발사": "Disparo de telaraña", "실공묶기": "Atadura de bola con hilo", "연쇄거미줄발사": "Disparo encadenado de telaraña",
 		"지맥잠행": "Acecho por la vena terrestre", "선조율풍": "Vendaval de garra giratoria", "지굴원군": "Refuerzos de la madriguera",
 		"경화수월": "Flores en el espejo, luna en el agua", "여의변화": "Transformación a voluntad", "옥토비탄": "Proyectil del Conejo de Jade",
 		"면운산화": "Floración de nube de algodón", "면화폭뢰": "Trueno explosivo de algodón", "사혼포옹": "Abrazo del alma muerta", "심광충파": "Onda de choque del corazón",
 	},
 	"pt-BR": {
-		"천라주망": "Armadilha de Teia Celestial", "견사회수": "Resgate de Fio de Seda", "혈주망진": "Formação da Teia Sangrenta",
+		"거미줄발사": "Disparo de Teia", "실공묶기": "Amarra de Bola com Fio", "연쇄거미줄발사": "Disparo em Cadeia de Teia",
 		"지맥잠행": "Esgueira pela Veia da Terra", "선조율풍": "Vendaval da Garra Giratória", "지굴원군": "Reforços da Toca",
 		"경화수월": "Flor no Espelho, Lua na Água", "여의변화": "Transformação à Vontade", "옥토비탄": "Projétil do Coelho de Jade",
 		"면운산화": "Florescer da Nuvem de Algodão", "면화폭뢰": "Trovão Explosivo de Algodão", "사혼포옹": "Abraço da Alma Morta", "심광충파": "Onda de Choque do Coração",
 	},
 	"ru": {
-		"천라주망": "Небесная паутина", "견사회수": "Возврат шёлковой нитью", "혈주망진": "Кровавый паутинный строй",
+		"거미줄발사": "Выстрел паутиной", "실공묶기": "Опутывание мяча нитью", "연쇄거미줄발사": "Цепной выстрел паутиной",
 		"지맥잠행": "Ход земной жилой", "선조율풍": "Вихрь вращающихся когтей", "지굴원군": "Подземное подкрепление",
 		"경화수월": "Цветок в зеркале, луна в воде", "여의변화": "Преображение по воле", "옥토비탄": "Снаряд Нефритового Кролика",
 		"면운산화": "Россыпь хлопковых облаков", "면화폭뢰": "Хлопковая гром-бомба", "사혼포옹": "Объятие мёртвой души", "심광충파": "Ударная волна света сердца",
@@ -167,7 +167,7 @@ func _verify_additional_hud_skills_are_in_scope() -> void:
 	_leg_count += 1
 	var arachne_skills := _skills_by_id(Stage2ArachneBossState.new().get_hud_context(), 2)
 	var molewang_skills := _skills_by_id(Stage2MolewangBossState.new().get_hud_context(), 2)
-	_expect(str(arachne_skills.get("spider_rage", {}).get("label", "")) == "혈주망진", "spider_rage must expose 혈주망진 in the live Arachne HUD")
+	_expect(str(arachne_skills.get("spider_rage", {}).get("label", "")) == "연쇄거미줄발사", "spider_rage must expose 연쇄거미줄발사 in the live Arachne HUD")
 	_expect(str(molewang_skills.get("friend_moles", {}).get("label", "")) == "지굴원군", "friend_moles must expose 지굴원군 in the live Molewang HUD")
 
 

@@ -65,6 +65,7 @@ var _round_cast_cancel_count := 0
 var _vision_count := 0
 var _vision_round_preserve_count := 0
 var _vision_cooldown_trio_count := 0
+var _hit_trigger_ready_gate_case_count := 0
 var _contract_counts := {
 	"time": 0,
 	"deferred_time": 0,
@@ -168,6 +169,7 @@ func _init() -> void:
 		quit(1 if not _failures.is_empty() else 0)
 		return
 	_discover_all_producers()
+	_verify_hit_trigger_ready_gates()
 	_verify_common_vision_cooldowns()
 	_verify_every_reset_and_update()
 	_verify_target_cast_round_cleanup_preserves()
@@ -207,6 +209,10 @@ func _init() -> void:
 		"[BossSkillCardCooldownContract] TRIGGER_DECLARATIONS=%d TRIGGER_INSTANT=%d TRIGGER_ON_BOSS_HIT=%d TRIGGER_MATCH=%d AUTO_BLOCK_NEGATIVE_FIXTURE_ENV=%s"
 		% [_skill_count, _trigger_instant_count, _trigger_on_boss_hit_count, _trigger_match_count, AUTO_TRIGGER_BLOCK_FIXTURE_ENV]
 	)
+	print(
+		"[BossSkillCardCooldownContract] HIT_TRIGGER_READY_GATE_CASES=%d SHARED_PREDICATES=true"
+		% _hit_trigger_ready_gate_case_count
+	)
 	print("boss_skill_card_cooldown_contract_smoke: ok")
 	quit(0)
 
@@ -222,6 +228,142 @@ func _verify_auto_trigger_negative_fixture() -> void:
 	blocked_auto_skill.block_activation = true
 	state.update(0.0, _base_context(1), {"stage1_dalji_spinning_top_skill_state": blocked_auto_skill})
 	_expect(blocked_auto_skill.active, "instant-declared spinning_top must activate automatically when its card is full")
+
+
+func _verify_hit_trigger_ready_gates() -> void:
+	var background := FakeStage2Background.new()
+
+	var arachne_path := "res://scripts/stages/stage2/stage2_arachne_boss_state.gd"
+	var arachne: Object = _new_state(arachne_path)
+	var arachne_context := _context_for_path(arachne_path)
+	arachne.web_trap_cooldown = 0.0
+	arachne.boss_special_gauge = 0.0
+	var arachne_card: Dictionary = _skill_map(arachne_path, arachne, arachne_context, background).get("web_trap", {})
+	_expect(not bool(arachne_card.get("ready", true)), "Arachne Web Trap must stay not-ready at zero gauge with zero cooldown")
+	_expect(str(arachne_card.get("status", "")) == "charging", "Arachne Web Trap must read as charging while gauge-starved")
+	_expect(absf(float(arachne_card.get("progress", -1.0))) <= EPSILON, "Arachne Web Trap gauge-starved card progress must be zero")
+	_expect(bool(arachne_card.get("ready", false)) == bool(arachne.can_activate_web_trap()), "Arachne Web Trap card must consume the production activation predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	arachne.boss_special_gauge = Stage2ArachneState.WEB_TRAP_COST
+	arachne_card = _skill_map(arachne_path, arachne, arachne_context, background).get("web_trap", {})
+	_expect(bool(arachne_card.get("ready", false)), "Arachne Web Trap must become ready when all three activation conditions hold")
+	var arachne_hit: Dictionary = arachne.register_boss_hit(Vector2(2.0, 8.0), arachne_context, {})
+	_expect(bool(arachne_hit.get("arachne_web_trap_triggered", false)), "Arachne Web Trap ready state must traverse the production hit trigger")
+	_hit_trigger_ready_gate_case_count += 1
+	var arachne_source := FileAccess.get_file_as_string(arachne_path)
+	_expect(_count_occurrences(arachne_source, "can_activate_web_trap()") == 3, "Arachne Web Trap activation and card must share one predicate owner")
+
+	var mole_path := "res://scripts/stages/stage2/stage2_molewang_boss_state.gd"
+	var mole: Object = _new_state(mole_path)
+	var mole_context := _context_for_path(mole_path)
+	mole.spinning_claw_cooldown = 0.0
+	mole.boss_special_gauge = 0.0
+	var mole_card: Dictionary = _skill_map(mole_path, mole, mole_context, background).get("spinning_claw", {})
+	_expect(not bool(mole_card.get("ready", true)), "Molewang Spinning Claw must stay not-ready at zero gauge with zero cooldown")
+	_expect(bool(mole_card.get("ready", false)) == bool(mole.can_activate_spinning_claw()), "Molewang Spinning Claw card must consume the production activation predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	mole.boss_special_gauge = Stage2MolewangState.SPINNING_CLAW_COST
+	mole_card = _skill_map(mole_path, mole, mole_context, background).get("spinning_claw", {})
+	_expect(bool(mole_card.get("ready", false)), "Molewang Spinning Claw must become ready when its activation gate holds")
+	var mole_hit: Dictionary = mole.register_boss_hit(Vector2(2.0, 8.0), mole_context, {})
+	_expect(bool(mole_hit.get("molewang_spinning_claw_triggered", false)), "Molewang Spinning Claw ready state must traverse the production hit trigger")
+	_hit_trigger_ready_gate_case_count += 1
+	var mole_source := FileAccess.get_file_as_string(mole_path)
+	_expect(_count_occurrences(mole_source, "can_activate_spinning_claw()") == 3, "Molewang Spinning Claw activation and card must share one predicate owner")
+
+	var stage3_path := "res://scripts/stages/stage3/stage3_boss_skill_state.gd"
+	var stage3: Object = _new_state(stage3_path)
+	var stage3_context := _context_for_path(stage3_path)
+	var psychoball_state: Object = stage3.get("_psychoball_state")
+	psychoball_state.psycho_cooldown = 0.0
+	stage3_context["waiting_for_serve"] = true
+	var psycho_card: Dictionary = _skill_map(stage3_path, stage3, stage3_context, background).get("psycho_ball", {})
+	_expect(not bool(psycho_card.get("ready", true)), "Yeonmyo Psychoball must stay not-ready during serve wait")
+	_expect(bool(psycho_card.get("ready", false)) == bool(psychoball_state.can_trigger(stage3_context, stage3.kuromi_awakening)), "Yeonmyo Psychoball card must consume the production trigger predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	stage3_context["waiting_for_serve"] = false
+	psycho_card = _skill_map(stage3_path, stage3, stage3_context, background).get("psycho_ball", {})
+	_expect(bool(psycho_card.get("ready", false)), "Yeonmyo Psychoball must become ready when its full context gate holds")
+	var psycho_hit: Dictionary = stage3.register_boss_hit(Vector2(2.0, 8.0), stage3_context, {})
+	_expect(bool(psycho_hit.get("stage3_psychoball_hit_triggered", false)), "Yeonmyo Psychoball ready state must traverse the production hit trigger")
+	_hit_trigger_ready_gate_case_count += 1
+	var stage3_source := FileAccess.get_file_as_string(stage3_path)
+	_expect(_count_occurrences(stage3_source, "_psychoball_state.can_trigger(") == 2, "Yeonmyo Psychoball activation and card must share one predicate owner")
+
+	var teddy_path := "res://scripts/stages/stage3/stage3_teddy_bear_boss_state.gd"
+	var teddy: Object = _new_state(teddy_path)
+	var teddy_context := _context_for_path(teddy_path)
+	teddy.boss_special_gauge = Stage3TeddyBearState.GAUGE_MAX
+	for cooldown_name in ["cotton_throw_cooldown", "cotton_bomb_cooldown", "deadly_hug_cooldown", "heart_beam_cooldown"]:
+		teddy.set(cooldown_name, 0.0)
+	teddy.cotton_throw_windup = 1.0
+	var teddy_cards := _skill_map(teddy_path, teddy, teddy_context, background)
+	_expect(not bool((teddy_cards.get("cotton_bomb", {}) as Dictionary).get("ready", true)), "Teddy Cotton Bomb must be blocked by Cotton Throw windup")
+	_expect(bool((teddy_cards.get("cotton_bomb", {}) as Dictionary).get("ready", false)) == bool(teddy.can_trigger_cotton_bomb()), "Teddy Cotton Bomb card must consume its production trigger predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	teddy.cotton_throw_windup = 0.0
+	teddy.cotton_throw_projectiles = [{"remaining": 1.0}]
+	teddy_cards = _skill_map(teddy_path, teddy, teddy_context, background)
+	_expect(not bool((teddy_cards.get("deadly_hug", {}) as Dictionary).get("ready", true)), "Teddy Deadly Hug must be blocked by a live Cotton Throw projectile")
+	_expect(bool((teddy_cards.get("deadly_hug", {}) as Dictionary).get("ready", false)) == bool(teddy.can_trigger_deadly_hug()), "Teddy Deadly Hug card must consume its production trigger predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	teddy.cotton_throw_projectiles.clear()
+	teddy.deadly_hug_timer = 1.0
+	teddy_cards = _skill_map(teddy_path, teddy, teddy_context, background)
+	_expect(not bool((teddy_cards.get("heart_beam", {}) as Dictionary).get("ready", true)), "Teddy Heart Beam must be blocked by a live Deadly Hug zone")
+	_expect(bool((teddy_cards.get("heart_beam", {}) as Dictionary).get("ready", false)) == bool(teddy.can_trigger_heart_beam()), "Teddy Heart Beam card must consume its production trigger predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	teddy.deadly_hug_timer = 0.0
+	teddy_cards = _skill_map(teddy_path, teddy, teddy_context, background)
+	for teddy_skill_id in ["cotton_throw", "cotton_bomb", "deadly_hug", "heart_beam"]:
+		var teddy_ready: bool = bool((teddy_cards.get(teddy_skill_id, {}) as Dictionary).get("ready", false))
+		var teddy_gate: bool = bool(teddy.call("can_trigger_%s" % teddy_skill_id))
+		_expect(teddy_ready == teddy_gate, "Teddy %s card must match its production predicate" % teddy_skill_id)
+	_hit_trigger_ready_gate_case_count += 1
+	var teddy_source := FileAccess.get_file_as_string(teddy_path)
+	for teddy_gate_name in ["can_trigger_cotton_throw()", "can_trigger_cotton_bomb()", "can_trigger_deadly_hug()", "can_trigger_heart_beam()"]:
+		_expect(_count_occurrences(teddy_source, teddy_gate_name) == 3, "Teddy gate must have one owner plus activation/card consumers: %s" % teddy_gate_name)
+
+	var alice_path := "res://scripts/stages/stage3/stage3_alice_boss_state.gd"
+	var alice: Object = _new_state(alice_path)
+	var alice_context := _context_for_path(alice_path)
+	alice.boss_special_gauge = Stage3AliceState.GAUGE_MAX
+	alice.mirror_cooldown = 0.0
+	alice.size_shift_cooldown = 0.0
+	alice.rabbit_cooldown = 0.0
+	alice.mirror_active = true
+	var alice_cards := _skill_map(alice_path, alice, alice_context, background)
+	_expect(not bool((alice_cards.get("size_shift", {}) as Dictionary).get("ready", true)), "Alice Size Shift must be blocked while Mirror World is active")
+	_expect(bool((alice_cards.get("size_shift", {}) as Dictionary).get("ready", false)) == bool(alice.can_trigger_size_shift()), "Alice Size Shift card must consume its production trigger predicate")
+	_hit_trigger_ready_gate_case_count += 1
+	alice.mirror_active = false
+	alice_cards = _skill_map(alice_path, alice, alice_context, background)
+	for alice_skill_id in ["mirror_world", "size_shift", "rabbit_projectile"]:
+		var alice_ready: bool = bool((alice_cards.get(alice_skill_id, {}) as Dictionary).get("ready", false))
+		var alice_gate: bool = bool(alice.call("can_trigger_%s" % alice_skill_id))
+		_expect(alice_ready == alice_gate, "Alice %s card must match its production predicate" % alice_skill_id)
+	_hit_trigger_ready_gate_case_count += 1
+	var alice_source := FileAccess.get_file_as_string(alice_path)
+	for alice_gate_name in ["can_trigger_mirror_world()", "can_trigger_size_shift()", "can_trigger_rabbit_projectile()"]:
+		_expect(_count_occurrences(alice_source, alice_gate_name) == 3, "Alice gate must have one owner plus activation/card consumers: %s" % alice_gate_name)
+
+	var akamu_path := "res://scripts/stages/stage7/stage7_akamu_state.gd"
+	var akamu: Object = _new_state(akamu_path, false)
+	var akamu_context := _context_for_path(akamu_path)
+	akamu.debug_set_gauge(100.0)
+	akamu.debug_set_clone_cooldown_remaining(0.0)
+	akamu_context["lingpet_puppet_grab_active"] = true
+	akamu.update(0.0, akamu_context, {})
+	var akamu_card: Dictionary = _skill_map(akamu_path, akamu, akamu_context, background).get("stage7_clone", {})
+	_expect(not bool(akamu_card.get("ready", true)), "Akamu Clone must be not-ready during external scripted motion")
+	_expect(not akamu.debug_start_clone_cast(akamu_context, false, false), "Akamu Clone production owner must reject the same scripted-motion conflict")
+	_hit_trigger_ready_gate_case_count += 1
+	akamu_context["lingpet_puppet_grab_active"] = false
+	akamu.update(0.0, akamu_context, {})
+	akamu_card = _skill_map(akamu_path, akamu, akamu_context, background).get("stage7_clone", {})
+	_expect(bool(akamu_card.get("ready", false)), "Akamu Clone must become ready after the shared scripted-motion conflict clears")
+	_expect(akamu.debug_start_clone_cast(akamu_context, false, false), "Akamu Clone ready state must traverse its production activation owner")
+	_hit_trigger_ready_gate_case_count += 1
 
 
 func _discover_all_producers() -> void:

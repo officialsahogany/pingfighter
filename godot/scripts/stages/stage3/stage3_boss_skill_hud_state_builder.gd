@@ -18,7 +18,8 @@ func build_context(
 	tear_shower_state: Object,
 	curse_chest_state: Object,
 	psychoball_state: Object,
-	stage_boss_variant: String = "yeonmyo"
+	stage_boss_variant: String = "yeonmyo",
+	psychoball_ready: bool = false
 ) -> Dictionary:
 	var boss_entry: Dictionary = StageBossVariantCatalog.get_entry(3, stage_boss_variant)
 	return {
@@ -50,22 +51,22 @@ func build_context(
 				Stage3CurseChestState.COOLDOWN_SEC,
 				Color(0.75, 0.24, 0.16, 1.0)
 			),
-			_build_psychoball_skill(psychoball_state),
+			_build_psychoball_skill(psychoball_state, psychoball_ready),
 		],
 	}
 
 
-func _build_psychoball_skill(psychoball_state: Object) -> Dictionary:
+func _build_psychoball_skill(psychoball_state: Object, ready: bool) -> Dictionary:
 	var active: bool = bool(psychoball_state.overdrive_active)
 	var cooldown: float = float(psychoball_state.psycho_cooldown)
 	return {
 		"id": "psycho_ball",
 		"label": "환구전이",
-		"status": "casting" if active else ("ready" if cooldown <= 0.0 else "charging"),
+		"status": "casting" if active else ("ready" if ready else "charging"),
 		"cooldown_remaining": cooldown,
 		"cooldown_total": Stage3PsychoballState.COOLDOWN_SEC,
 		"progress": 1.0 if active else _cooldown_progress(cooldown, Stage3PsychoballState.COOLDOWN_SEC),
-		"ready": not active and cooldown <= 0.0,
+		"ready": ready,
 		"cooldown_contract": "time",
 		"initial_ready_allowed": false,
 		"trigger_type": BossSkillTriggerClass.TRIGGER_ON_BOSS_HIT,
