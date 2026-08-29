@@ -18,13 +18,25 @@ static func is_allowed(
 	channel: String,
 	owner: Object = null
 ) -> bool:
-	if str(item_data.get("type", "")).strip_edges().to_lower() != "active":
-		return false
-	if not is_character_allowed(item_data, owner):
+	if not is_tower_acquisition_allowed(item_data, owner):
 		return false
 	return get_allowed_rarities(channel).has(
 		ActiveItemRaritySchema.resolve_rarity(item_data)
 	)
+
+
+static func is_tower_acquisition_allowed(
+	item_data: Dictionary,
+	owner: Object = null
+) -> bool:
+	if str(item_data.get("type", "")).strip_edges().to_lower() != "active":
+		return false
+	# Supply-drop-only payloads have their own Commando aircraft acquisition
+	# owner. No Tower acquisition surface, including the concealed shop capsule,
+	# is that owner.
+	if bool(item_data.get("supply_drop_only", false)):
+		return false
+	return is_character_allowed(item_data, owner)
 
 
 static func filter_candidates(

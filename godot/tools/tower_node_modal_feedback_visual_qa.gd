@@ -318,7 +318,7 @@ func _actions(node_kind: String, disabled_first: bool) -> Array:
 	var card_count := 4 if node_kind == "training" else 6
 	for index in range(card_count):
 		var display_name: String = (
-			["탕약", "빙결패", "화염패", "천둥패", "액티브 캡슐", "기회의 보석"][index]
+			["탕약", "폭화탄", "환광탄", "요술 회중시계", "액티브 캡슐", "기회의 보석"][index]
 			if node_kind == "shop"
 			else ["철산공", "유운보", "태허심법", "격기심법", "순환결", "비천보"][index]
 		)
@@ -327,10 +327,12 @@ func _actions(node_kind: String, disabled_first: bool) -> Array:
 		var current_text := "Lv.2"
 		var result_text := "Lv.3"
 		var cost_text := "2 무혼"
+		var cost_gold := 0
 		if node_kind == "shop":
 			current_text = "진열 중"
 			result_text = "획득"
-			cost_text = "60 금화"
+			cost_gold = int([200, 250, 300, 350, 80, 150][index])
+			cost_text = "%d 금화" % cost_gold
 		elif node_kind == "fallen_monk":
 			current_text = "Lv.0"
 			result_text = "Lv.1"
@@ -338,13 +340,19 @@ func _actions(node_kind: String, disabled_first: bool) -> Array:
 			"id": "%s:visual_%d" % [node_kind, index],
 			"label": display_name,
 			"cost_text": cost_text,
+			"cost_gold": cost_gold,
 			"enabled": not disabled_first or index != 0,
 			"disabled_reason": "insufficient_muhon" if disabled_first and index == 0 else "",
 			"unavailable_reason": "무혼 2 필요, 2 부족" if disabled_first and index == 0 else "",
 			"payload": {
 				"choice": {
-					"id": "visual_%d" % index,
+					"id": (
+						["gauge_charge", "grenade", "flare", "stopwatch", "active_item_capsule", "chance_gem"][index]
+						if node_kind == "shop"
+						else "visual_%d" % index
+					),
 					"name": display_name,
+					"price": cost_gold,
 					"description": "몸을 단련해 전투 능력과 생존 능력을 함께 높입니다.",
 					"current_level": 2,
 					"next_level": 3,

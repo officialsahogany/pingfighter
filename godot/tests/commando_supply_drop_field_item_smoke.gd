@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemCatalog := preload("res://scripts/items/active_item_catalog.gd")
 const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const CommandoSkillConfig := preload("res://scripts/characters/commando_skill_config.gd")
 const CommandoSkillState := preload("res://scripts/characters/commando_skill_state.gd")
@@ -33,6 +34,7 @@ class FakeRegistry:
 
 func _init() -> void:
 	_verify_supply_drop_routes_field_item_pickup_through_active_item_runtime()
+	_verify_default_weighted_supply_pool_keeps_doping_potion_reachable()
 	_verify_supply_drop_keeps_field_item_when_pickup_rejects()
 
 	if _failures.is_empty():
@@ -111,6 +113,76 @@ func _verify_supply_drop_routes_field_item_pickup_through_active_item_runtime() 
 	_expect(str(owner.active_item_slots[0].get("name", "")) == "grenade", "stored field item should use the catalog item data")
 	_expect(_get_array(supply_state.get_snapshot().get("collectible_drops", [])).is_empty(), "collected field item should leave no parachute boxes")
 	_expect(active_item_runtime.get_field_spawned_items().is_empty(), "direct pickup should not leave a spawned field item behind")
+
+
+func _verify_default_weighted_supply_pool_keeps_doping_potion_reachable() -> void:
+	var doping_item := ActiveItemCatalog.new().build_item_by_name("doping_potion")
+	_expect(
+		bool(doping_item.get("supply_drop_only", false))
+		and is_zero_approx(float(doping_item.get("chance", -1.0)))
+		and not ActiveItemCatalog.FIELD_SPAWN_ORDER.has("doping_potion"),
+		"doping_potion must stay cataloged as zero-field-chance supply-drop-only content"
+	)
+	var skill_config: Object = CommandoSkillConfig.new()
+	var skill_state: Object = CommandoSkillState.new()
+	var weapon_controller: Object = CommandoWeaponController.new()
+	var supply_state: Object = CommandoSupplyDropState.new()
+	var active_item_runtime: Object = ActiveItemRuntime.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new()
+	for weapon_id in RENTAL_CANDIDATES:
+		_expect(
+			bool(weapon_controller.unlock_permanent_weapon(str(weapon_id), false)),
+			"doping route fixture should remove rental candidate %s" % str(weapon_id)
+		)
+	var deps := {
+		"commando_weapon_controller": weapon_controller,
+		"active_item_runtime": active_item_runtime,
+		"owner": owner,
+		"registry": registry,
+		"commando_supply_drop_payload_count": 1,
+		"commando_supply_drop_payload_rolls": [0.999],
+		"commando_supply_drop_aircraft_arrival_delay": 0.0,
+		"commando_supply_drop_payload_delays": [1.15],
+		"current_stage": 1,
+	}
+	var activate_result: Dictionary = supply_state.update_input(
+		{"down_pressed": true, "action_pressed": true},
+		1.0,
+		500.0,
+		skill_config,
+		skill_state,
+		deps
+	)
+	_expect(bool(activate_result.get("activated", false)), "doping route fixture must activate the production supply drop")
+	var pending: Dictionary = supply_state.get_snapshot().get("pending_drop", {})
+	_expect(str(pending.get("type", "")) == "field_item", "weighted doping payload must use the field-item branch")
+	_expect(
+		str(pending.get("item_id", "")) == "doping_potion",
+		"the default weighted supply pool must select its final doping_potion entry at roll 0.999"
+	)
+
+	var resolve_result: Dictionary = supply_state.update(4.2, deps)
+	_expect(bool(resolve_result.get("drop_resolved", false)), "weighted doping payload must become a collectible")
+	var collectible := _get_first_collectible(supply_state)
+	_expect(not collectible.is_empty(), "weighted doping payload must remain in the production collectible ledger")
+	if collectible.is_empty():
+		return
+	var pickup_pos: Vector2 = collectible.get("pos", collectible.get("drop_position", Vector2.ZERO))
+	deps["commando_supply_drop_collision_context"] = {
+		"player_pos": pickup_pos - Vector2(35.0, 20.0),
+		"player_paddle_size": Vector2(70.0, 40.0),
+		"hitbox_padding": 0.0,
+	}
+	var pickup_result: Dictionary = supply_state.update(0.01, deps)
+	var picked_drop: Dictionary = pickup_result.get("picked_drop", {})
+	_expect(bool(pickup_result.get("pickup_resolved", false)), "player paddle must collect the weighted doping supply box")
+	_expect(bool(picked_drop.get("field_item_collected", false)), "weighted doping pickup must route through ActiveItemRuntime")
+	_expect(
+		owner.active_item_slots.size() == 1
+		and str(owner.active_item_slots[0].get("name", "")) == "doping_potion",
+		"weighted production supply path must leave doping_potion actually owned"
+	)
 
 
 func _verify_supply_drop_keeps_field_item_when_pickup_rejects() -> void:

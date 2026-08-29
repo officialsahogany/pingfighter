@@ -295,7 +295,7 @@ func _verify_shop_presentation_adapter() -> void:
 			"kind": "premium",
 			"price": 12,
 			"sold": false,
-			"item_name": "adapter_item",
+			"item_name": "gauge_charge",
 			"display_name": "검증 귀물",
 			"description": "상점 어댑터 검증",
 		}],

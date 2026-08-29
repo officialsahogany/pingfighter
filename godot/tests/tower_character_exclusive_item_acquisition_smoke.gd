@@ -15,6 +15,9 @@ const TowerAscentFeatureFlags := preload(
 const TowerAscentShopInventory := preload(
 	"res://scripts/tower_ascent/tower_ascent_shop_inventory.gd"
 )
+const TowerAscentShopShelfBuilder := preload(
+	"res://scripts/tower_ascent/tower_ascent_shop_shelf_builder.gd"
+)
 
 const EXPECTED_CHARACTER_EXCLUSIVE_ITEMS := {
 	"ammo_box": "soldier",
@@ -114,6 +117,15 @@ func _verify_shop_open_character_gate() -> void:
 
 	var horan := FakeOwner.new()
 	horan.selected_character_type = "soldier"
+	var horan_shelves: Dictionary = TowerAscentShopShelfBuilder.new().build_candidate_shelves(
+		registry,
+		horan
+	)
+	var horan_shelf_names := _candidate_names_from_shelves(horan_shelves)
+	_expect(
+		not horan_shelf_names.has("ammo_box") and not horan_shelf_names.has("doping_potion"),
+		"supply-drop-only items must be absent before the shop stock roll"
+	)
 	var horan_seen: Dictionary = {}
 	for open_index in range(HORAN_SHOP_OPEN_COUNT):
 		var inventory: Dictionary = inventory_builder.build_inventory(
@@ -125,8 +137,8 @@ func _verify_shop_open_character_gate() -> void:
 		_expect(bool(inventory.get("accepted", false)), "Horan shop must generate")
 		for item_name in _restricted_stock_names(inventory):
 			horan_seen[item_name] = true
-	_expect(horan_seen.has("ammo_box"), "Horan repeated shop opens must reach ammo_box")
-	_expect(horan_seen.has("doping_potion"), "Horan repeated shop opens must reach doping_potion")
+	_expect(not horan_seen.has("ammo_box"), "Horan repeated shop opens must never reach supply-only ammo_box")
+	_expect(not horan_seen.has("doping_potion"), "Horan repeated shop opens must never reach supply-only doping_potion")
 
 
 func _verify_normal_chest_candidate_gate() -> void:
@@ -150,8 +162,8 @@ func _verify_normal_chest_candidate_gate() -> void:
 		registry
 	)
 	var horan_names := _restricted_candidate_names(horan_candidates)
-	_expect(horan_names.has("ammo_box"), "Horan normal-chest candidates must retain ammo_box")
-	_expect(horan_names.has("doping_potion"), "Horan normal-chest candidates must retain doping_potion")
+	_expect(not horan_names.has("ammo_box"), "Horan normal-chest candidates must exclude supply-only ammo_box")
+	_expect(not horan_names.has("doping_potion"), "Horan normal-chest candidates must exclude supply-only doping_potion")
 
 
 func _restricted_stock_names(inventory: Dictionary) -> Array[String]:
@@ -166,6 +178,21 @@ func _restricted_candidate_names(candidates: Array) -> Array[String]:
 		var item_name := str((candidate_value as Dictionary).get("item_name", (candidate_value as Dictionary).get("name", "")))
 		if EXPECTED_CHARACTER_EXCLUSIVE_ITEMS.has(item_name):
 			result.append(item_name)
+	return result
+
+
+func _candidate_names_from_shelves(shelves: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	for shelf_name in ["regular", "premium"]:
+		var candidates: Variant = shelves.get(shelf_name, [])
+		if not (candidates is Array):
+			continue
+		for candidate_value in candidates as Array:
+			if not (candidate_value is Dictionary):
+				continue
+			var item_name := str((candidate_value as Dictionary).get("name", ""))
+			if not item_name.is_empty() and not result.has(item_name):
+				result.append(item_name)
 	return result
 
 

@@ -20,7 +20,7 @@ const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
 
-const INVENTORY_VERSION := "tower_shop_inventory_v3"
+const INVENTORY_VERSION := "tower_shop_inventory_v4"
 const REGULAR_STOCK_COUNT := 5
 const PREMIUM_STOCK_COUNT := 1
 
@@ -41,6 +41,20 @@ func build_inventory(
 	var regular_candidates := _dictionary_array(shelves.get("regular", []))
 	var premium_candidates := _dictionary_array(shelves.get("premium", []))
 	var capsule_candidates := _build_capsule_candidates(owner, registry)
+	var missing_item_names := _collect_missing_active_item_prices(
+		regular_candidates,
+		premium_candidates,
+		capsule_candidates
+	)
+	if not missing_item_names.is_empty():
+		return {
+			"accepted": false,
+			"reason": "missing_active_item_price",
+			"inventory_version": INVENTORY_VERSION,
+			"node_id": normalized_node_id,
+			"missing_item_names": missing_item_names,
+			"stock": [],
+		}
 	if regular_candidates.size() < REGULAR_STOCK_COUNT:
 		return {"accepted": false, "reason": "insufficient_regular_candidates", "stock": []}
 	if premium_candidates.size() < PREMIUM_STOCK_COUNT:
@@ -56,15 +70,13 @@ func build_inventory(
 		stock.append(_item_stock(
 			"regular_%d" % (index + 1),
 			"regular",
-			regular,
-			TowerAscentTuning.TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE
+			regular
 		))
 	var premium := _take_candidate(premium_candidates, rng)
 	stock.append(_item_stock(
 		"premium_1",
 		"premium",
-		premium,
-		_premium_price(premium)
+		premium
 	))
 	var capsule := _pick_weighted(capsule_candidates, rng)
 	var capsule_stock := {
@@ -109,7 +121,10 @@ func _build_capsule_candidates(owner: Object, registry: Object) -> Array[Diction
 		var item_data: Dictionary = _catalog.build_item_by_name(item_name)
 		if item_data.is_empty() or str(item_data.get("type", "")) != "active":
 			continue
-		if not TowerAscentActiveItemAcquisitionPolicy.is_character_allowed(item_data, owner):
+		if not TowerAscentActiveItemAcquisitionPolicy.is_tower_acquisition_allowed(
+			item_data,
+			owner
+		):
 			continue
 		if not LingpetItemOfferPolicy.can_offer_item(item_name, owner, registry):
 			continue
@@ -143,16 +158,16 @@ func _pick_weighted(candidates: Array[Dictionary], rng: RandomNumberGenerator) -
 func _item_stock(
 	stock_id: String,
 	kind: String,
-	item_data: Dictionary,
-	price: int
+	item_data: Dictionary
 ) -> Dictionary:
+	var item_name := str(item_data.get("name", "")).strip_edges()
 	var result := {
 		"stock_id": stock_id,
 		"kind": kind,
-		"item_name": str(item_data.get("name", "")),
+		"item_name": item_name,
 		"display_name": str(item_data.get("display_name", item_data.get("name", ""))),
 		"rarity": ActiveItemRaritySchema.resolve_rarity(item_data),
-		"price": maxi(0, price),
+		"price": TowerAscentTuning.get_shop_active_item_gold_price(item_name),
 		"sold": false,
 	}
 	result.merge(_item_card_metadata(item_data), true)
@@ -169,10 +184,79 @@ func _item_card_metadata(item_data: Dictionary) -> Dictionary:
 	}
 
 
-func _premium_price(item_data: Dictionary) -> int:
-	if ActiveItemRaritySchema.resolve_rarity(item_data) == ActiveItemRaritySchema.RARITY_LEGENDARY:
-		return TowerAscentTuning.TEMP_PHASE_C_SHOP_LEGENDARY_ACTIVE_PRICE
-	return TowerAscentTuning.TEMP_PHASE_C_SHOP_MYTHIC_ACTIVE_PRICE
+func _collect_missing_active_item_prices(
+	regular_candidates: Array[Dictionary],
+	premium_candidates: Array[Dictionary],
+	capsule_candidates: Array[Dictionary]
+) -> Array[String]:
+	var missing: Array[String] = []
+	for candidates in [regular_candidates, premium_candidates, capsule_candidates]:
+		for candidate in candidates:
+			var item_name := str(candidate.get("name", "")).strip_edges()
+			if TowerAscentTuning.get_shop_active_item_gold_price(item_name) >= 0:
+				continue
+			if not missing.has(item_name):
+				missing.append(item_name)
+	missing.sort()
+	return missing
+
+
+func normalize_existing_inventory_prices(inventory: Dictionary) -> Dictionary:
+	if not bool(inventory.get("accepted", true)):
+		return {
+			"accepted": false,
+			"reason": str(inventory.get("reason", "shop_inventory_unavailable")),
+			"missing_item_names": _string_array(inventory.get("missing_item_names", [])),
+		}
+	var missing_item_names: Array[String] = []
+	var stock_values: Variant = inventory.get("stock", [])
+	if not (stock_values is Array):
+		return {
+			"accepted": false,
+			"reason": "invalid_shop_stock",
+			"missing_item_names": [],
+		}
+	var stock_array := stock_values as Array
+	for stock_value in stock_array:
+		if not (stock_value is Dictionary):
+			continue
+		var stock := stock_value as Dictionary
+		var stock_kind := str(stock.get("kind", ""))
+		if stock_kind == "chance_gem":
+			continue
+		var item_name := str(stock.get("item_name", "")).strip_edges()
+		if TowerAscentTuning.get_shop_active_item_gold_price(item_name) < 0:
+			if not missing_item_names.has(item_name):
+				missing_item_names.append(item_name)
+	if not missing_item_names.is_empty():
+		missing_item_names.sort()
+		return {
+			"accepted": false,
+			"reason": "missing_active_item_price",
+			"missing_item_names": missing_item_names,
+		}
+	for stock_index in range(stock_array.size()):
+		var stock_value: Variant = stock_array[stock_index]
+		if not (stock_value is Dictionary):
+			continue
+		var stock := stock_value as Dictionary
+		match str(stock.get("kind", "")):
+			"capsule":
+				stock["price"] = TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE
+			"chance_gem":
+				stock["price"] = TowerAscentTuning.TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE
+			_:
+				stock["price"] = TowerAscentTuning.get_shop_active_item_gold_price(
+					str(stock.get("item_name", ""))
+				)
+		stock_array[stock_index] = stock
+	inventory["stock"] = stock_array
+	inventory["inventory_version"] = INVENTORY_VERSION
+	return {
+		"accepted": true,
+		"reason": "canonical_prices",
+		"missing_item_names": [],
+	}
 
 
 func _dictionary_array(value: Variant) -> Array[Dictionary]:
@@ -181,4 +265,12 @@ func _dictionary_array(value: Variant) -> Array[Dictionary]:
 		for entry in value as Array:
 			if entry is Dictionary:
 				result.append((entry as Dictionary).duplicate(true))
+	return result
+
+
+func _string_array(value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if value is Array:
+		for entry in value as Array:
+			result.append(str(entry))
 	return result

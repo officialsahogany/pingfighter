@@ -194,12 +194,38 @@ const TEMP_START_CARD_FAILSAFE_TIMEOUT_SEC := 60.0
 const TEMP_START_CARD_COUNTDOWN_WINDOW_SEC := 10.0
 const TEMP_START_CARD_COLD_BUILD_BUDGET_MS := 8.0
 
-# TEMP: Phase C validates only the relative price skeleton fixed by the goal
-# document. Product balance may replace these values without moving payment,
-# stock, or snapshot ownership out of the tower run.
-const TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE := 60
-const TEMP_PHASE_C_SHOP_LEGENDARY_ACTIVE_PRICE := 180
-const TEMP_PHASE_C_SHOP_MYTHIC_ACTIVE_PRICE := 300
+# Feedback 12 Z18: Y2 active-item stock has one authoritative per-item price
+# table. Shop generation and restored-stock migration may only look up this
+# table; rarity and field/chest weights are never pricing inputs.
+const SHOP_ACTIVE_ITEM_GOLD_PRICE_BY_ID := {
+	"gauge_charge": 200,
+	"life_elixir": 400,
+	"vitamin_pill": 300,
+	"lingpet_spirit_water": 500,
+	"lingpet_egg": 700,
+	"aipill": 300,
+	"pandora_box": 800,
+	"mystic_dice": 500,
+	"grenade": 250,
+	"flare": 300,
+	"tear_gas": 200,
+	"dynamite": 400,
+	"molotov": 300,
+	"stopwatch": 350,
+	"magnet_field": 300,
+	"long_boost": 250,
+	"regeneration_potion": 350,
+	"holy_barrier": 400,
+	"dash_boost": 300,
+	"wall": 200,
+	"trampoline": 300,
+	"campfire": 150,
+	"boomerang": 250,
+	"banana": 300,
+	"soap": 250,
+	"spider_mine": 300,
+	"elixir_of_mastery": 1500,
+}
 const TEMP_PHASE_C_SHOP_CAPSULE_PRICE := 80
 const TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE := 150
 const TEMP_PHASE_C_TRAINING_STAT_BASE_COST := 1
@@ -245,3 +271,10 @@ const TEMP_BOSS_STANDIN_BY_SLOT := {
 # Canonical §3.5 parity value. League scaling remains a later tuning input;
 # the base opportunity roll is 10% and is resolved once during map generation.
 const NORMAL_BOSS_ENRAGED_CHANCE := 0.10
+
+
+static func get_shop_active_item_gold_price(item_id: String) -> int:
+	var normalized := item_id.strip_edges()
+	if not SHOP_ACTIVE_ITEM_GOLD_PRICE_BY_ID.has(normalized):
+		return -1
+	return int(SHOP_ACTIVE_ITEM_GOLD_PRICE_BY_ID[normalized])

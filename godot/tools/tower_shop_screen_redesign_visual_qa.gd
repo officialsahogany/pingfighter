@@ -10,6 +10,9 @@ const TowerAscentFlowRenderer := preload(
 const TowerAscentNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 const VIEW_SIZE := Vector2i(1456, 1086)
 const OUTPUT_DIR := "res://.godot/codex_captures/tower_shop_screen_redesign"
@@ -20,7 +23,7 @@ const SHOP_BACKGROUND_PATH := (
 const PRODUCT_ITEM_NAMES := [
 	"gauge_charge",
 	"life_elixir",
-	"ammo_box",
+	"mystic_dice",
 	"wall",
 	"boomerang",
 	"elixir_of_mastery",
@@ -175,7 +178,9 @@ func _build_actions() -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	for index in range(PRODUCT_ITEM_NAMES.size()):
 		var item_data: Dictionary = catalog.build_item_by_name(PRODUCT_ITEM_NAMES[index])
-		var price := 300 if index == PRODUCT_ITEM_NAMES.size() - 1 else 60
+		var price := TowerAscentTuning.get_shop_active_item_gold_price(
+			str(item_data.get("name", ""))
+		)
 		actions.append({
 			"id": "shop_purchase:visual-%d" % index,
 			"label": str(item_data.get("display_name", item_data.get("name", ""))),

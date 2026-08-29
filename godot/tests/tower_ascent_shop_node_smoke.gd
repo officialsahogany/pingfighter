@@ -1,8 +1,5 @@
 extends SceneTree
 
-const ActiveItemRaritySchema := preload(
-	"res://scripts/items/active_item_rarity_schema.gd"
-)
 const LingpetItemOfferPolicy := preload(
 	"res://scripts/lingpet/lingpet_item_offer_policy.gd"
 )
@@ -23,6 +20,9 @@ const TowerAscentNodeActionTransaction := preload(
 )
 const TowerAscentNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
+const TowerAscentNodeModalLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
 )
 const TowerAscentRunState := preload(
 	"res://scripts/tower_ascent/tower_ascent_run_state.gd"
@@ -144,9 +144,29 @@ class FakeLingpetOfferRuntime:
 		return allow_spirit_water
 
 
+class MissingPriceShelfBuilder:
+	extends RefCounted
+
+	var delegate := TowerAscentShopShelfBuilder.new()
+
+	func build_candidate_shelves(registry: Object = null, owner: Object = null) -> Dictionary:
+		var shelves: Dictionary = delegate.build_candidate_shelves(registry, owner)
+		var regular: Array = (shelves.get("regular", []) as Array).duplicate(true)
+		regular.append({
+			"name": "unpriced_modal_probe",
+			"display_name": "unpriced modal probe",
+			"type": "active",
+			"rarity": "common",
+			"chance": 1.0,
+		})
+		shelves["regular"] = regular
+		return shelves
+
+
 func _init() -> void:
 	_verify_candidate_shelves_exclude_guardian_products_and_obey_offer_gate()
 	_verify_inventory_contract_purchase_and_snapshot()
+	_verify_unpriced_inventory_remains_closed_through_modal_snapshot_restore()
 	_verify_insufficient_funds_and_capacity_fail_without_transaction()
 	_verify_chance_gem_cap_blocks_payment()
 	_verify_transaction_idempotency_before_effect()
@@ -219,12 +239,19 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	for stock_value in stock:
 		var entry := stock_value as Dictionary
 		if str(entry.get("kind", "")) == "regular":
-			_expect(int(entry.get("price", -1)) == TowerAscentTuning.TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE, "regular active price must use the Phase C tuning constant")
+			_expect(
+				int(entry.get("price", -1))
+				== TowerAscentTuning.get_shop_active_item_gold_price(str(entry.get("item_name", ""))),
+				"regular active price must use the per-item Z18 table"
+			)
 			_expect(TowerAscentActiveItemAcquisitionPolicy.get_allowed_rarities(TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_REGULAR).has(str(entry.get("rarity", ""))), "regular stock must come from the Phase A regular shelf")
 		elif str(entry.get("kind", "")) == "premium":
 			_expect(TowerAscentActiveItemAcquisitionPolicy.get_allowed_rarities(TowerAscentActiveItemAcquisitionPolicy.CHANNEL_SHOP_PREMIUM).has(str(entry.get("rarity", ""))), "premium stock must come from the Phase A premium shelf")
-			var expected_price := TowerAscentTuning.TEMP_PHASE_C_SHOP_LEGENDARY_ACTIVE_PRICE if str(entry.get("rarity", "")) == ActiveItemRaritySchema.RARITY_LEGENDARY else TowerAscentTuning.TEMP_PHASE_C_SHOP_MYTHIC_ACTIVE_PRICE
-			_expect(int(entry.get("price", -1)) == expected_price, "premium price must follow its canonical rarity")
+			_expect(
+				int(entry.get("price", -1))
+				== TowerAscentTuning.get_shop_active_item_gold_price(str(entry.get("item_name", ""))),
+				"premium price must use the same per-item Z18 table instead of rarity"
+			)
 		elif str(entry.get("kind", "")) == "capsule":
 			_expect(int(entry.get("price", -1)) == TowerAscentTuning.TEMP_PHASE_C_SHOP_CAPSULE_PRICE, "capsule price must use the Phase C tuning constant")
 		elif str(entry.get("kind", "")) == "chance_gem":
@@ -267,9 +294,10 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 
 	var regular_stock := _find_stock_by_kind(flow.get_generated_shop_inventory()[0].get("stock", []), "regular")
 	var stock_id := str(regular_stock.get("stock_id", ""))
+	var regular_price := int(regular_stock.get("price", -1))
 	var purchase_result := flow.execute_node_action("shop_purchase:%s" % stock_id, "shop-contract:purchase:regular")
 	_expect(bool(purchase_result.get("accepted", false)) and bool(purchase_result.get("applied", false)), "affordable regular stock must purchase atomically")
-	_expect(int(flow.get_run_state_snapshot().get("gold", -1)) == 1000 - TowerAscentTuning.TEMP_PHASE_C_SHOP_COMMON_ACTIVE_PRICE, "successful purchase must debit run-state gold immediately")
+	_expect(int(flow.get_run_state_snapshot().get("gold", -1)) == 1000 - regular_price, "successful purchase must debit the exact item-table price immediately")
 	_expect(active_runtime.grant_calls == 1 and owner.active_item_slots.size() == 1, "purchase must call the existing active-item grant path exactly once")
 	var purchased_model := flow.get_node_modal_view_model()
 	var purchased_owned: Array = purchased_model.get("shop_owned_items", [])
@@ -288,6 +316,89 @@ func _verify_inventory_contract_purchase_and_snapshot() -> void:
 	_finish_flow(restored, null)
 
 
+func _verify_unpriced_inventory_remains_closed_through_modal_snapshot_restore() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	var owner := FakeOwner.new()
+	var registry := _build_registry(FakeActiveItemRuntime.new())
+	var flow := TowerAscentFlowOwner.new()
+	_expect(flow.begin_vertical_slice(owner, Callable(), {
+		"run_id": "shop-unpriced-closed",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "shop",
+		"run_state": {"gold": 1000, "muhon": 0, "chance_gems": 0},
+		"registry": registry,
+	}), "unpriced modal fixture must enter through the real Tower flow")
+	var inventory_builder := TowerAscentShopInventory.new()
+	inventory_builder.set("_shelf_builder", MissingPriceShelfBuilder.new())
+	flow.set("_shop_inventory_builder", inventory_builder)
+	_expect(
+		TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "shop", owner),
+		"unpriced modal fixture must reach its shop through route serve and map arrival"
+	)
+	var expected_status := TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
+	)
+	var model := flow.get_node_modal_view_model()
+	var actions: Array = model.get("actions", [])
+	_expect(
+		actions.size() == 1
+		and str((actions[0] as Dictionary).get("id", "")) == "end_work",
+		"a fail-closed shop modal must expose only its exit action"
+	)
+	_expect(
+		str(model.get("status_text", "")) == expected_status,
+		"a fail-closed shop modal must publish the localized inventory-unavailable status"
+	)
+	var closed_inventories := flow.get_generated_shop_inventory()
+	var closed_inventory: Dictionary = (
+		closed_inventories[0]
+		if closed_inventories.size() == 1
+		else {}
+	)
+	_expect(
+		not bool(closed_inventory.get("accepted", true))
+		and str(closed_inventory.get("reason", "")) == "missing_active_item_price"
+		and (closed_inventory.get("missing_item_names", []) as Array) == ["unpriced_modal_probe"]
+		and (closed_inventory.get("stock", []) as Array).is_empty(),
+		"the real modal path must persist one deterministic closed inventory record"
+	)
+
+	var snapshot := flow.export_persistable_snapshot()
+	_expect(not snapshot.is_empty(), "the fail-closed shop must remain a persistable stable boundary")
+	_expect(
+		var_to_bytes(snapshot.get("generated_shop_inventory", []))
+		== var_to_bytes(closed_inventories),
+		"the closed inventory record must be present byte-for-byte in the run snapshot"
+	)
+	var restored_owner := FakeOwner.new()
+	var restored_registry := _build_registry(FakeActiveItemRuntime.new())
+	var restored := TowerAscentFlowOwner.new()
+	_expect(
+		restored.restore_snapshot(
+			snapshot,
+			Callable(),
+			restored_owner,
+			restored_registry
+		),
+		"a stable fail-closed shop snapshot must restore"
+	)
+	var restored_model := restored.get_node_modal_view_model()
+	var restored_actions: Array = restored_model.get("actions", [])
+	_expect(
+		restored_actions.size() == 1
+		and str((restored_actions[0] as Dictionary).get("id", "")) == "end_work"
+		and str(restored_model.get("status_text", "")) == expected_status,
+		"restoring a fail-closed shop must keep purchases absent and its unavailable status visible"
+	)
+	_expect(
+		var_to_bytes(restored.get_generated_shop_inventory())
+		== var_to_bytes(closed_inventories),
+		"restoring a fail-closed shop must not regenerate or erase its reported missing ids"
+	)
+	_finish_flow(flow, owner)
+	_finish_flow(restored, restored_owner)
+
+
 func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var active_runtime := FakeActiveItemRuntime.new()
@@ -303,9 +414,14 @@ func _verify_insufficient_funds_and_capacity_fail_without_transaction() -> void:
 	}), "insufficient-funds fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(poor_flow, "shop", owner), "insufficient-funds fixture must arrive at the shop")
 	var poor_stock := _find_stock_by_kind(poor_flow.get_generated_shop_inventory()[0].get("stock", []), "regular")
+	var poor_price := int(poor_stock.get("price", -1))
 	var poor_action := _find_action(poor_flow.get_node_modal_view_model().get("actions", []), "shop_purchase:%s" % str(poor_stock.get("stock_id", "")))
 	_expect(not bool(poor_action.get("enabled", true)), "insufficient funds must disable the purchase button")
-	_expect(str(poor_action.get("unavailable_reason", "")).contains("60") and str(poor_action.get("unavailable_reason", "")).contains("1 부족"), "disabled purchase must show required gold and exact shortfall")
+	_expect(
+		str(poor_action.get("unavailable_reason", "")).contains(str(poor_price))
+		and str(poor_action.get("unavailable_reason", "")).contains("%d 부족" % (poor_price - 59)),
+		"disabled purchase must show the item-table price and exact shortfall"
+	)
 	var poor_result := poor_flow.execute_node_action(str(poor_action.get("id", "")), "shop-poor:attempt")
 	_expect(not bool(poor_result.get("accepted", true)), "insufficient funds must reject the transaction")
 	_expect(int(poor_flow.get_run_state_snapshot().get("gold", -1)) == 59, "insufficient funds must not partially debit gold")

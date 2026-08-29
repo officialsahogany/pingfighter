@@ -497,7 +497,15 @@ func _shop_owned_slot_choice(item_data: Dictionary, slot_index: int) -> Dictiona
 	}
 
 func _execute_shop_purchase(stock_id: String, requested_resolution_id: String = "") -> Dictionary:
-	var stock := _find_shop_stock(stock_id)
+	var inventory := _get_or_create_shop_inventory()
+	if not inventory.is_empty() and not bool(inventory.get("accepted", false)):
+		return {
+			"accepted": false,
+			"applied": false,
+			"reason": str(inventory.get("reason", "shop_inventory_unavailable")),
+			"missing_item_names": _string_array(inventory.get("missing_item_names", [])),
+		}
+	var stock := _find_shop_stock_in_inventory(inventory, stock_id)
 	if stock.is_empty():
 		return {"accepted": false, "reason": "unknown_shop_stock"}
 	if bool(stock.get("sold", false)):
@@ -584,9 +592,26 @@ func _execute_shop_purchase(stock_id: String, requested_resolution_id: String = 
 	return transaction_result
 
 func _get_or_create_shop_inventory() -> Dictionary:
-	var existing := _get_shop_inventory_entry()
-	if not existing.is_empty():
-		return existing
+	var existing_index := _get_shop_inventory_entry_index()
+	if existing_index >= 0:
+		var existing := _generated_shop_inventory[existing_index].duplicate(true)
+		var price_validation: Dictionary = _shop_inventory_builder.normalize_existing_inventory_prices(
+			existing
+		)
+		if not bool(price_validation.get("accepted", false)):
+			existing["accepted"] = false
+			existing["reason"] = str(price_validation.get(
+				"reason",
+				"shop_inventory_unavailable"
+			))
+			existing["missing_item_names"] = _string_array(
+				price_validation.get("missing_item_names", [])
+			)
+			existing["stock"] = []
+			_generated_shop_inventory[existing_index] = existing
+			return _generated_shop_inventory[existing_index]
+		_generated_shop_inventory[existing_index] = existing
+		return _generated_shop_inventory[existing_index]
 	var generated: Dictionary = _shop_inventory_builder.build_inventory(
 		_current_node_id,
 		_map_seed,
@@ -594,18 +619,27 @@ func _get_or_create_shop_inventory() -> Dictionary:
 		_active_registry
 	)
 	if not bool(generated.get("accepted", false)):
+		if str(generated.get("reason", "")) == "missing_active_item_price":
+			_generated_shop_inventory.append(generated)
+			return _generated_shop_inventory.back()
 		return {}
 	_generated_shop_inventory.append(generated)
 	return _generated_shop_inventory.back()
 
 func _get_shop_inventory_entry() -> Dictionary:
-	for inventory in _generated_shop_inventory:
-		if str(inventory.get("node_id", "")) == _current_node_id:
-			return inventory
+	var entry_index := _get_shop_inventory_entry_index()
+	if entry_index >= 0:
+		return _generated_shop_inventory[entry_index]
 	return {}
 
-func _find_shop_stock(stock_id: String) -> Dictionary:
-	var inventory := _get_or_create_shop_inventory()
+
+func _get_shop_inventory_entry_index() -> int:
+	for inventory_index in range(_generated_shop_inventory.size()):
+		if str(_generated_shop_inventory[inventory_index].get("node_id", "")) == _current_node_id:
+			return inventory_index
+	return -1
+
+func _find_shop_stock_in_inventory(inventory: Dictionary, stock_id: String) -> Dictionary:
 	for stock_value in inventory.get("stock", []):
 		if stock_value is Dictionary and str((stock_value as Dictionary).get("stock_id", "")) == stock_id:
 			return stock_value as Dictionary

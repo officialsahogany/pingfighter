@@ -212,7 +212,11 @@ func _open_node_modal() -> void:
 	_configure_training_stage_presentation()
 	_configure_guardian_spring_presentation()
 	_prepare_training_stats_panel()
-	if _node_modal_kind == "shop" and _get_shop_inventory_entry().is_empty():
+	var shop_inventory := _get_shop_inventory_entry()
+	if _node_modal_kind == "shop" and (
+		shop_inventory.is_empty()
+		or not bool(shop_inventory.get("accepted", false))
+	):
 		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SHOP_INVENTORY_UNAVAILABLE
 		))
