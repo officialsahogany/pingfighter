@@ -3,6 +3,7 @@ extends RefCounted
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const BattleSceneConfig := preload("res://scripts/core/battle_scene_config.gd")
 const PlayerCharacterRuntime := preload("res://scripts/characters/player_character_runtime.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 const WIDTH: float = 760.0
 const PLAY_LEFT: float = 0.0
@@ -89,7 +90,7 @@ func _build_base_context(owner: Object, registry: Object, current_stage: int, ch
 	var round_state: Object = _get_instance(registry, "round_flow_state")
 	var power_state: Object = _get_instance(registry, "smasher_power_smash_state") if _is_smasher(character_type) else null
 	var ai_mode: String = str(_get_owner_value(owner, "ai_mode", "champion"))
-	var boss_movement_profile: Dictionary = _build_boss_movement_profile(current_stage, ai_mode)
+	var boss_movement_profile: Dictionary = _build_boss_movement_profile(owner, current_stage, ai_mode)
 	var boss_dash_profile: Dictionary = _build_boss_dash_profile(current_stage)
 	var boss_mistake_profile: Dictionary = _build_boss_mistake_profile(current_stage, ai_mode)
 	return {
@@ -314,17 +315,26 @@ func _get_junior_stage_boss_mistake_chance(current_stage: int) -> float:
 	)
 
 
-func _build_boss_movement_profile(current_stage: int, ai_mode: String) -> Dictionary:
+func _build_boss_movement_profile(owner: Object, current_stage: int, ai_mode: String) -> Dictionary:
 	var stage_multiplier: float = _get_boss_stage_speed_multiplier(current_stage)
 	var league_multiplier: float = _get_boss_league_movement_multiplier(ai_mode)
+	var variant_multiplier: float = _get_boss_variant_movement_multiplier(owner, current_stage)
 	return {
 		"boss_stage_speed_multiplier": stage_multiplier,
 		"boss_league_movement_multiplier": league_multiplier,
-		"boss_max_speed": BASE_BOSS_MAX_SPEED * stage_multiplier * league_multiplier,
-		"boss_movement_accel": BASE_BOSS_ACCEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
-		"boss_movement_decel": BASE_BOSS_DECEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
-		"boss_movement_max_speed": BASE_BOSS_MAX_SPEED * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier,
+		"boss_max_speed": BASE_BOSS_MAX_SPEED * stage_multiplier * league_multiplier * variant_multiplier,
+		"boss_movement_accel": BASE_BOSS_ACCEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier * variant_multiplier,
+		"boss_movement_decel": BASE_BOSS_DECEL * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier * variant_multiplier,
+		"boss_movement_max_speed": BASE_BOSS_MAX_SPEED * CHAMPION_BOSS_SPEED_MULTIPLIER * stage_multiplier * league_multiplier * variant_multiplier,
 	}
+
+
+func _get_boss_variant_movement_multiplier(owner: Object, current_stage: int) -> float:
+	var fallback_variant: String = StageBossVariantCatalog.get_default_variant(current_stage)
+	var owner_key := "stage1_boss_variant" if current_stage == 1 else "stage_boss_variant"
+	var active_variant: Variant = _get_owner_value(owner, owner_key, fallback_variant)
+	var entry: Dictionary = StageBossVariantCatalog.get_entry(current_stage, active_variant)
+	return maxf(0.0, float(entry.get("boss_movement_scale", 1.0)))
 
 
 func _get_boss_league_movement_multiplier(ai_mode: String) -> float:

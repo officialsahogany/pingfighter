@@ -2,6 +2,8 @@ extends SceneTree
 
 const BossAiContextBuilder := preload("res://scripts/core/battle_update_boss_ai_context_builder.gd")
 const BattleUpdateActorContext := preload("res://scripts/core/battle_update_actor_context.gd")
+const BossAiState := preload("res://scripts/ai/boss_ai_state.gd")
+const StageBossVariantCatalog := preload("res://scripts/stages/common/stage_boss_variant_catalog.gd")
 
 var _failures: Array[String] = []
 
@@ -11,6 +13,8 @@ class FakeOwner:
 
 	var current_stage := 2
 	var ai_mode := "champion"
+	var stage1_boss_variant := "dalji"
+	var stage_boss_variant := "cheongringwi"
 	var ball_active := true
 	var player_pos := Vector2(200.0, 690.0)
 	var ball_pos := Vector2(320.0, 410.0)
@@ -152,6 +156,7 @@ func _init() -> void:
 	registry.requested_keys.clear()
 	var facade_context: Dictionary = BattleUpdateActorContext.new().build_boss_ai_context(owner, registry)
 	_verify_context(facade_context, "actor context facade")
+	_verify_variant_movement_parity(builder, owner, registry)
 
 	registry.instances.erase("stage2_boss_skill_state")
 	var stage_fallback_context: Dictionary = builder.build_context(owner, registry)
@@ -254,6 +259,91 @@ func _init() -> void:
 		for failure in _failures:
 			push_error(failure)
 		quit(1)
+
+
+func _verify_variant_movement_parity(builder: Object, owner: FakeOwner, registry: FakeRegistry) -> void:
+	# AR-3 source parity seal — config/stage_configs.py:162-225 (legacy authority).
+	# | stage | original variants                  | accel/decel/max | instant_stop | Godot route |
+	# | 1     | Dalji/Gaksi/Podo                   | 1.00            | 1.00         | catalogued  |
+	# | 2     | Cheongringwi/Molewang              | 1.00            | 1.00         | catalogued  |
+	# | 2     | Arachne                            | 0.70            | 0.70         | catalogued  |
+	# | 3     | Yeonmyo/Teddy Bear/Alice           | 1.00            | 1.00         | catalogued  |
+	# | 4     | Ponk                               | 1.00            | 1.00         | base only   |
+	# | 4     | Inwang                             | 0.80            | 1.20         | not ported  |
+	# GRT-053 call path: this builder emits boss_movement_accel/decel/max_speed,
+	# BossAiState.update passes them to BossAiTurnInertiaResolver.update_velocity,
+	# and the returned velocity is integrated into boss_pos. boss_max_speed is the
+	# sibling key consumed by dash reach and speed-defense initial-velocity gates.
+	var unchanged_variants := [
+		[1, "dalji"],
+		[1, "gaksi"],
+		[1, "podo"],
+		[2, "cheongringwi"],
+		[2, "molewang"],
+		[3, "yeonmyo"],
+		[3, "teddy_bear"],
+		[3, "alice"],
+	]
+	for variant_case in unchanged_variants:
+		var stage_id: int = int(variant_case[0])
+		var variant_id: String = str(variant_case[1])
+		var entry: Dictionary = StageBossVariantCatalog.get_entry(stage_id, variant_id)
+		_expect(
+			is_equal_approx(float(entry.get("boss_movement_scale", 1.0)), 1.0),
+			"%s should keep the original 1.0 boss movement scale" % variant_id
+		)
+
+	owner.current_stage = 2
+	owner.ai_mode = "champion"
+	owner.stage_boss_variant = "cheongringwi"
+	var default_context: Dictionary = builder.build_context(owner, registry)
+	owner.stage_boss_variant = "arachne"
+	var arachne_context: Dictionary = builder.build_context(owner, registry)
+
+	var arachne_entry: Dictionary = StageBossVariantCatalog.get_entry(2, "arachne")
+	_expect(
+		is_equal_approx(float(arachne_entry.get("boss_movement_scale", 1.0)), 0.70),
+		"Arachne catalog entry should restore the original 0.70 movement scale"
+	)
+	for movement_key in ["boss_movement_accel", "boss_movement_decel", "boss_movement_max_speed"]:
+		_expect(
+			is_equal_approx(
+				float(arachne_context.get(movement_key, 0.0)),
+				float(default_context.get(movement_key, 0.0)) * 0.70
+			),
+			"Arachne %s should be 0.70x the default Stage 2 profile" % movement_key
+		)
+	_expect(
+		is_equal_approx(
+			float(arachne_context.get("boss_max_speed", 0.0)),
+			float(default_context.get("boss_max_speed", 0.0)) * 0.70
+		),
+		"Arachne boss_max_speed compatibility key should use the same 0.70 scale"
+	)
+
+	var default_step_context := default_context.duplicate(true)
+	var arachne_step_context := arachne_context.duplicate(true)
+	for movement_context in [default_step_context, arachne_step_context]:
+		movement_context["boss_dash_enabled"] = false
+		movement_context["boss_mistake_chance"] = 0.0
+		movement_context["ball_active"] = false
+		movement_context["waiting_for_serve"] = false
+		movement_context["player_serves"] = true
+	var boss_pos := Vector2(100.0, 25.0)
+	var default_step: Dictionary = BossAiState.new().update(1.0 / 60.0, boss_pos, 0.0, default_step_context)
+	var arachne_step: Dictionary = BossAiState.new().update(1.0 / 60.0, boss_pos, 0.0, arachne_step_context)
+	var default_step_velocity: float = float(default_step.get("boss_vel", 0.0))
+	var arachne_step_velocity: float = float(arachne_step.get("boss_vel", 0.0))
+	_expect(default_step_velocity > 0.0, "default Stage 2 production movement step should advance")
+	_expect(
+		is_equal_approx(arachne_step_velocity, default_step_velocity * 0.70),
+		"Arachne production movement step should consume the 0.70-scaled profile"
+	)
+
+	owner.current_stage = 2
+	owner.ai_mode = "champion"
+	owner.stage1_boss_variant = "dalji"
+	owner.stage_boss_variant = "cheongringwi"
 
 
 func _verify_context(context: Dictionary, source: String) -> void:

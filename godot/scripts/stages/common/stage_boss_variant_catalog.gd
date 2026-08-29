@@ -42,6 +42,7 @@ const VARIANTS := {
 		"display_name": "거미각시",
 		"codex_key": "boss.arachne",
 		"boss_paddle_scale": 1.30,
+		"boss_movement_scale": 0.70,
 		"ported": true,
 	},
 	"yeonmyo": {
