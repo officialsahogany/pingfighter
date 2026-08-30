@@ -36,8 +36,12 @@ func _verify_epsilon_snap_and_resummon_gate() -> void:
 	state.set_pool_for_tests(0.0005, 40.0)
 	_expect_float(state.get_pool_current(), 0.0, "near-zero duration should snap exactly to zero")
 	_expect(state.is_resummon_locked(), "zero duration should lock resummon")
-	state.advance_pool(31.0, false)
-	_expect(state.get_pool_current() > LingpetDurationState.RESUMMON_THRESHOLD, "stowed recovery should cross the ten-second threshold")
+	state.advance_pool(40.0, false)
+	_expect(
+		state.get_pool_current()
+		>= state.get_pool_max() * LingpetDurationState.RESUMMON_THRESHOLD_RATIO,
+		"stowed recovery should cross the 30% resummon threshold"
+	)
 	_expect(not state.is_resummon_locked(), "crossing the threshold should unlock resummon")
 	state.set_pool_for_tests(39.9995, 40.0)
 	_expect_float(state.get_pool_current(), 40.0, "near-full duration should snap exactly to maximum")
