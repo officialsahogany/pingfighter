@@ -16,6 +16,7 @@ const SEVERE_LOD_ACTIVE_THRESHOLD := 0.66
 const LOD_GLOW_SEGMENTS := 10
 const LOD_PARTICLE_STRIDE := 2
 const SEVERE_LOD_PARTICLE_STRIDE := 3
+const MAX_DISPLAY_LEAF_COUNT := 3
 
 var active := false
 var leaf_count := 0
@@ -84,9 +85,11 @@ func resolve_ball_collision(scene: Dictionary, context: Dictionary, deps: Dictio
 
 	var ball_pos: Vector2 = _get_vector2(scene.get("ball_pos", Vector2.ZERO), Vector2.ZERO)
 	var ball_radius: float = _get_ball_radius(context)
-	for leaf in leaves:
-		if not bool(leaf.get("active", false)):
+	var display_leaf_mask := get_display_leaf_mask()
+	for logical_index in range(leaves.size()):
+		if (display_leaf_mask & (1 << logical_index)) == 0:
 			continue
+		var leaf: Dictionary = leaves[logical_index]
 		var leaf_pos: Vector2 = _get_leaf_position(leaf)
 		if leaf_pos.y < owner_center.y - FRONT_THRESHOLD:
 			continue
@@ -112,10 +115,12 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_s
 	var severe_lod: bool = _is_severe_lod_active(clamped_lod_scale)
 	var draw_order: Array = []
 	if active:
-		for leaf in leaves:
-			if not bool(leaf.get("active", false)):
+		var display_leaf_mask := get_display_leaf_mask()
+		for logical_index in range(leaves.size()):
+			if (display_leaf_mask & (1 << logical_index)) == 0:
 				continue
-			var angle: float = current_angle + float(leaf.get("base_angle", 0.0))
+			var leaf: Dictionary = leaves[logical_index]
+			var angle := _get_leaf_angle(leaf)
 			var depth: float = sin(angle)
 			draw_order.append({
 				"depth": depth,
@@ -134,18 +139,54 @@ func draw(canvas: CanvasItem, shake_offset: Vector2 = Vector2.ZERO, effect_lod_s
 
 
 func get_snapshot() -> Dictionary:
-	var active_count := 0
-	for leaf in leaves:
-		if bool(leaf.get("active", false)):
-			active_count += 1
+	var active_count := _count_active_leaves()
 	return {
 		"active": active,
 		"leaf_count": leaf_count,
 		"active_leaf_count": active_count,
+		"display_leaf_count": get_display_leaf_count(),
+		"display_active_leaf_count": get_display_active_leaf_count(),
 		"owner_center": owner_center,
 		"particle_count": particles.size(),
 		"current_angle": current_angle,
 	}
+
+
+func get_display_leaf_count() -> int:
+	if leaf_count <= 0:
+		return 0
+	# Gameplay keeps its authored 1/3/5 blocking leaves. Presentation alone
+	# compresses those ranks to 1/2/3 silhouettes and caps effective overflow.
+	return mini(MAX_DISPLAY_LEAF_COUNT, ceili(float(leaf_count) * 0.5))
+
+
+func get_display_active_leaf_count() -> int:
+	return _project_display_active_leaf_count(
+		_count_active_leaves(),
+		get_display_leaf_count()
+	)
+
+
+func get_display_leaf_mask() -> int:
+	var active_leaf_count := _count_active_leaves()
+	var display_active_leaf_count := _project_display_active_leaf_count(
+		active_leaf_count,
+		get_display_leaf_count()
+	)
+	var active_index := 0
+	var display_mask := 0
+	for logical_index in range(leaves.size()):
+		var leaf: Dictionary = leaves[logical_index]
+		if not bool(leaf.get("active", false)):
+			continue
+		if _is_display_representative(
+			active_index,
+			active_leaf_count,
+			display_active_leaf_count
+		):
+			display_mask |= 1 << logical_index
+		active_index += 1
+	return display_mask
 
 
 func _update(fps_scale: float) -> void:
@@ -178,8 +219,47 @@ func _update_particles(fps_scale: float) -> void:
 			particles[i] = particle
 
 
+func _count_active_leaves() -> int:
+	var active_leaf_count := 0
+	for leaf in leaves:
+		if bool(leaf.get("active", false)):
+			active_leaf_count += 1
+	return active_leaf_count
+
+
+func _project_display_active_leaf_count(active_leaf_count: int, display_leaf_count: int) -> int:
+	if active_leaf_count <= 0 or leaf_count <= 0 or display_leaf_count <= 0:
+		return 0
+	return mini(
+		display_leaf_count,
+		ceili(float(active_leaf_count * display_leaf_count) / float(leaf_count))
+	)
+
+
+func _is_display_representative(
+	active_index: int,
+	active_leaf_count: int,
+	display_active_leaf_count: int
+) -> bool:
+	if active_index < 0 or active_index >= active_leaf_count or display_active_leaf_count <= 0:
+		return false
+	if display_active_leaf_count >= active_leaf_count or active_index == 0:
+		return true
+	var bucket := floori(
+		float(active_index * display_active_leaf_count) / float(active_leaf_count)
+	)
+	var previous_bucket := floori(
+		float((active_index - 1) * display_active_leaf_count) / float(active_leaf_count)
+	)
+	return bucket != previous_bucket
+
+
+func _get_leaf_angle(leaf: Dictionary) -> float:
+	return current_angle + float(leaf.get("base_angle", 0.0))
+
+
 func _get_leaf_position(leaf: Dictionary) -> Vector2:
-	var angle: float = current_angle + float(leaf.get("base_angle", 0.0))
+	var angle := _get_leaf_angle(leaf)
 	return owner_center + Vector2(cos(angle) * ORBIT_RADIUS, sin(angle) * ORBIT_RADIUS * ELLIPSE_Y)
 
 

@@ -133,6 +133,7 @@ $focusedSmoke = @(
     "res://tests/feedback12_r3_victory_reward_freeze_smoke.gd",
     "res://tests/feedback12_r4_chosik_ready_glow_contract_smoke.gd",
     "res://tests/feedback12_r5_soul_slot_state_contract_smoke.gd",
+    "res://tests/feedback12_r6_laurel_leaf_projection_smoke.gd",
     "res://tests/tower_reward_pick_unique_upgrade_gate_smoke.gd",
     "res://tests/tower_reward_pick_upgrade_rework_smoke.gd",
     "res://tests/tower_victory_margin_muhon_reward_smoke.gd",
