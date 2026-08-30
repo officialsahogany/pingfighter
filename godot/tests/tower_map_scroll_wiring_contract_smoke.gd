@@ -60,7 +60,7 @@ const EXPECTED_BAND_EDGE_BLEED_WORLD_PX := {
 	"immortal_realm_02_cloud_cranes_rev2_x4.png": Vector2i(18, 15),
 	"immortal_realm_03_pavilions_rev2_x4.png": Vector2i(25, 26),
 }
-const EXPECTED_BAND_MIST_METHOD := "approved_yeouidu_contiguous_mist_strip_bake_v2"
+const EXPECTED_BAND_MIST_METHOD := "approved_yeouidu_landform_mist_bake_v3"
 const EXPECTED_BAND_MIST_BASE_COMMIT := "4739e14ce7f38005947555b59876676def8f723d"
 const EXPECTED_BAND_MIST_SOURCE := (
 	"images/tower_map_cloud_bitmap_candidates_cc3b/candidates/"
@@ -74,14 +74,17 @@ const EXPECTED_BAND_MIST_TOOL_SOURCE := (
 	"res://../tools/art/bake_tower_map_band_cloud_mist_z13c.py"
 )
 const EXPECTED_BAND_MIST_TOOL_SHA256 := (
-	"a9c99006fdeb4c0eaf826a8e765ab9ab9c595f9e5ba48ffa488c5e33fd225fdf"
+	"61984456a5d4adf53ff5d84b126fdcf6b39ca2d9ddf41731a8b80a0812ed560c"
 )
 const EXPECTED_BAND_MIST_MANIFEST_SHA256 := (
-	"178bcc5ca9383747d46e7af1b9462803f6124c098148354ae349472651f17642"
+	"ec100f7da0a245b3bd819b850428b796c89a9385e0757692dc81bc689ac9088e"
 )
 const EXPECTED_BAND_MIST_FIXED_SEED := 0x5A313343
 const EXPECTED_BAND_MIST_FIXED_SEED_STRIP_TABLE_SHA256 := (
-	"fdf720d725a0c54549bd3717354f64d1fb69f3a086f619987891bea7a73f87f4"
+	"ac3645cb08a6da17a4d1b8c0a40ece787042a23093358fa9dddf08f8cbb05ca4"
+)
+const EXPECTED_BAND_MIST_FIXED_SEED_SHAPE_TABLE_SHA256 := (
+	"c287c5ce7fbe5599e6c7db4440acb865e332a5a6988aa11ab3d85dda1e2f28ac"
 )
 const EXPECTED_BAND_MIST_REVERSE_COUNTERFACTUAL_CONSTRUCTION := (
 	"copy_then_bottom_edge_equals_reversed_top_edge_v1"
@@ -99,7 +102,7 @@ const EXPECTED_BAND_MIST_FEATHER_WORLD_PX := 17
 const EXPECTED_BAND_MIST_FILL_COVER_WORLD_PX := 26
 const EXPECTED_BAND_MIST_EDGE_ZONE_WORLD_PX := 35
 const EXPECTED_BAND_MIST_IMMUTABLE_BODY_RECT := Rect2i(0, 140, 2768, 1000)
-const EXPECTED_BAND_MIST_MIN_CORE_OPACITY := 0.90
+const EXPECTED_BAND_MIST_MIN_CORE_OPACITY := 1.0
 const EXPECTED_BAND_MIST_MAX_CORE_OPACITY := 1.0
 const EXPECTED_BAND_MIST_MIN_FEATHER_FRONT_STD_TEXTURE_PX := 6.0
 const EXPECTED_BAND_MIST_MIN_FEATHER_HORIZONTAL_RESIDUAL_STD := 0.01
@@ -113,24 +116,114 @@ const EXPECTED_BAND_MIST_MIN_VARIANCE_RATIO := 0.80
 const EXPECTED_BAND_MIST_MAX_VARIANCE_RATIO := 1.25
 const EXPECTED_BAND_MIST_MIN_CENTER_DETAIL_RATIO := 0.75
 const EXPECTED_BAND_MIST_MAX_CENTER_DETAIL_RATIO := 1.25
+const EXPECTED_BAND_MIST_THICKNESS_VARIATION_RATIO := 0.40
+const EXPECTED_BAND_MIST_NOMINAL_SHAPED_FEATHER_WORLD_PX := 6.25
+const EXPECTED_BAND_MIST_MIN_SHAPED_FEATHER_WORLD_PX := 3.75
+const EXPECTED_BAND_MIST_MAX_SHAPED_FEATHER_WORLD_PX := 8.75
+const EXPECTED_BAND_MIST_OUTER_ALPHA_GUARD_WORLD_PX := 0.25
+const EXPECTED_BAND_MIST_MIN_THICKNESS_P95_HALF_RANGE_WORLD_PX := 2.10
+const EXPECTED_BAND_MIST_MEANDER_AMPLITUDE_WORLD_PX := 12.0
+const EXPECTED_BAND_MIST_MIN_MEANDER_MAXIMUM_WORLD_PX := 11.5
+const EXPECTED_BAND_MIST_MAX_MEANDER_MAXIMUM_WORLD_PX := 12.25
+const EXPECTED_BAND_MIST_MIN_MEANDER_P95_HALF_RANGE_WORLD_PX := 9.5
+const EXPECTED_BAND_MIST_MIN_FIELD_WAVELENGTH_WORLD_PX := 346.0
+const EXPECTED_BAND_MIST_MIN_HORIZONTAL_CONTROL_SPAN_WORLD_PX := 16.0
+const EXPECTED_BAND_MIST_MIN_THINNING_WIDTH_RATIO := 0.15
+const EXPECTED_BAND_MIST_MAX_THINNING_WIDTH_RATIO := 0.25
+const EXPECTED_BAND_MIST_MIN_THINNING_OPACITY_MULTIPLIER := 0.34
+const EXPECTED_BAND_MIST_MAX_THINNING_OPACITY_MULTIPLIER := 0.48
+const EXPECTED_BAND_MIST_MIN_TERRAIN_ATTACHMENT_GAIN := 0.04
+const EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_ACTIVE_RATIO := 0.35
+const EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_DEPTH_WORLD_PX := 1.75
+const EXPECTED_BAND_MIST_MIN_TOP_BOTTOM_PHASE_DELTA_RAD := 0.20
+const EXPECTED_BAND_MIST_MAX_THINNING_STRONG_OVERLAP_RATIO := 0.05
+const EXPECTED_BAND_MIST_MIN_COLUMN_INTEGRATED_OPACITY_WORLD_PX := 26.0
+const EXPECTED_BAND_MIST_MIN_WARP_VERTICAL_JACOBIAN := 0.55
+const EXPECTED_BAND_MIST_MIN_VERTICAL_CONTROL_SPAN_WORLD_PX := 8.0
+const EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS := 43
+const EXPECTED_BAND_MIST_EDGE_VERTICAL_CONTROL_CELLS := 4
+const EXPECTED_BAND_MIST_PERIODIC_HALO_CONTROL_CELLS := 3
+const EXPECTED_BAND_MIST_MIN_SHARED_SEAM_HALF_RANGE_WORLD_PX := 1.0
+const EXPECTED_BAND_MIST_MIN_ACTUAL_FRONT_HALF_RANGE_WORLD_PX := 1.75
+const EXPECTED_BAND_MIST_MAX_ACTUAL_FRONT_CORRELATION := 0.90
+const EXPECTED_BAND_MIST_MAX_TERRAIN_CONTROL_ACTIVE_RATIO := 0.05
+const EXPECTED_BAND_MIST_MAX_SOURCE_SAMPLING_BIAS_WORLD_PX := 2.0
+const EXPECTED_BAND_MIST_MEANDER_SOURCE_MARGIN_WORLD_PX := 13
+const EXPECTED_BAND_MIST_SHARED_SEAM_RESIDUAL_AMPLITUDE_WORLD_PX := 1.5
+const EXPECTED_BAND_MIST_THINNING_ACTIVE_WINDOW_THRESHOLD := 0.01
+const EXPECTED_BAND_MIST_TERRAIN_CONTROL_QUANTILE := 0.985
+const EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_STRENGTH := 0.55
+const EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_FOOT_SCORE := 0.20
+const EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_DIRECTIONAL_DELTA := 0.05
+const EXPECTED_BAND_MIST_TERRAIN_SELECTED_CONTROL_CELLS_PER_EDGE := 1
+const EXPECTED_BAND_MIST_TERRAIN_BRIDGE_ANCHOR_WORLD_PX := 24
+const EXPECTED_BAND_MIST_TERRAIN_BRIDGE_VERTICAL_CONTROL_CELLS := 6
+const EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MINIMUM_WORLD_PX := 0.5
+const EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MAXIMUM_WORLD_PX := 1.0
+const EXPECTED_BAND_MIST_MIN_TERRAIN_BRIDGE_DETAIL_GAIN := 1.82
+const EXPECTED_BAND_MIST_MAX_TERRAIN_BRIDGE_DETAIL_GAIN := 2.0
+const EXPECTED_BAND_MIST_TERRAIN_BRIDGE_COMPOSITE_LUMA_BIAS := 18.0
+const EXPECTED_BAND_MIST_VISIBLE_PIGMENT_NOMINAL_HALF_WIDTH_WORLD_PX := 16.0
+const EXPECTED_BAND_MIST_VISIBLE_PIGMENT_MAXIMUM_MIX := 0.9
+const EXPECTED_BAND_MIST_VISIBLE_HAZE_FLOOR := 0.14
+const EXPECTED_BAND_MIST_VISIBLE_THINNING_FACTOR_EXPONENT := 1.25
+const EXPECTED_BAND_MIST_VISIBLE_ACTIVE_PROFILE_GATE := 0.60
+const EXPECTED_BAND_MIST_VISIBLE_THINNING_TERRAIN_DETAIL_GAIN := 0.35
+const EXPECTED_BAND_MIST_VISIBLE_SHARED_REFERENCE_DETAIL_GAIN := 1.5
+const EXPECTED_BAND_MIST_VISIBLE_CENTERLINE_TARGET_HALF_RANGE_WORLD_PX := 12.0
+const EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_HALF_RANGE_WORLD_PX := 9.5
+const EXPECTED_BAND_MIST_MAX_VISIBLE_CENTERLINE_ABSOLUTE_WORLD_PX := 13.5
+const EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_VALID_RATIO := 0.75
+const EXPECTED_BAND_MIST_MAX_FULL_WIDTH_PALE_RUN_WORLD_PX := 1.0
+const EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_P95_GAIN := 6.0
+const EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_GAIN := 12.0
+const EXPECTED_BAND_MIST_MIN_THINNED_TERRAIN_DETAIL_RATIO := 1.15
+const EXPECTED_BAND_MIST_MIN_VISIBLE_THINNED_PEAK_INK_MIX := 0.30
+const EXPECTED_BAND_MIST_MIN_VISIBLE_HAZE_FLOOR := 0.12
+const EXPECTED_BAND_MIST_VISIBLE_SHAPE_SEAM_TRANSITION_WORLD_PX := 1.25
+const EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX := 1.25
+const EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_MINIMUM_FACTOR := 0.45
+const EXPECTED_BAND_MIST_VISIBLE_EDGE_CENTERLINE_DIVERGENCE_WORLD_PX := 1.5
+const EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TOP_PHASE_OFFSET_RAD := PI * 0.5
+const EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_CROSS_CORRELATION := 0.10
+const EXPECTED_BAND_MIST_VISIBLE_EDGE_CENTERLINE_MAXIMUM_WORLD_PX := 14.0
+const EXPECTED_BAND_MIST_THRESHOLD_MAX_VISIBLE_CENTERLINE_WORLD_PX := 15.0
+const EXPECTED_BAND_MIST_MIN_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO := 0.15
+const EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO := 0.25
+const EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_STRONG_OVERLAP := 0.05
+const EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_CORRELATION := 0.20
+const EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_VEIL_P05 := 0.50
+const EXPECTED_BAND_MIST_MIN_VISIBLE_EDGE_VEIL_P95 := 0.95
 const EXPECTED_BAND_MIST_STRIPS := {
 	"human_realm_01_mountain_rev2_x4.png": {
-		"rect": Rect2i(6, 209, 1152, 279), "detail_gain": 1.10,
+		"rect": Rect2i(6, 209, 1152, 279), "detail_gain": 1.65,
+		"terrain_bridge_detail_gain": 2.0,
+		"source_sampling_bias_world_px": 0.0,
 	},
 	"human_realm_02_village_rev2_x4.png": {
-		"rect": Rect2i(96, 176, 1088, 279), "detail_gain": 1.30,
+		"rect": Rect2i(96, 176, 1088, 279), "detail_gain": 1.54,
+		"terrain_bridge_detail_gain": 1.82,
+		"source_sampling_bias_world_px": 0.0,
 	},
 	"human_realm_03_river_rev2_x4.png": {
-		"rect": Rect2i(1524, 160, 1024, 279), "detail_gain": 1.20,
+		"rect": Rect2i(1524, 160, 1024, 279), "detail_gain": 1.54,
+		"terrain_bridge_detail_gain": 2.0,
+		"source_sampling_bias_world_px": 0.0,
 	},
 	"immortal_realm_01_islands_rev2_x4.png": {
-		"rect": Rect2i(0, 200, 928, 279), "detail_gain": 1.60,
+		"rect": Rect2i(0, 200, 928, 279), "detail_gain": 1.66,
+		"terrain_bridge_detail_gain": 2.0,
+		"source_sampling_bias_world_px": 0.0,
 	},
 	"immortal_realm_02_cloud_cranes_rev2_x4.png": {
-		"rect": Rect2i(102, 235, 1024, 279), "detail_gain": 1.30,
+		"rect": Rect2i(102, 235, 1024, 279), "detail_gain": 1.44,
+		"terrain_bridge_detail_gain": 1.82,
+		"source_sampling_bias_world_px": -2.0,
 	},
 	"immortal_realm_03_pavilions_rev2_x4.png": {
-		"rect": Rect2i(650, 193, 1024, 279), "detail_gain": 1.10,
+		"rect": Rect2i(650, 193, 1024, 279), "detail_gain": 1.54,
+		"terrain_bridge_detail_gain": 2.0,
+		"source_sampling_bias_world_px": 0.0,
 	},
 }
 const EXPECTED_BAND_MIST_OUTPUT_ORDER := [
@@ -174,20 +267,20 @@ const EXPECTED_BAND_MIST_BASE_EDGE_BLEED_SHA256 := {
 	"immortal_realm_03_pavilions_rev2_x4.png": "9bcbf407d9982b2a917032cc6fe0e3d5b314a61c3b15a036574f7f7c4efc897d",
 }
 const EXPECTED_BAND_MIST_FINAL_OUTPUT_SHA256 := {
-	"human_realm_01_mountain_rev2_x4.png": "7813ffafc229ceb2a095205ec28e518c75b2547d708551ee93cee22fe2399b32",
-	"human_realm_02_village_rev2_x4.png": "e2d9219ec01a31a93990485745aa049415eba20398ba2a3cc5a2bb4fbc3ca1a5",
-	"human_realm_03_river_rev2_x4.png": "53420903fb611f061a0ffc6141dda831bad4fd8e1f4c77265f1320727d167a25",
-	"immortal_realm_01_islands_rev2_x4.png": "7557b2f4a20ee4e23d5e404d8cabb1441bbad7cc5760abdd0a3001c0bdb8e23e",
-	"immortal_realm_02_cloud_cranes_rev2_x4.png": "f1deeb2ab8f220a11aa94e0a25ebdec07b5c2131317d7c1930426841504caf27",
-	"immortal_realm_03_pavilions_rev2_x4.png": "d7bdd5788ff1b5749abae7b9c45a754af75f5bd1ccd07aa264f6c83955be0d26",
+	"human_realm_01_mountain_rev2_x4.png": "bec65c0a77fc778bc3bf4b14e12d1f54dd5c0fed3a45a9e99ecff155bb41cd54",
+	"human_realm_02_village_rev2_x4.png": "92ec34c7050f5e88beb93d320f7b9ccdaa87c4516f5cbf55d5c9fc16a7164176",
+	"human_realm_03_river_rev2_x4.png": "10ef6e2c73c291311fc6cdbbeef78aafd8677d593bbe4d01640bb097f2c2ebb2",
+	"immortal_realm_01_islands_rev2_x4.png": "75996f5efd571f70f988627e015959db27d23799f92c6f846f0c0111241b940c",
+	"immortal_realm_02_cloud_cranes_rev2_x4.png": "5cb429408c80876bf66d1b346cfea9b59a540a45f0f96bbc3bbeda450dfc000a",
+	"immortal_realm_03_pavilions_rev2_x4.png": "b4066643c9c76a652af54386d306886d33c90c0ab06a750fafeaa6280e2c18d9",
 }
 const EXPECTED_BAND_MIST_FINAL_RGB_SHA256 := {
-	"human_realm_01_mountain_rev2_x4.png": "9714e377f288559deab7eb44499f7ce041a103ad3069d9d641adce96f9333d4f",
-	"human_realm_02_village_rev2_x4.png": "3adf70c77bf8990905966056a4ee86eb02fe364ad9487866e7838beba02947bc",
-	"human_realm_03_river_rev2_x4.png": "f362aed3474fcc47320e5abb2e40df089ae3ee008e87645f3baf6d50b328a4f4",
-	"immortal_realm_01_islands_rev2_x4.png": "de7c7f337e29d249ce5963da28b82ff840f16ff39be963415530dc5bdf50afb3",
-	"immortal_realm_02_cloud_cranes_rev2_x4.png": "cac2d464d3a25a296f94df5ee8c3a880d7dea1dc517b10be2cf7313a3730f0fa",
-	"immortal_realm_03_pavilions_rev2_x4.png": "a76e272aaff892aacff9325bb91fa6d2a494b93330686442881ba13c0f6acd88",
+	"human_realm_01_mountain_rev2_x4.png": "671dc1acdfdad89dc33c4fcbc5967b63ffed4d3543943b6f09cc5b12bde9d772",
+	"human_realm_02_village_rev2_x4.png": "8cf88751923090713e99706a0e6ec3a2076312fb3bb9193f4754b2e4434fb3f3",
+	"human_realm_03_river_rev2_x4.png": "659a8e0b6bc4ad101dffb30defaaa94f0e4e0d6044f7d2f84a3ebc32c07e5790",
+	"immortal_realm_01_islands_rev2_x4.png": "f7975d242484942d1e196b4ac408e4fd52e92eb0a87e6c12293e47572c37632c",
+	"immortal_realm_02_cloud_cranes_rev2_x4.png": "b2573ab3483f4da53f576628d3759ff5e464dd6ef049b628f5318b58a79916a7",
+	"immortal_realm_03_pavilions_rev2_x4.png": "1b33414b56faf3f5e39170e17fdea448ef18cad500755a67e3e0212e1230c303",
 }
 
 var _failures: Array[String] = []
@@ -737,6 +830,9 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 	var vertical_smear_red_count := 0
 	var reverse_mirror_gate_red_count := 0
 	var independent_reverse_red_count := 0
+	var parallel_band_red_count := 0
+	var unique_shape_seeds: Dictionary = {}
+	var unique_shape_phase_signatures: Dictionary = {}
 	for asset_key in band_asset_keys:
 		var path := catalog.resolve_declared_path(asset_key)
 		var output_name := path.get_file()
@@ -747,8 +843,24 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 		var top_crop: Dictionary = contract.get("top_crop", {})
 		var bottom_crop: Dictionary = contract.get("bottom_crop", {})
 		var tone: Dictionary = contract.get("tone", {})
+		var visible_shape_metrics: Dictionary = tone.get("visible_shape_metrics", {})
 		var masks: Dictionary = contract.get("mask_metrics", {})
 		var metrics: Dictionary = contract.get("metrics", {})
+		var shape_modulation: Dictionary = contract.get("shape_modulation", {})
+		var shape_edges: Dictionary = shape_modulation.get("edges", {})
+		var field_construction: Dictionary = shape_modulation.get(
+			"field_construction",
+			{}
+		)
+		var pigment_warp: Dictionary = shape_modulation.get("pigment_warp", {})
+		var cross_edge_metrics: Dictionary = shape_modulation.get(
+			"cross_edge_metrics",
+			{}
+		)
+		var parallel_counterproof: Dictionary = shape_modulation.get(
+			"parallel_band_counterproof",
+			{}
+		)
 		var reverse_counterproof: Dictionary = contract.get(
 			"reverse_counterproof",
 			{}
@@ -770,6 +882,17 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 			Rect2i(-1, -1, -1, -1)
 		)
 		var expected_gain := float(expected_spec.get("detail_gain", -1.0))
+		var expected_terrain_bridge_detail_gain := float(expected_spec.get(
+			"terrain_bridge_detail_gain",
+			-1.0
+		))
+		var expected_source_sampling_bias_world_px := float(expected_spec.get(
+			"source_sampling_bias_world_px",
+			INF
+		))
+		var expected_source_sampling_bias_texture_px := int(round(
+			expected_source_sampling_bias_world_px * EXPECTED_BAND_TEXTURE_SCALE
+		))
 		var expected_bottom_rect := Rect2i(
 			expected_strip_rect.position,
 			Vector2i(expected_strip_rect.size.x, EXPECTED_BAND_MIST_EDGE_PATCH_HEIGHT)
@@ -787,15 +910,15 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 		var horizontal_scale := float(strip.get("horizontal_scale", -1.0))
 
 		_expect(
-			_mist_manifest_contract_is_v2(contract),
-			"%s must retain the exact Z13-c v2 manifest schema" % output_name
+			_mist_manifest_contract_is_v3(contract),
+			"%s must retain the exact Z13-e v3 manifest schema" % output_name
 		)
 		_expect(
 			str(contract.get("method", "")) == EXPECTED_BAND_MIST_METHOD
 			and str(contract.get("base_method", "")) == EXPECTED_BAND_TILEABLE_METHOD
 			and str(contract.get("base_commit", ""))
 				== EXPECTED_BAND_MIST_BASE_COMMIT,
-			"%s must own a separate v2 mist bake over the pinned Z13 wrap"
+			"%s must own a separate v3 landform mist bake over the pinned Z13 wrap"
 				% output_name
 		)
 		_expect(
@@ -806,13 +929,20 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 				== EXPECTED_BAND_MIST_SOURCE_COMMIT
 			and int(contract.get("fixed_seed", -1)) == EXPECTED_BAND_MIST_FIXED_SEED
 			and str(contract.get("fixed_seed_role", ""))
-				== "calibration_seed_and_literal_table_version"
+				== "deterministic_low_frequency_shape_and_literal_table_version"
 			and str(contract.get("fixed_seed_strip_table_sha256", ""))
 				== EXPECTED_BAND_MIST_FIXED_SEED_STRIP_TABLE_SHA256
+			and str(contract.get("fixed_seed_shape_table_sha256", ""))
+				== EXPECTED_BAND_MIST_FIXED_SEED_SHAPE_TABLE_SHA256
 			and str(contract.get("crop_selection_method", ""))
-				== "fixed_seed_calibrated_literal_contiguous_strip_table_v2",
-			"%s must pin the approved cloud source and fixed six-strip table"
+				== "fixed_seed_literal_strip_with_margin_macro_warp_v3",
+			"%s must pin the approved cloud source and both fixed-seed tables"
 				% output_name
+		)
+		var meander_source: Dictionary = strip.get("meander_source", {})
+		var meander_rect := _manifest_rect2i(meander_source.get("rect", []))
+		var effective_center_rect := _manifest_rect2i(
+			meander_source.get("effective_center_rect", [])
 		)
 		_expect(
 			strip_rect == expected_strip_rect
@@ -829,7 +959,51 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 			and is_equal_approx(float(strip.get("detail_gain", -1.0)), expected_gain)
 			and int(strip.get("shared_textured_row", -1))
 				== EXPECTED_BAND_MIST_EDGE_PATCH_HEIGHT - 1,
-			"%s must stretch one whole 279-row source strip horizontally by 2x..3x"
+			"%s must preserve one whole 279-row logical strip inside the macro-warp crop"
+				% output_name
+		)
+		_expect(
+			int(meander_source.get("margin_world_px", -1))
+				== EXPECTED_BAND_MIST_MEANDER_SOURCE_MARGIN_WORLD_PX
+			and is_equal_approx(
+				float(meander_source.get("source_sampling_bias_world_px", INF)),
+				expected_source_sampling_bias_world_px
+			)
+			and int(meander_source.get("source_sampling_bias_texture_px", 9999))
+				== expected_source_sampling_bias_texture_px
+			and meander_rect.position.x == strip_rect.position.x
+			and meander_rect.position.y
+				== (
+					strip_rect.position.y
+					- EXPECTED_BAND_MIST_MEANDER_SOURCE_MARGIN_WORLD_PX
+						* EXPECTED_BAND_TEXTURE_SCALE
+					+ expected_source_sampling_bias_texture_px
+				)
+			and meander_rect.size.x == strip_rect.size.x
+			and meander_rect.size.y
+				== strip_rect.size.y + 26 * EXPECTED_BAND_TEXTURE_SCALE
+			and _rect_inside_size(meander_rect, EXPECTED_BAND_MIST_SOURCE_SIZE)
+			and effective_center_rect.position
+				== strip_rect.position + Vector2i(
+					0,
+					expected_source_sampling_bias_texture_px
+				)
+			and effective_center_rect.size == strip_rect.size
+			and _rect_inside_size(effective_center_rect, EXPECTED_BAND_MIST_SOURCE_SIZE)
+			and str(meander_source.get(
+				"effective_center_crop_rgba_sha256",
+				""
+			)).length() == 64
+			and float(meander_source.get(
+				"effective_center_alpha_weighted_luma_std",
+				-1.0
+			)) > 0.0
+			and str(meander_source.get("crop_rgba_sha256", "")).length() == 64
+			and str(meander_source.get(
+				"resized_blurred_rgba_sha256",
+				""
+			)).length() == 64,
+			"%s meander source must retain a 13px vertical margin without edge synthesis"
 				% output_name
 		)
 		_expect(
@@ -905,12 +1079,151 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 				EXPECTED_BAND_MIST_PATCH_BLUR_TEXTURE_PX
 			)
 			and str(contract.get("feather_mask", ""))
-				== "approved_2d_brush_alpha_dense_lobe_and_wisps_v2",
-			"%s must reject mirror/row/column forcing and retain brush-alpha feathering"
+				== "fixed_seed_low_frequency_landform_feather_v3",
+			"%s must reject mirror/row/column forcing and retain low-frequency feathering"
 				% output_name
 		)
+		_expect(
+			str(shape_modulation.get("method", ""))
+				== "fixed_seed_coarse_mesh_landform_mist_shape_v2"
+			and str(shape_modulation.get("parameter_table_sha256", ""))
+				== EXPECTED_BAND_MIST_FIXED_SEED_SHAPE_TABLE_SHA256
+			and is_equal_approx(
+				float(field_construction.get("primary_cycles", -1.0)),
+				1.0
+			)
+			and is_equal_approx(
+				float(field_construction.get("secondary_cycles", -1.0)),
+				2.0
+			)
+			and float(field_construction.get("minimum_wavelength_world_px", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_FIELD_WAVELENGTH_WORLD_PX
+			and float(field_construction.get(
+				"minimum_horizontal_control_span_world_px",
+				-1.0
+			)) >= EXPECTED_BAND_MIST_MIN_HORIZONTAL_CONTROL_SPAN_WORLD_PX
+			and float(field_construction.get(
+				"minimum_vertical_control_span_world_px",
+				-1.0
+			)) >= EXPECTED_BAND_MIST_MIN_VERTICAL_CONTROL_SPAN_WORLD_PX
+			and int(field_construction.get("horizontal_control_cells", -1))
+				== EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+			and int(field_construction.get("edge_vertical_control_cells", -1))
+				== EXPECTED_BAND_MIST_EDGE_VERTICAL_CONTROL_CELLS
+			and int(field_construction.get("periodic_halo_control_cells", -1))
+				== EXPECTED_BAND_MIST_PERIODIC_HALO_CONTROL_CELLS
+			and str(field_construction.get("rasterization", ""))
+				== "pillow_bicubic_from_coarse_control_plane"
+			and not bool(field_construction.get("one_pixel_column_operations", true))
+			and not bool(field_construction.get("per_column_adjustment", true)),
+			"%s shape fields must be fixed-seed, low-frequency, and vectorized"
+				% output_name
+		)
+		_expect(
+			str(pigment_warp.get("method", ""))
+				== "coarse_16x8_world_px_pillow_mesh_shared_row_v2"
+			and int(pigment_warp.get("margin_world_px", -1))
+				== EXPECTED_BAND_MIST_MEANDER_SOURCE_MARGIN_WORLD_PX
+			and int(pigment_warp.get("horizontal_control_cells", -1))
+				== EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+			and int(pigment_warp.get("vertical_control_cells", -1))
+				== EXPECTED_BAND_MIST_EDGE_VERTICAL_CONTROL_CELLS * 2
+			and int(pigment_warp.get("minimum_horizontal_control_span_texture_px", -1))
+				>= int(
+					EXPECTED_BAND_MIST_MIN_HORIZONTAL_CONTROL_SPAN_WORLD_PX
+					* EXPECTED_BAND_TEXTURE_SCALE
+				)
+			and int(pigment_warp.get("minimum_vertical_control_span_texture_px", -1))
+				>= int(
+					EXPECTED_BAND_MIST_MIN_VERTICAL_CONTROL_SPAN_WORLD_PX
+					* EXPECTED_BAND_TEXTURE_SCALE
+				)
+			and int(pigment_warp.get("shared_logical_row", -1))
+				== EXPECTED_BAND_MIST_EDGE_PATCH_HEIGHT - 1
+			and is_equal_approx(
+				float(pigment_warp.get(
+					"shared_seam_residual_amplitude_world_px",
+					-1.0
+				)),
+				EXPECTED_BAND_MIST_SHARED_SEAM_RESIDUAL_AMPLITUDE_WORLD_PX
+			)
+			and float(pigment_warp.get(
+				"shared_row_displacement_p95_half_range_world_px",
+				-1.0
+			)) >= EXPECTED_BAND_MIST_MIN_SHARED_SEAM_HALF_RANGE_WORLD_PX
+			and float(pigment_warp.get(
+				"shared_row_displacement_maximum_absolute_world_px",
+				-1.0
+			)) > 0.0
+			and absf(float(pigment_warp.get("source_sampling_bias_world_px", INF)))
+				<= EXPECTED_BAND_MIST_MAX_SOURCE_SAMPLING_BIAS_WORLD_PX
+			and is_equal_approx(
+				float(pigment_warp.get("source_sampling_bias_world_px", INF)),
+				expected_source_sampling_bias_world_px
+			)
+			and is_equal_approx(
+				float(pigment_warp.get("source_sampling_bias_texture_px", INF)),
+				float(expected_source_sampling_bias_texture_px)
+			)
+			and str(pigment_warp.get("sampling_offset_sign", ""))
+				== "positive_source_y_moves_visible_pigment_upward"
+			and float(pigment_warp.get("minimum_vertical_jacobian", -INF))
+				>= EXPECTED_BAND_MIST_MIN_WARP_VERTICAL_JACOBIAN
+			and not bool(pigment_warp.get("one_pixel_column_operations", true))
+			and not bool(pigment_warp.get("per_column_adjustment", true))
+			and str(pigment_warp.get("warped_rgba_sha256", "")).length() == 64,
+			"%s macro pigment warp must preserve C0 and a positive vertical Jacobian"
+				% output_name
+		)
+		for edge_name in ["top", "bottom"]:
+			var edge_shape: Dictionary = shape_edges.get(edge_name, {})
+			_expect(
+				_mist_edge_shape_is_within_contract(edge_name, edge_shape),
+				"%s %s edge must pass thickness/meander/thinning/terrain/full-cover gates"
+					% [output_name, edge_name]
+			)
+			unique_shape_seeds[int(edge_shape.get("deterministic_seed", -1))] = true
+			var phase_signature := "%.12f|%.12f|%.12f|%.12f|%.12f" % [
+				float(edge_shape.get("thickness_phase_rad", -1.0)),
+				float(edge_shape.get("thickness_secondary_phase_rad", -1.0)),
+				float(edge_shape.get("meander_phase_rad", -1.0)),
+				float(edge_shape.get("meander_secondary_phase_rad", -1.0)),
+				float(edge_shape.get("terrain_phase_rad", -1.0)),
+			]
+			unique_shape_phase_signatures[phase_signature] = true
+		_expect(
+			float(cross_edge_metrics.get("thickness_primary_phase_delta_rad", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_TOP_BOTTOM_PHASE_DELTA_RAD
+			and float(cross_edge_metrics.get("meander_primary_phase_delta_rad", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_TOP_BOTTOM_PHASE_DELTA_RAD
+			and float(cross_edge_metrics.get("minimum_primary_phase_delta_rad", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_TOP_BOTTOM_PHASE_DELTA_RAD
+			and float(cross_edge_metrics.get("thinning_strong_overlap_ratio", INF))
+				<= EXPECTED_BAND_MIST_MAX_THINNING_STRONG_OVERLAP_RATIO
+			and float(cross_edge_metrics.get("actual_front_absolute_correlation", INF))
+				<= EXPECTED_BAND_MIST_MAX_ACTUAL_FRONT_CORRELATION
+			and bool(cross_edge_metrics.get("parameter_signatures_unique", false)),
+			"%s top/bottom must use distinct phases and non-overlapping thinning windows"
+				% output_name
+		)
+		var parallel_is_red := _mist_parallel_band_counterproof_is_red(
+			parallel_counterproof
+		)
+		_expect(
+			parallel_is_red,
+			"%s disabled parallel-band construction must turn the shape gate RED"
+				% output_name
+		)
+		if parallel_is_red:
+			parallel_band_red_count += 1
 		var top_front: Dictionary = masks.get("top_feather_front", {})
 		var bottom_front: Dictionary = masks.get("bottom_feather_front", {})
+		var top_shape_metrics: Dictionary = (
+			shape_edges.get("top", {}) as Dictionary
+		).get("metrics", {})
+		var bottom_shape_metrics: Dictionary = (
+			shape_edges.get("bottom", {}) as Dictionary
+		).get("metrics", {})
 		_expect(
 			float(masks.get("core_minimum", -1.0))
 				>= EXPECTED_BAND_MIST_MIN_CORE_OPACITY
@@ -924,6 +1237,18 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 				>= EXPECTED_BAND_MIST_MIN_FEATHER_FRONT_STD_TEXTURE_PX
 			and float(bottom_front.get("depth_std_texture_px", -1.0))
 				>= EXPECTED_BAND_MIST_MIN_FEATHER_FRONT_STD_TEXTURE_PX
+			and float(top_front.get("p95_half_range_world_px", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_ACTUAL_FRONT_HALF_RANGE_WORLD_PX
+			and float(bottom_front.get("p95_half_range_world_px", -1.0))
+				>= EXPECTED_BAND_MIST_MIN_ACTUAL_FRONT_HALF_RANGE_WORLD_PX
+			and is_equal_approx(
+				float(top_front.get("p05_depth_texture_px", INF)),
+				float(top_shape_metrics.get("actual_front_p05_depth_texture_px", -INF))
+			)
+			and is_equal_approx(
+				float(bottom_front.get("p95_depth_texture_px", INF)),
+				float(bottom_shape_metrics.get("actual_front_p95_depth_texture_px", -INF))
+			)
 			and str(masks.get("top_mask_float32_sha256", "")).length() == 64
 			and str(masks.get("bottom_mask_float32_sha256", "")).length() == 64,
 			"%s must keep the dense 26px cover and torn brush-front variance"
@@ -935,13 +1260,39 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 			and float(tone.get("mist_to_source_contrast_ratio", INF))
 				<= EXPECTED_BAND_MIST_MAX_TONE_CONTRAST_RATIO
 			and is_equal_approx(float(tone.get("detail_gain", -1.0)), expected_gain)
+			and float(tone.get("top_opacity_weighted_detail_mean", -1.0)) > 0.0
+			and float(tone.get("bottom_opacity_weighted_detail_mean", -1.0)) > 0.0
+			and str(tone.get("detail_model", ""))
+				== "immutable_body_bridge_with_meandering_literal_pigment_v3"
+			and str(tone.get("edge_offset_profile", ""))
+				== "whole_edge_smootherstep_to_zero_at_shared_seam_v1"
+			and is_equal_approx(
+				float(tone.get("approved_literal_source_alpha_weighted_luma_std", -1.0)),
+				float(strip.get("approved_source_alpha_weighted_luma_std", -2.0))
+			)
+			and is_equal_approx(
+				float(tone.get("effective_source_alpha_weighted_luma_std", -1.0)),
+				float(meander_source.get(
+					"effective_center_alpha_weighted_luma_std",
+					-2.0
+				))
+			)
 			and str(tone.get("global_offset_objective", ""))
 				== "minimize_maximum_top_bottom_body_luma_delta",
 			"%s mist must converge to low-contrast paper-safe tone" % output_name
 		)
 		_expect(
+			_mist_visible_shape_metrics_are_within_contract(
+				visible_shape_metrics,
+				tone,
+				expected_terrain_bridge_detail_gain
+			),
+			"%s visible mist must independently pass meander, thinning, terrain, and luma gates"
+				% output_name
+		)
+		_expect(
 			_mist_thresholds_are_exact(thresholds),
-			"%s must pin all Z13-c v2 acceptance thresholds" % output_name
+			"%s must pin all Z13-e v3 acceptance thresholds" % output_name
 		)
 		_expect(
 			_mist_manifest_metrics_within_contract(metrics),
@@ -1173,21 +1524,31 @@ func _verify_band_edge_mist_bake_art_contract() -> void:
 		and independent_reverse_red_count == band_asset_keys.size(),
 		"all six bands must retain manifest and independently measured exact-reverse mirror RED legs"
 	)
+	_expect(
+		parallel_band_red_count == band_asset_keys.size(),
+		"all six disabled parallel-band counterproofs must turn the v3 shape gate RED"
+	)
+	_expect(
+		unique_shape_seeds.size() == band_asset_keys.size() * 2
+		and unique_shape_phase_signatures.size() == band_asset_keys.size() * 2,
+		"all twelve band edges must retain unique deterministic seeds and phase signatures"
+	)
 	_verify_band_edge_mist_source_contract()
 	_leg_count += 1
 
 
-func _mist_manifest_contract_is_v2(contract: Dictionary) -> bool:
+func _mist_manifest_contract_is_v3(contract: Dictionary) -> bool:
 	if not _dictionary_has_exact_keys(contract, [
 		"method", "base_method", "base_commit", "texture_scale",
 		"source", "source_sha256", "source_approval_commit", "fixed_seed",
-		"fixed_seed_role", "fixed_seed_strip_table_sha256", "crop_selection_method",
+		"fixed_seed_role", "fixed_seed_strip_table_sha256",
+		"fixed_seed_shape_table_sha256", "crop_selection_method",
 		"strip", "top_crop", "bottom_crop", "vertical_scale", "mirror", "reverse",
 		"row_equalization", "column_equalization", "endpoint_equalization",
 		"one_pixel_column_operations", "gaussian_blur_texture_px", "core_world_px",
 		"feather_world_px", "guaranteed_coverage_subzone_world_px",
 		"active_ragged_fade_world_px", "edge_zone_world_px",
-		"covered_prior_fill_through_world_px", "feather_mask", "tone",
+		"covered_prior_fill_through_world_px", "feather_mask", "shape_modulation", "tone",
 		"mask_metrics", "shared_textured_seam", "metrics", "reverse_counterproof",
 		"rejected_z13_counterproof", "base_output_sha256", "base_rgb_sha256",
 		"base_edge_bleed_method", "base_edge_bleed_sha256", "immutable_body_rect",
@@ -1200,9 +1561,20 @@ func _mist_manifest_contract_is_v2(contract: Dictionary) -> bool:
 		"selection_method", "rect", "horizontal_scale", "vertical_scale",
 		"detail_gain", "crop_rgba_sha256",
 		"approved_source_alpha_weighted_luma_std",
-		"resized_blurred_rgba_sha256", "bottom_crop", "top_crop",
+		"resized_blurred_rgba_sha256", "meander_source", "bottom_crop", "top_crop",
 		"shared_textured_row",
 	]):
+		return false
+	if not _dictionary_has_exact_keys(
+		strip.get("meander_source", {}) as Dictionary,
+		[
+			"rect", "margin_world_px", "source_sampling_bias_world_px",
+			"source_sampling_bias_texture_px", "effective_center_rect",
+			"effective_center_crop_rgba_sha256",
+			"effective_center_alpha_weighted_luma_std", "crop_rgba_sha256",
+			"resized_blurred_rgba_sha256",
+		]
+	):
 		return false
 	for crop_name in ["top_crop", "bottom_crop"]:
 		if not _dictionary_has_exact_keys(
@@ -1212,13 +1584,25 @@ func _mist_manifest_contract_is_v2(contract: Dictionary) -> bool:
 			return false
 	if not _dictionary_has_exact_keys(contract.get("tone", {}) as Dictionary, [
 		"detail_model", "source_alpha_weighted_mean_luma", "target_body_mean_rgb",
-		"target_body_luma", "detail_gain", "global_rgb_offset",
+		"target_body_luma", "detail_gain", "bottom_opacity_weighted_detail_mean",
+		"top_opacity_weighted_detail_mean", "global_rgb_offset",
+		"top_edge_rgb_offset", "bottom_edge_rgb_offset", "edge_offset_profile",
 		"global_offset_objective", "composited_luma", "top_composited_luma",
 		"bottom_composited_luma", "maximum_edge_body_luma_delta",
-		"mist_tone_maximum_luma", "approved_source_alpha_weighted_luma_std",
+		"mist_tone_maximum_luma", "approved_literal_source_alpha_weighted_luma_std",
+		"effective_source_alpha_weighted_luma_std",
 		"resized_blurred_source_alpha_weighted_luma_std", "mist_tone_luma_std",
-		"mist_to_source_contrast_ratio",
+		"mist_to_source_contrast_ratio", "visible_shape_metrics",
 	]):
+		return false
+	if not _mist_visible_shape_metrics_schema_is_exact(
+		(contract.get("tone", {}) as Dictionary).get("visible_shape_metrics", {})
+			as Dictionary
+	):
+		return false
+	if not _mist_shape_modulation_schema_is_exact(
+		contract.get("shape_modulation", {}) as Dictionary
+	):
 		return false
 	var masks: Dictionary = contract.get("mask_metrics", {})
 	if not _dictionary_has_exact_keys(masks, [
@@ -1235,6 +1619,8 @@ func _mist_manifest_contract_is_v2(contract: Dictionary) -> bool:
 			[
 				"opacity_threshold", "minimum_depth_texture_px",
 				"maximum_depth_texture_px", "depth_std_texture_px",
+				"p05_depth_texture_px", "p95_depth_texture_px",
+				"p95_half_range_world_px",
 			]
 		):
 			return false
@@ -1275,11 +1661,521 @@ func _mist_manifest_contract_is_v2(contract: Dictionary) -> bool:
 			"minimum_ragged_mask_residual_std",
 			"minimum_feather_front_std_texture_px",
 			"minimum_center_detail_ratio", "maximum_center_detail_ratio",
+			"thickness_variation_ratio", "nominal_shaped_feather_world_px",
+			"minimum_shaped_feather_world_px", "maximum_shaped_feather_world_px",
+			"outer_alpha_guard_world_px",
+			"minimum_thickness_p95_half_range_world_px",
+			"meander_amplitude_world_px", "minimum_meander_p95_half_range_world_px",
+			"minimum_field_wavelength_world_px",
+			"minimum_horizontal_control_span_world_px",
+			"minimum_vertical_control_span_world_px", "horizontal_control_cells",
+			"edge_vertical_control_cells", "periodic_halo_control_cells",
+			"meander_source_margin_world_px", "maximum_source_sampling_bias_world_px",
+			"shared_seam_residual_amplitude_world_px",
+			"minimum_shared_seam_p95_half_range_world_px",
+			"minimum_actual_front_p95_half_range_world_px",
+			"maximum_actual_front_absolute_correlation",
+			"minimum_thinning_width_ratio", "maximum_thinning_width_ratio",
+			"thinning_active_window_threshold",
+			"minimum_thinning_opacity_multiplier",
+			"maximum_thinning_opacity_multiplier",
+			"minimum_terrain_attachment_maximum_gain",
+			"maximum_terrain_attachment_active_ratio",
+			"maximum_terrain_attachment_depth_world_px",
+			"terrain_control_quantile", "maximum_terrain_control_active_ratio",
+			"minimum_terrain_selected_strength",
+			"minimum_terrain_selected_foot_score",
+			"minimum_terrain_selected_directional_delta",
+			"terrain_selected_control_cells_per_edge",
+			"minimum_top_bottom_phase_delta_rad",
+			"maximum_thinning_strong_overlap_ratio",
+			"minimum_column_integrated_opacity_world_px",
+			"minimum_warp_vertical_jacobian",
+			"terrain_bridge_anchor_world_px",
+			"terrain_bridge_horizontal_control_cells",
+			"terrain_bridge_vertical_control_cells",
+			"terrain_bridge_reveal_minimum_world_px",
+			"terrain_bridge_reveal_maximum_world_px",
+			"minimum_terrain_bridge_whole_anchor_detail_gain",
+			"maximum_terrain_bridge_whole_anchor_detail_gain",
+			"terrain_bridge_composite_luma_bias",
+			"visible_pigment_nominal_half_width_world_px",
+			"visible_pigment_maximum_mix", "visible_haze_floor",
+			"visible_thinning_factor_exponent",
+			"visible_thinning_terrain_detail_gain",
+			"visible_shared_reference_detail_gain",
+			"visible_shape_seam_transition_world_px",
+			"visible_edge_veil_transition_world_px",
+			"visible_edge_veil_minimum_factor",
+			"visible_edge_centerline_divergence_world_px",
+			"visible_edge_centerline_maximum_absolute_world_px",
+			"visible_centerline_target_p95_half_range_world_px",
+			"minimum_visible_centerline_p95_half_range_world_px",
+			"maximum_visible_centerline_absolute_world_px",
+			"minimum_visible_centerline_valid_ratio",
+			"maximum_full_width_pale_run_world_px",
+			"maximum_core_local_luma_p95_gain", "maximum_core_local_luma_gain",
+			"minimum_thinned_terrain_detail_ratio",
+			"minimum_visible_thinned_peak_ink_mix", "minimum_visible_haze_floor",
+			"minimum_actual_applied_thinning_active_ratio",
+			"maximum_actual_applied_thinning_active_ratio",
+			"maximum_actual_applied_thinning_strong_overlap_ratio",
+			"maximum_actual_applied_thinning_absolute_correlation",
+			"actual_applied_thinning_shared_seam_rows_exact",
+			"actual_applied_thinning_signatures_unique",
+			"maximum_visible_edge_centerline_residual_absolute_correlation",
+			"maximum_visible_edge_veil_absolute_correlation",
+			"maximum_visible_edge_veil_p05", "minimum_visible_edge_veil_p95",
 			"endpoint_row_mean_jump",
 		]
 	):
 		return false
 	return _mist_metric_schema_is_exact(contract.get("metrics", {}) as Dictionary)
+
+
+func _mist_visible_shape_metrics_schema_is_exact(visible: Dictionary) -> bool:
+	if not _dictionary_has_exact_keys(visible, [
+		"method", "terrain_bridge", "pigment", "full_width_pale_run_world_px",
+		"core_local_luma_positive_gain_p95",
+		"core_local_luma_positive_gain_maximum", "terrain_detail_by_edge",
+		"minimum_thinned_terrain_detail_ratio",
+	]):
+		return false
+	var terrain: Dictionary = visible.get("terrain_bridge", {})
+	if not _dictionary_has_exact_keys(terrain, [
+		"anchor_world_px", "horizontal_control_cells", "vertical_control_cells",
+		"rasterization", "whole_anchor_detail_gain", "composite_luma_bias",
+		"edge_luma_calibration", "shared_reference_rgb_float32_sha256",
+		"shared_reference_detail_gain", "reveal_depth_minimum_world_px",
+		"reveal_depth_maximum_world_px", "maximum_mix", "rgb_float32_sha256",
+		"one_pixel_column_operations", "per_column_adjustment",
+	]):
+		return false
+	var calibration: Dictionary = terrain.get("edge_luma_calibration", {})
+	if not _dictionary_has_exact_keys(calibration, ["bottom", "top"]):
+		return false
+	for edge_name in ["bottom", "top"]:
+		if not _dictionary_has_exact_keys(
+			calibration.get(edge_name, {}) as Dictionary,
+			[
+				"source_mean_luma", "literal_target_body_mean_luma",
+				"target_body_mean_luma", "whole_edge_rgb_offset",
+				"calibrated_mean_luma",
+			]
+		):
+			return false
+	var pigment: Dictionary = visible.get("pigment", {})
+	if not _dictionary_has_exact_keys(pigment, [
+		"centroid_p05_world_px", "centroid_p95_world_px",
+		"centroid_p95_half_range_world_px", "centroid_maximum_absolute_world_px",
+		"centroid_valid_column_ratio", "nominal_half_width_world_px",
+		"thickness_variation_ratio", "edge_centerline_divergence_world_px",
+		"edge_centerline_cross_edge_correlation",
+		"edge_centerline_cross_edge_absolute_correlation", "haze_floor",
+		"maximum_ink_mix",
+		"thinning_factor_exponent", "active_profile_gate",
+		"edge_veil_transition_world_px", "edge_veil_minimum_factor",
+		"edge_veil_top_phase_offset_rad", "edge_veil_cross_edge_correlation",
+		"edge_veil_cross_edge_absolute_correlation", "edge_veil_bottom_p05",
+		"edge_veil_bottom_p95", "edge_veil_top_p05", "edge_veil_top_p95",
+		"thinning_terrain_detail_gain", "minimum_visible_thinning_factor",
+		"minimum_thinned_peak_ink_mix", "thinning_windows",
+		"ink_mix_float32_sha256", "actual_applied_thinning_profiles",
+	]):
+		return false
+	var actual_thinning: Dictionary = pigment.get(
+		"actual_applied_thinning_profiles",
+		{}
+	)
+	if not _dictionary_has_exact_keys(actual_thinning, [
+		"construction", "transition_world_px", "shared_seam_rows_exact",
+		"bottom", "top", "bottom_top_correlation",
+		"bottom_top_absolute_correlation", "strong_overlap_ratio", "signatures_unique",
+	]):
+		return false
+	for edge_name in ["bottom", "top"]:
+		if not _dictionary_has_exact_keys(
+			actual_thinning.get(edge_name, {}) as Dictionary,
+			["active_ratio", "p90", "float32_sha256"]
+		):
+			return false
+	var thinning_windows: Dictionary = pigment.get("thinning_windows", {})
+	if not _dictionary_has_exact_keys(thinning_windows, ["bottom", "top"]):
+		return false
+	for edge_name in ["bottom", "top"]:
+		if not _dictionary_has_exact_keys(
+			thinning_windows.get(edge_name, {}) as Dictionary,
+			[
+				"active_ratio", "p90", "maximum", "active_top_quintile_threshold",
+				"minimum_active_peak_ink_mix",
+			]
+		):
+			return false
+	var terrain_detail: Dictionary = visible.get("terrain_detail_by_edge", {})
+	if not _dictionary_has_exact_keys(terrain_detail, ["bottom", "top"]):
+		return false
+	for edge_name in ["bottom", "top"]:
+		if not _dictionary_has_exact_keys(
+			terrain_detail.get(edge_name, {}) as Dictionary,
+			[
+				"active_top_quintile_counterfactual_retention",
+				"same_columns_thinning_disabled_retention",
+				"enabled_to_disabled_ratio",
+			]
+		):
+			return false
+	return true
+
+
+func _mist_visible_shape_metrics_are_within_contract(
+	visible: Dictionary,
+	tone: Dictionary,
+	expected_terrain_bridge_detail_gain: float
+) -> bool:
+	if not _mist_visible_shape_metrics_schema_is_exact(visible):
+		return false
+	var terrain: Dictionary = visible.get("terrain_bridge", {})
+	var pigment: Dictionary = visible.get("pigment", {})
+	if (
+		str(visible.get("method", ""))
+			!= "immutable_body_coarse_bridge_and_meandering_pigment_v2"
+		or int(terrain.get("anchor_world_px", -1))
+			!= EXPECTED_BAND_MIST_TERRAIN_BRIDGE_ANCHOR_WORLD_PX
+		or int(terrain.get("horizontal_control_cells", -1))
+			!= EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+		or int(terrain.get("vertical_control_cells", -1))
+			!= EXPECTED_BAND_MIST_TERRAIN_BRIDGE_VERTICAL_CONTROL_CELLS
+		or str(terrain.get("rasterization", ""))
+			!= "pillow_box_to_bicubic_control_lattice_plus_whole_anchor_residual"
+		or not is_equal_approx(
+			float(terrain.get("whole_anchor_detail_gain", -1.0)),
+			expected_terrain_bridge_detail_gain
+		)
+		or expected_terrain_bridge_detail_gain
+			< EXPECTED_BAND_MIST_MIN_TERRAIN_BRIDGE_DETAIL_GAIN
+		or expected_terrain_bridge_detail_gain
+			> EXPECTED_BAND_MIST_MAX_TERRAIN_BRIDGE_DETAIL_GAIN
+		or not is_equal_approx(
+			float(terrain.get("composite_luma_bias", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_COMPOSITE_LUMA_BIAS
+		)
+		or not is_equal_approx(
+			float(terrain.get("shared_reference_detail_gain", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_SHARED_REFERENCE_DETAIL_GAIN
+		)
+		or str(terrain.get("shared_reference_rgb_float32_sha256", "")).length() != 64
+		or str(terrain.get("rgb_float32_sha256", "")).length() != 64
+		or not is_equal_approx(
+			float(terrain.get("reveal_depth_minimum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MINIMUM_WORLD_PX
+		)
+		or not is_equal_approx(
+			float(terrain.get("reveal_depth_maximum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MAXIMUM_WORLD_PX
+		)
+		or float(terrain.get("maximum_mix", -1.0)) <= 0.0
+		or float(terrain.get("maximum_mix", INF)) > 1.0
+		or bool(terrain.get("one_pixel_column_operations", true))
+		or bool(terrain.get("per_column_adjustment", true))
+	):
+		return false
+	var calibration: Dictionary = terrain.get("edge_luma_calibration", {})
+	for edge_name in ["bottom", "top"]:
+		var edge_calibration: Dictionary = calibration.get(edge_name, {})
+		var source_mean := float(edge_calibration.get("source_mean_luma", INF))
+		var literal_target := float(edge_calibration.get(
+			"literal_target_body_mean_luma",
+			-INF
+		))
+		var target := float(edge_calibration.get("target_body_mean_luma", -INF))
+		var whole_edge_offset := float(edge_calibration.get("whole_edge_rgb_offset", INF))
+		var calibrated_mean := float(edge_calibration.get("calibrated_mean_luma", -INF))
+		if (
+			not is_equal_approx(literal_target, float(tone.get("target_body_luma", INF)))
+			or not is_equal_approx(
+				target,
+				literal_target + EXPECTED_BAND_MIST_TERRAIN_BRIDGE_COMPOSITE_LUMA_BIAS
+			)
+			or not is_equal_approx(whole_edge_offset, target - source_mean)
+			or calibrated_mean <= source_mean
+			or calibrated_mean > target + 0.0001
+		):
+			return false
+	if (
+		float(pigment.get("centroid_p95_half_range_world_px", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_HALF_RANGE_WORLD_PX
+		or float(pigment.get("centroid_maximum_absolute_world_px", INF))
+			> EXPECTED_BAND_MIST_MAX_VISIBLE_CENTERLINE_ABSOLUTE_WORLD_PX
+		or float(pigment.get("centroid_valid_column_ratio", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_VALID_RATIO
+		or not is_equal_approx(
+			float(pigment.get("nominal_half_width_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_PIGMENT_NOMINAL_HALF_WIDTH_WORLD_PX
+		)
+		or not is_equal_approx(
+			float(pigment.get("thickness_variation_ratio", -1.0)),
+			EXPECTED_BAND_MIST_THICKNESS_VARIATION_RATIO
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_centerline_divergence_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_CENTERLINE_DIVERGENCE_WORLD_PX
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_centerline_cross_edge_absolute_correlation", INF)),
+			absf(float(pigment.get("edge_centerline_cross_edge_correlation", INF)))
+		)
+		or float(pigment.get("edge_centerline_cross_edge_absolute_correlation", INF))
+			> EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_CROSS_CORRELATION
+		or not is_equal_approx(
+			float(pigment.get("maximum_ink_mix", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_PIGMENT_MAXIMUM_MIX
+		)
+		or not is_equal_approx(
+			float(pigment.get("thinning_factor_exponent", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_THINNING_FACTOR_EXPONENT
+		)
+		or not is_equal_approx(
+			float(pigment.get("active_profile_gate", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_ACTIVE_PROFILE_GATE
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_veil_transition_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_veil_minimum_factor", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_MINIMUM_FACTOR
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_veil_top_phase_offset_rad", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TOP_PHASE_OFFSET_RAD
+		)
+		or not is_equal_approx(
+			float(pigment.get("edge_veil_cross_edge_absolute_correlation", INF)),
+			absf(float(pigment.get("edge_veil_cross_edge_correlation", INF)))
+		)
+		or float(pigment.get("edge_veil_cross_edge_absolute_correlation", INF))
+			> EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_CROSS_CORRELATION
+		or float(pigment.get("edge_veil_bottom_p05", INF))
+			> EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_VEIL_P05
+		or float(pigment.get("edge_veil_top_p05", INF))
+			> EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_VEIL_P05
+		or float(pigment.get("edge_veil_bottom_p95", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_EDGE_VEIL_P95
+		or float(pigment.get("edge_veil_top_p95", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_EDGE_VEIL_P95
+		or not is_equal_approx(
+			float(pigment.get("thinning_terrain_detail_gain", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_THINNING_TERRAIN_DETAIL_GAIN
+		)
+		or float(pigment.get("minimum_visible_thinning_factor", -1.0)) <= 0.0
+		or float(pigment.get("minimum_visible_thinning_factor", INF)) >= 1.0
+		or float(pigment.get("minimum_thinned_peak_ink_mix", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_THINNED_PEAK_INK_MIX
+		or float(pigment.get("haze_floor", -1.0))
+			< EXPECTED_BAND_MIST_MIN_VISIBLE_HAZE_FLOOR
+		or not is_equal_approx(
+			float(pigment.get("haze_floor", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_HAZE_FLOOR
+		)
+		or str(pigment.get("ink_mix_float32_sha256", "")).length() != 64
+		or float(visible.get("full_width_pale_run_world_px", INF))
+			> EXPECTED_BAND_MIST_MAX_FULL_WIDTH_PALE_RUN_WORLD_PX
+		or float(visible.get("core_local_luma_positive_gain_p95", INF))
+			> EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_P95_GAIN
+		or float(visible.get("core_local_luma_positive_gain_maximum", INF))
+			> EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_GAIN
+		or float(visible.get("minimum_thinned_terrain_detail_ratio", -1.0))
+			< EXPECTED_BAND_MIST_MIN_THINNED_TERRAIN_DETAIL_RATIO
+	):
+		return false
+	var actual_thinning: Dictionary = pigment.get(
+		"actual_applied_thinning_profiles",
+		{}
+	)
+	if (
+		str(actual_thinning.get("construction", ""))
+			!= "mean_applied_rows_outside_veil_transition_v1"
+		or not is_equal_approx(
+			float(actual_thinning.get("transition_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX
+		)
+		or not bool(actual_thinning.get("shared_seam_rows_exact", false))
+		or not bool(actual_thinning.get("signatures_unique", false))
+		or not is_equal_approx(
+			float(actual_thinning.get("bottom_top_absolute_correlation", -1.0)),
+			absf(float(actual_thinning.get("bottom_top_correlation", INF)))
+		)
+		or float(actual_thinning.get("bottom_top_absolute_correlation", INF))
+			> EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_CORRELATION
+		or float(actual_thinning.get("strong_overlap_ratio", INF))
+			> EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_STRONG_OVERLAP
+	):
+		return false
+	var actual_thinning_signatures: Dictionary = {}
+	for edge_name in ["bottom", "top"]:
+		var applied: Dictionary = actual_thinning.get(edge_name, {})
+		var applied_active_ratio := float(applied.get("active_ratio", -1.0))
+		var applied_signature := str(applied.get("float32_sha256", ""))
+		if (
+			applied_active_ratio
+				< EXPECTED_BAND_MIST_MIN_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO
+			or applied_active_ratio
+				> EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO
+			or float(applied.get("p90", -1.0)) <= 0.0
+			or applied_signature.length() != 64
+		):
+			return false
+		actual_thinning_signatures[applied_signature] = true
+	if actual_thinning_signatures.size() != 2:
+		return false
+	var thinning_windows: Dictionary = pigment.get("thinning_windows", {})
+	var terrain_detail: Dictionary = visible.get("terrain_detail_by_edge", {})
+	for edge_name in ["bottom", "top"]:
+		var window: Dictionary = thinning_windows.get(edge_name, {})
+		var detail: Dictionary = terrain_detail.get(edge_name, {})
+		if (
+			float(window.get("active_ratio", -1.0)) <= 0.0
+			or float(window.get("active_ratio", INF)) >= 1.0
+			or float(window.get("minimum_active_peak_ink_mix", -1.0))
+				< EXPECTED_BAND_MIST_MIN_VISIBLE_THINNED_PEAK_INK_MIX
+			or float(detail.get("active_top_quintile_counterfactual_retention", -1.0))
+				<= 0.0
+			or float(detail.get("same_columns_thinning_disabled_retention", -1.0))
+				<= 0.0
+			or float(detail.get("enabled_to_disabled_ratio", -1.0))
+				< EXPECTED_BAND_MIST_MIN_THINNED_TERRAIN_DETAIL_RATIO
+		):
+			return false
+	return true
+
+
+func _mist_shape_modulation_schema_is_exact(shape: Dictionary) -> bool:
+	if not _dictionary_has_exact_keys(shape, [
+		"method", "field_construction", "pigment_warp", "edges",
+		"cross_edge_metrics", "parameter_table_sha256", "parallel_band_counterproof",
+	]):
+		return false
+	if not _dictionary_has_exact_keys(shape.get("field_construction", {}) as Dictionary, [
+		"primary_cycles", "secondary_cycles", "minimum_wavelength_world_px",
+		"minimum_horizontal_control_span_world_px",
+		"minimum_vertical_control_span_world_px", "horizontal_control_cells",
+		"edge_vertical_control_cells", "periodic_halo_control_cells",
+		"rasterization", "one_pixel_column_operations", "per_column_adjustment",
+	]):
+		return false
+	if not _dictionary_has_exact_keys(shape.get("pigment_warp", {}) as Dictionary, [
+		"method", "margin_world_px", "horizontal_control_cells",
+		"vertical_control_cells", "minimum_horizontal_control_span_texture_px",
+		"minimum_vertical_control_span_texture_px", "shared_logical_row",
+		"shared_seam_primary_phase_rad", "shared_seam_secondary_phase_rad",
+		"shared_seam_residual_amplitude_world_px",
+		"source_y_control_minimum_texture_px", "source_y_control_maximum_texture_px",
+		"sampling_offset_sign", "shared_row_displacement_p95_half_range_world_px",
+		"shared_row_displacement_maximum_absolute_world_px",
+		"minimum_vertical_jacobian", "one_pixel_column_operations",
+		"per_column_adjustment", "warped_rgba_sha256",
+		"source_sampling_bias_world_px", "source_sampling_bias_texture_px",
+	]):
+		return false
+	if not _dictionary_has_exact_keys(shape.get("cross_edge_metrics", {}) as Dictionary, [
+		"thickness_primary_phase_delta_rad", "meander_primary_phase_delta_rad",
+		"minimum_primary_phase_delta_rad", "thinning_strong_overlap_ratio",
+		"parameter_signatures_unique", "actual_front_absolute_correlation",
+	]):
+		return false
+	if not _dictionary_has_exact_keys(
+		shape.get("parallel_band_counterproof", {}) as Dictionary,
+		[
+			"construction", "shape_gate_red", "red_effects",
+			"all_production_outputs_changed", "effects",
+			"disabled_strip_rgba_sha256",
+		]
+	):
+		return false
+	var counterproof: Dictionary = shape.get("parallel_band_counterproof", {})
+	var effects: Dictionary = counterproof.get("effects", {})
+	if not _dictionary_has_exact_keys(effects, [
+		"thickness_disabled", "meander_disabled", "thinning_disabled",
+		"terrain_disabled",
+	]):
+		return false
+	var meander: Dictionary = effects.get("meander_disabled", {})
+	if not _dictionary_has_exact_keys(meander, [
+		"production_helper", "gate_red", "production_output_changed",
+		"warped_rgba_sha256", "actual_warped_rgba_sha256", "edges",
+		"alpha_identity_changed_pixels", "alpha_identity_maximum_delta",
+	]):
+		return false
+	var meander_edges: Dictionary = meander.get("edges", {})
+	if not _dictionary_has_exact_keys(meander_edges, ["top", "bottom"]):
+		return false
+	for edge_name in ["top", "bottom"]:
+		if not _dictionary_has_exact_keys(meander_edges.get(edge_name, {}) as Dictionary, [
+			"meander_p05_world_px", "meander_p95_world_px",
+			"meander_p95_half_range_world_px", "meander_maximum_absolute_world_px",
+			"meander_absolute_mean_world_px",
+		]):
+			return false
+	for effect_name in ["thickness_disabled", "thinning_disabled", "terrain_disabled"]:
+		var effect: Dictionary = effects.get(effect_name, {})
+		if not _dictionary_has_exact_keys(effect, ["production_helper", "gate_red", "edges"]):
+			return false
+		var effect_edges: Dictionary = effect.get("edges", {})
+		if not _dictionary_has_exact_keys(effect_edges, ["top", "bottom"]):
+			return false
+		for edge_name in ["top", "bottom"]:
+			if not _dictionary_has_exact_keys(
+				effect_edges.get(edge_name, {}) as Dictionary,
+				[
+					"mask_float32_sha256", "production_output_changed",
+					"thickness_p95_half_range_world_px", "thinning_active_ratio",
+					"minimum_applied_thinning_factor",
+					"terrain_attachment_maximum_gain",
+				]
+			):
+				return false
+	var edges: Dictionary = shape.get("edges", {})
+	if not _dictionary_has_exact_keys(edges, ["top", "bottom"]):
+		return false
+	for edge_name in ["top", "bottom"]:
+		var edge: Dictionary = edges.get(edge_name, {})
+		if not _dictionary_has_exact_keys(edge, [
+			"deterministic_seed", "thickness_phase_rad",
+			"thickness_secondary_phase_rad", "meander_phase_rad",
+			"meander_secondary_phase_rad", "thinning_center_ratio",
+			"thinning_width_ratio", "thinning_opacity_multiplier",
+			"terrain_phase_rad", "metrics",
+		]):
+			return false
+		if not _dictionary_has_exact_keys(edge.get("metrics", {}) as Dictionary, [
+			"thickness_minimum_world_px", "thickness_maximum_world_px",
+			"thickness_p05_world_px", "thickness_p95_world_px",
+			"thickness_p95_half_range_world_px", "thinning_width_ratio",
+			"minimum_outer_opacity_multiplier", "thinning_active_ratio",
+			"thinning_strong_ratio", "minimum_applied_thinning_factor",
+			"minimum_column_integrated_opacity_world_px",
+			"terrain_attachment_mean_gain", "terrain_attachment_maximum_gain",
+			"terrain_attachment_active_ratio",
+			"terrain_attachment_maximum_depth_world_px", "terrain_control_cells",
+			"terrain_active_control_cells", "terrain_control_active_ratio",
+			"terrain_horizontal_active_ratio", "terrain_directional_role",
+			"terrain_eligible_control_row", "terrain_selected_control_cells",
+			"terrain_selected_raw_foot_scores",
+			"terrain_selected_directional_deltas",
+			"terrain_selected_applied_strengths",
+			"terrain_selected_available_depth_ratios",
+			"terrain_selected_distance_minimum_world_px",
+			"terrain_selected_distance_maximum_world_px",
+			"outer_guard_maximum_opacity",
+			"meander_p05_world_px", "meander_p95_world_px",
+			"meander_p95_half_range_world_px", "meander_maximum_absolute_world_px",
+			"meander_absolute_mean_world_px", "actual_front_p05_depth_texture_px",
+			"actual_front_p95_depth_texture_px",
+			"actual_front_p95_half_range_world_px",
+		]):
+			return false
+	return true
 
 
 func _mist_metric_schema_is_exact(metrics: Dictionary) -> bool:
@@ -1343,6 +2239,237 @@ func _dictionary_has_exact_keys(value: Dictionary, expected_keys: Array) -> bool
 	return true
 
 
+func _mist_edge_shape_is_within_contract(edge_name: String, edge: Dictionary) -> bool:
+	var edge_metrics: Dictionary = edge.get("metrics", {})
+	var width_ratio := float(edge.get("thinning_width_ratio", -1.0))
+	var opacity_multiplier := float(edge.get("thinning_opacity_multiplier", -1.0))
+	var active_ratio := float(edge_metrics.get("thinning_active_ratio", -1.0))
+	var phase_values := [
+		float(edge.get("thickness_phase_rad", -1.0)),
+		float(edge.get("thickness_secondary_phase_rad", -1.0)),
+		float(edge.get("meander_phase_rad", -1.0)),
+		float(edge.get("meander_secondary_phase_rad", -1.0)),
+		float(edge.get("terrain_phase_rad", -1.0)),
+	]
+	for phase in phase_values:
+		if float(phase) < 0.0 or float(phase) >= TAU:
+			return false
+	return (
+		int(edge.get("deterministic_seed", -1)) >= 0
+		and float(edge.get("thinning_center_ratio", -1.0)) >= 0.0
+		and float(edge.get("thinning_center_ratio", INF)) < 1.0
+		and width_ratio >= EXPECTED_BAND_MIST_MIN_THINNING_WIDTH_RATIO
+		and width_ratio <= EXPECTED_BAND_MIST_MAX_THINNING_WIDTH_RATIO
+		and opacity_multiplier >= EXPECTED_BAND_MIST_MIN_THINNING_OPACITY_MULTIPLIER
+		and opacity_multiplier <= EXPECTED_BAND_MIST_MAX_THINNING_OPACITY_MULTIPLIER
+		and is_equal_approx(
+			float(edge_metrics.get("thickness_minimum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_SHAPED_FEATHER_WORLD_PX
+		)
+		and is_equal_approx(
+			float(edge_metrics.get("thickness_maximum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MAX_SHAPED_FEATHER_WORLD_PX
+		)
+		and float(edge_metrics.get("thickness_p05_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_SHAPED_FEATHER_WORLD_PX
+		and float(edge_metrics.get("thickness_p95_world_px", INF))
+			<= EXPECTED_BAND_MIST_MAX_SHAPED_FEATHER_WORLD_PX
+		and float(edge_metrics.get("thickness_p95_half_range_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_THICKNESS_P95_HALF_RANGE_WORLD_PX
+		and is_equal_approx(float(edge_metrics.get("thinning_width_ratio", -1.0)), width_ratio)
+		and active_ratio >= EXPECTED_BAND_MIST_MIN_THINNING_WIDTH_RATIO
+		and active_ratio <= EXPECTED_BAND_MIST_MAX_THINNING_WIDTH_RATIO
+		and float(edge_metrics.get("thinning_strong_ratio", -1.0)) > 0.0
+		and float(edge_metrics.get("thinning_strong_ratio", INF))
+			<= EXPECTED_BAND_MIST_MAX_THINNING_WIDTH_RATIO
+		and float(edge_metrics.get("minimum_outer_opacity_multiplier", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_THINNING_OPACITY_MULTIPLIER
+		and float(edge_metrics.get("minimum_applied_thinning_factor", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_THINNING_OPACITY_MULTIPLIER
+		and float(edge_metrics.get("minimum_applied_thinning_factor", INF))
+			<= EXPECTED_BAND_MIST_MAX_THINNING_OPACITY_MULTIPLIER
+		and float(edge_metrics.get("minimum_column_integrated_opacity_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_COLUMN_INTEGRATED_OPACITY_WORLD_PX
+		and float(edge_metrics.get("terrain_attachment_mean_gain", -1.0)) > 0.0
+		and float(edge_metrics.get("terrain_attachment_maximum_gain", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_TERRAIN_ATTACHMENT_GAIN
+		and float(edge_metrics.get("terrain_attachment_active_ratio", -1.0)) > 0.0
+		and float(edge_metrics.get("terrain_attachment_active_ratio", INF))
+			<= EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_ACTIVE_RATIO
+		and _mist_terrain_selection_is_local(edge_name, edge_metrics)
+		and float(edge_metrics.get("terrain_attachment_maximum_depth_world_px", -1.0))
+			> 0.0
+		and float(edge_metrics.get("terrain_attachment_maximum_depth_world_px", INF))
+			<= EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_DEPTH_WORLD_PX
+		and is_zero_approx(float(edge_metrics.get("outer_guard_maximum_opacity", INF)))
+		and float(edge_metrics.get("meander_p95_half_range_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_MEANDER_P95_HALF_RANGE_WORLD_PX
+		and float(edge_metrics.get("actual_front_p95_half_range_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_ACTUAL_FRONT_HALF_RANGE_WORLD_PX
+		and float(edge_metrics.get("meander_maximum_absolute_world_px", -1.0))
+			>= EXPECTED_BAND_MIST_MIN_MEANDER_MAXIMUM_WORLD_PX
+		and float(edge_metrics.get("meander_maximum_absolute_world_px", INF))
+			<= EXPECTED_BAND_MIST_MAX_MEANDER_MAXIMUM_WORLD_PX
+		and float(edge_metrics.get("meander_absolute_mean_world_px", -1.0)) > 0.0
+	)
+
+
+func _mist_terrain_selection_is_local(edge_name: String, metrics: Dictionary) -> bool:
+	var selected_cells: Array = metrics.get("terrain_selected_control_cells", [])
+	var raw_scores: Array = metrics.get("terrain_selected_raw_foot_scores", [])
+	var directional_deltas: Array = metrics.get(
+		"terrain_selected_directional_deltas",
+		[]
+	)
+	var strengths: Array = metrics.get("terrain_selected_applied_strengths", [])
+	var available_depths: Array = metrics.get(
+		"terrain_selected_available_depth_ratios",
+		[]
+	)
+	var active_cells := int(metrics.get("terrain_active_control_cells", -1))
+	var expected_row := (
+		EXPECTED_BAND_MIST_EDGE_VERTICAL_CONTROL_CELLS - 1
+		if edge_name == "top"
+		else 0
+	)
+	if (
+		int(metrics.get("terrain_control_cells", -1))
+			!= EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+		or active_cells != EXPECTED_BAND_MIST_TERRAIN_SELECTED_CONTROL_CELLS_PER_EDGE
+		or selected_cells.size() != active_cells
+		or raw_scores.size() != active_cells
+		or directional_deltas.size() != active_cells
+		or strengths.size() != active_cells
+		or available_depths.size() != active_cells
+		or float(metrics.get("terrain_control_active_ratio", INF)) <= 0.0
+		or float(metrics.get("terrain_control_active_ratio", INF))
+			> EXPECTED_BAND_MIST_MAX_TERRAIN_CONTROL_ACTIVE_RATIO
+		or float(metrics.get("terrain_horizontal_active_ratio", INF)) <= 0.0
+		or float(metrics.get("terrain_horizontal_active_ratio", INF))
+			> EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_ACTIVE_RATIO
+		or int(metrics.get("terrain_eligible_control_row", -1)) != expected_row
+		or not is_equal_approx(
+			float(metrics.get("terrain_selected_distance_minimum_world_px", -1.0)),
+			float(EXPECTED_BAND_MIST_FILL_COVER_WORLD_PX)
+		)
+		or not is_equal_approx(
+			float(metrics.get("terrain_selected_distance_maximum_world_px", -1.0)),
+			float(EXPECTED_BAND_MIST_EDGE_ZONE_WORLD_PX)
+				- EXPECTED_BAND_MIST_OUTER_ALPHA_GUARD_WORLD_PX
+		)
+	):
+		return false
+	var expected_role := (
+		"outer_feather_lower_foot_toward_inward_positive_y"
+		if edge_name == "top"
+		else "outer_feather_lower_foot_toward_inward_negative_y"
+	)
+	if str(metrics.get("terrain_directional_role", "")) != expected_role:
+		return false
+	for index in range(active_cells):
+		var cell: Array = selected_cells[index]
+		if (
+			cell.size() != 2
+			or int(cell[0]) != expected_row
+			or int(cell[1]) < 0
+			or int(cell[1]) >= EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+			or float(raw_scores[index]) < EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_FOOT_SCORE
+			or float(directional_deltas[index])
+				< EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_DIRECTIONAL_DELTA
+			or float(strengths[index]) < EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_STRENGTH
+			or float(strengths[index]) > 1.0
+			or float(available_depths[index]) < 0.0
+			or float(available_depths[index]) > 1.0
+		):
+			return false
+	return true
+
+
+func _mist_parallel_band_counterproof_is_red(counterproof: Dictionary) -> bool:
+	var expected_red_effects := [
+		"meander_disabled",
+		"terrain_disabled",
+		"thickness_disabled",
+		"thinning_disabled",
+	]
+	if not (
+		str(counterproof.get("construction", ""))
+			== "production_helpers_effect_disabled_and_remeasured_v2"
+		and bool(counterproof.get("shape_gate_red", false))
+		and bool(counterproof.get("all_production_outputs_changed", false))
+		and counterproof.get("red_effects", []) == expected_red_effects
+		and str(counterproof.get("disabled_strip_rgba_sha256", "")).length() == 64
+	):
+		return false
+	var effects: Dictionary = counterproof.get("effects", {})
+	for effect_name in expected_red_effects:
+		var effect: Dictionary = effects.get(effect_name, {})
+		if not bool(effect.get("gate_red", false)):
+			return false
+		if effect_name == "meander_disabled":
+			if (
+				str(effect.get("production_helper", "")) != "warp_pigment_strip"
+				or not bool(effect.get("production_output_changed", false))
+				or str(effect.get("warped_rgba_sha256", "")).length() != 64
+				or str(effect.get("actual_warped_rgba_sha256", "")).length() != 64
+				or str(effect.get("warped_rgba_sha256", ""))
+					== str(effect.get("actual_warped_rgba_sha256", ""))
+				or int(effect.get("alpha_identity_changed_pixels", -1)) != 0
+				or int(effect.get("alpha_identity_maximum_delta", -1)) != 0
+			):
+				return false
+			for edge_name in ["top", "bottom"]:
+				var edge: Dictionary = (effect.get("edges", {}) as Dictionary).get(
+					edge_name,
+					{}
+				)
+				if (
+					float(edge.get("meander_p95_half_range_world_px", INF))
+						>= EXPECTED_BAND_MIST_MIN_MEANDER_P95_HALF_RANGE_WORLD_PX
+					or not is_zero_approx(float(edge.get(
+						"meander_maximum_absolute_world_px",
+						INF
+					)))
+				):
+					return false
+			continue
+		if str(effect.get("production_helper", "")) != "opacity_mask":
+			return false
+		for edge_name in ["top", "bottom"]:
+			var edge: Dictionary = (effect.get("edges", {}) as Dictionary).get(
+				edge_name,
+				{}
+			)
+			if (
+				str(edge.get("mask_float32_sha256", "")).length() != 64
+				or not bool(edge.get("production_output_changed", false))
+			):
+				return false
+			if (
+				effect_name == "thickness_disabled"
+				and float(edge.get("thickness_p95_half_range_world_px", INF))
+					>= EXPECTED_BAND_MIST_MIN_THICKNESS_P95_HALF_RANGE_WORLD_PX
+			):
+				return false
+			if (
+				effect_name == "thinning_disabled"
+				and (
+					float(edge.get("thinning_active_ratio", INF))
+						>= EXPECTED_BAND_MIST_MIN_THINNING_WIDTH_RATIO
+					or float(edge.get("minimum_applied_thinning_factor", -INF))
+						<= EXPECTED_BAND_MIST_MAX_THINNING_OPACITY_MULTIPLIER
+				)
+			):
+				return false
+			if (
+				effect_name == "terrain_disabled"
+				and float(edge.get("terrain_attachment_maximum_gain", INF))
+					>= EXPECTED_BAND_MIST_MIN_TERRAIN_ATTACHMENT_GAIN
+			):
+				return false
+	return true
+
+
 func _mist_reverse_counterproof_schema_is_exact(counterproof: Dictionary) -> bool:
 	return _dictionary_has_exact_keys(counterproof, [
 		"construction", "assignment", "production_mirror",
@@ -1401,6 +2528,316 @@ func _mist_thresholds_are_exact(thresholds: Dictionary) -> bool:
 		and is_equal_approx(
 			float(thresholds.get("maximum_center_detail_ratio", -1.0)),
 			EXPECTED_BAND_MIST_MAX_CENTER_DETAIL_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("thickness_variation_ratio", -1.0)),
+			EXPECTED_BAND_MIST_THICKNESS_VARIATION_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("nominal_shaped_feather_world_px", -1.0)),
+			EXPECTED_BAND_MIST_NOMINAL_SHAPED_FEATHER_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_shaped_feather_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_SHAPED_FEATHER_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_shaped_feather_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MAX_SHAPED_FEATHER_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("outer_alpha_guard_world_px", -1.0)),
+			EXPECTED_BAND_MIST_OUTER_ALPHA_GUARD_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_thickness_p95_half_range_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_THICKNESS_P95_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("meander_amplitude_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MEANDER_AMPLITUDE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_meander_p95_half_range_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_MEANDER_P95_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_field_wavelength_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_FIELD_WAVELENGTH_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_horizontal_control_span_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_HORIZONTAL_CONTROL_SPAN_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_vertical_control_span_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_VERTICAL_CONTROL_SPAN_WORLD_PX
+		)
+		and int(thresholds.get("horizontal_control_cells", -1))
+			== EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+		and int(thresholds.get("edge_vertical_control_cells", -1))
+			== EXPECTED_BAND_MIST_EDGE_VERTICAL_CONTROL_CELLS
+		and int(thresholds.get("periodic_halo_control_cells", -1))
+			== EXPECTED_BAND_MIST_PERIODIC_HALO_CONTROL_CELLS
+		and int(thresholds.get("meander_source_margin_world_px", -1))
+			== EXPECTED_BAND_MIST_MEANDER_SOURCE_MARGIN_WORLD_PX
+		and is_equal_approx(
+			float(thresholds.get("maximum_source_sampling_bias_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MAX_SOURCE_SAMPLING_BIAS_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("shared_seam_residual_amplitude_world_px", -1.0)),
+			EXPECTED_BAND_MIST_SHARED_SEAM_RESIDUAL_AMPLITUDE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_shared_seam_p95_half_range_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_SHARED_SEAM_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_actual_front_p95_half_range_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_ACTUAL_FRONT_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_actual_front_absolute_correlation", -1.0)),
+			EXPECTED_BAND_MIST_MAX_ACTUAL_FRONT_CORRELATION
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_thinning_width_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MIN_THINNING_WIDTH_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_thinning_width_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MAX_THINNING_WIDTH_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("thinning_active_window_threshold", -1.0)),
+			EXPECTED_BAND_MIST_THINNING_ACTIVE_WINDOW_THRESHOLD
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_thinning_opacity_multiplier", -1.0)),
+			EXPECTED_BAND_MIST_MIN_THINNING_OPACITY_MULTIPLIER
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_thinning_opacity_multiplier", -1.0)),
+			EXPECTED_BAND_MIST_MAX_THINNING_OPACITY_MULTIPLIER
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_terrain_attachment_maximum_gain", -1.0)),
+			EXPECTED_BAND_MIST_MIN_TERRAIN_ATTACHMENT_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_terrain_attachment_active_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_ACTIVE_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_terrain_attachment_depth_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MAX_TERRAIN_ATTACHMENT_DEPTH_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("terrain_control_quantile", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_CONTROL_QUANTILE
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_terrain_control_active_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MAX_TERRAIN_CONTROL_ACTIVE_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_terrain_selected_strength", -1.0)),
+			EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_STRENGTH
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_terrain_selected_foot_score", -1.0)),
+			EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_FOOT_SCORE
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_terrain_selected_directional_delta", -1.0)),
+			EXPECTED_BAND_MIST_MIN_TERRAIN_SELECTED_DIRECTIONAL_DELTA
+		)
+		and int(thresholds.get("terrain_selected_control_cells_per_edge", -1))
+			== EXPECTED_BAND_MIST_TERRAIN_SELECTED_CONTROL_CELLS_PER_EDGE
+		and is_equal_approx(
+			float(thresholds.get("minimum_top_bottom_phase_delta_rad", -1.0)),
+			EXPECTED_BAND_MIST_MIN_TOP_BOTTOM_PHASE_DELTA_RAD
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_thinning_strong_overlap_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MAX_THINNING_STRONG_OVERLAP_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_column_integrated_opacity_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MIN_COLUMN_INTEGRATED_OPACITY_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_warp_vertical_jacobian", -1.0)),
+			EXPECTED_BAND_MIST_MIN_WARP_VERTICAL_JACOBIAN
+		)
+		and int(thresholds.get("terrain_bridge_anchor_world_px", -1))
+			== EXPECTED_BAND_MIST_TERRAIN_BRIDGE_ANCHOR_WORLD_PX
+		and int(thresholds.get("terrain_bridge_horizontal_control_cells", -1))
+			== EXPECTED_BAND_MIST_HORIZONTAL_CONTROL_CELLS
+		and int(thresholds.get("terrain_bridge_vertical_control_cells", -1))
+			== EXPECTED_BAND_MIST_TERRAIN_BRIDGE_VERTICAL_CONTROL_CELLS
+		and is_equal_approx(
+			float(thresholds.get("terrain_bridge_reveal_minimum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MINIMUM_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("terrain_bridge_reveal_maximum_world_px", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_REVEAL_MAXIMUM_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"minimum_terrain_bridge_whole_anchor_detail_gain",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MIN_TERRAIN_BRIDGE_DETAIL_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"maximum_terrain_bridge_whole_anchor_detail_gain",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MAX_TERRAIN_BRIDGE_DETAIL_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("terrain_bridge_composite_luma_bias", -1.0)),
+			EXPECTED_BAND_MIST_TERRAIN_BRIDGE_COMPOSITE_LUMA_BIAS
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_pigment_nominal_half_width_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_PIGMENT_NOMINAL_HALF_WIDTH_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_pigment_maximum_mix", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_PIGMENT_MAXIMUM_MIX
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_haze_floor", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_HAZE_FLOOR
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_thinning_factor_exponent", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_THINNING_FACTOR_EXPONENT
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_thinning_terrain_detail_gain", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_THINNING_TERRAIN_DETAIL_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_shared_reference_detail_gain", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_SHARED_REFERENCE_DETAIL_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_shape_seam_transition_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_SHAPE_SEAM_TRANSITION_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_edge_veil_transition_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_edge_veil_minimum_factor", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_VEIL_MINIMUM_FACTOR
+		)
+		and is_equal_approx(
+			float(thresholds.get("visible_edge_centerline_divergence_world_px", -1.0)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_CENTERLINE_DIVERGENCE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"visible_edge_centerline_maximum_absolute_world_px",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_VISIBLE_EDGE_CENTERLINE_MAXIMUM_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"visible_centerline_target_p95_half_range_world_px",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_VISIBLE_CENTERLINE_TARGET_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"minimum_visible_centerline_p95_half_range_world_px",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_HALF_RANGE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_visible_centerline_absolute_world_px", -1.0)),
+			EXPECTED_BAND_MIST_THRESHOLD_MAX_VISIBLE_CENTERLINE_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_visible_centerline_valid_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MIN_VISIBLE_CENTERLINE_VALID_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_full_width_pale_run_world_px", -1.0)),
+			EXPECTED_BAND_MIST_MAX_FULL_WIDTH_PALE_RUN_WORLD_PX
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_core_local_luma_p95_gain", -1.0)),
+			EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_P95_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_core_local_luma_gain", -1.0)),
+			EXPECTED_BAND_MIST_MAX_CORE_LOCAL_LUMA_GAIN
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_thinned_terrain_detail_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MIN_THINNED_TERRAIN_DETAIL_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_visible_thinned_peak_ink_mix", -1.0)),
+			EXPECTED_BAND_MIST_MIN_VISIBLE_THINNED_PEAK_INK_MIX
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_visible_haze_floor", -1.0)),
+			EXPECTED_BAND_MIST_MIN_VISIBLE_HAZE_FLOOR
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_actual_applied_thinning_active_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MIN_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_actual_applied_thinning_active_ratio", -1.0)),
+			EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_ACTIVE_RATIO
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"maximum_actual_applied_thinning_strong_overlap_ratio",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_STRONG_OVERLAP
+		)
+		and is_equal_approx(
+			float(thresholds.get(
+				"maximum_actual_applied_thinning_absolute_correlation",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MAX_ACTUAL_APPLIED_THINNING_CORRELATION
+		)
+		and bool(thresholds.get("actual_applied_thinning_shared_seam_rows_exact", false))
+		and bool(thresholds.get("actual_applied_thinning_signatures_unique", false))
+		and is_equal_approx(
+			float(thresholds.get(
+				"maximum_visible_edge_centerline_residual_absolute_correlation",
+				-1.0
+			)),
+			EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_CROSS_CORRELATION
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_visible_edge_veil_absolute_correlation", -1.0)),
+			EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_CROSS_CORRELATION
+		)
+		and is_equal_approx(
+			float(thresholds.get("maximum_visible_edge_veil_p05", -1.0)),
+			EXPECTED_BAND_MIST_MAX_VISIBLE_EDGE_VEIL_P05
+		)
+		and is_equal_approx(
+			float(thresholds.get("minimum_visible_edge_veil_p95", -1.0)),
+			EXPECTED_BAND_MIST_MIN_VISIBLE_EDGE_VEIL_P95
 		)
 		and str(thresholds.get("endpoint_row_mean_jump", ""))
 			== "diagnostic_only_natural_shared_row"
@@ -1912,8 +3349,53 @@ func _verify_band_edge_mist_source_contract() -> void:
 		art_source,
 		"def strip_table_payload("
 	)
+	var deterministic_shape_body := _python_function_body(
+		art_source,
+		"def deterministic_shape_words("
+	)
+	var edge_shape_specs_body := _python_function_body(
+		art_source,
+		"def edge_shape_specs("
+	)
+	var shape_table_body := _python_function_body(
+		art_source,
+		"def shape_table_payload("
+	)
+	var validate_shape_table_body := _python_function_body(
+		art_source,
+		"def validate_shape_table("
+	)
+	var horizontal_nodes_body := _python_function_body(
+		art_source,
+		"def horizontal_control_nodes_texture_px("
+	)
+	var periodic_control_body := _python_function_body(
+		art_source,
+		"def periodic_control_field("
+	)
+	var expand_control_body := _python_function_body(
+		art_source,
+		"def expand_horizontal_control_field("
+	)
+	var low_frequency_body := _python_function_body(
+		art_source,
+		"def periodic_low_frequency_field("
+	)
+	var thinning_window_body := _python_function_body(
+		art_source,
+		"def periodic_thinning_window("
+	)
 	var luma_body := _python_function_body(art_source, "def luma(")
 	var crop_body := _python_function_body(art_source, "def crop_strip(")
+	var warp_body := _python_function_body(art_source, "def warp_pigment_strip(")
+	var terrain_body := _python_function_body(
+		art_source,
+		"def terrain_attachment_support("
+	)
+	var terrain_bridge_body := _python_function_body(
+		art_source,
+		"def terrain_bridge_from_immutable_body("
+	)
 	var opacity_body := _python_function_body(art_source, "def opacity_mask(")
 	var tone_body := _python_function_body(
 		art_source,
@@ -1926,6 +3408,16 @@ func _verify_band_edge_mist_source_contract() -> void:
 	)
 	var mirror_body := _python_function_body(art_source, "def mirror_metrics(")
 	var reverse_body := _python_function_body(art_source, "def reverse_counterproof(")
+	var shape_gate_body := _python_function_body(art_source, "def shape_gate_failures(")
+	var mask_metrics_body := _python_function_body(art_source, "def mask_metrics(")
+	var production_counterproof_body := _python_function_body(
+		art_source,
+		"def production_shape_counterproofs("
+	)
+	_expect(
+		art_source.count("def circular_phase_midpoint(") == 1,
+		"Z13-e generator must retain exactly one circular phase midpoint helper definition"
+	)
 	var update_manifest_body := _python_function_body(
 		art_source,
 		"def update_manifest("
@@ -1935,7 +3427,34 @@ func _verify_band_edge_mist_source_contract() -> void:
 		"def validate_final_record("
 	)
 	var main_body := _python_function_body(art_source, "def main(")
-	var production_bake_source := crop_body + opacity_body + tone_body + build_body
+	var production_bake_source := (
+		deterministic_shape_body
+		+ edge_shape_specs_body
+		+ horizontal_nodes_body
+		+ periodic_control_body
+		+ expand_control_body
+		+ low_frequency_body
+		+ thinning_window_body
+		+ crop_body
+		+ warp_body
+		+ terrain_body
+		+ terrain_bridge_body
+		+ opacity_body
+		+ tone_body
+		+ build_body
+	)
+	var mesh_upper_left := warp_body.find(
+		"float(source_y_control[control_y_index, control_x_index])"
+	)
+	var mesh_lower_left := warp_body.find(
+		"float(source_y_control[control_y_index + 1, control_x_index])"
+	)
+	var mesh_lower_right := warp_body.find(
+		"float(source_y_control[control_y_index + 1, control_x_index + 1])"
+	)
+	var mesh_upper_right := warp_body.find(
+		"float(source_y_control[control_y_index, control_x_index + 1])"
+	)
 	_expect(
 		crop_body.find(
 			"source[strip.y : strip.y + STRIP_HEIGHT, strip.x : strip.x + strip.width]"
@@ -1943,15 +3462,34 @@ func _verify_band_edge_mist_source_contract() -> void:
 		and crop_body.find("(DESTINATION_WIDTH, STRIP_HEIGHT)") >= 0
 		and crop_body.find("ImageFilter.GaussianBlur(GAUSSIAN_BLUR_TEXTURE_PX)") >= 0
 		and crop_body.find("crop[:EDGE_PATCH_HEIGHT]") >= 0
-		and crop_body.find("crop[EDGE_PATCH_HEIGHT - 1 :]") >= 0,
-		"Z13-c generator must transform one whole contiguous 279-row source strip"
+		and crop_body.find("crop[EDGE_PATCH_HEIGHT - 1 :]") >= 0
+		and crop_body.find("effective_source_y = strip.y + source_sampling_bias_rows")
+			>= 0
+		and crop_body.find("extended_source_y = (") >= 0
+		and crop_body.find(
+			"strip.y - MEANDER_MARGIN_ROWS + source_sampling_bias_rows"
+		) >= 0
+		and crop_body.find("extended_source_y : extended_source_y") >= 0
+		and crop_body.find(
+			"expected_extended_height = STRIP_HEIGHT + MEANDER_MARGIN_ROWS * 2"
+		) >= 0
+		and crop_body.find(
+			"extended_crop.shape != (expected_extended_height, strip.width, 4)"
+		) >= 0,
+		"Z13-e generator must transform one contiguous strip plus a bounded meander margin"
 	)
 	_expect(
 		opacity_body.find("native_alpha") >= 0
 		and opacity_body.find("brush") >= 0
-		and opacity_body.find("np.maximum.reduce((dense, lobe, wisps))") >= 0
-		and opacity_body.find("distance < COVERED_ROWS") >= 0,
-		"Z13-c core and feather must remain driven by the 2D brush alpha"
+		and opacity_body.find("periodic_low_frequency_field(") >= 0
+		and opacity_body.find("periodic_thinning_window(shape)") >= 0
+		and opacity_body.find("terrain_attachment_support(") >= 0
+		and opacity_body.find("distance_rows <= COVERED_ROWS") >= 0
+		and mask_metrics_body.find("top[: COVERED_ROWS + 1]") >= 0
+		and mask_metrics_body.find("bottom[-(COVERED_ROWS + 1) :]") >= 0
+		and opacity_body.find("minimum_applied_thinning_factor") >= 0
+		and opacity_body.find("minimum_column_integrated_opacity_world_px") >= 0,
+		"Z13-e mask must keep full cover while shaping, thinning, and attaching locally"
 	)
 	_expect(
 		production_bake_source.find("_mirrored_edge_bleed(") < 0
@@ -1959,19 +3497,156 @@ func _verify_band_edge_mist_source_contract() -> void:
 		and production_bake_source.find("np.flip") < 0
 		and production_bake_source.find("np.tile") < 0
 		and production_bake_source.find("np.repeat") < 0
+		and production_bake_source.find("np.roll(") < 0
+		and production_bake_source.find("np.take(") < 0
+		and production_bake_source.find("np.take_along_axis(") < 0
+		and production_bake_source.find("np.arange(DESTINATION_WIDTH") < 0
+		and production_bake_source.find("horizontal_indices") < 0
+		and production_bake_source.find("extended_patch[lower_rows") < 0
+		and production_bake_source.find("extended_patch[upper_rows") < 0
+		and production_bake_source.find("for x in ") < 0
+		and production_bake_source.find("for x, ") < 0
 		and production_bake_source.find("[:, :1]") < 0
 		and production_bake_source.find("[:, -1:]") < 0
-		and build_body.find("np.array_equal(bottom[-1], top[0])") >= 0,
-		"Z13-c production bake must reject mirror and one-pixel row/column synthesis"
+		and build_body.find("np.array_equal(bottom[-1], top[0])") >= 0
+		and warp_body.find("Image.Transform.MESH") >= 0
+		and warp_body.find("for control_x_index in range(len(horizontal_nodes) - 1)")
+			>= 0,
+		"Z13-e production bake must reject mirror, column loops/slices, roll, and take"
 	)
 	_expect(
 		strip_table_body.find("\"fixed_seed\": FIXED_SEED") >= 0
 		and strip_table_body.find("\"fixed_seed_role\": FIXED_SEED_ROLE") >= 0
 		and strip_table_body.find("\"strips\": [") >= 0
+		and shape_table_body.find("\"fixed_seed\": FIXED_SEED") >= 0
+		and shape_table_body.find("\"fixed_seed_role\": FIXED_SEED_ROLE") >= 0
+		and shape_table_body.find("edge_shape_specs(spec.output)") >= 0
+		and shape_table_body.find(
+			"\"terrain_bridge_detail_gain\": spec.terrain_bridge_detail_gain"
+		) >= 0
+		and validate_shape_table_body.find(
+			"TERRAIN_BRIDGE_WHOLE_ANCHOR_DETAIL_GAIN"
+		) >= 0
+		and validate_shape_table_body.find(
+			"<= spec.terrain_bridge_detail_gain"
+		) >= 0
 		and build_body.find(
 			"\"fixed_seed_strip_table_sha256\": canonical_json_sha256(strip_table_payload())"
+		) >= 0
+		and build_body.find(
+			"\"fixed_seed_shape_table_sha256\": canonical_json_sha256(shape_table_payload())"
 		) >= 0,
-		"Z13-c crop-table digest must bind the fixed seed, role, and six literal strips"
+		"Z13-e crop and twelve-edge shape digests must bind the fixed seed"
+	)
+	_expect(
+		terrain_bridge_body.find("whole_anchor_detail_gain: float") >= 0
+		and terrain_bridge_body.find("* whole_anchor_detail_gain") >= 0
+		and terrain_bridge_body.find("Image.Resampling.BOX") >= 0
+		and terrain_bridge_body.find("Image.Resampling.BICUBIC") >= 0
+		and terrain_bridge_body.find("literal_target_body_luma") >= 0
+		and terrain_bridge_body.find(
+			"target_body_luma = ("
+		) >= 0
+		and terrain_bridge_body.find(
+			"rgb_offset = target_body_luma - source_mean"
+		) >= 0
+		and terrain_bridge_body.find("bridge[edge_slice] = np.clip(") >= 0
+		and tone_body.find("terrain_bridge_from_immutable_body(") >= 0
+		and tone_body.find("terrain_bridge_detail_gain,") >= 0
+		and build_body.find("spec.terrain_bridge_detail_gain,") >= 0,
+		"Z13-e visible terrain bridge must use per-band detail gain and whole-edge luma calibration"
+	)
+	_expect(
+		tone_body.find("bottom_seam_transition = smootherstep(") >= 0
+		and tone_body.find("VISIBLE_SHAPE_SEAM_TRANSITION_WORLD_PX") >= 0
+		and tone_body.find("edge_centerline_by_edge") >= 0
+		and tone_body.find("shared_visible_centerline[None, :]") >= 0
+		and tone_body.find("bottom_visible_half_width - shared_visible_half_width") >= 0
+		and tone_body.find("top_visible_half_width - shared_visible_half_width") >= 0
+		and tone_body.find("shared_thinning_window = np.maximum(") >= 0
+		and tone_body.find("shared_thinning_factor = np.minimum(") >= 0
+		and tone_body.find(
+			"bottom_thinning_window - shared_thinning_window"
+		) >= 0
+		and tone_body.find("top_thinning_window - shared_thinning_window") >= 0
+		and tone_body.find("VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX") >= 0
+		and tone_body.find("shared_edge_veil = 0.5 * (") >= 0
+		and tone_body.find("edge_veil_by_edge[\"bottom\"] - shared_edge_veil") >= 0
+		and tone_body.find("edge_veil_by_edge[\"top\"] - shared_edge_veil") >= 0
+		and tone_body.find(
+			"bottom_distance_world_px >= VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX"
+		) >= 0
+		and tone_body.find(
+			"top_distance_world_px >= VISIBLE_EDGE_VEIL_TRANSITION_WORLD_PX"
+		) >= 0
+		and tone_body.find("actual_thinning_shared_seam_rows_exact") >= 0
+		and tone_body.find("visible_thinning_window[EDGE_ROWS - 1]") >= 0
+		and tone_body.find("visible_thinning_window[EDGE_ROWS]") >= 0
+		and tone_body.find("actual_thinning_signatures_unique") >= 0
+		and tone_body.find("actual_thinning_absolute_correlation") >= 0
+		and tone_body.find(
+			"MAXIMUM_ACTUAL_APPLIED_THINNING_ABSOLUTE_CORRELATION"
+		) >= 0,
+		"Z13-e visible shape must share only the seam and transition to edge-specific fields in 1.25px"
+	)
+	_expect(
+		tone_body.find("thinning_disabled_ink_mix") >= 0
+		and tone_body.find("thinning_disabled_result = compose(") >= 0
+		and tone_body.find("thinning_disabled_counterfactual_result = compose(") >= 0
+		and tone_body.find("thinning_disabled_terrain_detail_signal") >= 0
+		and tone_body.find("same_columns_thinning_disabled_retention") >= 0,
+		"Z13-e visible thinning must retain an actual compose-helper OFF counterproof"
+	)
+	_expect(
+		deterministic_shape_body.find("hashlib.sha512(") >= 0
+		and deterministic_shape_body.find(
+			"f\"{FIXED_SEED:08x}|{output}|{edge_name}|z13e\""
+		) >= 0
+		and validate_shape_table_body.find("len(seeds) != expected_edges") >= 0
+		and validate_shape_table_body.find("len(signatures) != expected_edges") >= 0
+		and horizontal_nodes_body.find("HORIZONTAL_CONTROL_CELLS + 1") >= 0
+		and horizontal_nodes_body.find("np.linspace(0.0, DESTINATION_WIDTH") >= 0
+		and periodic_control_body.find("PRIMARY_FIELD_CYCLES") >= 0
+		and periodic_control_body.find("SECONDARY_FIELD_CYCLES") >= 0
+		and expand_control_body.find("HORIZONTAL_CONTROL_HALO_CELLS") >= 0
+		and expand_control_body.find("Image.Resampling.BICUBIC") >= 0
+		and thinning_window_body.find("wrapped_distance = np.minimum") >= 0,
+		"Z13-e shape parameters must derive twelve unique low-frequency fields"
+	)
+	_expect(
+		warp_body.find("minimum_vertical_jacobian") >= 0
+		and warp_body.find("displacement_control_rows") >= 0
+		and warp_body.find("seam_residual_control") >= 0
+		and warp_body.find("Image.Transform.MESH") >= 0
+		and warp_body.find("Image.Resampling.BICUBIC") >= 0
+		and warp_body.find("source_x0") >= 0
+		and mesh_upper_left >= 0
+		and mesh_upper_left < mesh_lower_left
+		and mesh_lower_left < mesh_lower_right
+		and mesh_lower_right < mesh_upper_right
+		and terrain_body.find("dark_detail = blurred_luma - base_luma") >= 0
+		and terrain_body.find("Image.Resampling.BOX") >= 0
+		and terrain_body.find("selected_cells = ranked_cells[:maximum_active_cells]")
+			>= 0
+		and terrain_body.find("sparse_control[eligible_row, positive_selected]") >= 0
+		and terrain_body.find("np.mean(np.max(support, axis=0) > 0.01)") >= 0,
+		"Z13-e meander must be a non-folding macro mesh and terrain bite must be local"
+	)
+	_expect(
+		shape_gate_body.find("thinning_active_ratio") >= 0
+		and shape_gate_body.find("minimum_applied_thinning_factor") >= 0
+		and shape_gate_body.find("minimum_column_integrated_opacity_world_px") >= 0
+		and production_counterproof_body.find(
+			"meander_amplitude_world_px=0.0"
+		) >= 0
+		and production_counterproof_body.find("thickness_variation_world_px\": 0.0")
+			>= 0
+		and production_counterproof_body.find("thinning_enabled\": False") >= 0
+		and production_counterproof_body.find("terrain_opacity_gain\": 0.0") >= 0
+		and production_counterproof_body.find("production_output_changed") >= 0
+		and production_counterproof_body.find("set(red_effects) != expected_effects")
+			>= 0,
+		"Z13-e producer must disable and remeasure each actual production helper for RED"
 	)
 	_expect(
 		luma_body.find("* 0.2126") >= 0
@@ -1979,7 +3654,7 @@ func _verify_band_edge_mist_source_contract() -> void:
 		and luma_body.find("* 0.0722") >= 0
 		and measured_mirror_body.find("bottom_mirrored = high_pass[-rows:][::-1]")
 			>= 0,
-		"Z13-c mirror metric must retain Rec.709 luma and reversed-bottom comparison"
+		"Z13-e mirror metric must retain Rec.709 luma and reversed-bottom comparison"
 	)
 	_expect(
 		mirror_body.find("counterfactual = sample.copy()") >= 0
