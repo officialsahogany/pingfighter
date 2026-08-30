@@ -422,8 +422,7 @@ func _verify_offer_and_modal_behavior_contracts() -> void:
 		"stat",
 		_catalog.build_card("physique_move_speed", 0, 2.0),
 		10,
-		{"muhon": 10},
-		false
+		{"muhon": 10}
 	)
 	var live_choice: Dictionary = action.get("payload", {}).get("choice", {}) as Dictionary
 	_expect(
