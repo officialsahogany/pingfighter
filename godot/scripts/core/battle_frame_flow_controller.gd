@@ -1,10 +1,17 @@
 extends RefCounted
 
+const GameplayLoopAudioCleanup := preload("res://scripts/audio/gameplay_loop_audio_cleanup.gd")
+
 var _skill_orb_tooltip_pause_active := false
 var _skill_orb_tooltip_pause_key := ""
+var _victory_reward_pick_audio_stop_active := false
 
 
 func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
+	var victory_loot_state = deps.get("victory_loot_phase_state", null)
+	var victory_reward_pick_active := _is_victory_reward_pick_active(victory_loot_state)
+	if not victory_reward_pick_active:
+		_victory_reward_pick_audio_stop_active = false
 	var scoreboard_state = deps.get("scoreboard_state", null)
 	if scoreboard_state != null and scoreboard_state.is_active():
 		if _skill_orb_tooltip_pause_active:
@@ -38,12 +45,25 @@ func update(delta: float, deps: Dictionary, callbacks: Dictionary) -> void:
 		_call(callbacks, "hide_skill_orb_tooltip_overlay")
 	_clear_skill_orb_tooltip_pause()
 
-	var victory_loot_state = deps.get("victory_loot_phase_state", null)
 	if (
 		victory_loot_state != null
 		and victory_loot_state.has_method("is_active")
 		and bool(victory_loot_state.is_active())
 	):
+		if victory_reward_pick_active:
+			# The Tower reward board is stricter than the ordinary loot-pickup rail.
+			# Its own UI clock must advance, but no combat/effect owner may tick under
+			# it. update_effects is also the usual loop-audio synchronizer, so stop
+			# every registered gameplay loop once on the entry edge; the first normal
+			# effects tick re-synchronizes any still-authoritative loop after closing.
+			if not _victory_reward_pick_audio_stop_active:
+				var game_audio: Object = deps.get("game_audio", null)
+				GameplayLoopAudioCleanup.stop_all(game_audio)
+				_victory_reward_pick_audio_stop_active = true
+			if victory_loot_state.has_method("update"):
+				victory_loot_state.update(delta)
+			_call(callbacks, "queue_redraw")
+			return
 		# 승리 전리품 페이즈: 공/보스 AI/서브 흐름은 동결하고 플레이어 조작·
 		# 아이템·이펙트만 태운다. 신화 획득 시네마틱이나 퍽 선택 모달이 열리면
 		# 그 프레임은 이펙트만 흐르고 전리품 갱신도 함께 멈춘다.
@@ -189,6 +209,16 @@ func _is_runtime_perk_pause_active(deps: Dictionary) -> bool:
 	return (
 		runtime_perk_state.has_method("is_angel_blessing_modal_active")
 		and bool(runtime_perk_state.is_angel_blessing_modal_active())
+	)
+
+
+func _is_victory_reward_pick_active(victory_loot_state: Object) -> bool:
+	return (
+		victory_loot_state != null
+		and victory_loot_state.has_method("is_active")
+		and bool(victory_loot_state.is_active())
+		and victory_loot_state.has_method("is_reward_pick_active")
+		and bool(victory_loot_state.is_reward_pick_active())
 	)
 
 

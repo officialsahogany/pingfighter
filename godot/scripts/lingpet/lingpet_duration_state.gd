@@ -21,7 +21,7 @@ const DURATION_ENHANCED_MAX := float(DURATION_ROLL_MAX) + DURATION_INCREASE_SECO
 const REVALIDATION_FALLBACK_SECONDS := 15.0
 const DRAIN_PER_SECOND := 1.0
 const REST_RECOVERY_RATIO := 1.0 / 3.0
-const RESUMMON_THRESHOLD := 10.0
+const RESUMMON_THRESHOLD_RATIO := 0.30
 const WARNING_START_SECONDS := 10.0
 const VALUE_SNAP_EPSILON := 0.001
 
@@ -129,7 +129,7 @@ func import_run_state(data: Dictionary) -> void:
 		float(data.get(SAVE_RESUMMON_LOCK_KEY, 0.0))
 	)
 	_resummon_locked = imported_lock_remaining > 0.0 or _pool_current <= DURATION_MIN
-	if _pool_current > RESUMMON_THRESHOLD:
+	if _meets_resummon_threshold():
 		_resummon_locked = false
 
 
@@ -179,7 +179,7 @@ func advance_pool(
 					* maxf(0.0, rest_recovery_multiplier) * delta_seconds,
 				_pool_max
 			)
-		if _pool_current > RESUMMON_THRESHOLD:
+		if _meets_resummon_threshold():
 			_resummon_locked = false
 	return _build_advance_result(not is_equal_approx(before, _pool_current), expired_now)
 
@@ -198,7 +198,7 @@ func restore_to_full_preserving_overfill() -> Dictionary:
 		return {"accepted": false, "blocked_reason": "duration_pool_uninitialized"}
 	var before_current := _pool_current
 	_pool_current = _sanitize_uncapped_current(maxf(_pool_current, _pool_max))
-	if _pool_current > RESUMMON_THRESHOLD:
+	if _meets_resummon_threshold():
 		_resummon_locked = false
 	return {
 		"accepted": true,
@@ -224,8 +224,18 @@ func get_pool_pct() -> int:
 	return clampi(roundi(get_pool_current() / get_pool_max() * 100.0), 0, 100)
 
 
+func get_pool_ratio() -> float:
+	if not is_initialized():
+		return 0.0
+	return clampf(get_pool_current() / get_pool_max(), 0.0, 1.0)
+
+
+func _meets_resummon_threshold() -> bool:
+	return is_initialized() and get_pool_ratio() >= RESUMMON_THRESHOLD_RATIO
+
+
 func can_resummon() -> bool:
-	return is_initialized() and not _resummon_locked and _pool_current > RESUMMON_THRESHOLD
+	return _meets_resummon_threshold() and not _resummon_locked
 
 
 func is_resummon_locked() -> bool:
@@ -233,9 +243,16 @@ func is_resummon_locked() -> bool:
 
 
 func get_resummon_lock_remaining() -> float:
-	if not is_resummon_locked():
+	if not is_initialized() or _meets_resummon_threshold():
 		return 0.0
-	return maxf(0.0, RESUMMON_THRESHOLD - _pool_current + VALUE_SNAP_EPSILON)
+	return maxf(0.0, get_pool_max() * RESUMMON_THRESHOLD_RATIO - get_pool_current())
+
+
+func get_resummon_cooldown_ratio() -> float:
+	if not is_initialized() or _meets_resummon_threshold():
+		return 0.0
+	var threshold_value := get_pool_max() * RESUMMON_THRESHOLD_RATIO
+	return clampf(get_resummon_lock_remaining() / threshold_value, 0.0, 1.0)
 
 
 func get_warning_ratio() -> float:

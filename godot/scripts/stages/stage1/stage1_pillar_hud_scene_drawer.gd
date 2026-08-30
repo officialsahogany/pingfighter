@@ -10,6 +10,7 @@ const EXPRESSION_NEUTRAL := "neutral"
 const EXPRESSION_HAPPY := "happy"
 const EXPRESSION_SAD := "sad"
 const EXPRESSION_PAINED := "pained"
+const SOUL_SUMMON_COOLDOWN_VISUAL_STYLE := "filled_recovery"
 
 const VISION_STATE_KEYS := {
 	CommonSkillCatalog.DALJI_VISION_CHAIN_TOP_ID: "dalji_vision_chosik_state",
@@ -314,6 +315,7 @@ func _draw_stage1_pillar_ui(
 	ui_context["skill_config_snapshot"] = skill_config_snapshot
 	var vision_cooldown_ratios: Dictionary = {}
 	var vision_ready_overrides: Dictionary = {}
+	var cooldown_visual_styles: Dictionary = {}
 	for vision_skill_id: String in VISION_STATE_KEYS:
 		if not _skill_snapshot_has_skill(skill_config_snapshot, vision_skill_id):
 			continue
@@ -323,8 +325,28 @@ func _draw_stage1_pillar_ui(
 				vision_cooldown_ratios[vision_skill_id] = float(vision_state.get_cooldown_ratio())
 			if vision_state.has_method("is_ready"):
 				vision_ready_overrides[vision_skill_id] = bool(vision_state.is_ready(float(context.get("special_gauge", 0.0)), true))
+	if (
+		_skill_snapshot_has_skill(skill_config_snapshot, CommonSkillCatalog.SOUL_SUMMON_ART_ID)
+		and lingpet_runtime != null
+		and lingpet_runtime.has_method("get_guardian_toggle_slot_state")
+	):
+		var soul_slot_state_value: Variant = lingpet_runtime.get_guardian_toggle_slot_state()
+		if soul_slot_state_value is Dictionary:
+			var soul_slot_state: Dictionary = soul_slot_state_value as Dictionary
+			vision_cooldown_ratios[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = clampf(
+				float(soul_slot_state.get("cooldown_ratio", 0.0)),
+				0.0,
+				1.0
+			)
+			vision_ready_overrides[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = bool(
+				soul_slot_state.get("ready", false)
+			)
+			cooldown_visual_styles[CommonSkillCatalog.SOUL_SUMMON_ART_ID] = (
+				SOUL_SUMMON_COOLDOWN_VISUAL_STYLE
+			)
 	ui_context["skill_cooldown_remaining_ratios"] = vision_cooldown_ratios
 	ui_context["skill_ready_overrides"] = vision_ready_overrides
+	ui_context["skill_cooldown_visual_styles"] = cooldown_visual_styles
 	ui_context["cleanse_status_active"] = cleanse_status_active
 	ui_context["special_gauge"] = float(context.get("special_gauge", 0.0))
 	ui_context["gauge_max"] = float(context.get("gauge_max", 500.0))

@@ -19,6 +19,7 @@ const BASE_CHOICE_COUNT := 3
 const BASE_PERK_SLOT_LIMIT := 6
 const MAX_PERK_SLOT_LIMIT := 7
 const PERK_SLOT_LIMIT_BLOCKED_REASON := "perk_slot_limit"
+const TOWER_UPGRADE_READ_ONLY_REASON_COUNT_TYPE := "count_type"
 const SLOT_EXPANSION_PERK_ID := "common_expansion"
 const FUSION_SLOT_EXPANSION_BYPRODUCT_ID := "meridian_expand"
 const LINGPET_GUARDIAN_ENHANCE_CHOICE_ID := LingpetGuardianEnhanceOfferEngine.PERK_ID
@@ -1613,6 +1614,19 @@ static func is_slot_consuming_perk(perk_data: Dictionary) -> bool:
 	if bool(LINGPET_GATED_CHOICE_IDS.get(perk_id, false)):
 		return false
 	return int(perk_data.get("max_level", 0)) > 0
+
+
+static func get_tower_upgrade_read_only_reason(perk_data: Dictionary) -> String:
+	if perk_data.is_empty():
+		return ""
+	var rank_tag := str(perk_data.get("rank_tag", "")).strip_edges().to_lower()
+	if (
+		rank_tag == "unique"
+		or bool(perk_data.get("count_type", false))
+		or bool(perk_data.get("is_count_type", false))
+	):
+		return TOWER_UPGRADE_READ_ONLY_REASON_COUNT_TYPE
+	return ""
 
 
 static func get_slot_cost_for_level(perk_data: Dictionary, level: int) -> int:

@@ -138,6 +138,10 @@ func get_duration_pool_pct() -> int:
 	return _duration_state.get_pool_pct()
 
 
+func get_duration_pool_ratio() -> float:
+	return _duration_state.get_pool_ratio()
+
+
 func advance_duration_pool(
 	delta_seconds: float,
 	summoned: bool,
@@ -187,6 +191,10 @@ func is_duration_resummon_locked() -> bool:
 
 func get_duration_resummon_lock_remaining() -> float:
 	return _duration_state.get_resummon_lock_remaining()
+
+
+func get_duration_resummon_cooldown_ratio() -> float:
+	return _duration_state.get_resummon_cooldown_ratio()
 
 
 func latch_duration_drain_exempt(owner: Object, collection_state: Object) -> bool:

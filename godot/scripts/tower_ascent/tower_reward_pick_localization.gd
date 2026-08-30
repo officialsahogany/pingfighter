@@ -67,6 +67,10 @@ const TEXT := {
 		"ko": "최대 단계", "en": "Max rank", "zh": "最高星级", "ja": "最大ランク",
 		"es": "Rango máximo", "pt-BR": "Grau máximo", "ru": "Максимальный ранг",
 	},
+	"upgrade_count_type_read_only": {
+		"ko": "카운트형 무공은 여기서 강화할 수 없습니다", "en": "Count-type Mugong cannot be upgraded here", "zh": "计数型武功无法在此强化", "ja": "カウント型の武功はここでは強化できません",
+		"es": "Los Mugong de tipo contador no se pueden mejorar aquí", "pt-BR": "Mugong do tipo contador não pode ser aprimorado aqui", "ru": "Мугон со счетчиком нельзя улучшить здесь",
+	},
 	"upgrade_cost": {
 		"ko": "강화 비용: 무혼 {amount}", "en": "Upgrade cost: {amount} Muhon", "zh": "强化费用：武魂 {amount}", "ja": "強化費用：武魂 {amount}",
 		"es": "Coste de mejora: {amount} Muhon", "pt-BR": "Custo do aprimoramento: {amount} Muhon", "ru": "Стоимость улучшения: {amount} мухон",

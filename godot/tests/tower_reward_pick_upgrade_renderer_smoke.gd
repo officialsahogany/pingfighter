@@ -303,6 +303,22 @@ func _verify_folded_fusion_and_effective_projection() -> void:
 
 func _verify_delta_rows_and_card_row_budget() -> void:
 	var renderer := RuntimePerkOverlayRenderer.new()
+	var shrapnel_armor: Dictionary = RuntimePerkCatalog.CONVERTED_PERKS.get(
+		"shrapnel_armor",
+		{}
+	)
+	var shrapnel_descriptions: Dictionary = shrapnel_armor.get("descriptions", {})
+	var shrapnel_rows: Array = renderer.build_tower_reward_upgrade_stat_rows(
+		str(shrapnel_descriptions.get(1, "")),
+		str(shrapnel_descriptions.get(2, ""))
+	)
+	var shrapnel_expected := ["(▲6%)", "(▲3개)", "(▲1)", "(▲10)"]
+	_expect(shrapnel_rows.size() == 4, "shrapnel armor 1->2 must preserve all four option rows")
+	for index in range(mini(shrapnel_rows.size(), shrapnel_expected.size())):
+		_expect(
+			str((shrapnel_rows[index] as Dictionary).get("delta", "")) == shrapnel_expected[index],
+			"shrapnel armor option %d must expose its own typed delta" % index
+		)
 	var rows: Array = renderer.build_tower_reward_upgrade_stat_rows(
 		"공격력 +15%, 치명타 확률 +5%",
 		"공격력 +25%, 치명타 확률 +10%"
@@ -311,6 +327,16 @@ func _verify_delta_rows_and_card_row_budget() -> void:
 	if rows.size() == 2:
 		_expect(str((rows[0] as Dictionary).get("delta", "")) == "(▲10%)", "first stat must expose the green ten-percent delta")
 		_expect(str((rows[1] as Dictionary).get("delta", "")) == "(▲5%)", "second stat must expose the green five-percent delta")
+	var mixed_unit_rows: Array = renderer.build_tower_reward_upgrade_stat_rows(
+		"피해 10% 지속 2초 단계 3",
+		"피해 15% 지속 3.5초 단계 5"
+	)
+	_expect(mixed_unit_rows.size() == 1, "multi-token option must remain one comparison row")
+	if mixed_unit_rows.size() == 1:
+		_expect(
+			str((mixed_unit_rows[0] as Dictionary).get("delta", "")) == "(▲5%) (▲1.5초) (▲2)",
+			"percent, seconds, and unitless tokens must all retain their own delta units"
+		)
 	var modal := {
 		"cards": [_level_card(1, "level"), _level_card(2, "level"), _level_card(3, "level"), _level_card(4, "level"), _level_card(5, "level")],
 		"show_all_levels": true,

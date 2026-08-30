@@ -80,6 +80,15 @@ func build_skill_orb_context(context: Dictionary, orb_drawer: Object) -> Diction
 		"skill_costs": skill_config_snapshot.get("skill_costs", {}),
 		"skill_colors": skill_config_snapshot.get("skill_colors", {}),
 		"cooldown_seconds": skill_config_snapshot.get("cooldown_seconds", {}),
+		"skill_ready_overrides": context.get("skill_ready_overrides", {}),
+		"skill_cooldown_remaining_ratios": context.get(
+			"skill_cooldown_remaining_ratios",
+			{}
+		),
+		"skill_cooldown_visual_styles": context.get(
+			"skill_cooldown_visual_styles",
+			{}
+		),
 		"cleanse_status_active": bool(context.get("cleanse_status_active", false)),
 		"skill_orb_radius": PLAYER_SKILL_ORB_RADIUS,
 		"gauge_gap": PLAYER_SKILL_ORB_GAUGE_GAP,

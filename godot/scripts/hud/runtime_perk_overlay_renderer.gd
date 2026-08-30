@@ -2304,24 +2304,16 @@ func build_tower_reward_upgrade_stat_rows(
 	var rows: Array[Dictionary] = []
 	for index in range(current_segments.size()):
 		var current_segment := str(current_segments[index])
-		var delta_text := ""
+		var delta_labels: Array[String] = []
 		if index < previous_segments.size():
-			var previous_percent: Variant = _tower_reward_first_percent(
-				str(previous_segments[index])
+			delta_labels = _tower_reward_numeric_delta_labels(
+				str(previous_segments[index]),
+				current_segment
 			)
-			var current_percent: Variant = _tower_reward_first_percent(current_segment)
-			if previous_percent is float and current_percent is float:
-				var delta: float = absf(float(current_percent) - float(previous_percent))
-				if delta > 0.0001:
-					var delta_number := (
-						str(int(round(delta)))
-						if is_equal_approx(delta, round(delta))
-						else ("%.1f" % delta).trim_suffix("0").trim_suffix(".")
-					)
-					delta_text = "(▲%s%%)" % delta_number
 		rows.append({
 			"text": current_segment,
-			"delta": delta_text,
+			"delta": " ".join(delta_labels),
+			"deltas": delta_labels,
 		})
 	return rows
 
@@ -2568,14 +2560,39 @@ func _tower_reward_upgrade_stat_segments(text: String) -> Array[String]:
 	return result
 
 
-func _tower_reward_first_percent(text: String) -> Variant:
-	var regex := RegEx.new()
-	if regex.compile("([+-]?\\d+(?:\\.\\d+)?)%") != OK:
-		return null
-	var match_result: RegExMatch = regex.search(text)
-	if match_result == null:
-		return null
-	return float(match_result.get_string(1))
+func _tower_reward_numeric_delta_labels(
+	previous_text: String,
+	current_text: String
+) -> Array[String]:
+	var previous_tokens: Array[Dictionary] = RuntimePerkDescriptionEmphasis.numeric_tokens(
+		previous_text
+	)
+	var current_tokens: Array[Dictionary] = RuntimePerkDescriptionEmphasis.numeric_tokens(
+		current_text
+	)
+	var labels: Array[String] = []
+	for token_index in range(mini(previous_tokens.size(), current_tokens.size())):
+		var previous_token: Dictionary = previous_tokens[token_index]
+		var current_token: Dictionary = current_tokens[token_index]
+		if str(previous_token.get("unit_key", "")) != str(current_token.get("unit_key", "")):
+			continue
+		var delta := absf(
+			float(current_token.get("value", 0.0))
+			- float(previous_token.get("value", 0.0))
+		)
+		if delta <= 0.0001:
+			continue
+		labels.append("(▲%s%s)" % [
+			_tower_reward_delta_number(delta),
+			str(current_token.get("unit", "")),
+		])
+	return labels
+
+
+func _tower_reward_delta_number(delta: float) -> String:
+	if is_equal_approx(delta, round(delta)):
+		return str(int(round(delta)))
+	return ("%.2f" % delta).trim_suffix("0").trim_suffix(".")
 
 
 func _pack_tower_reward_upgrade_card_rows(
@@ -4703,6 +4720,16 @@ func build_tower_reward_status_interaction_model(
 			and levels.has(canonical_id)
 			and not is_projected_non_mugong
 		)
+		var upgrade_read_only_reason := (
+			RuntimePerkCatalog.get_tower_upgrade_read_only_reason(entry)
+			if upgrade_inspectable
+			else ""
+		)
+		var upgrade_read_only_reason_text := ""
+		if not upgrade_read_only_reason.is_empty():
+			upgrade_read_only_reason_text = TowerRewardPickLocalization.text(
+				"upgrade_%s_read_only" % upgrade_read_only_reason
+			)
 		var target_key := ""
 		if not canonical_id.is_empty():
 			target_key = "fusion:%s" % canonical_id if tree == "fusion" else (
@@ -4721,7 +4748,13 @@ func build_tower_reward_status_interaction_model(
 			"slot_cell_index": slot_cell_index,
 			"is_empty": is_empty,
 			"upgrade_inspectable": upgrade_inspectable,
-			"can_upgrade": upgrade_inspectable and base_level < max_level,
+			"can_upgrade": (
+				upgrade_inspectable
+				and upgrade_read_only_reason.is_empty()
+				and base_level < max_level
+			),
+			"upgrade_read_only_reason": upgrade_read_only_reason,
+			"upgrade_read_only_reason_text": upgrade_read_only_reason_text,
 			"replacement_eligible": (
 				not is_empty
 				and not bool(entry.get("_slot_free_cell", false))
@@ -4937,13 +4970,11 @@ func _draw_status_panel(
 		and _get_perk_slot_key(hovered_skill) == hovered_skill_key
 		and view_size.x > 0.0
 	):
-		var action_hint := ""
-		if bool(hovered_cell.get("upgrade_inspectable", false)):
-			action_hint = (
-				upgrade_cta_text
-				if bool(hovered_cell.get("can_upgrade", false))
-				else max_rank_text
-			)
+		var action_hint := get_tower_reward_status_action_hint(
+			hovered_cell,
+			upgrade_cta_text,
+			max_rank_text
+		)
 		_draw_perk_status_tooltip(
 			canvas,
 			hovered_skill,
@@ -4953,6 +4984,21 @@ func _draw_status_panel(
 			icon_renderer,
 			action_hint
 		)
+
+
+static func get_tower_reward_status_action_hint(
+	status_cell: Dictionary,
+	upgrade_cta_text: String,
+	max_rank_text: String
+) -> String:
+	if not bool(status_cell.get("upgrade_inspectable", false)):
+		return ""
+	if bool(status_cell.get("can_upgrade", false)):
+		return upgrade_cta_text
+	var read_only_reason_text := str(
+		status_cell.get("upgrade_read_only_reason_text", "")
+	).strip_edges()
+	return read_only_reason_text if not read_only_reason_text.is_empty() else max_rank_text
 
 
 static func resolve_tower_reward_slot_highlight_keys(

@@ -8,8 +8,14 @@ const NUMERIC_TOKEN_PATTERN := (
 	+ "(?:\\s*(?:%|％|x|×|배|倍|초(?:간)?|秒|msec|ms|sec(?:ond)?s?|"
 	+ "seg(?:undo)?s?|сек(?:унд[а-я]*)?|회|번|개|칸|성|s))?"
 )
+const NUMERIC_COMPARE_TOKEN_PATTERN := (
+	"(?i)(?:[x×]\\s*)?([+\\-−]?\\d+(?:[.,]\\d+)?)"
+	+ "(?:\\s*(%|％|x|×|배|倍|초(?:간)?|秒|msec|ms|sec(?:ond)?s?|"
+	+ "seg(?:undo)?s?|сек(?:унд[а-я]*)?|회|번|개|칸|성|s))?"
+)
 
 static var _numeric_token_regex: RegEx = null
+static var _numeric_compare_token_regex: RegEx = null
 
 
 static func split_segments(text: String) -> Array:
@@ -42,6 +48,27 @@ static func split_lines(lines: Array) -> Array:
 	return result
 
 
+static func numeric_tokens(text: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var regex := _get_numeric_compare_token_regex()
+	if regex == null:
+		return result
+	for match_value: Variant in regex.search_all(text):
+		var match_result := match_value as RegExMatch
+		var number_text := match_result.get_string(1).replace("−", "-").replace(",", ".")
+		if not number_text.is_valid_float():
+			continue
+		var unit := match_result.get_string(2).strip_edges()
+		result.append({
+			"value": float(number_text),
+			"unit": unit,
+			"unit_key": _numeric_unit_key(unit),
+			"start": match_result.get_start(),
+			"end": match_result.get_end(),
+		})
+	return result
+
+
 static func _get_numeric_token_regex() -> RegEx:
 	if _numeric_token_regex != null:
 		return _numeric_token_regex
@@ -50,3 +77,24 @@ static func _get_numeric_token_regex() -> RegEx:
 		return null
 	_numeric_token_regex = regex
 	return _numeric_token_regex
+
+
+static func _get_numeric_compare_token_regex() -> RegEx:
+	if _numeric_compare_token_regex != null:
+		return _numeric_compare_token_regex
+	var regex := RegEx.new()
+	if regex.compile(NUMERIC_COMPARE_TOKEN_PATTERN) != OK:
+		return null
+	_numeric_compare_token_regex = regex
+	return _numeric_compare_token_regex
+
+
+static func _numeric_unit_key(unit: String) -> String:
+	var normalized := unit.strip_edges().to_lower()
+	if normalized == "％":
+		return "%"
+	if normalized in ["초", "초간", "秒", "msec", "ms", "sec", "second", "seconds", "seg", "segs", "segundo", "segundos", "s"]:
+		return "seconds"
+	if normalized in ["x", "×", "배", "倍"]:
+		return "multiplier"
+	return normalized

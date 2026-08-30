@@ -28,6 +28,7 @@ const YEONMYO_VISION_BONGHONGWE_ICON: Texture2D = preload(
 
 const TEXTURE_ORB_EDGE_FILL_EXTRA := 2.0
 const TEXTURE_ORB_Y_NUDGE := -1.0
+const COOLDOWN_STYLE_FILLED_RECOVERY := "filled_recovery"
 
 var cooldown_renderer: Object = SmasherSkillOrbCooldownRenderer.new()
 var socket_renderer: Object = SmasherSkillOrbSocketRenderer.new()
@@ -66,6 +67,9 @@ func draw(
 	var skill_icons: Dictionary = context.get("skill_icons", {})
 	var skill_state: Object = context.get("skill_state", null)
 	var cooldown_seconds: Dictionary = context.get("cooldown_seconds", {})
+	var cooldown_visual_styles: Dictionary = _get_dictionary(
+		context.get("skill_cooldown_visual_styles", {})
+	)
 	var pillar_drawer: Object = context.get("pillar_drawer", null)
 	var static_hud_lod := bool(context.get("pillar_hud_static_lod", false))
 
@@ -98,7 +102,7 @@ func draw(
 		socket_renderer.draw_socket(canvas, slot_pos, icon_radius, socket_overlap, bg_color, border_color)
 
 		if is_active and not is_on_cooldown and not static_hud_lod:
-			socket_renderer.draw_ready_ring(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, t, float(i) * 0.6, skill_color)
+			socket_renderer.draw_ready_glow(canvas, slot_pos, icon_radius + socket_overlap * scale_factor, t, float(i) * 0.6, skill_color)
 
 		var icon_texture: Texture2D = _resolve_skill_icon_texture(skill_name, skill_icons)
 		var icon_size: float = icon_radius * 2.0 + 2.0 * scale_factor
@@ -114,14 +118,26 @@ func draw(
 			symbol_renderer.draw(canvas, slot_pos, icon_radius, skill_name, skill_color, is_active)
 
 		if is_on_cooldown:
-			cooldown_renderer.draw(
-				canvas,
-				slot_pos,
-				icon_radius + socket_overlap * scale_factor,
-				cooldown_ratio,
-				pillar_drawer,
-				static_hud_lod
-			)
+			if str(cooldown_visual_styles.get(skill_name, "")) == COOLDOWN_STYLE_FILLED_RECOVERY:
+				cooldown_renderer.draw_filled_recovery(
+					canvas,
+					slot_pos,
+					icon_radius + socket_overlap * scale_factor,
+					cooldown_ratio,
+					t,
+					float(i) * 0.6,
+					skill_color,
+					static_hud_lod
+				)
+			else:
+				cooldown_renderer.draw(
+					canvas,
+					slot_pos,
+					icon_radius + socket_overlap * scale_factor,
+					cooldown_ratio,
+					pillar_drawer,
+					static_hud_lod
+				)
 
 
 func _resolve_skill_icon_texture(skill_name: String, skill_icons: Dictionary) -> Texture2D:

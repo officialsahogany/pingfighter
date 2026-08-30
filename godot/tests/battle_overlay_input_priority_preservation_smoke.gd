@@ -150,8 +150,14 @@ class FakeRuntimePerkState:
 class FakeLingpetRuntime:
 	extends RefCounted
 
+	var guardian_enhance_cancel_count := 0
+
 	func is_acquire_cutin_awaiting_dismiss() -> bool:
 		return false
+
+	func cancel_guardian_enhance_cutin(_registry: Object = null) -> bool:
+		guardian_enhance_cancel_count += 1
+		return true
 
 
 class FakeOverflowHost:
@@ -192,14 +198,21 @@ class FakeTowerFlowOwner:
 	extends RefCounted
 
 	var handle_count := 0
+	var node_select_count := 0
+	var ball_launch_count := 0
 	var confirmation_handle_count := 0
 	var confirmation_active := false
 
 	func is_active() -> bool:
 		return true
 
-	func handle_input(_event: InputEvent) -> void:
+	func handle_input(event: InputEvent) -> void:
 		handle_count += 1
+		if event is InputEventMouseButton:
+			var mouse := event as InputEventMouseButton
+			if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
+				node_select_count += 1
+				ball_launch_count += 1
 
 	func has_pending_guardian_spring_confirmation() -> bool:
 		return confirmation_active
@@ -270,6 +283,7 @@ func _init() -> void:
 	_verify_missing_shortcut_targets_fall_through()
 	_verify_pre_overflow_insertion_swallow_contract()
 	_verify_guardian_spring_priority_routes()
+	_verify_guardian_enhance_cutin_blocks_tower_flow()
 	call_deferred("_finish")
 
 
@@ -573,6 +587,100 @@ func _verify_guardian_spring_priority_routes() -> void:
 	_expect(overflow_host.handle_count == 0, "Spring confirmation must outrank overflow")
 
 
+func _verify_guardian_enhance_cutin_blocks_tower_flow() -> void:
+	var registry := _base_registry()
+	var gate: FakeModalGate = registry.instances["battle_scene_modal_gate_controller"]
+	var flow_owner := FakeTowerFlowOwner.new()
+	var lingpet_runtime := FakeLingpetRuntime.new()
+	registry.instances["tower_ascent_flow_owner"] = flow_owner
+	registry.instances["lingpet_egg_runtime"] = lingpet_runtime
+	registry.instances["battle_scene_overlay_input_controller"] = (
+		BattleSceneOverlayInputController.new()
+	)
+	gate.guardian_enhance_active = true
+
+	BattleSceneInputController.new().handle_unhandled_input(
+		_left_mouse_press(Vector2(640.0, 360.0)),
+		FakeOwner.new(),
+		registry,
+		Callable(registry, "get_instance"),
+		{}
+	)
+	_expect(
+		lingpet_runtime.guardian_enhance_cancel_count == 1,
+		"active Guardian enhancement click must be consumed by the cut-in skip route"
+	)
+	_expect(
+		flow_owner.handle_count == 0,
+		"active Guardian enhancement click must not reach the Tower flow"
+	)
+	_expect(
+		flow_owner.node_select_count == 0,
+		"active Guardian enhancement click must not select the backing Tower node"
+	)
+	_expect(
+		flow_owner.ball_launch_count == 0,
+		"active Guardian enhancement click must not launch the backing Tower route ball"
+	)
+
+	flow_owner.handle_count = 0
+	flow_owner.node_select_count = 0
+	flow_owner.ball_launch_count = 0
+	gate.guardian_enhance_active = false
+	BattleSceneInputController.new().handle_unhandled_input(
+		_left_mouse_press(Vector2(640.0, 360.0)),
+		FakeOwner.new(),
+		registry,
+		Callable(registry, "get_instance"),
+		{}
+	)
+	_expect(
+		flow_owner.handle_count == 1,
+		"the first click after Guardian enhancement closes must resume the Tower flow"
+	)
+	_expect(
+		flow_owner.node_select_count == 1,
+		"the first click after Guardian enhancement closes must select the Tower node"
+	)
+	_expect(
+		flow_owner.ball_launch_count == 1,
+		"the first click after Guardian enhancement closes must launch the Tower route ball"
+	)
+
+	var escape_registry := _base_registry()
+	var escape_gate: FakeModalGate = escape_registry.instances[
+		"battle_scene_modal_gate_controller"
+	]
+	var escape_flow_owner := FakeTowerFlowOwner.new()
+	var escape_lingpet_runtime := FakeLingpetRuntime.new()
+	escape_registry.instances["tower_ascent_flow_owner"] = escape_flow_owner
+	escape_registry.instances["lingpet_egg_runtime"] = escape_lingpet_runtime
+	escape_registry.instances["battle_scene_overlay_input_controller"] = (
+		BattleSceneOverlayInputController.new()
+	)
+	escape_gate.guardian_enhance_active = true
+	BattleSceneInputController.new().handle_unhandled_input(
+		_key_press(KEY_ESCAPE),
+		FakeOwner.new(),
+		escape_registry,
+		Callable(escape_registry, "get_instance"),
+		{}
+	)
+	_expect(
+		escape_lingpet_runtime.guardian_enhance_cancel_count == 1,
+		"active Guardian enhancement Escape must be consumed by the cut-in skip route"
+	)
+	_expect(
+		escape_flow_owner.handle_count == 0,
+		"active Guardian enhancement Escape must not reach the Tower flow"
+	)
+	_expect(
+		escape_flow_owner.node_select_count == 0
+		and escape_flow_owner.ball_launch_count == 0,
+		"active Guardian enhancement Escape must not select a node or launch a route ball"
+	)
+
+
 func _base_registry() -> FakeRegistry:
 	var registry := FakeRegistry.new()
 	registry.instances["battle_scene_modal_gate_controller"] = FakeModalGate.new()
@@ -592,6 +700,15 @@ func _route_overlay(event: InputEvent, registry: FakeRegistry) -> bool:
 func _key_press(keycode: Key) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.keycode = keycode
+	event.pressed = true
+	return event
+
+
+func _left_mouse_press(position: Vector2) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = position
+	event.global_position = position
 	event.pressed = true
 	return event
 

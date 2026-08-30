@@ -139,6 +139,54 @@ func is_summoned(runtime_state: String, companion_state: String) -> bool:
 	return runtime_state == companion_state and not _stowed
 
 
+func get_toggle_slot_state(
+	runtime_state: String,
+	companion_state: String,
+	pet_id: String
+) -> Dictionary:
+	var has_guardian := runtime_state == companion_state and pet_id.strip_edges() != ""
+	if not has_guardian:
+		return {
+			"ready": false,
+			"cooldown_ratio": 0.0,
+			"guardian_stowed": false,
+			"transition_active": false,
+		}
+	var recovery_ratio := float(
+		_guardian_run_state.get_duration_resummon_cooldown_ratio()
+	)
+	var transition_active := bool(_guardian_transition_state.is_active())
+	if transition_active:
+		var transition_remaining := 1.0 - float(_guardian_transition_state.get_progress())
+		return {
+			"ready": false,
+			"cooldown_ratio": maxf(recovery_ratio, transition_remaining),
+			"guardian_stowed": _stowed,
+			"transition_active": true,
+		}
+	if _stowed:
+		var can_resummon := bool(_guardian_run_state.can_resummon_guardian())
+		return {
+			"ready": can_resummon,
+			"cooldown_ratio": 0.0 if can_resummon else recovery_ratio,
+			"guardian_stowed": true,
+			"transition_active": false,
+		}
+	var summon_hold_ratio := 0.0
+	if _minimum_summon_seconds > 0.0 and _active_elapsed < _minimum_summon_seconds:
+		summon_hold_ratio = clampf(
+			1.0 - _active_elapsed / _minimum_summon_seconds,
+			0.0,
+			1.0
+		)
+	return {
+		"ready": summon_hold_ratio <= 0.0,
+		"cooldown_ratio": summon_hold_ratio,
+		"guardian_stowed": false,
+		"transition_active": false,
+	}
+
+
 func try_toggle(
 	runtime_state: String,
 	companion_state: String,
@@ -148,18 +196,13 @@ func try_toggle(
 ) -> bool:
 	if runtime_state != companion_state or pet_id.strip_edges() == "":
 		return false
-	# Consume the dedicated edge while either presentation is active so key
-	# repeat cannot reverse or double-commit the transition state machine.
-	if _guardian_transition_state.is_active():
+	var slot_state := get_toggle_slot_state(runtime_state, companion_state, pet_id)
+	# Consume the dedicated edge while the shared HUD/input predicate is closed,
+	# so key repeat cannot leak through or reverse an in-flight transition.
+	if not bool(slot_state.get("ready", false)):
 		return true
 	if _stowed:
-		# Consume the toggle while recovery has not crossed the strict resummon
-		# gate; Ctrl/R3 must not leak into downstream battle input.
-		if not _guardian_run_state.can_resummon_guardian():
-			return true
 		set_stowed(runtime_state, companion_state, false, owner, registry)
-		return true
-	if _active_elapsed < _minimum_summon_seconds:
 		return true
 	set_stowed(runtime_state, companion_state, true, owner, registry)
 	return true

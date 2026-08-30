@@ -219,6 +219,9 @@ func _merge_slot_dynamic(
 	active: bool,
 	flash_seconds: float
 ) -> void:
+	if not active:
+		surface.merge(_empty_skill_state_snapshot(suffix), true)
+		return
 	var skill_state: Object = skill_surface.get("skill_state", null) as Object
 	var active_skill := _as_dictionary(skill_surface.get("active_skill", {}))
 	var skill_id := str(active_skill.get("id", "")) if active else ""

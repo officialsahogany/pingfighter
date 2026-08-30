@@ -163,7 +163,7 @@ func _verify_guardian_tip_semantics() -> void:
 		_expect(basic_text.contains("Ctrl"), "language '%s' guardian control tip should name Ctrl" % language)
 		_expect(basic_text.contains("R3"), "language '%s' guardian control tip should name R3" % language)
 		_expect(basic_text.contains("6"), "language '%s' guardian control tip should name the 6-second stow gate" % language)
-		_expect(advanced_text.contains("10"), "language '%s' guardian duration tip should name the >10-second resummon gate" % language)
+		_expect(advanced_text.contains("30"), "language '%s' guardian duration tip should name the 30-percent resummon gate" % language)
 		_expect(advanced_text.contains("Ctrl"), "language '%s' guardian resummon tip should name Ctrl" % language)
 		_expect(advanced_text.contains("R3"), "language '%s' guardian resummon tip should name R3" % language)
 	var ko_basic := BattleLoadingTips.tip_text_for_language(basic_index, "ko")

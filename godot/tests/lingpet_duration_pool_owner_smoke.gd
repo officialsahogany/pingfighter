@@ -82,11 +82,15 @@ func _verify_expiry_threshold_and_stage_refill() -> void:
 	var expired: Dictionary = state.advance_pool(1.0, true)
 	_expect(bool(expired.get("expired", false)), "crossing zero while summoned should emit one forced-stow edge")
 	_expect(state.is_resummon_locked(), "expiry should latch the resummon lock")
-	state.advance_pool(30.0, false)
-	_expect_float(state.get_pool_current(), 10.0, "thirty stowed seconds should recover exactly ten seconds")
-	_expect(not state.can_resummon(), "the strict resummon gate should remain closed at exactly ten seconds")
-	state.advance_pool(0.01, false)
-	_expect(state.can_resummon(), "recovery above ten seconds should reopen summoning")
+	var threshold_value := state.get_pool_max() * LingpetDurationState.RESUMMON_THRESHOLD_RATIO
+	state.advance_pool(
+		(threshold_value - 0.001) / LingpetDurationState.REST_RECOVERY_RATIO,
+		false
+	)
+	_expect(not state.can_resummon(), "raw duration below 30 percent should keep the resummon gate closed")
+	state.advance_pool(0.001 / LingpetDurationState.REST_RECOVERY_RATIO, false)
+	_expect_float(state.get_pool_current(), threshold_value, "stowed recovery should reach the exact 30-percent boundary")
+	_expect(state.can_resummon(), "the inclusive raw 30-percent boundary should reopen summoning")
 	state.set_pool_for_tests(12.0, 48.0)
 	_expect(state.refill_to_max(), "real stage-advance refill should report a changed pool")
 	_expect_float(state.get_pool_current(), 48.0, "stage advance should refill to the run's rolled maximum")

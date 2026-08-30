@@ -15,6 +15,9 @@ const TowerAscentTuning := preload(
 const RuntimePerkChoiceLayout := preload(
 	"res://scripts/characters/runtime_perk_choice_layout.gd"
 )
+const RuntimePerkCatalog := preload(
+	"res://scripts/characters/runtime_perk_catalog.gd"
+)
 const TowerCardAbsorptionTargetResolver := preload(
 	"res://scripts/tower_ascent/tower_card_absorption_target_resolver.gd"
 )
@@ -540,8 +543,19 @@ func _build_upgrade_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 			int(_runtime_state.call("get_runtime_skill_level", _upgrade_perk_id))
 		)
 	var effective_bonus := maxi(0, effective_level - current_level)
-	var has_next_level := current_level < max_level
-	var target_level := mini(current_level + 1, max_level)
+	var upgrade_read_only_reason := RuntimePerkCatalog.get_tower_upgrade_read_only_reason(
+		perk_data
+	)
+	var upgrade_read_only_reason_text := ""
+	if not upgrade_read_only_reason.is_empty():
+		upgrade_read_only_reason_text = TowerRewardPickLocalization.text(
+			"upgrade_%s_read_only" % upgrade_read_only_reason
+		)
+	var has_next_level := (
+		upgrade_read_only_reason.is_empty()
+		and current_level < max_level
+	)
+	var target_level := mini(current_level + 1, max_level) if has_next_level else current_level
 	var slot_status := _get_choice_slot_status(perk_data, target_level)
 	var slot_accepted := bool(slot_status.get("accepted", false))
 	var cost := _get_current_upgrade_cost()
@@ -549,9 +563,9 @@ func _build_upgrade_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 	var cards := _build_upgrade_cards(
 		perk_data,
 		current_level,
-		max_level,
+		max_level if upgrade_read_only_reason.is_empty() else current_level,
 		effective_bonus,
-		_upgrade_show_all_levels
+		_upgrade_show_all_levels and upgrade_read_only_reason.is_empty()
 	)
 	var model := {
 		"kind": "upgrade",
@@ -564,7 +578,9 @@ func _build_upgrade_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		"has_next_level": has_next_level,
 		"can_upgrade": has_next_level,
 		"confirm_enabled": has_next_level and slot_accepted and affordable,
-		"show_all_levels": _upgrade_show_all_levels,
+		"upgrade_read_only_reason": upgrade_read_only_reason,
+		"upgrade_read_only_reason_text": upgrade_read_only_reason_text,
+		"show_all_levels": _upgrade_show_all_levels and upgrade_read_only_reason.is_empty(),
 		"cost": cost,
 		"cards": cards,
 		"slot_status": slot_status,
@@ -573,7 +589,11 @@ func _build_upgrade_modal_model(view_size: Vector2 = VIEW_SIZE) -> Dictionary:
 		"back_text": TowerRewardPickLocalization.text("upgrade_back"),
 		"confirm_text": TowerRewardPickLocalization.text("upgrade_confirm"),
 		"cost_text": TowerRewardPickLocalization.text("upgrade_cost", {"amount": cost}),
-		"max_rank_text": TowerRewardPickLocalization.text("upgrade_max_rank"),
+		"max_rank_text": (
+			upgrade_read_only_reason_text
+			if not upgrade_read_only_reason_text.is_empty()
+			else TowerRewardPickLocalization.text("upgrade_max_rank")
+		),
 	}
 	if _card_renderer != null and _card_renderer.has_method("build_tower_reward_upgrade_layout"):
 		var layout_value: Variant = _card_renderer.call(

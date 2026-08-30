@@ -119,7 +119,7 @@ const TIPS_KO: Array[String] = [
 	"격노 상태의 보스와 랠리하면 골드가 1.5배로 들어옵니다.",
 	"공이 빠를수록 보스가 받아칠 때 옆으로 크게 밀려납니다. 빠른 랠리로 보스 자리를 흔들 수 있어요.",
 	"수호령 지속시간은 소환 중 줄고 수납 중 천천히 회복하며, 스테이지 전환 시 전량 회복합니다.",
-	"지속시간이 0이면 수호령이 자동 수납됩니다. 10초를 넘게 회복하면 Ctrl 키(패드 R3)로 다시 소환할 수 있습니다.",
+	"지속시간이 0이면 수호령이 자동 수납됩니다. 지속시간 게이지가 30% 이상 회복되면 Ctrl 키(패드 R3)로 다시 소환할 수 있습니다.",
 ]
 
 const TIPS_EN: Array[String] = [
@@ -148,7 +148,7 @@ const TIPS_EN: Array[String] = [
 	"Rallying against an enraged boss earns 1.5x gold.",
 	"The faster the ball, the further the boss recoils when returning it. Keep rallies fast to shake the boss out of position.",
 	"Guardian spirit duration drains while summoned, recovers while stowed, and refills on stage advance.",
-	"At 0 duration, a guardian spirit stows automatically. Recover above 10 seconds, then use Ctrl (R3 on gamepad) to resummon it.",
+	"At 0 duration, a guardian spirit stows automatically. Once the duration gauge recovers to 30% or more, use Ctrl (R3 on gamepad) to resummon it.",
 ]
 
 const TIPS_ZH: Array[String] = [
@@ -177,7 +177,7 @@ const TIPS_ZH: Array[String] = [
 	"与狂暴状态的首领对拉，金币收益为 1.5 倍。",
 	"球越快，首领接球时被推得越远。保持高速对拉可以扰乱首领站位。",
 	"守护灵的持续时间在召唤时减少、收纳时缓慢恢复，并在推进关卡时回满。",
-	"持续时间归零时守护灵会自动收纳。恢复超过 10 秒后，按 Ctrl（手柄 R3）即可重新召唤。",
+	"持续时间归零时守护灵会自动收纳。持续时间槽恢复到 30% 以上后，按 Ctrl（手柄 R3）即可重新召唤。",
 ]
 
 const TIPS_JA: Array[String] = [
@@ -206,7 +206,7 @@ const TIPS_JA: Array[String] = [
 	"激怒状態のボスとのラリーはゴールドが1.5倍になる。",
 	"ボールが速いほど、ボスは打ち返す際に大きくのけぞる。速いラリーでボスの位置を揺さぶろう。",
 	"守護霊の持続時間は召喚中に減り、収納中に徐々に回復し、ステージ進行で全回復する。",
-	"持続時間が 0 になると守護霊は自動収納される。10 秒を超えて回復したら Ctrl（パッドは R3）で再召喚できる。",
+	"持続時間が 0 になると守護霊は自動収納される。持続時間ゲージが 30% 以上まで回復したら Ctrl（パッドは R3）で再召喚できる。",
 ]
 
 const TIPS_ES: Array[String] = [
@@ -235,7 +235,7 @@ const TIPS_ES: Array[String] = [
 	"Pelotear contra un jefe enfurecido otorga 1,5 veces más oro.",
 	"Cuanto más rápida la pelota, más retrocede el jefe al devolverla. Mantén el peloteo veloz para descolocarlo.",
 	"La duración del espíritu guardián baja mientras está invocado, se recupera guardado y se rellena al avanzar de fase.",
-	"Con duración 0, el espíritu guardián se guarda solo. Tras recuperar más de 10 segundos, usa Ctrl (R3 en mando) para volver a invocarlo.",
+	"Con duración 0, el espíritu guardián se guarda solo. Cuando el medidor de duración recupere al menos un 30%, usa Ctrl (R3 en mando) para volver a invocarlo.",
 ]
 
 const TIPS_PT_BR: Array[String] = [
@@ -264,7 +264,7 @@ const TIPS_PT_BR: Array[String] = [
 	"Trocar bolas com um chefe enfurecido rende 1,5x de ouro.",
 	"Quanto mais rápida a bola, mais o chefe recua ao devolvê-la. Mantenha o rali veloz para tirá-lo da posição.",
 	"A duração do espírito guardião cai quando invocado, recupera enquanto guardado e enche ao avançar de fase.",
-	"Com duração 0, o espírito guardião se guarda sozinho. Após recuperar mais de 10 segundos, use Ctrl (R3 no controle) para invocá-lo de novo.",
+	"Com duração 0, o espírito guardião se guarda sozinho. Quando a barra de duração recuperar pelo menos 30%, use Ctrl (R3 no controle) para invocá-lo de novo.",
 ]
 
 const TIPS_RU: Array[String] = [
@@ -293,7 +293,7 @@ const TIPS_RU: Array[String] = [
 	"Розыгрыши против разъярённого босса приносят в 1,5 раза больше золота.",
 	"Чем быстрее мяч, тем сильнее босса отбрасывает при отбивании. Держите высокий темп, чтобы сбивать его позицию.",
 	"Время духа-хранителя убывает при призыве, восстанавливается в запасе и полностью заполняется при переходе этапа.",
-	"При 0 времени дух-хранитель убирается сам. Восстановите свыше 10 секунд и нажмите Ctrl (R3 на геймпаде), чтобы призвать его снова.",
+	"При 0 времени дух-хранитель убирается сам. Когда шкала времени восстановится хотя бы до 30%, нажмите Ctrl (R3 на геймпаде), чтобы призвать его снова.",
 ]
 
 const CHARACTER_TIPS_KO := {

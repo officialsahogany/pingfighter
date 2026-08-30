@@ -3768,6 +3768,14 @@ func can_resummon_guardian() -> bool:
 	return _guardian_run_state.can_resummon_guardian()
 
 
+func get_guardian_toggle_slot_state() -> Dictionary:
+	return _guardian_duration_lifecycle.get_toggle_slot_state(
+		_state,
+		STATE_COMPANION,
+		_pet_id
+	)
+
+
 func is_guardian_stowed() -> bool:
 	return bool(_guardian_duration_lifecycle.is_stowed(_state, STATE_COMPANION))
 

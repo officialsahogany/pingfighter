@@ -232,6 +232,13 @@ func _handle_tower_ascent_flow_input(
 				modal_gate.has_method("is_lingpet_acquire_cutin_active")
 				and bool(modal_gate.call("is_lingpet_acquire_cutin_active", module_getter))
 			)
+			or (
+				modal_gate.has_method("is_lingpet_guardian_enhance_cutin_active")
+				and bool(modal_gate.call(
+					"is_lingpet_guardian_enhance_cutin_active",
+					module_getter
+				))
+			)
 		)
 	)
 	if priority_overlay_active:

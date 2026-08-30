@@ -3,6 +3,8 @@ extends RefCounted
 const COOLDOWN_SECTOR_SEGMENTS := 14
 const COOLDOWN_RING_SEGMENTS := 14
 const COOLDOWN_RING_SEGMENTS_STATIC_LOD := 14
+const FILLED_RECOVERY_SEGMENTS := 18
+const FILLED_RECOVERY_HALO_LAYERS := 3
 
 
 func draw(
@@ -57,6 +59,69 @@ func draw(
 		Color(0.72, 0.95, 1.0, 0.96),
 		ring_width,
 		true
+	)
+
+
+func draw_filled_recovery(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: float,
+	cooldown_ratio: float,
+	time_seconds: float,
+	phase_offset: float,
+	skill_color: Color,
+	static_hud_lod: bool = false
+) -> void:
+	var clamped_ratio := clampf(cooldown_ratio, 0.0, 1.0)
+	canvas.draw_circle(center, radius, Color(0.0, 0.0, 0.0, 0.54))
+	if clamped_ratio <= 0.0:
+		return
+	var start_angle := -PI * 0.5
+	var end_angle := start_angle + TAU * clamped_ratio
+	var shadow_fill := _build_sector_points(
+		center,
+		radius,
+		start_angle,
+		end_angle,
+		FILLED_RECOVERY_SEGMENTS
+	)
+	canvas.draw_colored_polygon(shadow_fill, Color(0.01, 0.035, 0.055, 0.62))
+	var inner_fill := _build_sector_points(
+		center,
+		radius * 0.84,
+		start_angle,
+		end_angle,
+		FILLED_RECOVERY_SEGMENTS
+	)
+	canvas.draw_colored_polygon(
+		inner_fill,
+		Color(skill_color.r * 0.24, skill_color.g * 0.34, skill_color.b * 0.42, 0.20)
+	)
+	if static_hud_lod:
+		return
+	var pulse := 0.5 + 0.5 * sin(time_seconds * 4.6 + phase_offset)
+	var light_angle := end_angle - 0.08
+	var light_center := center + Vector2.from_angle(light_angle) * radius * 0.62
+	for layer_index in range(FILLED_RECOVERY_HALO_LAYERS):
+		var layer_ratio := float(layer_index) / float(FILLED_RECOVERY_HALO_LAYERS - 1)
+		var drift := Vector2(
+			cos(time_seconds * 1.4 + phase_offset + layer_ratio * 3.1),
+			sin(time_seconds * 1.1 + phase_offset + layer_ratio * 2.3)
+		) * (1.2 + layer_ratio * 1.8)
+		canvas.draw_circle(
+			light_center + drift,
+			7.0 - layer_ratio * 3.8 + pulse * 0.8,
+			Color(skill_color.r, skill_color.g, skill_color.b, 0.045 + layer_ratio * 0.045)
+		)
+	canvas.draw_circle(
+		light_center,
+		2.6 + pulse * 0.7,
+		Color(skill_color.r, skill_color.g, skill_color.b, 0.34)
+	)
+	canvas.draw_circle(
+		light_center,
+		1.1 + pulse * 0.25,
+		Color(0.90, 0.99, 1.0, 0.86)
 	)
 
 
