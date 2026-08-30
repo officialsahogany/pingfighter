@@ -101,11 +101,23 @@ func restore_snapshot(
 	if not _guardian_spring_node.restore_runtime(owner, registry):
 		_reset_runtime_state()
 		return false
-	_rest_node.restore_state(snapshot.get("rest_history", []))
+	_rest_node.restore_state(snapshot.get(
+		"rest_state",
+		snapshot.get("rest_history", [])
+	))
 	for rest_record in _rest_node.get_history():
 		var rest_resolution_id := str(rest_record.get("node_resolution_id", ""))
 		if not rest_resolution_id.is_empty():
 			_resolution_ids[rest_resolution_id] = true
+	_taiji_elder_node.reset()
+	if snapshot.has("taiji_elder_state"):
+		var taiji_restore: Dictionary = _taiji_elder_node.restore_save_snapshot(
+			snapshot.get("taiji_elder_state", {})
+		)
+		if not bool(taiji_restore.get("accepted", false)):
+			_reset_runtime_state()
+			return false
+	_add_history_resolution_ids(_taiji_elder_node.get_history())
 	if not _ending_state.restore_state(snapshot.get("ending_state", {})):
 		_reset_runtime_state()
 		return false
@@ -192,6 +204,9 @@ func restore_snapshot(
 	if not _restore_runtime_perk_build_state(owner, registry):
 		_reset_runtime_state()
 		return false
+	if not _restore_active_item_build_state(owner, registry):
+		_reset_runtime_state()
+		return false
 	var lifecycle_result: Dictionary = _modal_lifecycle.enter(owner, registry)
 	if not bool(lifecycle_result.get("accepted", false)):
 		_reset_runtime_state()
@@ -204,6 +219,19 @@ func restore_snapshot(
 	_prepared_resolution_id = ""
 	if _phase == PHASE_NODE_MODAL:
 		_open_node_modal()
+		if _node_modal_kind == "rest":
+			_node_modal_state.restore_campfire_presentation_state(
+				snapshot.get("campfire_presentation_state", {})
+			)
+		elif (
+			_node_modal_kind == "taiji_elder"
+			and snapshot.has("taiji_elder_presentation_state")
+		):
+			if not _node_modal_state.restore_taiji_elder_presentation_state(
+				snapshot.get("taiji_elder_presentation_state", {})
+			):
+				_reset_runtime_state()
+				return false
 	else:
 		_node_modal_state.close()
 	if _phase == PHASE_FAKE_ENDING_TEASER and not _ending_state.is_teaser_pending():
@@ -325,12 +353,16 @@ func _convert_unresolved_snapshot_gatekeeper_to_npc(node: Dictionary) -> Diction
 	]:
 		converted.erase(metadata_key)
 	converted["kind"] = "rest"
-	converted["label"] = "휴식"
+	converted["label"] = "모닥불"
 	converted["content_state"] = TowerAscentBossRegistry.CONTENT_GENERATED
 	converted["boss_assignment_state"] = "snapshot_gatekeeper_npc_fallback"
 	return converted
 
 func export_snapshot() -> Dictionary:
+	# Active items remain owner-owned during the run. Refresh their versioned
+	# Tower projection on every export so a later stable save cannot replay the
+	# older campfire transaction image over unrelated inventory changes.
+	_capture_active_item_build_state()
 	_sync_run_state_phases()
 	_guardian_state = _guardian_spring_node.export_state()
 	var snapshot: Dictionary = _run_state.export_snapshot_fields()
@@ -354,7 +386,20 @@ func export_snapshot() -> Dictionary:
 		"claimed_decoration_ids": _claimed_decoration_ids.duplicate(),
 		"build_state": _build_state.duplicate(true),
 		"guardian_state": _guardian_state.duplicate(true),
+		"rest_state": _rest_node.export_state(),
 		"rest_history": _rest_node.get_history(),
+		"taiji_elder_state": _taiji_elder_node.build_save_snapshot(),
+		"taiji_elder_history": _taiji_elder_node.get_history(),
+		"campfire_presentation_state": (
+			_node_modal_state.export_campfire_presentation_state()
+			if _phase == PHASE_NODE_MODAL and _node_modal_kind == "rest"
+			else {}
+		),
+		"taiji_elder_presentation_state": (
+			_node_modal_state.export_taiji_elder_presentation_state()
+			if _phase == PHASE_NODE_MODAL and _node_modal_kind == "taiji_elder"
+			else {}
+		),
 		"ending_state": _ending_state.export_state(),
 		"settlement_state": _settlement_state.export_state(),
 		"gauntlet_state": _gauntlet_state.export_state(),

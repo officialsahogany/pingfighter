@@ -60,6 +60,9 @@ const TowerAscentGuardianSpringNode := preload(
 const TowerAscentRestNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_rest_node.gd"
 )
+const TowerAscentTaijiElderNode := preload(
+	"res://scripts/tower_ascent/tower_ascent_taiji_elder_node.gd"
+)
 const TowerAscentRecordStore := preload(
 	"res://scripts/tower_ascent/tower_ascent_record_store.gd"
 )
@@ -185,6 +188,7 @@ var _training_offer_builder: Object = TowerAscentTrainingOfferBuilder.new()
 var _fallen_monk_node: Object = TowerAscentFallenMonkNode.new()
 var _guardian_spring_node: Object = TowerAscentGuardianSpringNode.new()
 var _rest_node: Object = TowerAscentRestNode.new()
+var _taiji_elder_node: Object = TowerAscentTaijiElderNode.new()
 var _record_store: Object = TowerAscentRecordStore.new()
 var _ending_state: Object = TowerAscentEndingState.new()
 var _settlement_state: Object = TowerAscentSettlementState.new()
@@ -277,6 +281,7 @@ func _reset_runtime_state() -> void:
 	_fallen_monk_node.reset()
 	_guardian_spring_node.reset()
 	_rest_node.reset()
+	_taiji_elder_node.reset()
 	_ending_state.reset()
 	_settlement_state.reset()
 	_gauntlet_state.reset()
@@ -549,7 +554,15 @@ func _sync_owner_chance_gems(owner: Object) -> void:
 
 func _normalize_node_modal_kind(value: String) -> String:
 	var normalized := value.strip_edges().to_lower()
-	if normalized in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "common_shell"]:
+	if normalized in [
+		"shop",
+		"training",
+		"fallen_monk",
+		"guardian_spring",
+		"rest",
+		"taiji_elder",
+		"common_shell",
+	]:
 		return normalized
 	return "common_shell"
 

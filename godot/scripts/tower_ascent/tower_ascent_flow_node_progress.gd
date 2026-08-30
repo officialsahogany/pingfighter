@@ -62,6 +62,18 @@ func get_guardian_spring_presentation_debug_state() -> Dictionary:
 	return _node_modal_state.get_guardian_spring_presentation_debug_state()
 
 
+func get_campfire_presentation_debug_state() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_campfire_presentation_debug_state()
+
+
+func get_taiji_elder_presentation_debug_state() -> Dictionary:
+	if _node_modal_state == null:
+		return {}
+	return _node_modal_state.get_taiji_elder_presentation_debug_state()
+
+
 func set_training_stage_clock_msec_for_tests(value: int) -> void:
 	if _node_modal_state != null:
 		_node_modal_state.set_training_stage_clock_msec_for_tests(value)
@@ -178,6 +190,21 @@ func get_guardian_state() -> Dictionary:
 func get_rest_history() -> Array[Dictionary]:
 	return _rest_node.get_history()
 
+
+func get_rest_state() -> Dictionary:
+	return _rest_node.export_state()
+
+
+func has_next_battle_full_gauge() -> bool:
+	return _rest_node.has_next_battle_full_gauge()
+
+
+func consume_next_battle_full_gauge(
+	owner: Object,
+	registry: Object = null
+) -> Dictionary:
+	return _rest_node.consume_next_battle_full_gauge(owner, registry)
+
 func execute_node_action(action_id: String, requested_resolution_id: String = "") -> Dictionary:
 	if not _active or _phase != PHASE_NODE_MODAL:
 		return {"accepted": false, "reason": "node_modal_inactive"}
@@ -193,13 +220,41 @@ func execute_node_action(action_id: String, requested_resolution_id: String = ""
 	if _node_modal_kind == "guardian_spring" and action_id.begins_with("guardian_spring:"):
 		return _execute_guardian_spring_action(action_id, requested_resolution_id)
 	if _node_modal_kind == "rest" and action_id.begins_with("rest:"):
+		if (
+			_node_modal_state == null
+			or not _node_modal_state.is_campfire_choice_ready()
+		):
+			return {
+				"accepted": false,
+				"applied": false,
+				"reason": "campfire_sequence_incomplete",
+				"message": TowerAscentNodeModalLocalization.text(
+					TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED
+				),
+			}
 		return _execute_rest_action(action_id, requested_resolution_id)
+	if _node_modal_kind == "taiji_elder" and action_id.begins_with("taiji_elder:"):
+		var offer: Dictionary = _taiji_elder_node.get_modal_snapshot(_current_node_id)
+		if (
+			not bool(offer.get("choice_committed", false))
+			and (
+				_node_modal_state == null
+				or not _node_modal_state.is_taiji_elder_decision_phase()
+			)
+		):
+			return {
+				"accepted": false,
+				"applied": false,
+				"reason": "taiji_elder_sequence_incomplete",
+			}
+		return _execute_taiji_elder_action(action_id, requested_resolution_id)
 	return {"accepted": false, "reason": "unknown_node_action"}
 
 func _open_node_modal() -> void:
 	# A node modal is a new opaque input owner. No reveal timer may survive into
 	# it even if a future transition path opens the card early (GRT-019/GRT-058).
 	_floor_reveal_state.cancel()
+	_prepare_taiji_elder_visit()
 	_node_modal_state.open(
 		_current_node_id,
 		_node_modal_kind,
@@ -211,6 +266,8 @@ func _open_node_modal() -> void:
 		_prewarm_shop_trade_cells()
 	_configure_training_stage_presentation()
 	_configure_guardian_spring_presentation()
+	_configure_campfire_presentation()
+	_configure_taiji_elder_presentation()
 	_prepare_training_stats_panel()
 	var shop_inventory := _get_shop_inventory_entry()
 	if _node_modal_kind == "shop" and (
@@ -257,6 +314,16 @@ func _prewarm_shop_trade_cells() -> void:
 func _handle_node_modal_input(event: InputEvent) -> void:
 	var view_size := _get_node_modal_view_size()
 	if (
+		_node_modal_kind == "taiji_elder"
+		and _handle_taiji_elder_owned_input(event, view_size)
+	):
+		return
+	if (
+		_node_modal_kind == "rest"
+		and _handle_campfire_owned_input(event, view_size)
+	):
+		return
+	if (
 		_node_modal_kind == "guardian_spring"
 		and _node_modal_state.has_active_guardian_spring_ritual()
 	):
@@ -287,6 +354,16 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 			_node_modal_state.change_visible_page(1)
 			return
 		if key_event.keycode == KEY_ESCAPE:
+			if (
+				_node_modal_kind == "rest"
+				and not _rest_node.has_committed_choice(_current_node_id)
+			):
+				_node_modal_state.set_status_text(
+					TowerAscentNodeModalLocalization.text(
+						TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED
+					)
+				)
+				return
 			if (
 				_node_modal_kind == "guardian_spring"
 				and _guardian_spring_node.is_first_pick_pending()
@@ -347,6 +424,139 @@ func _handle_node_modal_input(event: InputEvent) -> void:
 				return
 			if not released_action.is_empty():
 				_confirm_node_modal_action(released_action)
+
+
+func _handle_campfire_owned_input(event: InputEvent, view_size: Vector2) -> bool:
+	if _node_modal_state.has_campfire_sequence_input_lock():
+		# Intro and result copy own the screen until each retained line has been shown.
+		return true
+	if not _node_modal_state.has_campfire_ignition_interaction():
+		return false
+	if event is InputEventMouseMotion:
+		_node_modal_state.update_hover_at_position(
+			(event as InputEventMouseMotion).position,
+			view_size
+		)
+		return true
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			if mouse_event.pressed:
+				_node_modal_state.begin_pointer_press(mouse_event.position, view_size)
+			else:
+				var control: Dictionary = _node_modal_state.release_pointer_at_position(
+					mouse_event.position,
+					view_size
+				)
+				if str(control.get("_modal_control", "")) == "campfire_ignite":
+					_node_modal_state.ignite_campfire()
+		return true
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed:
+			_node_modal_state.begin_pointer_press(touch_event.position, view_size)
+		else:
+			var control: Dictionary = _node_modal_state.release_pointer_at_position(
+				touch_event.position,
+				view_size
+			)
+			if str(control.get("_modal_control", "")) == "campfire_ignite":
+				_node_modal_state.ignite_campfire()
+		return true
+	return true
+
+
+func _handle_taiji_elder_owned_input(event: InputEvent, view_size: Vector2) -> bool:
+	if _node_modal_state == null or not _node_modal_state.has_taiji_elder_presentation():
+		return false
+	if _node_modal_state.is_taiji_elder_dialogue_phase():
+		if event is InputEventKey:
+			var key_event := event as InputEventKey
+			if (
+				key_event.pressed
+				and not key_event.echo
+				and key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]
+			):
+				_node_modal_state.advance_taiji_elder_dialogue()
+				_mark_taiji_elder_confirmation_ready_if_requested()
+		elif event is InputEventMouseButton:
+			var mouse_event := event as InputEventMouseButton
+			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+				if mouse_event.pressed:
+					_node_modal_state.begin_taiji_elder_dialogue_press(
+						mouse_event.position,
+						view_size
+					)
+				elif _node_modal_state.release_taiji_elder_dialogue_press(
+					mouse_event.position,
+					view_size
+				):
+					_node_modal_state.advance_taiji_elder_dialogue()
+					_mark_taiji_elder_confirmation_ready_if_requested()
+		elif event is InputEventScreenTouch:
+			var touch_event := event as InputEventScreenTouch
+			if touch_event.pressed:
+				_node_modal_state.begin_taiji_elder_dialogue_press(
+					touch_event.position,
+					view_size
+				)
+			elif _node_modal_state.release_taiji_elder_dialogue_press(
+				touch_event.position,
+				view_size
+			):
+				_node_modal_state.advance_taiji_elder_dialogue()
+				_mark_taiji_elder_confirmation_ready_if_requested()
+		return true
+	if _node_modal_state.is_taiji_elder_result_phase():
+		return true
+	if not _node_modal_state.is_taiji_elder_decision_phase():
+		return true
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if not key_event.pressed or key_event.echo:
+			return true
+		if key_event.keycode in [KEY_LEFT, KEY_A, KEY_UP, KEY_W]:
+			_node_modal_state.move_taiji_elder_selection(-1)
+			return true
+		if key_event.keycode in [KEY_RIGHT, KEY_D, KEY_DOWN, KEY_S]:
+			_node_modal_state.move_taiji_elder_selection(1)
+			return true
+		if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+			_confirm_node_modal_action()
+		return true
+	if event is InputEventMouseMotion:
+		_node_modal_state.update_hover_at_position(
+			(event as InputEventMouseMotion).position,
+			view_size
+		)
+		return true
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index != MOUSE_BUTTON_LEFT:
+			return true
+		if mouse_event.pressed:
+			_node_modal_state.begin_pointer_press(mouse_event.position, view_size)
+		else:
+			var action: Dictionary = _node_modal_state.release_pointer_at_position(
+				mouse_event.position,
+				view_size
+			)
+			if not action.is_empty():
+				_confirm_node_modal_action(action)
+		return true
+	if event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed:
+			_node_modal_state.begin_pointer_press(touch_event.position, view_size)
+		else:
+			var action: Dictionary = _node_modal_state.release_pointer_at_position(
+				touch_event.position,
+				view_size
+			)
+			if not action.is_empty():
+				_confirm_node_modal_action(action)
+		return true
+	return true
 
 
 func _handle_training_timing_owned_input(event: InputEvent) -> void:
@@ -465,6 +675,34 @@ func _try_enter_route_aim_from_node_modal() -> bool:
 			TowerAscentNodeModalLocalization.KEY_SPRING_ACTION_UNAVAILABLE
 		))
 		return false
+	if (
+		_node_modal_kind == "fallen_monk"
+		and _fallen_monk_node.has_pending_chosik_swap()
+	):
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_MONK_OFFER_UNAVAILABLE
+		))
+		return false
+	if (
+		_node_modal_kind == "rest"
+		and not _rest_node.has_committed_choice(_current_node_id)
+	):
+		_node_modal_state.set_status_text(TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED
+		))
+		return false
+	if (
+		_node_modal_kind == "taiji_elder"
+		and not bool(_taiji_elder_node.get_modal_snapshot(
+			_current_node_id
+		).get("choice_committed", false))
+	):
+		_node_modal_state.set_status_text(
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_STATUS_DISABLED
+			)
+		)
+		return false
 	_guardian_spring_auto_route_pending = false
 	_guardian_spring_auto_route_elapsed_sec = 0.0
 	_guardian_spring_auto_route_update_count = 0
@@ -536,6 +774,63 @@ func _configure_guardian_spring_presentation() -> void:
 	)
 
 
+func _configure_campfire_presentation() -> void:
+	if _node_modal_kind != "rest" or _node_modal_state == null:
+		return
+	var committed_action_id: String = _rest_node.get_committed_action_id(
+		_current_node_id
+	)
+	_node_modal_state.configure_campfire_presentation(
+		committed_action_id,
+		_rest_node.build_presentation_lines(committed_action_id)
+	)
+
+
+func _prepare_taiji_elder_visit() -> void:
+	if _node_modal_kind != "taiji_elder":
+		return
+	var offer: Dictionary = _taiji_elder_node.begin_visit(
+		_current_node_id,
+		_map_seed,
+		_active_owner,
+		_active_registry
+	)
+	if not bool(offer.get("accepted", false)) or not bool(
+		offer.get("auto_resolve", false)
+	):
+		return
+	_taiji_elder_node.resolve_exchange(
+		false,
+		_make_resolution_id(_current_node_id, "taiji_elder:auto_decline"),
+		_current_node_id,
+		_resolution_ids,
+		_active_owner,
+		_active_registry
+	)
+
+
+func _configure_taiji_elder_presentation() -> void:
+	if _node_modal_kind != "taiji_elder" or _node_modal_state == null:
+		return
+	_node_modal_state.configure_taiji_elder_presentation(
+		_taiji_elder_node.get_modal_snapshot(_current_node_id)
+	)
+
+
+func _mark_taiji_elder_confirmation_ready_if_requested() -> bool:
+	if (
+		_node_modal_kind != "taiji_elder"
+		or _node_modal_state == null
+		or not _node_modal_state.take_taiji_elder_confirmation_ready()
+	):
+		return false
+	var result: Dictionary = _taiji_elder_node.mark_confirmation_ready(
+		_current_node_id
+	)
+	_node_modal_state.set_actions(_build_taiji_elder_actions())
+	return bool(result.get("accepted", false))
+
+
 func _reveal_guardian_spring_menu() -> bool:
 	if (
 		_node_modal_kind != "guardian_spring"
@@ -559,7 +854,46 @@ func _build_node_modal_actions() -> Array[Dictionary]:
 		return _build_guardian_spring_actions()
 	if _node_modal_kind == "rest":
 		return _build_rest_actions()
+	if _node_modal_kind == "taiji_elder":
+		return _build_taiji_elder_actions()
 	return []
+
+
+func _build_taiji_elder_actions() -> Array[Dictionary]:
+	return _taiji_elder_node.build_actions(_current_node_id)
+
+
+func _execute_taiji_elder_action(
+	action_id: String,
+	requested_resolution_id: String = ""
+) -> Dictionary:
+	if action_id not in [
+		TowerAscentTaijiElderNode.ACTION_ACCEPT,
+		TowerAscentTaijiElderNode.ACTION_DECLINE,
+	]:
+		return {"accepted": false, "applied": false, "reason": "unknown_taiji_elder_action"}
+	var resolution_id := requested_resolution_id.strip_edges()
+	if resolution_id.is_empty():
+		resolution_id = _make_resolution_id(_current_node_id, action_id)
+	var result: Dictionary = _taiji_elder_node.resolve_exchange(
+		action_id == TowerAscentTaijiElderNode.ACTION_ACCEPT,
+		resolution_id,
+		_current_node_id,
+		_resolution_ids,
+		_active_owner,
+		_active_registry
+	)
+	_node_modal_state.set_actions(_build_taiji_elder_actions())
+	if bool(result.get("choice_committed", false)) and bool(
+		result.get("applied", false)
+	):
+		if bool(result.get("accepted_exchange", false)):
+			_capture_runtime_perk_build_state()
+		_node_modal_state.begin_taiji_elder_result(
+			bool(result.get("accepted_exchange", false))
+		)
+	_node_modal_state.set_status_text(_player_facing_node_status(result))
+	return result
 
 func _build_fallen_monk_actions() -> Array[Dictionary]:
 	return _fallen_monk_node.build_actions(
@@ -670,10 +1004,22 @@ func handle_guardian_spring_confirmation_input(
 
 
 func has_pending_guardian_spring_chosik_swap() -> bool:
-	return _guardian_spring_node.has_pending_chosik_swap()
+	if _node_modal_kind == "fallen_monk":
+		return _fallen_monk_node.has_pending_chosik_swap()
+	if _node_modal_kind == "guardian_spring":
+		return _guardian_spring_node.has_pending_chosik_swap()
+	return false
 
 
 func cancel_guardian_spring_chosik_swap() -> Dictionary:
+	if _node_modal_kind == "fallen_monk":
+		var monk_result: Dictionary = _fallen_monk_node.cancel_chosik_swap(
+			_active_owner,
+			_active_registry
+		)
+		if bool(monk_result.get("handled", false)):
+			_refresh_fallen_monk_modal("")
+		return monk_result
 	var result: Dictionary = _guardian_spring_node.cancel_chosik_swap(
 		_active_owner,
 		_active_registry,
@@ -686,6 +1032,21 @@ func cancel_guardian_spring_chosik_swap() -> Dictionary:
 
 
 func commit_guardian_spring_chosik_swap() -> Dictionary:
+	if _node_modal_kind == "fallen_monk":
+		var monk_result: Dictionary = _fallen_monk_node.commit_chosik_swap(
+			_run_state,
+			_resolution_ids,
+			_node_action_transaction,
+			_active_owner,
+			_active_registry
+		)
+		if not bool(monk_result.get("handled", false)):
+			return monk_result
+		if bool(monk_result.get("accepted", false)) and bool(monk_result.get("applied", false)):
+			_build_state["chosik"] = _fallen_monk_node.get_history()
+			_build_state["runtime_perk_snapshot"] = _fallen_monk_node.get_runtime_snapshot()
+		_refresh_fallen_monk_modal(_player_facing_node_status(monk_result))
+		return monk_result
 	var pending_action_id := "guardian_spring:palm"
 	var result: Dictionary = _guardian_spring_node.commit_chosik_swap(
 		_run_state,
@@ -796,7 +1157,12 @@ func commit_guardian_spring_browse_purchase(
 	return result
 
 func _build_rest_actions() -> Array[Dictionary]:
-	return _rest_node.build_actions(_current_node_id, _run_state)
+	return _rest_node.build_actions(
+		_current_node_id,
+		_run_state,
+		_active_owner,
+		_active_registry
+	)
 
 func _execute_rest_action(
 	action_id: String,
@@ -811,10 +1177,23 @@ func _execute_rest_action(
 		_current_node_id,
 		_run_state,
 		_resolution_ids,
-		_node_action_transaction
+		_node_action_transaction,
+		_active_owner,
+		_active_registry
 	)
-	_sync_owner_chance_gems(_active_owner)
 	_refresh_rest_modal(_player_facing_node_status(result))
+	if bool(result.get("accepted", false)) and bool(result.get("applied", false)):
+		if action_id == TowerAscentRestNode.ACTION_COOK_BANANA:
+			_capture_runtime_perk_build_state()
+		if action_id in [
+			TowerAscentRestNode.ACTION_COOK_BANANA,
+			TowerAscentRestNode.ACTION_TAKE_CAMPFIRE,
+		]:
+			_capture_active_item_build_state()
+		_node_modal_state.begin_campfire_result(
+			action_id,
+			result.get("presentation_lines", [])
+		)
 	return result
 
 
@@ -835,3 +1214,23 @@ func _refresh_rest_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_rest_actions())
 	_node_modal_state.set_balances(_run_state.export_economy())
 	_node_modal_state.set_status_text(status_text)
+
+
+func _complete_campfire_presentation_if_ready() -> bool:
+	if (
+		_node_modal_kind != "rest"
+		or _node_modal_state == null
+		or not _node_modal_state.take_completed_campfire_route()
+	):
+		return false
+	return _try_enter_route_aim_from_node_modal()
+
+
+func _complete_taiji_elder_presentation_if_ready() -> bool:
+	if (
+		_node_modal_kind != "taiji_elder"
+		or _node_modal_state == null
+		or not _node_modal_state.take_completed_taiji_elder_route()
+	):
+		return false
+	return _try_enter_route_aim_from_node_modal()

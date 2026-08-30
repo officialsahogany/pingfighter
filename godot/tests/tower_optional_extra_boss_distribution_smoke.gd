@@ -25,7 +25,7 @@ const TowerAuditionBuildConfig := preload(
 const SAMPLE_SEED_COUNT := 256
 const SAMPLE_SEED_START := 1009
 const SAMPLE_SEED_STEP := 7919
-const EXPECTED_GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v18_taiji_elder_service"
 const MAP_DRAW_CALL_LIMIT := 1536
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
 const MAP_SCROLL_TILE_SIZE := Vector2(692.0, 320.0)
@@ -110,6 +110,11 @@ func _verify_distribution() -> void:
 	_expect(
 		active_clear_floor == TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR,
 		"distribution seal must run against the standard tower"
+	)
+	_expect(
+		"taiji_elder" in TowerAscentBossRegistry.NPC_FILL_KINDS
+		and str(TowerAscentBossRegistry.NPC_FILL_LABELS.get("taiji_elder", "")) == "태극노인",
+		"optional-boss NPC fill authority must include labeled Taiji Elder"
 	)
 	for floor_number in range(
 		TowerAscentBossRegistry.TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN,

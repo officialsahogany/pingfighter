@@ -21,13 +21,15 @@ const RuntimePerkCharacterContext := preload(
 const TowerRewardPickLocalization := preload(
 	"res://scripts/tower_ascent/tower_reward_pick_localization.gd"
 )
+const TowerAscentTuning := preload(
+	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+)
 
 const OFFER_VERSION := "tower_reward_pick_v3"
 const CARD_COUNT := 4
 const BAG_EXPANSION_CHOICE_ID := "tower_bag_expansion"
 const REFRESH_CHOICE_ID := "common_refresh"
 const TEMP_MUGONG_COST := 2
-const TEMP_CHOSIK_COST := 3
 const TEMP_DASH_AMPLIFICATION_COST := 3
 const TEMP_FUSION_COST := 3
 const TEMP_VISION_COST := 3
@@ -151,7 +153,13 @@ func build_offer(
 		)
 	if chosik_roll_performed and chosik_roll < TEMP_REWARD_CHOSIK_CHANCE:
 		_shuffle_with_rng(chosik_pool, _rng_for(seed_key, "chosik_order"))
-		_append_choice(choices, seen, chosik_pool[0], TEMP_CHOSIK_COST, "chosik")
+		_append_choice(
+			choices,
+			seen,
+			chosik_pool[0],
+			TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
+			"chosik"
+		)
 	_shuffle_with_rng(mugong_pool, _rng_for(seed_key, "mugong_order"))
 	# Reward-pick upgrades now belong to the in-place owned-Mugong ledger. Keep
 	# one genuinely new Mugong on the board whenever stock exists, regardless of
@@ -229,7 +237,7 @@ static func resolve_basic_reward_pick_cost(choice: Dictionary) -> int:
 	if kind == "fusion":
 		return TEMP_FUSION_COST
 	if kind == "chosik":
-		return TEMP_CHOSIK_COST
+		return TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
 	if str(choice.get("id", choice.get("perk_id", ""))) == "dash_amplification":
 		return TEMP_DASH_AMPLIFICATION_COST
 	return TEMP_MUGONG_COST

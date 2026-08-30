@@ -16,7 +16,7 @@ const TowerAuditionBuildConfig := preload(
 	"res://scripts/tower_ascent/tower_audition_build_config.gd"
 )
 
-const GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
+const GENERATOR_VERSION := "tower_map_v18_taiji_elder_service"
 const TOWER_FLOOR_COUNT := 12
 const STANDARD_CLEAR_FLOOR := TowerAuditionBuildConfig.STANDARD_CLEAR_FLOOR
 const HUMAN_REALM_PHASE_ID := "phase_01_human_realm"
@@ -33,6 +33,7 @@ const NONCOMBAT_NODE_KINDS := [
 	"fallen_monk",
 	"guardian_spring",
 	"rest",
+	"taiji_elder",
 ]
 const FLOOR_ONE_EXPANSION_ROW_ROLES: Array[String] = [
 	"npc_separator",
@@ -1578,5 +1579,7 @@ func _label_for_kind(node_kind: String) -> String:
 		"guardian_spring":
 			return "샘터"
 		"rest":
-			return "휴식"
+			return "모닥불"
+		"taiji_elder":
+			return "태극노인"
 	return "노드"

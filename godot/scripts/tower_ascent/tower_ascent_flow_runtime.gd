@@ -502,8 +502,23 @@ func update_selective(delta: float, owner: Object = null) -> void:
 			# lane. It never touches gameplay RNG or authoritative physics state.
 			_node_modal_state.advance_guardian_spring_presentation(maxf(0.0, delta))
 			_complete_guardian_spring_ritual_if_ready()
-		if _node_modal_kind == "guardian_spring":
+		elif (
+			_node_modal_kind == "rest"
+			and _node_modal_state.has_campfire_presentation()
+		):
+			# Campfire timing is presentation-only and owns an independent visual
+			# sequence. It never advances gameplay RNG or authoritative physics.
+			_node_modal_state.advance_campfire_presentation(maxf(0.0, delta))
+			_complete_campfire_presentation_if_ready()
+		elif (
+			_node_modal_kind == "taiji_elder"
+			and _node_modal_state.has_taiji_elder_presentation()
+		):
+			_node_modal_state.advance_taiji_elder_result(maxf(0.0, delta))
+			_complete_taiji_elder_presentation_if_ready()
+		if _node_modal_kind in ["guardian_spring", "fallen_monk"]:
 			_resolve_guardian_spring_chosik_swap_if_ready()
+		if _node_modal_kind == "guardian_spring":
 			_advance_guardian_spring_auto_route(maxf(0.0, delta))
 	_request_redraw(owner)
 

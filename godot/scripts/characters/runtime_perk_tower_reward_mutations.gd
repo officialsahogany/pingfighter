@@ -2,6 +2,9 @@ extends RefCounted
 
 const PerkConversionFlags := preload("res://scripts/characters/perk_conversion_flags.gd")
 const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const TowerAscentUnlockFilter := preload(
+	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
+)
 
 const SNAPSHOT_VERSION := 1
 const TARGET_KIND_PERK := "perk"
@@ -376,6 +379,311 @@ func apply_replacement_from_runtime_state(
 	return result
 
 
+# Taiji Elder owns candidate presentation and source visibility policy. This
+# transaction layer owns only the revalidated exchange boundary: the caller
+# supplies one visible ordinary source id and one id from this sorted eligible
+# mythic list. Rejections remain mutation-free; a partial direct commit restores
+# exact raw levels before any external consumer sync runs.
+func build_taiji_elder_mythic_target_ids_from_runtime_state(
+	runtime_state: Object,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null
+) -> Array[String]:
+	var result: Array[String] = []
+	if runtime_state == null:
+		return result
+	var resolved_catalog := _resolve_catalog(catalog, registry)
+	var levels := _get_runtime_levels(runtime_state)
+	var character_type := _selected_character_type(owner)
+	for target_value: Variant in RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.keys():
+		var target_id := str(target_value).strip_edges()
+		if target_id.is_empty() or _raw_level(levels, target_id) > 0:
+			continue
+		var canonical_value: Variant = RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.get(
+			target_id,
+			{}
+		)
+		if not (canonical_value is Dictionary):
+			continue
+		var canonical := canonical_value as Dictionary
+		if not _is_perk_allowed_for_character(canonical, character_type):
+			continue
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+			target_id
+		):
+			continue
+		var catalog_data := _catalog_perk_data(resolved_catalog, target_id)
+		if (
+			catalog_data.is_empty()
+			or str(catalog_data.get("rarity", "")).strip_edges().to_lower() != "mythic"
+		):
+			continue
+		result.append(target_id)
+	result.sort()
+	return result
+
+
+func build_taiji_elder_exchange_plan_from_runtime_state(
+	runtime_state: Object,
+	source_perk_id: String,
+	target_mythic_id: String,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null
+) -> Dictionary:
+	if runtime_state == null:
+		return _rejected("missing_runtime_state")
+	var source_id := source_perk_id.strip_edges()
+	var target_id := target_mythic_id.strip_edges()
+	if source_id.is_empty():
+		return _rejected("invalid_taiji_exchange_source")
+	if target_id.is_empty() or source_id == target_id:
+		return _rejected("invalid_taiji_exchange_target")
+	var resolved_catalog := _resolve_catalog(catalog, registry)
+	if resolved_catalog == null:
+		return _rejected("missing_catalog")
+	var levels := _get_runtime_levels(runtime_state)
+	var source_raw_level := _raw_level(levels, source_id)
+	if source_raw_level <= 0:
+		return _rejected("taiji_exchange_source_not_owned", {"source_id": source_id})
+	var source_data := _catalog_perk_data(resolved_catalog, source_id)
+	if source_data.is_empty():
+		return _rejected("taiji_exchange_source_not_ordinary", {"source_id": source_id})
+	source_data["id"] = source_id
+	if not _is_perk_allowed_for_character(
+		source_data,
+		_selected_character_type(owner)
+	):
+		return _rejected("taiji_exchange_source_character_incompatible", {
+			"source_id": source_id,
+		})
+	if (
+		RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.has(source_id)
+		or RuntimePerkCatalog.ACQUISITION_ONLY_PERKS.has(source_id)
+		or str(source_data.get("rarity", "")).strip_edges().to_lower() == "mythic"
+		or str(source_data.get("tree", "")).strip_edges().to_lower() == "mythic"
+		or RuntimePerkCatalog.TRAINING_MIGRATED_PERK_IDS.has(source_id)
+		or source_id == RuntimePerkCatalog.SLOT_EXPANSION_PERK_ID
+		or source_id.begins_with("physique_")
+		or source_id in ["convert_to_gold", "mystic_dice"]
+		or bool(RuntimePerkCatalog.LINGPET_GATED_CHOICE_IDS.get(source_id, false))
+		or not str(source_data.get("unlocks_skill", "")).strip_edges().is_empty()
+		or bool(source_data.get("is_instant", false))
+		or bool(source_data.get("is_gold_conversion", false))
+		or bool(source_data.get("is_physique_training", false))
+		or bool(source_data.get("is_mystic_dice", false))
+		or bool(source_data.get("is_perk_fusion", false))
+		or bool(source_data.get("is_lingpet_guardian_enhance", false))
+		or not RuntimePerkCatalog.is_slot_consuming_perk(source_data)
+		or RuntimePerkCatalog.get_slot_cost_for_level(source_data, source_raw_level) <= 0
+	):
+		return _rejected("taiji_exchange_source_not_ordinary", {"source_id": source_id})
+	var fusion_snapshot := _runtime_fusion_snapshot(runtime_state)
+	if _fusion_snapshot_has_source(fusion_snapshot, source_id):
+		return _rejected("taiji_exchange_source_fusion_hidden", {"source_id": source_id})
+
+	var eligible_targets := build_taiji_elder_mythic_target_ids_from_runtime_state(
+		runtime_state,
+		owner,
+		registry,
+		resolved_catalog
+	)
+	if target_id not in eligible_targets:
+		if not RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.has(target_id):
+			return _rejected("taiji_exchange_target_not_canonical_mythic", {"target_id": target_id})
+		if _raw_level(levels, target_id) > 0:
+			return _rejected("taiji_exchange_target_owned", {"target_id": target_id})
+		var target_definition: Dictionary = RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.get(
+			target_id,
+			{}
+		)
+		if not _is_perk_allowed_for_character(
+			target_definition,
+			_selected_character_type(owner)
+		):
+			return _rejected("taiji_exchange_target_character_incompatible", {"target_id": target_id})
+		if not TowerAscentUnlockFilter.is_content_unlocked(
+			registry,
+			TowerAscentUnlockFilter.CONTENT_RUNTIME_PERK,
+			target_id
+		):
+			return _rejected("taiji_exchange_target_locked", {"target_id": target_id})
+		return _rejected("taiji_exchange_target_unavailable", {"target_id": target_id})
+
+	var target_choice := _catalog_perk_data(resolved_catalog, target_id)
+	target_choice["id"] = target_id
+	target_choice["current_level"] = 0
+	target_choice["next_level"] = 1
+	target_choice["source"] = "tower_taiji_elder_exchange"
+	var projected_levels := levels.duplicate(true)
+	_write_level(projected_levels, source_id, 0)
+	var slot_context: Object = registry if registry != null else runtime_state
+	var target_slot_status := _catalog_slot_apply_status(
+		resolved_catalog,
+		target_choice,
+		projected_levels,
+		slot_context
+	)
+	if not bool(target_slot_status.get("accepted", false)):
+		return _rejected("taiji_exchange_target_slot_blocked", {
+			"target_id": target_id,
+			"slot_status": target_slot_status,
+		})
+	return {
+		"accepted": true,
+		"source_id": source_id,
+		"source_raw_level": source_raw_level,
+		"target_id": target_id,
+		"target_level": 1,
+		"target_choice": target_choice,
+		"target_slot_status": target_slot_status,
+		"state_signature": hash([
+			levels,
+			fusion_snapshot,
+			source_id,
+			target_id,
+			_selected_character_type(owner),
+		]),
+	}
+
+
+func apply_taiji_elder_exchange_from_runtime_state(
+	runtime_state: Object,
+	source_perk_id: String,
+	target_mythic_id: String,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null,
+	transaction_hooks: Dictionary = {}
+) -> Dictionary:
+	var resolved_catalog := _resolve_catalog(catalog, registry)
+	var plan := build_taiji_elder_exchange_plan_from_runtime_state(
+		runtime_state,
+		source_perk_id,
+		target_mythic_id,
+		owner,
+		registry,
+		resolved_catalog
+	)
+	if not bool(plan.get("accepted", false)):
+		return plan
+	var before_snapshot := build_mutation_snapshot(runtime_state)
+	if before_snapshot.is_empty():
+		return _rejected("snapshot_capture_failed")
+	var levels := _get_runtime_levels(runtime_state)
+	var source_id := str(plan.get("source_id", ""))
+	var target_id := str(plan.get("target_id", ""))
+	var grant_invoked := false
+	var choice_applied := false
+	if not bool(transaction_hooks.get("force_grant_rejection", false)):
+		grant_invoked = true
+		# Taiji Elder owns a modal result hold, so its exact level-one mythic
+		# grant must not enter generic acquisition presentation or Angel
+		# Blessing's first-acquisition lifecycle. Focused counterproof hooks are
+		# boolean failure gates only; no callback can enter an external owner.
+		# Production commits the raw level below after every postcondition passes.
+		choice_applied = true
+	if not choice_applied:
+		var rejected_restore := _restore_taiji_levels_exact(
+			runtime_state,
+			before_snapshot
+		)
+		return _rejected("taiji_exchange_choice_rejected", {
+			"grant_invoked": grant_invoked,
+			"rollback": rejected_restore,
+		})
+
+	var unlock_before: Dictionary = before_snapshot.get("unlock_save", {}) as Dictionary
+	var expected_levels: Dictionary = (
+		unlock_before.get("runtime_skill_levels", {}) as Dictionary
+	).duplicate(true)
+	_write_level(expected_levels, source_id, 0)
+	_write_level(expected_levels, target_id, 1)
+	var fusion_after := _runtime_fusion_snapshot(runtime_state)
+	var final_slot_status := _catalog_slot_status(
+		resolved_catalog,
+		expected_levels,
+		registry if registry != null else runtime_state
+	)
+	var final_valid := (
+		not bool(transaction_hooks.get("force_postcondition_failure", false))
+		and levels == (unlock_before.get("runtime_skill_levels", {}) as Dictionary)
+		and fusion_after == _dictionary(before_snapshot.get("perk_fusion", {}))
+		and _raw_level(expected_levels, source_id) == 0
+		and _raw_level(expected_levels, target_id) == 1
+		and int(final_slot_status.get("count", 0)) <= int(final_slot_status.get("limit", -1))
+	)
+	if not final_valid:
+		var validation_restore := _restore_taiji_levels_exact(
+			runtime_state,
+			before_snapshot
+		)
+		return _rejected("taiji_exchange_postcondition_failed", {
+			"grant_invoked": grant_invoked,
+			"final_slot_status": final_slot_status,
+			"rollback": validation_restore,
+		})
+
+	_write_level(levels, source_id, 0)
+	_write_level(levels, target_id, 1)
+	if bool(transaction_hooks.get("force_commit_failure", false)):
+		_write_level(levels, target_id, 0)
+	var levels_after := _get_runtime_levels(runtime_state).duplicate(true)
+	if levels_after != expected_levels:
+		var commit_restore := _restore_taiji_levels_exact(runtime_state, before_snapshot)
+		return _rejected("taiji_exchange_commit_failed", {
+			"grant_invoked": grant_invoked,
+			"final_slot_status": final_slot_status,
+			"rollback": commit_restore,
+		})
+
+	_sync_after_direct_mutation(
+		runtime_state,
+		owner,
+		registry,
+		source_id == DASH_AMPLIFICATION_ID
+	)
+	var result := plan.duplicate(true)
+	result.erase("target_choice")
+	result["accepted"] = true
+	result["applied"] = true
+	result["grant_invoked"] = grant_invoked
+	result["grant_path"] = "taiji_exact_level_one"
+	result["acquisition_side_effects_started"] = false
+	result["final_slot_status"] = final_slot_status
+	return result
+
+
+func _restore_taiji_levels_exact(
+	runtime_state: Object,
+	before_snapshot: Dictionary
+) -> Dictionary:
+	var unlock_before: Dictionary = before_snapshot.get("unlock_save", {}) as Dictionary
+	var before_levels_value: Variant = unlock_before.get("runtime_skill_levels", null)
+	if not (before_levels_value is Dictionary):
+		return _rejected("invalid_taiji_unlock_snapshot")
+	var before_levels := (before_levels_value as Dictionary).duplicate(true)
+	var levels := _get_runtime_levels(runtime_state)
+	var levels_were_unchanged := levels == before_levels
+	levels.clear()
+	levels.merge(before_levels, true)
+	var fusion_unchanged := (
+		_runtime_fusion_snapshot(runtime_state)
+		== _dictionary(before_snapshot.get("perk_fusion", {}))
+	)
+	var restored := levels == before_levels and fusion_unchanged
+	return {
+		"accepted": restored,
+		"restored": restored,
+		"mutation_free": levels_were_unchanged and fusion_unchanged,
+		"unlock_byte_exact": levels == before_levels,
+		"fusion_byte_exact": fusion_unchanged,
+	}
+
+
 func _apply_planned_removal(
 	runtime_state: Object,
 	plan: Dictionary,
@@ -456,6 +764,8 @@ func _sync_after_direct_mutation(
 ) -> void:
 	if runtime_state == null or owner == null:
 		return
+	if runtime_state.has_method("_sync_owner"):
+		runtime_state.call("_sync_owner", owner)
 	if dash_capacity_changed and runtime_state.has_method("_apply_level_side_effect"):
 		runtime_state.call(
 			"_apply_level_side_effect",
@@ -546,6 +856,34 @@ func _normalized_source_ids(value: Variant) -> Array[String]:
 		result.append(source_id)
 	result.sort()
 	return result
+
+
+func _fusion_snapshot_has_source(snapshot: Dictionary, source_id: String) -> bool:
+	for record_value: Variant in _array(snapshot.get("records", [])):
+		if not (record_value is Dictionary):
+			continue
+		var record := record_value as Dictionary
+		if source_id in _normalized_source_ids(record.get("sources", [])):
+			return true
+	return false
+
+
+func _is_perk_allowed_for_character(
+	perk_data: Dictionary,
+	character_type: String
+) -> bool:
+	var restriction := str(
+		perk_data.get("character_restriction", "")
+	).strip_edges().to_lower()
+	return restriction.is_empty() or restriction == character_type
+
+
+func _selected_character_type(owner: Object) -> String:
+	if owner == null:
+		return "smasher"
+	var value: Variant = owner.get("selected_character_type")
+	var resolved := str(value).strip_edges().to_lower() if value != null else ""
+	return resolved if not resolved.is_empty() else "smasher"
 
 
 func _runtime_projection(runtime_state: Object, catalog: Object) -> Dictionary:

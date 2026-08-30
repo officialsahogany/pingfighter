@@ -14,6 +14,8 @@ class FakeOwner:
 		"boss_current_health": 2,
 		"boss_health_damage_units": 13,
 		"boss_defeated_by_health": true,
+		"special_gauge": 0.0,
+		"special_gauge_max": 640.0,
 	}
 
 	func _get(property: StringName) -> Variant:
@@ -96,6 +98,29 @@ class FakeMatchFlowDriver:
 		reset_ball_callback.call()
 
 
+class FakeTowerFlow:
+	extends RefCounted
+
+	var match_flow: Object
+	var pending := true
+	var consume_invocations := 0
+	var applied_calls := 0
+	var saw_reset_before_consume := false
+
+	func _init(match_flow_value: Object) -> void:
+		match_flow = match_flow_value
+
+	func consume_next_battle_full_gauge(owner: Object, _registry: Object) -> Dictionary:
+		consume_invocations += 1
+		saw_reset_before_consume = int(match_flow.reset_game_calls) > 1
+		if not pending:
+			return {"accepted": true, "applied": false, "reason": "not_pending"}
+		owner.set("special_gauge", owner.get("special_gauge_max"))
+		pending = false
+		applied_calls += 1
+		return {"accepted": true, "applied": true}
+
+
 class FakeRegistry:
 	extends RefCounted
 
@@ -114,11 +139,13 @@ func _init() -> void:
 	var ball := FakeBallDriver.new()
 	var boss_health := FakeBossHealthFlow.new()
 	var match_flow := FakeMatchFlowDriver.new()
+	var tower_flow := FakeTowerFlow.new(match_flow)
 	var registry := FakeRegistry.new({
 		"battle_scene_item_update_driver": item,
 		"battle_scene_ball_update_driver": ball,
 		"battle_scene_boss_health_flow": boss_health,
 		"battle_scene_match_flow_driver": match_flow,
+		"tower_ascent_flow_owner": tower_flow,
 	})
 	var driver: Object = MatchEventDriver.new()
 
@@ -146,7 +173,15 @@ func _init() -> void:
 	_expect(ball.reset_calls == 4, "scoreboard reset callbacks should reset ball through reset-game and direct reset")
 	_expect(boss_health.reset_calls == 4 and not bool(owner.data.get("boss_defeated_by_health", true)), "scoreboard reset callbacks should reset boss health through reset-game and direct reset")
 
+	driver._reset_match_for_stage_transition(owner, registry)
+	_expect(tower_flow.consume_invocations == 1 and tower_flow.applied_calls == 1, "real stage-transition reset must consume the pending tower full-gauge latch once")
+	_expect(tower_flow.saw_reset_before_consume and is_equal_approx(float(owner.data.get("special_gauge", 0.0)), 640.0), "tower rest gauge must apply after the match reset so it starts full")
+	owner.data["special_gauge"] = 17.0
+	driver._reset_match_for_stage_transition(owner, registry)
+	_expect(tower_flow.consume_invocations == 2 and tower_flow.applied_calls == 1 and is_equal_approx(float(owner.data.get("special_gauge", 0.0)), 17.0), "consumed tower gauge latch must not refill a second battle")
+
 	if _failures.is_empty():
+		print("tower_campfire_gauge_entry_seal: after_reset=1 full=640 once=1")
 		print("match_event_driver_smoke: ok")
 		quit(0)
 	else:

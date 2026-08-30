@@ -33,15 +33,32 @@ class FakeRegistry:
 	extends RefCounted
 
 	var audio := FakeAudio.new()
+	var runtime_perk_state: Object = null
+
+	func _init(runtime_perk_state_value: Object = null) -> void:
+		runtime_perk_state = runtime_perk_state_value
 
 	func get_instance(key: String) -> Object:
 		if key == "game_audio":
 			return audio
+		if key == "runtime_perk_state":
+			return runtime_perk_state
 		return null
+
+
+class FakePerkState:
+	extends RefCounted
+
+	var runtime_skill_levels := {"banana_master": 1}
+
+	func get_runtime_skill_level(perk_id: String) -> int:
+		return int(runtime_skill_levels.get(perk_id, 0))
 
 
 func _init() -> void:
 	_verify_helper_spawns_banana_projectile()
+	_verify_banana_master_spawns_two_with_one_feedback_pair()
+	_verify_banana_master_throw_and_landing_do_not_advance_global_rng()
 	_verify_controller_windup_release_delegates_banana()
 	_verify_bottom_launch_survives_fractional_frame()
 	_verify_projectile_lands_banana()
@@ -50,6 +67,7 @@ func _init() -> void:
 	_verify_particle_and_slip_decay()
 
 	if _failures.is_empty():
+		print("active_item_throw_banana_n2_seal: banana_master=1 projectiles=2 helper_calls=1 audio_pair_calls=1 authority_rng_throw_landing_unchanged=1 burst_rng_independent=1")
 		print("active_item_throw_banana_smoke: ok")
 		quit(0)
 	else:
@@ -78,9 +96,66 @@ func _verify_helper_spawns_banana_projectile() -> void:
 	_expect(registry.audio.calls == ["play_throw", "play_banana_throw"], "banana helper should play throw audio pair")
 
 
+func _verify_banana_master_spawns_two_with_one_feedback_pair() -> void:
+	var helper: Object = ActiveItemThrowBanana.new()
+	var controller: Object = ActiveItemThrowController.new()
+	var registry := FakeRegistry.new(FakePerkState.new())
+	var pending_throw := {
+		"start_position": Vector2(377.5, 695.0),
+		"target_position": Vector2(330.0, controller.BANANA_LAND_Y),
+	}
+
+	helper.throw_banana(controller, FakeOwner.new(), pending_throw, registry)
+
+	var projectiles: Array = controller.get_banana_projectiles()
+	_expect(projectiles.size() == 2, "Banana Master must append exactly two projectiles from one throw release")
+	_expect(registry.audio.calls == ["play_throw", "play_banana_throw"], "two Banana Master projectiles must keep one throw feedback pair")
+	if projectiles.size() < 2:
+		return
+	_expect(
+		_get_vector2(projectiles[0], "target_position")
+		!= _get_vector2(projectiles[1], "target_position"),
+		"Banana Master projectiles must remain independently visible instead of occupying one identical trajectory"
+	)
+
+
+func _verify_banana_master_throw_and_landing_do_not_advance_global_rng() -> void:
+	const TEST_SEED := 0x2B4E414E
+	seed(TEST_SEED)
+	var expected_next := randf()
+	seed(TEST_SEED)
+	var controller: Object = ActiveItemThrowController.new()
+	var owner := FakeOwner.new()
+	var registry := FakeRegistry.new(FakePerkState.new())
+	ActiveItemThrowBanana.new().throw_banana(
+		controller,
+		owner,
+		{
+			"start_position": Vector2(377.5, 695.0),
+			"target_position": Vector2(380.0, controller.BANANA_LAND_Y),
+		},
+		registry
+	)
+	for _frame in range(80):
+		controller._update_bananas(owner, registry, 1.0 / 60.0)
+		if controller.get_banana_projectiles().is_empty() and controller.get_landed_bananas().is_empty():
+			break
+	_expect(controller.get_banana_projectiles().is_empty(), "Banana Master RNG seal must run through both projectile landings")
+	_expect(controller.get_landed_bananas().is_empty(), "Banana Master RNG seal must run through both slip collisions")
+	_expect(
+		controller.get_banana_particles().size()
+		== controller.BANANA_BURST_PARTICLE_COUNT * 2,
+		"both Banana Master landings must create independent capped burst particles"
+	)
+	_expect(
+		is_equal_approx(randf(), expected_next),
+		"Banana Master throw, landing, and burst presentation must not advance the global gameplay RNG"
+	)
+
+
 func _verify_controller_windup_release_delegates_banana() -> void:
 	var controller: Object = ActiveItemThrowController.new()
-	var registry := FakeRegistry.new()
+	var registry := FakeRegistry.new(FakePerkState.new())
 	var now_msec: int = Time.get_ticks_msec()
 	var pending_throws: Array[Dictionary] = [{
 		"item_name": "banana",
@@ -94,8 +169,8 @@ func _verify_controller_windup_release_delegates_banana() -> void:
 	controller._update_throw_windups(FakeOwner.new(), registry)
 
 	_expect(controller.get_pending_throws().is_empty(), "banana windup release should clear pending queue")
-	_expect(controller.get_banana_projectiles().size() == 1, "banana windup release should spawn projectile")
-	_expect(registry.audio.calls == ["play_throw", "play_banana_throw"], "banana windup release should play throw audio pair")
+	_expect(controller.get_banana_projectiles().size() == 2, "production windup release must route Banana Master into exactly two projectiles")
+	_expect(registry.audio.calls == ["play_throw", "play_banana_throw"], "production Banana Master windup must keep one throw audio pair")
 
 
 func _verify_bottom_launch_survives_fractional_frame() -> void:

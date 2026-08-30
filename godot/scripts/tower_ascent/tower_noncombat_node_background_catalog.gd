@@ -4,6 +4,7 @@ const SOURCE_BITMAP := "bitmap"
 const SOURCE_PROCEDURAL := "procedural"
 const FALLBACK_STAGE_BACKGROUND := "stage_background"
 const REST_CAMP_PROCEDURAL_PATH := "procedural://tower/noncombat/rest_camp"
+const TAIJI_ELDER_PROCEDURAL_PATH := "procedural://tower/noncombat/taiji_elder"
 const NODE_BACKGROUND_SPECS := {
 	"shop": {
 		"source": SOURCE_BITMAP,
@@ -26,6 +27,10 @@ const NODE_BACKGROUND_SPECS := {
 	"rest": {
 		"source": SOURCE_PROCEDURAL,
 		"path": REST_CAMP_PROCEDURAL_PATH,
+	},
+	"taiji_elder": {
+		"source": SOURCE_PROCEDURAL,
+		"path": TAIJI_ELDER_PROCEDURAL_PATH,
 	},
 }
 

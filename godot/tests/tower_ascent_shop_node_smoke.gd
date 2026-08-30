@@ -672,7 +672,7 @@ func _verify_source_contract() -> void:
 	_expect(flow_source.find("grant_item_to_slot") >= 0, "shop purchase must call the existing active-item grant path")
 	_expect(inventory_source.find("TowerAscentShopShelfBuilder") >= 0 and inventory_source.find("TowerAscentUnlockFilter") >= 0, "shop stock must consume the Phase A shelf and unlock owners")
 	_expect(flow_source.find("plaza_save_store") < 0 and flow_source.find("add_plaza_gold") < 0, "tower shop must never reuse plaza wallet ownership")
-	for node_kind in ["training", "fallen_monk", "guardian_spring", "rest"]:
+	for node_kind in ["training", "fallen_monk", "guardian_spring", "rest", "taiji_elder"]:
 		_expect(renderer_source.find('"%s"' % node_kind) >= 0, "%s must remain in the shared tower card dispatcher" % node_kind)
 	_expect(renderer_source.find('"draw_tower_node_card"') >= 0, "non-shop service nodes must retain the shared tower card drawer")
 	_expect(renderer_source.find("draw_tower_shop_product_card") >= 0, "shop draw must delegate product cards to the shared overlay renderer")

@@ -253,7 +253,7 @@ func _verify_graph_state_model_survives_camera_crop() -> void:
 		has_current = has_current or str(node.get("id", "")) == flow.get_current_node_id()
 		has_completed = has_completed or bool(node.get("completed", false))
 		has_vanished = has_vanished or bool(node.get("skipped", false))
-	for required_label in ["전투", "광폭화", "상점", "수련장", "파계승", "수호의 샘터", "휴식"]:
+	for required_label in ["전투", "광폭화", "상점", "수련장", "파계승", "수호의 샘터", "모닥불"]:
 		_expect(visible_kinds.has(required_label), "the graph model must retain node kind: %s" % required_label)
 	_expect(has_current, "the overlay graph must contain the current player node")
 	_expect(has_completed, "the overlay graph must distinguish a completed node")

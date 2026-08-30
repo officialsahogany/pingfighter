@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ActiveItemRuntime := preload("res://scripts/items/active_item_runtime.gd")
 const LanguageSettings := preload("res://scripts/core/language_settings.gd")
 const LingpetCatalog := preload("res://scripts/lingpet/lingpet_catalog.gd")
 const RuntimePerkOverlayRenderer := preload(
@@ -8,11 +9,19 @@ const RuntimePerkOverlayRenderer := preload(
 const RuntimePerkIconRenderer := preload(
 	"res://scripts/hud/runtime_perk_icon_renderer.gd"
 )
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
+const RuntimePerkState := preload("res://scripts/characters/runtime_perk_state.gd")
 const TowerAscentGuardianSpringNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_guardian_spring_node.gd"
 )
 const TowerAscentNodeModalState := preload(
 	"res://scripts/tower_ascent/tower_ascent_node_modal_state.gd"
+)
+const TowerAscentNodeModalLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_node_modal_localization.gd"
+)
+const TowerAscentMapOverlayLocalization := preload(
+	"res://scripts/tower_ascent/tower_ascent_map_overlay_localization.gd"
 )
 const TowerAscentRestNode := preload(
 	"res://scripts/tower_ascent/tower_ascent_rest_node.gd"
@@ -46,17 +55,24 @@ class FakeLingpetRuntime:
 class FakeRegistry:
 	extends RefCounted
 	var runtime: Object
+	var instances: Dictionary = {}
 
 	func _init(runtime_value: Object) -> void:
 		runtime = runtime_value
 
 	func get_instance(key: String) -> Object:
+		if instances.has(key):
+			return instances[key]
 		return runtime if key == "lingpet_egg_runtime" else null
 
 
 class FakeOwner:
 	extends RefCounted
 	var sealed_projection: Array = []
+	var active_item_slots: Array = []
+	var runtime_perk_levels: Dictionary = {}
+	var special_gauge := 0.0
+	var special_gauge_max := 620.0
 
 	func set_tower_ascent_guardian_projection(
 		sealed_guardians: Array,
@@ -96,10 +112,12 @@ func _run() -> void:
 	_verify_portrait_prewarm_registration()
 	_verify_visible_page_contract(spring_fixture)
 	_verify_rest_hero_adapter()
+	_verify_campfire_runtime_atomicity_offer_exclusion_and_locales()
 	_verify_seven_locale_append_budgets(spring_fixture)
 	await _verify_no_hover_draw_gate(spring_fixture)
 	LanguageSettings.set_test_locale_override("")
 	if _failures.is_empty():
+		print("tower_campfire_n2_registered_seal: choices=3 exact_ko=1 banana_atomic=1 rollback=1 campfire_full=1 offer_pool=0 locales=7")
 		print("tower_guardian_spring_rest_card_adapter_smoke: ok")
 		quit(0)
 	else:
@@ -222,7 +240,7 @@ func _verify_visible_page_contract(fixture: Dictionary) -> void:
 	_expect(end_index >= 0 and (rects[end_index] as Rect2).is_equal_approx(TowerAscentNodeModalState.END_WORK_RECT), "end work must remain fixed independently of visible_page")
 	var action_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
 	_expect(modal.select_at_position(action_corner, BASE_VIEW_SIZE), "spring action top corner must share the rendered rect")
-	_expect(modal.get_selected_action() == actions[0], "spring top corner must select the sole enhancement action")
+	_expect(str(modal.get_selected_action().get("id", "")) == str(actions[0].get("id", "")), "spring top corner must select the sole enhancement action")
 
 	# GRT-022 regression seal: the production roster is intentionally short, so
 	# exercise the shared paging owner with seven synthetic cards. Draw geometry,
@@ -298,39 +316,102 @@ func _verify_visible_page_contract(fixture: Dictionary) -> void:
 func _verify_rest_hero_adapter() -> void:
 	var run_state := FakeRunState.new()
 	var rest := TowerAscentRestNode.new()
-	var actions: Array[Dictionary] = rest.build_actions("s4-rest", run_state)
-	_expect(actions.size() == 1, "rest must keep one authoritative recovery action")
-	var action: Dictionary = actions[0]
-	var payload: Dictionary = action.get("payload", {})
-	var choice: Dictionary = payload.get("choice", {})
-	var presentation: Dictionary = payload.get("presentation", {})
-	_expect(str(choice.get("presentation_mode", "")) == "hero", "rest must request the shared hero card presentation mode")
-	_expect(str(choice.get("card_content_kind", "")) == "chance_gem", "rest hero card must reuse the existing chance-gem symbol")
-	_expect(str(presentation.get("current", "")) == "1" and str(presentation.get("result", "")) == "2", "rest hero card must show current to projected chance gems")
+	var owner := FakeOwner.new()
+	owner.active_item_slots = [{"name": "banana"}]
+	var registry := FakeRegistry.new(null)
+	registry.instances["active_item_runtime"] = ActiveItemRuntime.new()
+	var actions: Array[Dictionary] = rest.build_actions("s4-rest", run_state, owner, registry)
+	_expect(actions.size() == 3, "campfire must expose exactly three authoritative choices")
+	_expect(str(actions[0].get("label", "")) == "[휴식을 한다]", "campfire rest label must preserve literal brackets")
+	_expect(str(actions[1].get("label", "")) == "[바나나 요리를 한다]", "campfire banana label must preserve literal brackets")
+	_expect(str(actions[2].get("label", "")) == "[모닥불을 챙긴다]", "campfire pickup label must preserve literal brackets")
 	var modal := TowerAscentNodeModalState.new()
 	modal.open("s4-rest", "rest", run_state.export_economy(), actions)
+	_expect(modal.configure_campfire_presentation(), "rest modal must enable its owned campfire presentation")
+	var dormant_model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
+	_expect(_contains_text(dormant_model, "걸음을 가까이 다가가자 모닥불에 불이 타오르기 시작한다") and _contains_text(dormant_model, "평범한 모닥불은 아닌 듯 하다"), "campfire presentation must retain both exact Korean intro lines")
+	var fire_center := Vector2(380.0, 318.0)
+	_expect(modal.begin_pointer_press(fire_center, BASE_VIEW_SIZE), "centered campfire press must arm ignition")
+	var ignition: Dictionary = modal.release_pointer_at_position(fire_center, BASE_VIEW_SIZE)
+	_expect(str(ignition.get("_modal_control", "")) == "campfire_ignite" and modal.ignite_campfire(), "centered campfire release must ignite the intro sequence")
+	for _step in range(6):
+		modal.advance_campfire_presentation(0.5)
 	var model: Dictionary = modal.build_view_model(BASE_VIEW_SIZE)
 	var flags: Dictionary = model.get("layout_flags", {})
-	_expect(bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_HERO_CARD, false)), "rest model must carry the hero-card layout flag")
-	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, true)), "rest hero card must not inherit spring page controls")
+	_expect(str(model.get("status_text", "")) == "모닥불에서 한 가지를 선택해야 합니다.", "campfire menu must not reuse the generic work-completion status copy")
+	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_HERO_CARD, true)), "three-choice campfire must retire the old hero-card layout")
+	_expect(not bool(flags.get(TowerAscentNodeModalState.LAYOUT_FLAG_PAGE_CONTROLS, true)), "three-choice campfire must fit one page")
 	var rects: Array = model.get("action_rects", [])
-	_expect(rects.size() == 2, "rest model must expose one hero card plus end work")
-	_expect((rects[0] as Rect2).is_equal_approx(TowerAscentNodeModalState.HERO_CARD_RECT), "rest action must occupy the centered hero rect")
-	var hero_top_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
-	_expect(modal.select_at_position(hero_top_corner, BASE_VIEW_SIZE), "rest hero top corner must hit the same rendered rect")
-	_expect(str(modal.get_selected_action().get("id", "")) == TowerAscentRestNode.ACTION_RESTORE, "rest hero top corner must select the recovery action")
-	var success_action := action.duplicate(true)
-	success_action["unavailable_reason"] = "현재는 선택할 수 없습니다."
-	modal.record_action_feedback(success_action, {"accepted": true, "applied": true})
-	var success_receipt: Dictionary = modal.build_view_model(BASE_VIEW_SIZE).get(
-		"interaction_receipt",
-		{}
-	)
-	_expect(
-		bool(success_receipt.get("success", false))
-		and str(success_receipt.get("message", "")).is_empty(),
-		"a successful Rest receipt with no explicit message must never borrow disabled failure copy"
-	)
+	_expect(_count_area_rects(rects) == 3, "campfire menu must draw exactly its three forced choices")
+	var first_corner := (rects[0] as Rect2).position + Vector2(2.0, 2.0)
+	_expect(modal.select_at_position(first_corner, BASE_VIEW_SIZE), "campfire card top corner must share rendered hit geometry")
+	_expect(str(modal.get_selected_action().get("id", "")) == "rest:rest", "first campfire card must route to rest")
+
+
+func _verify_campfire_runtime_atomicity_offer_exclusion_and_locales() -> void:
+	var runtime := ActiveItemRuntime.new()
+	var perk_state := RuntimePerkState.new()
+	var registry := FakeRegistry.new(null)
+	registry.instances["runtime_perk_state"] = perk_state
+	registry.instances["active_item_runtime"] = runtime
+	var owner := FakeOwner.new()
+	var rest := TowerAscentRestNode.new()
+	var missing_actions: Array = rest.build_actions("s4-rest-missing", FakeRunState.new(), owner, registry)
+	var missing_cook := _find_action(missing_actions, "rest:cook_banana")
+	_expect(not bool(missing_cook.get("enabled", true)), "banana-missing cooking must be visibly disabled")
+	_expect(str(runtime.consume_banana_and_grant_mastery(owner, registry).get("reason", "")) == "banana_missing", "banana-missing direct execution must be a no-op")
+	owner.active_item_slots = [{"name": "banana"}]
+	var before_slots := owner.active_item_slots.duplicate(true)
+	var rejected: Dictionary = runtime.consume_banana_and_grant_mastery(owner, registry, {"force_grant_rejection": true})
+	_expect(not bool(rejected.get("accepted", true)) and owner.active_item_slots == before_slots and perk_state.runtime_skill_levels.is_empty(), "injected grant rejection must restore inventory and perk state")
+	var post_failed: Dictionary = runtime.consume_banana_and_grant_mastery(owner, registry, {"force_post_grant_failure": true})
+	_expect(not bool(post_failed.get("accepted", true)) and owner.active_item_slots == before_slots and perk_state.runtime_skill_levels.is_empty(), "postcondition failure must restore both transaction legs")
+	var success: Dictionary = runtime.consume_banana_and_grant_mastery(owner, registry)
+	_expect(bool(success.get("applied", false)) and owner.active_item_slots.is_empty() and int(perk_state.runtime_skill_levels.get("banana_master", 0)) == 1, "banana cooking must consume one banana and grant Banana Master")
+	var full_owner := FakeOwner.new()
+	full_owner.active_item_slots = [{"name": "banana"}, {"name": "soap"}, {"name": "molotov"}]
+	var full_before := full_owner.active_item_slots.duplicate(true)
+	_expect(not runtime.grant_item_to_slot("campfire", full_owner, registry, false) and full_owner.active_item_slots == full_before, "full active slots must reject campfire without mutation")
+	var open_owner := FakeOwner.new()
+	_expect(runtime.grant_item_to_slot("campfire", open_owner, registry, false) and open_owner.active_item_slots.size() == 1, "open active slots must grant one campfire")
+	var catalog := RuntimePerkCatalog.new()
+	_expect(not catalog.get_all_perk_data().has("banana_master") and not RuntimePerkCatalog.CONVERTED_MYTHIC_PERKS.has("banana_master"), "Banana Master must enumerate in zero general offer pools")
+	for character_type in ["smasher", "viper", "soldier", "commando"]:
+		_expect(_find_action(catalog.get_choices(character_type, {}, true, 500), "banana_master").is_empty(), "general offer scan must contain zero Banana Master cards for %s" % character_type)
+	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
+		LanguageSettings.set_test_locale_override(str(locale))
+		var data: Dictionary = catalog.get_perk_data("banana_master")
+		_expect(not str(data.get("name", "")).is_empty() and not str(data.get("detail", "")).is_empty(), "Banana Master direct catalog copy must exist for locale %s" % locale)
+	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_KOREAN)
+	var korean: Dictionary = catalog.get_perk_data("banana_master")
+	_expect(str(korean.get("name", "")) == "바나나의달인" and _contains_text(korean, "바나나를 던질때 바나나가 2개 발사됩니다"), "Banana Master Korean name and description must preserve canonical copy")
+	var campfire_keys: Array[String] = [
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_INTRO_APPROACH,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_INTRO_UNUSUAL,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_REST_OPTION,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_REST_MONOLOGUE,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_REST_MESSAGE,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_OPTION,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_COOK,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_MASTER_NAME,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_MASTER_DESCRIPTION,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_TAKE_OPTION,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_REQUIRED,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_BANANA_MASTER_OWNED,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_MARTIAL_SLOT_FULL,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_ACTIVE_SLOT_FULL,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_RUNTIME_UNAVAILABLE,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED,
+		TowerAscentNodeModalLocalization.KEY_CAMPFIRE_COMPLETED,
+		str(TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.rest),
+		str(TowerAscentNodeModalLocalization.NODE_DESCRIPTION_KEYS.rest),
+	]
+	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
+		var locale_text: Dictionary = TowerAscentNodeModalLocalization.TEXT_BY_LOCALE.get(locale, {})
+		for key in campfire_keys:
+			_expect(locale_text.has(key) and not str(locale_text.get(key, "")).is_empty(), "campfire key %s must have a direct non-fallback translation for locale %s" % [key, locale])
+		var map_locale_text: Dictionary = TowerAscentMapOverlayLocalization.TEXT_BY_LOCALE.get(locale, {})
+		_expect(map_locale_text.has(TowerAscentMapOverlayLocalization.KEY_NODE_REST) and not str(map_locale_text.get(TowerAscentMapOverlayLocalization.KEY_NODE_REST, "")).is_empty(), "campfire map label must have a direct non-fallback translation for locale %s" % locale)
 
 
 func _verify_seven_locale_append_budgets(fixture: Dictionary) -> void:
@@ -473,6 +554,25 @@ func _find_action_index(actions: Array, action_id: String) -> int:
 		if actions[index] is Dictionary and str((actions[index] as Dictionary).get("id", "")) == action_id:
 			return index
 	return -1
+
+
+func _find_action(actions: Array, action_id: String) -> Dictionary:
+	var index := _find_action_index(actions, action_id)
+	return actions[index] as Dictionary if index >= 0 else {}
+
+
+func _contains_text(value: Variant, expected: String) -> bool:
+	if value is String:
+		return str(value) == expected
+	if value is Dictionary:
+		for child in (value as Dictionary).values():
+			if _contains_text(child, expected):
+				return true
+	if value is Array:
+		for child in value as Array:
+			if _contains_text(child, expected):
+				return true
+	return false
 
 
 func _expect(condition: bool, message: String) -> void:

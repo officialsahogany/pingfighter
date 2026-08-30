@@ -1154,6 +1154,25 @@ const CONVERTED_MYTHIC_PERKS := {
 	},
 }
 
+# Exact-grant catalog for perks that must never enter any general offer surface.
+# Keep this dictionary out of get_all_perk_data(), converted mythic candidates,
+# debug pools, shops, field rewards, and fusion enumeration. The campfire banana
+# cooking transaction resolves banana_master only through get_perk_data().
+const ACQUISITION_ONLY_PERKS := {
+	"banana_master": {
+		"name": "바나나의달인",
+		"max_level": 1,
+		"descriptions": {1: "바나나를 던질때 바나나가 2개 발사됩니다"},
+		"detail": "바나나를 던질때 바나나가 2개 발사됩니다",
+		"icon_color": Color(1.0, 220.0 / 255.0, 60.0 / 255.0),
+		"tree": "mythic",
+		"rarity": "mythic",
+		"effective_level_exempt": true,
+		"acquisition_only": true,
+		"acquisition_source": "tower_campfire_banana_cooking",
+	},
+}
+
 const INSTANT_PERKS := {
 	"instant_gauge_full": {
 		"name": "풀게이징",
@@ -1490,6 +1509,11 @@ func get_perk_data(skill_id: String) -> Dictionary:
 		var common_unlock := CommonSkillCatalog.get_unlock_perk_data(skill_id)
 		common_unlock["id"] = skill_id
 		return common_unlock
+	if ACQUISITION_ONLY_PERKS.has(skill_id):
+		var acquisition_only: Dictionary = ACQUISITION_ONLY_PERKS[skill_id]
+		var acquisition_result := acquisition_only.duplicate(true)
+		acquisition_result["id"] = skill_id
+		return LanguageSettings.localize_perk_data(acquisition_result)
 	var all_data: Dictionary = get_all_perk_data()
 	if all_data.has(skill_id):
 		var data: Dictionary = all_data[skill_id]
@@ -1539,6 +1563,7 @@ static func get_perk_display_name(skill_id: String) -> String:
 			SOLDIER_PERKS,
 			CONVERTED_PERKS,
 			CONVERTED_MYTHIC_PERKS,
+			ACQUISITION_ONLY_PERKS,
 		]:
 			if not pool_value is Dictionary:
 				continue

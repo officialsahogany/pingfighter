@@ -15,17 +15,34 @@ func throw_banana(controller: Object, owner: Object, pending_throw: Dictionary, 
 	var target_pos := Vector2(clamp(raw_target_pos.x, 30.0, field_width - 30.0), land_y)
 	var speed_per_frame: float = _get_float(controller, "BANANA_THROW_SPEED_PER_FRAME")
 	var travel_frames: float = max(1.0, abs(start_pos.y - target_pos.y) / max(0.001, speed_per_frame))
-	_get_array(controller, "banana_projectiles").append({
-		"position": start_pos,
-		"velocity": Vector2(
-			(target_pos.x - start_pos.x) / travel_frames,
-			-speed_per_frame
-		),
-		"target_position": target_pos,
-		"rotation_degrees": 0.0,
-		"rotation_speed": randf_range(8.0, 15.0) * (-1.0 if randf() < 0.5 else 1.0),
-		"trail": [start_pos],
-	})
+	var projectile_count := 2 if _get_owned_perk_level(owner, registry, "banana_master") > 0 else 1
+	var projectiles: Array = _get_array(controller, "banana_projectiles")
+	var presentation_rng := _build_throw_presentation_rng(
+		start_pos,
+		target_pos,
+		projectiles.size()
+	)
+	for projectile_index in range(projectile_count):
+		var lateral_offset := 0.0
+		if projectile_count == 2:
+			lateral_offset = -18.0 if projectile_index == 0 else 18.0
+		var projectile_target := Vector2(
+			clamp(target_pos.x + lateral_offset, 30.0, field_width - 30.0),
+			land_y
+		)
+		projectiles.append({
+			"position": start_pos,
+			"velocity": Vector2(
+				(projectile_target.x - start_pos.x) / travel_frames,
+				-speed_per_frame
+			),
+			"target_position": projectile_target,
+			"rotation_degrees": 0.0,
+			"rotation_speed": presentation_rng.randf_range(8.0, 15.0) * (
+				-1.0 if presentation_rng.randf() < 0.5 else 1.0
+			),
+			"trail": [start_pos],
+		})
 
 	var audio: Object = _get_instance(registry, "game_audio")
 	if audio != null:
@@ -171,18 +188,19 @@ func spawn_burst_particles(controller: Object, pos: Vector2) -> void:
 	]
 	var particles: Array = _get_array(controller, "banana_particles")
 	var particle_cap: int = maxi(0, int(_get_float(controller, "BANANA_PARTICLE_CAP", 12.0)))
+	var presentation_rng := _build_burst_presentation_rng(pos, particles.size())
 	for _i in range(int(_get_float(controller, "BANANA_BURST_PARTICLE_COUNT"))):
 		if particle_cap > 0 and particles.size() >= particle_cap:
 			particles.pop_front()
-		var angle: float = randf_range(0.0, TAU)
-		var speed: float = randf_range(3.0, 8.0)
+		var angle: float = presentation_rng.randf_range(0.0, TAU)
+		var speed: float = presentation_rng.randf_range(3.0, 8.0)
 		particles.append({
 			"position": pos,
 			"velocity": Vector2(cos(angle), sin(angle)) * speed + Vector2(0.0, -3.0),
-			"life_frames": randf_range(20.0, 40.0),
+			"life_frames": presentation_rng.randf_range(20.0, 40.0),
 			"max_life_frames": 40.0,
-			"size": randf_range(3.0, 7.0),
-			"color": colors[randi() % colors.size()],
+			"size": presentation_rng.randf_range(3.0, 7.0),
+			"color": colors[presentation_rng.randi_range(0, colors.size() - 1)],
 		})
 
 
@@ -276,3 +294,50 @@ func _get_instance(registry: Object, key: String) -> Object:
 	if registry == null or not registry.has_method("get_instance"):
 		return null
 	return registry.get_instance(key)
+
+
+func _get_owned_perk_level(owner: Object, registry: Object, perk_id: String) -> int:
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if runtime_perk_state != null:
+		if runtime_perk_state.has_method("get_runtime_skill_level"):
+			return maxi(0, int(runtime_perk_state.get_runtime_skill_level(perk_id)))
+		var state_levels_value: Variant = runtime_perk_state.get("runtime_skill_levels")
+		if state_levels_value is Dictionary:
+			return maxi(0, int((state_levels_value as Dictionary).get(perk_id, 0)))
+	var owner_levels := BattleSceneOwnerReader.get_dictionary(owner, "runtime_perk_levels")
+	return maxi(0, int(owner_levels.get(perk_id, 0)))
+
+
+func _build_throw_presentation_rng(
+	start_pos: Vector2,
+	target_pos: Vector2,
+	existing_projectile_count: int
+) -> RandomNumberGenerator:
+	# Visual-only rotation never advances the authoritative/global RNG. Stable
+	# geometry and the existing presentation count make replayed throws repeatable.
+	var rng := RandomNumberGenerator.new()
+	var seed_key := "%.3f:%.3f:%.3f:%.3f:%d" % [
+		start_pos.x,
+		start_pos.y,
+		target_pos.x,
+		target_pos.y,
+		existing_projectile_count,
+	]
+	rng.seed = int(seed_key.hash()) & 0x7fffffff
+	return rng
+
+
+func _build_burst_presentation_rng(
+	pos: Vector2,
+	existing_particle_count: int
+) -> RandomNumberGenerator:
+	# Landing particles are presentation-only and must not consume the shared
+	# gameplay RNG, including the second Banana Master landing.
+	var rng := RandomNumberGenerator.new()
+	var seed_key := "banana_burst_v1:%.3f:%.3f:%d" % [
+		pos.x,
+		pos.y,
+		existing_particle_count,
+	]
+	rng.seed = int(seed_key.hash()) & 0x7fffffff
+	return rng

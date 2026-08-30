@@ -15,7 +15,10 @@ const REENTRY_PROGRESS_FIELDS: Array[String] = [
 	"claimed_decoration_ids",
 	"build_state",
 	"guardian_state",
+	"rest_state",
 	"rest_history",
+	"taiji_elder_state",
+	"taiji_elder_history",
 	"ending_state",
 	"gauntlet_state",
 	"codex_discoveries",
@@ -172,7 +175,10 @@ func _capture_reentry_progress() -> Dictionary:
 		"claimed_decoration_ids": _claimed_decoration_ids,
 		"build_state": _build_state,
 		"guardian_state": _guardian_spring_node.export_state(),
+		"rest_state": _rest_node.export_state(),
 		"rest_history": _rest_node.get_history(),
+		"taiji_elder_state": _taiji_elder_node.build_save_snapshot(),
+		"taiji_elder_history": _taiji_elder_node.get_history(),
 		"ending_state": _ending_state.export_state(),
 		"gauntlet_state": _gauntlet_state.export_state(),
 		"codex_discoveries": _codex_discoveries,
@@ -228,8 +234,19 @@ func _restore_reentry_progress(progress: Dictionary) -> bool:
 	_guardian_state = _dictionary_copy(progress.get("guardian_state", {}))
 	_guardian_spring_node.restore_state(_guardian_state)
 	_add_history_resolution_ids(_guardian_spring_node.get_history())
-	_rest_node.restore_state(progress.get("rest_history", []))
+	_rest_node.restore_state(progress.get(
+		"rest_state",
+		progress.get("rest_history", [])
+	))
 	_add_history_resolution_ids(_rest_node.get_history())
+	_taiji_elder_node.reset()
+	if progress.has("taiji_elder_state"):
+		var taiji_restore: Dictionary = _taiji_elder_node.restore_save_snapshot(
+			progress.get("taiji_elder_state", {})
+		)
+		if not bool(taiji_restore.get("accepted", false)):
+			return false
+	_add_history_resolution_ids(_taiji_elder_node.get_history())
 	if not _ending_state.restore_state(progress.get("ending_state", {})):
 		return false
 	var gauntlet_value: Variant = progress.get("gauntlet_state", {})

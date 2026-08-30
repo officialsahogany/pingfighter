@@ -94,7 +94,7 @@ func _blueprint() -> Array:
 				"candidate_count": 2,
 				"node_ids": ["left", "right"],
 				"kinds": ["rest", "shop"],
-				"labels": ["휴식", "상점"],
+				"labels": ["모닥불", "상점"],
 				"display_y": 165,
 			},
 		],

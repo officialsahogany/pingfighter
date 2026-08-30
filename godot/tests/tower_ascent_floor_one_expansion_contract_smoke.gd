@@ -33,7 +33,7 @@ const MAP_DRAW_CALL_LIMIT := 1536
 const FINAL_DOT_GAP_UPPER_BOUND := 44.378
 const FLOAT_EPSILON := 0.001
 const VIEWPORT_RECT := Rect2(Vector2.ZERO, Vector2(2020.0, 1246.0))
-const EXPECTED_GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v18_taiji_elder_service"
 
 
 class EarlyGuaranteeDisabledGenerator:

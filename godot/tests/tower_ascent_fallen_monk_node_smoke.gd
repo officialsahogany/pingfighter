@@ -15,9 +15,6 @@ const TowerAscentNodeArrivalTestFixture := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
-const TowerAscentPerkCandidatePolicy := preload(
-	"res://scripts/tower_ascent/tower_ascent_perk_candidate_policy.gd"
-)
 const TowerAscentUnlockFilter := preload(
 	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
 )
@@ -33,6 +30,7 @@ class FakeOwner:
 
 	var current_stage := 4
 	var selected_character_type := "smasher"
+	var runtime_perk_levels: Dictionary = {}
 	var redraw_requests := 0
 
 	func request_battle_redraw() -> void:
@@ -65,6 +63,7 @@ class FakeSkillConfig:
 		"beta_skill": {"korean": "철벽 초식"},
 		"gamma_skill": {"korean": "비연 초식"},
 		"delta_skill": {"korean": "월광 초식"},
+		"foreign_skill": {"korean": "타 클래스 초식"},
 	}
 
 	func get_snapshot() -> Dictionary:
@@ -115,14 +114,25 @@ class FakeRuntimePerkCatalog:
 		"unlock_beta": _choice("unlock_beta", "철벽 비급", "beta_skill"),
 		"unlock_gamma": _choice("unlock_gamma", "비연 비급", "gamma_skill"),
 		"unlock_delta": _choice("unlock_delta", "월광 비급", "delta_skill"),
+		"unlock_foreign": _choice(
+			"unlock_foreign",
+			"Foreign Chosik",
+			"foreign_skill",
+			"viper"
+		),
 	}
 
-	static func _choice(perk_id: String, display_name: String, skill_id: String) -> Dictionary:
+	static func _choice(
+		perk_id: String,
+		display_name: String,
+		skill_id: String,
+		character_type: String = "smasher"
+	) -> Dictionary:
 		return {
 			"id": perk_id,
 			"name": display_name,
 			"unlocks_skill": skill_id,
-			"character_restriction": "smasher",
+			"character_restriction": character_type,
 			"max_level": 1,
 		}
 
@@ -184,7 +194,8 @@ class FakeRuntimePerkState:
 	var confirm_calls := 0
 	var cancel_calls := 0
 	var restore_calls := 0
-	var force_confirm_failure := false
+	var sync_owner_calls := 0
+	var force_snapshot_failure := false
 	var skill_config: FakeSkillConfig
 	var catalog: FakeRuntimePerkCatalog
 
@@ -251,8 +262,6 @@ class FakeRuntimePerkState:
 	func confirm_pending_unlock_swap(_owner: Object, _registry: Object) -> bool:
 		if pending_swap.is_empty():
 			return false
-		if force_confirm_failure:
-			return false
 		var candidates: Array = pending_swap.get("candidates", [])
 		if candidates.is_empty():
 			return false
@@ -281,6 +290,8 @@ class FakeRuntimePerkState:
 		return true
 
 	func build_unlock_save_snapshot() -> Dictionary:
+		if force_snapshot_failure:
+			return {}
 		return {
 			"version": 1,
 			"runtime_skill_levels": runtime_skill_levels.duplicate(true),
@@ -298,6 +309,11 @@ class FakeRuntimePerkState:
 		restore_calls += 1
 		return {"restored": true}
 
+	func _sync_owner(owner: Object) -> void:
+		sync_owner_calls += 1
+		if owner != null:
+			owner.set("runtime_perk_levels", runtime_skill_levels.duplicate(true))
+
 
 class FakeRegistry:
 	extends RefCounted
@@ -312,17 +328,16 @@ class FakeRegistry:
 
 
 func _init() -> void:
-	_verify_shared_candidate_policy_filters_locked_mugong()
-	_verify_acquire_swap_remove_transactions_and_snapshot()
-	_verify_swap_rejection_rolls_back_without_payment()
+	_verify_class_only_two_offer_visit_lock_and_snapshot()
+	_verify_offer_pool_exhaustion()
+	_verify_full_slot_swap_cancel_confirm_and_rollback()
 	_verify_insufficient_muhon_is_a_no_op()
-	_verify_mugong_slot_budget_rechecks_fixed_offer()
-	_verify_six_of_six_chosik_uses_swap_gate()
 	_verify_flag_off_is_untouched()
 	_verify_source_contract()
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 
 	if _failures.is_empty():
+		print("tower_fallen_monk_n1_seal: class_only=1 cards=2 visit_pick_limit=1 cost=4 pool=1/0 runtime_swap=1 rollback=1 restore_lock=1 authority_rng_unchanged=1 generation=0")
 		print("tower_ascent_fallen_monk_node_smoke: ok")
 		quit(0)
 	else:
@@ -331,158 +346,241 @@ func _init() -> void:
 		quit(1)
 
 
-func _verify_shared_candidate_policy_filters_locked_mugong() -> void:
+func _verify_class_only_two_offer_visit_lock_and_snapshot() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var fixture := _build_fixture()
-	(fixture.unlock_store as FakeUnlockStore).set_unlocked("mugong_locked", false)
-	var locked_data := (fixture.catalog as FakeRuntimePerkCatalog).get_perk_data(
-		"mugong_locked"
-	)
-	var policy := TowerAscentPerkCandidatePolicy.new()
-	_expect(
-		not policy.is_mugong_candidate(
-			locked_data,
-			{},
-			"smasher",
-			fixture.registry
-		),
-		"shared candidate policy must reject a locked Mugong"
-	)
-
-
-func _verify_acquire_swap_remove_transactions_and_snapshot() -> void:
-	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	var fixture := _build_fixture()
-	(fixture.unlock_store as FakeUnlockStore).set_unlocked("mugong_locked", false)
 	var owner := FakeOwner.new()
 	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
-		"run_id": "fallen-monk-contract",
+		"run_id": "fallen-monk-n1-contract",
 		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40, "gold": 0, "chance_gems": 3},
 		"registry": fixture.registry,
-	}), "fallen-monk fixture must enter through the real tower flow")
-	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "fallen-monk fixture must reach the monk only after route serve and map arrival")
-	var offers := flow.get_generated_fallen_monk_offers()
-	_expect(offers.size() == 1, "one monk visit must own one generated offer")
-	_expect((offers[0].get("choices", []) as Array).size() == 6, "monk storefront must present exactly six Mugong and Chosik cards")
+	}), "N1 monk fixture must enter through the real tower flow")
+	var arrival := _advance_to_fallen_modal_with_rng_seal(flow, owner)
+	_expect(bool(arrival.get("arrived", false)), "N1 monk fixture must reach the monk through production arrival")
 	_expect(
-		not _choice_ids(offers[0].get("choices", [])).has("mugong_locked"),
-		"monk Mugong offers must pass the shared unlock filter"
+		var_to_bytes(arrival.get("rng_before", {}))
+		== var_to_bytes(arrival.get("rng_after", {})),
+		"monk offer generation must leave authoritative gameplay RNG byte-identical"
 	)
-	_expect(fixture.catalog.all_calls == 1, "monk offer must generate once per node")
-	var acquire_action := _find_action_with_prefix(
-		flow.get_node_modal_view_model().get("actions", []),
-		"fallen_monk:acquire:"
+	var offers := flow.get_generated_fallen_monk_offers()
+	var choices: Array = offers[0].get("choices", []) if offers.size() == 1 else []
+	_expect(offers.size() == 1, "one monk visit must own one deterministic offer")
+	_expect(choices.size() == 2, "one monk visit must present exactly two Chosik cards")
+	_expect(
+		offers.size() == 1 and int(offers[0].get("offer_generation", -1)) == 0,
+		"first monk visit must persist deterministic generation zero"
 	)
-	_expect(not acquire_action.is_empty(), "an open Chosik slot must expose acquisition")
-	var acquire_id := "fallen-monk-contract:acquire"
-	var acquire_result := flow.execute_node_action(str(acquire_action.get("id", "")), acquire_id)
-	_expect(bool(acquire_result.get("accepted", false)) and bool(acquire_result.get("applied", false)), "acquisition must commit through the node transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "acquisition must debit the unified three-Muhon price")
-	_expect(fixture.runtime_state.apply_calls == 1 and fixture.skill_config.equipped_skills.size() == 2, "acquisition must reuse runtime_perk_state.apply_choice")
-
-	var acquired_skill := str((acquire_result.get("record", {}) as Dictionary).get("unlocked_skill", ""))
-	var swap_action := _find_swap_action_for_removed_skill(
-		flow.get_node_modal_view_model().get("actions", []),
-		acquired_skill
+	var class_only := true
+	for choice_value in choices:
+		if not (choice_value is Dictionary):
+			class_only = false
+			continue
+		var choice := choice_value as Dictionary
+		class_only = (
+			class_only
+			and str(choice.get("character_restriction", "")) == "smasher"
+			and not str(choice.get("unlocks_skill", "")).is_empty()
+			and str(choice.get("id", "")) != "unlock_foreign"
+		)
+	_expect(class_only, "all monk offers must be unowned Chosik for the active class")
+	var repeated_fixture := _build_fixture()
+	var repeated_owner := FakeOwner.new()
+	var repeated_flow := TowerAscentFlowOwner.new()
+	_expect(repeated_flow.begin_vertical_slice(repeated_owner, Callable(), {
+		"run_id": "fallen-monk-n1-contract-repeat",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "fallen_monk",
+		"run_state": {"muhon": 40, "gold": 0, "chance_gems": 3},
+		"registry": repeated_fixture.registry,
+	}), "same-seed monk fixture must open")
+	var repeated_arrival := _advance_to_fallen_modal_with_rng_seal(
+		repeated_flow,
+		repeated_owner
 	)
-	_expect(not swap_action.is_empty(), "a full Chosik slot must expose the existing swap candidates")
-	var duplicate := flow.execute_node_action(str(swap_action.get("id", "")), acquire_id)
-	_expect(bool(duplicate.get("accepted", false)) and not bool(duplicate.get("applied", true)), "same node_resolution_id must be an accepted no-op before swap effect")
-	_expect(fixture.runtime_state.apply_calls == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "duplicate resolution must neither swap nor debit")
-
-	var swap_result := flow.execute_node_action(
-		str(swap_action.get("id", "")),
-		"fallen-monk-contract:swap"
+	_expect(bool(repeated_arrival.get("arrived", false)), "same-seed monk fixture must arrive")
+	_expect(
+		var_to_bytes(repeated_flow.get_generated_fallen_monk_offers())
+		== var_to_bytes(offers),
+		"fresh generation with the same map seed and generation must be byte-identical"
 	)
-	_expect(bool(swap_result.get("accepted", false)) and bool(swap_result.get("applied", false)), "swap must commit through the existing pending-swap flow")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 33, "swap must debit the unified four-Muhon price")
-	_expect(fixture.runtime_state.apply_calls == 2 and fixture.runtime_state.confirm_calls == 1, "swap must call apply_choice then confirm_pending_unlock_swap")
-	var remaining_swap := _find_action_with_prefix(
-		flow.get_node_modal_view_model().get("actions", []),
-		"fallen_monk:swap:"
+	_finish_flow(repeated_flow, repeated_owner)
+	var actions: Array = flow.get_node_modal_view_model().get("actions", [])
+	var acquire_actions: Array[Dictionary] = []
+	for action_value in actions:
+		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")).begins_with("fallen_monk:acquire:"):
+			acquire_actions.append(action_value as Dictionary)
+	_expect(acquire_actions.size() == 2, "the two offered cards must be the only learn actions")
+	_expect(_find_action_with_prefix(actions, "fallen_monk:mugong:").is_empty(), "the reworked monk must not offer Mugong")
+	_expect(_find_action_with_prefix(actions, "fallen_monk:remove:").is_empty(), "the reworked monk must not offer removal")
+	_expect(_find_action_with_prefix(actions, "fallen_monk:swap:").is_empty(), "full-slot replacement must not be preselected on the storefront")
+	for action in acquire_actions:
+		_expect(str(action.get("cost_text", "")).contains("4"), "each monk card must display the canonical four-Muhon price")
+	var first_action := acquire_actions[0] if not acquire_actions.is_empty() else {}
+	var second_action := acquire_actions[1] if acquire_actions.size() > 1 else {}
+	var result := flow.execute_node_action(
+		str(first_action.get("id", "")),
+		"fallen-monk-n1-contract:pick"
 	)
-	_expect(not remaining_swap.is_empty() and bool(remaining_swap.get("enabled", false)), "another stocked Chosik must remain purchasable without a visit cap")
-
-	var remove_action := _find_action_with_prefix(
-		flow.get_node_modal_view_model().get("actions", []),
-		"fallen_monk:remove:"
+	_expect(bool(result.get("accepted", false)) and bool(result.get("applied", false)), "one open-slot Chosik pick must commit")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 36, "one Chosik pick must debit exactly four Muhon")
+	_expect(flow.get_fallen_monk_history().size() == 1, "the visit must append exactly one Chosik record")
+	var second_result := flow.execute_node_action(
+		str(second_action.get("id", "")),
+		"fallen-monk-n1-contract:second-pick"
 	)
-	_expect(not remove_action.is_empty(), "an acquired equipped Chosik must expose removal")
-	var remove_result := flow.execute_node_action(
-		str(remove_action.get("id", "")),
-		"fallen-monk-contract:remove"
+	_expect(not bool(second_result.get("accepted", true)), "a second card must be rejected after the first visit pick")
+	_expect(
+		flow.get_fallen_monk_history().size() == 1
+		and int(flow.get_run_state_snapshot().get("muhon", -1)) == 36,
+		"a rejected second pick must neither append history nor debit again"
 	)
-	_expect(bool(remove_result.get("accepted", false)) and bool(remove_result.get("applied", false)), "remove must commit atomically")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 28, "remove must debit the unified five-Muhon price and stay more expensive than acquisition")
-	_expect(fixture.runtime_state.runtime_skill_levels.is_empty() and fixture.skill_config.equipped_skills == ["base_skill"], "remove must clear both equipped Chosik and its runtime unlock")
-	_expect(flow.get_fallen_monk_history().size() == 3, "visit history must own one acquisition, one swap, and one removal")
-	var remaining_acquire := _find_action_with_prefix(
-		flow.get_node_modal_view_model().get("actions", []),
-		"fallen_monk:acquire:"
-	)
-	_expect(not remaining_acquire.is_empty() and bool(remaining_acquire.get("enabled", false)), "another stocked acquisition must remain available without a visit cap")
-
 	var snapshot := flow.export_persistable_snapshot()
-	_expect((snapshot.get("generated_fallen_monk_offers", []) as Array).size() == 1, "monk offer must be in the stable run snapshot")
-	_expect((snapshot.get("fallen_monk_history", []) as Array).size() == 3, "monk transaction history must be in the stable run snapshot")
-	_expect(not (snapshot.get("fallen_monk_runtime_snapshot", {}) as Dictionary).is_empty(), "runtime unlock snapshot must be persisted")
-	_expect(not (snapshot.get("fallen_monk_skill_config_snapshot", {}) as Dictionary).is_empty(), "equipped Chosik snapshot must be persisted")
-
 	var restored_fixture := _build_fixture()
-	restored_fixture.runtime_state.runtime_skill_levels = {"stale_unlock": 1}
-	restored_fixture.skill_config.equipped_skills = ["base_skill", "delta_skill"]
 	var restored := TowerAscentFlowOwner.new()
-	_expect(restored.restore_snapshot(snapshot, Callable(), FakeOwner.new(), restored_fixture.registry), "stable monk snapshot must restore")
-	_expect(restored_fixture.catalog.all_calls == 0, "restoring a monk node must not reroll its offers")
-	_expect(var_to_bytes(restored.get_generated_fallen_monk_offers()) == var_to_bytes(offers), "restored monk offers must match byte-for-byte")
-	_expect(restored_fixture.runtime_state.restore_calls >= 1 and restored_fixture.runtime_state.runtime_skill_levels.is_empty(), "restore must apply the saved runtime unlock state")
-	_expect(restored_fixture.skill_config.equipped_skills == ["base_skill"], "restore must apply the saved equipped Chosik state")
+	var restored_owner := FakeOwner.new()
+	_expect(restored.restore_snapshot(snapshot, Callable(), restored_owner, restored_fixture.registry), "completed monk snapshot must restore")
+	_expect(
+		restored_fixture.runtime_state.sync_owner_calls == 1
+		and restored_owner.runtime_perk_levels
+			== restored_fixture.runtime_state.runtime_skill_levels,
+		"restore must publish the raw runtime-perk levels to the owner exactly once"
+	)
+	_expect(var_to_bytes(restored.get_generated_fallen_monk_offers()) == var_to_bytes(offers), "restored monk offers must not reroll")
+	_expect(restored.get_fallen_monk_history().size() == 1, "restored monk visit lock must retain one record")
+	var restored_actions: Array = restored.get_node_modal_view_model().get("actions", [])
+	_expect(
+		_find_action_with_prefix(restored_actions, "fallen_monk:").is_empty(),
+		"restored completed visit must keep every offered card locked"
+	)
+	var restored_retry := restored.execute_node_action(
+		str(second_action.get("id", "")),
+		"fallen-monk-n1-contract:restored-second-pick"
+	)
+	_expect(
+		not bool(restored_retry.get("accepted", true))
+		and restored.get_fallen_monk_history().size() == 1
+		and int(restored.get_run_state_snapshot().get("muhon", -1)) == 36,
+		"restored visit lock must reject direct execution without debit or history"
+	)
 	_finish_flow(flow, owner)
 	_finish_flow(restored, null)
 
 
-func _verify_swap_rejection_rolls_back_without_payment() -> void:
+func _verify_offer_pool_exhaustion() -> void:
+	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
+	for remaining_count in [1, 0]:
+		var fixture := _build_fixture()
+		var owned_count := 4 - int(remaining_count)
+		for index in range(owned_count):
+			fixture.runtime_state.runtime_skill_levels[
+				["unlock_alpha", "unlock_beta", "unlock_gamma", "unlock_delta"][index]
+			] = 1
+		var owner := FakeOwner.new()
+		var flow := TowerAscentFlowOwner.new()
+		_expect(flow.begin_vertical_slice(owner, Callable(), {
+			"run_id": "fallen-monk-pool-%d" % remaining_count,
+			"map_seed": _initial_route_seed,
+			"node_modal_kind": "fallen_monk",
+			"run_state": {"muhon": 40},
+			"registry": fixture.registry,
+		}), "pool exhaustion fixture must open")
+		_expect(
+			TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner),
+			"pool exhaustion fixture must reach the monk"
+		)
+		var offers := flow.get_generated_fallen_monk_offers()
+		var choices: Array = offers[0].get("choices", []) if offers.size() == 1 else []
+		var actions: Array = flow.get_node_modal_view_model().get("actions", [])
+		_expect(offers.size() == 1, "a depleted class pool must retain one stable offer record")
+		var acquire_actions: Array[Dictionary] = []
+		for action_value in actions:
+			if (
+				action_value is Dictionary
+				and str((action_value as Dictionary).get("id", "")).begins_with(
+					"fallen_monk:acquire:"
+				)
+			):
+				acquire_actions.append(action_value as Dictionary)
+		_expect(
+			choices.size() == remaining_count and acquire_actions.size() == remaining_count,
+			"a depleted class pool must degrade to %d cards and actions" % remaining_count
+		)
+		_finish_flow(flow, owner)
+
+
+func _verify_full_slot_swap_cancel_confirm_and_rollback() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
 	var fixture := _build_fixture()
-	var flow := TowerAscentFlowOwner.new()
+	fixture.skill_config.equipped_skills = ["base_skill", "beta_skill"]
+	fixture.runtime_state.runtime_skill_levels = {"unlock_beta": 1}
 	var owner := FakeOwner.new()
+	var flow := TowerAscentFlowOwner.new()
 	_expect(flow.begin_vertical_slice(owner, Callable(), {
-		"run_id": "fallen-monk-rollback",
+		"run_id": "fallen-monk-runtime-swap",
 		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
 		"run_state": {"muhon": 40},
 		"registry": fixture.registry,
-	}), "swap-rollback fixture must open")
-	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "swap-rollback fixture must arrive at the monk")
-	var acquire_action := _find_action_with_prefix(
-		flow.get_node_modal_view_model().get("actions", []),
-		"fallen_monk:acquire:"
-	)
-	var acquire_result := flow.execute_node_action(
-		str(acquire_action.get("id", "")),
-		"fallen-monk-rollback:acquire"
-	)
-	var acquired_skill := str((acquire_result.get("record", {}) as Dictionary).get("unlocked_skill", ""))
-	var levels_before: Dictionary = fixture.runtime_state.runtime_skill_levels.duplicate(true)
-	var equipped_before: Array = fixture.skill_config.equipped_skills.duplicate()
-	fixture.runtime_state.force_confirm_failure = true
-	var swap_action := _find_swap_action_for_removed_skill(
-		flow.get_node_modal_view_model().get("actions", []),
-		acquired_skill
-	)
-	var rejected := flow.execute_node_action(
-		str(swap_action.get("id", "")),
-		"fallen-monk-rollback:swap"
-	)
-	_expect(str(rejected.get("reason", "")) == "effect_rejected", "failed existing swap confirmation must reject before payment")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 37, "failed swap must not debit Muhon")
-	_expect(fixture.runtime_state.runtime_skill_levels == levels_before and fixture.skill_config.equipped_skills == equipped_before, "failed swap must restore runtime unlocks and equipped Chosik")
-	_expect(not fixture.runtime_state.has_pending_unlock_swap() and fixture.runtime_state.cancel_calls == 1, "failed swap must clear the pending existing swap")
-	_expect(flow.get_fallen_monk_history().size() == 1, "failed swap must not append transaction history")
+	}), "full-slot fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "full-slot fixture must reach the monk")
+	var action := _find_action_with_prefix(flow.get_node_modal_view_model().get("actions", []), "fallen_monk:acquire:")
+	var original_levels: Dictionary = fixture.runtime_state.runtime_skill_levels.duplicate(true)
+	var original_equipped: Array = fixture.skill_config.equipped_skills.duplicate()
+	var opened := flow.execute_node_action(str(action.get("id", "")), "fallen-monk-runtime-swap:cancel")
+	_expect(bool(opened.get("accepted", false)) and not bool(opened.get("applied", true)), "a full-slot pick must open the standard pending swap without committing")
+	_expect(flow.has_pending_guardian_spring_chosik_swap() and fixture.runtime_state.has_pending_unlock_swap(), "the existing tower swap overlay facade must own the pending replacement")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 40 and flow.get_fallen_monk_history().is_empty(), "opening replacement must not debit or append history")
+	_expect(fixture.runtime_state.cancel_pending_unlock_swap(owner), "standard swap cancel must clear the runtime modal")
+	flow.update_selective(0.0, owner)
+	_expect(not flow.has_pending_guardian_spring_chosik_swap(), "production update must resolve the cancelled node transaction")
+	_expect(fixture.runtime_state.runtime_skill_levels == original_levels and fixture.skill_config.equipped_skills == original_equipped, "cancel must restore runtime and equipped Chosik")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 40 and flow.get_fallen_monk_history().is_empty(), "cancel must preserve Muhon and history")
+
+	action = _find_action_with_prefix(flow.get_node_modal_view_model().get("actions", []), "fallen_monk:acquire:")
+	opened = flow.execute_node_action(str(action.get("id", "")), "fallen-monk-runtime-swap:confirm")
+	_expect(bool(opened.get("accepted", false)) and fixture.runtime_state.has_pending_unlock_swap(), "the same visit must remain selectable after cancel")
+	fixture.runtime_state.move_unlock_swap_selection(1)
+	var pending: Dictionary = fixture.runtime_state.get_pending_unlock_swap()
+	var new_choice_id := str(pending.get("choice_id", ""))
+	var new_skill_id := str(pending.get("unlocks_skill", ""))
+	_expect(fixture.runtime_state.confirm_pending_unlock_swap(owner, fixture.registry), "standard swap confirmation must replace the selected old Chosik")
+	flow.update_selective(0.0, owner)
+	_expect(not flow.has_pending_guardian_spring_chosik_swap(), "production update must commit the confirmed replacement")
+	_expect(flow.get_fallen_monk_history().size() == 1 and int(flow.get_run_state_snapshot().get("muhon", -1)) == 36, "confirmed replacement must append once and debit four")
+	_expect(fixture.skill_config.equipped_skills.has(new_skill_id) and not fixture.skill_config.equipped_skills.has("beta_skill"), "replacement must follow the selected reverse mapping")
+	_expect(int(fixture.runtime_state.runtime_skill_levels.get(new_choice_id, 0)) == 1 and not fixture.runtime_state.runtime_skill_levels.has("unlock_beta"), "replacement must remove the displaced unlock and own the selected Chosik")
 	_finish_flow(flow, owner)
+
+	var rollback_fixture := _build_fixture()
+	rollback_fixture.skill_config.equipped_skills = ["base_skill", "beta_skill"]
+	rollback_fixture.runtime_state.runtime_skill_levels = {"unlock_beta": 1}
+	var rollback_owner := FakeOwner.new()
+	var rollback_flow := TowerAscentFlowOwner.new()
+	_expect(rollback_flow.begin_vertical_slice(rollback_owner, Callable(), {
+		"run_id": "fallen-monk-runtime-swap-rollback",
+		"map_seed": _initial_route_seed,
+		"node_modal_kind": "fallen_monk",
+		"run_state": {"muhon": 40},
+		"registry": rollback_fixture.registry,
+	}), "rollback fixture must open")
+	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(rollback_flow, "fallen_monk", rollback_owner), "rollback fixture must reach the monk")
+	var rollback_action := _find_action_with_prefix(rollback_flow.get_node_modal_view_model().get("actions", []), "fallen_monk:acquire:")
+	rollback_flow.execute_node_action(str(rollback_action.get("id", "")), "fallen-monk-runtime-swap-rollback:pick")
+	rollback_fixture.runtime_state.move_unlock_swap_selection(1)
+	_expect(rollback_fixture.runtime_state.confirm_pending_unlock_swap(rollback_owner, rollback_fixture.registry), "rollback fixture must first confirm runtime replacement")
+	rollback_fixture.runtime_state.force_snapshot_failure = true
+	rollback_flow.update_selective(0.0, rollback_owner)
+	_expect(rollback_fixture.runtime_state.runtime_skill_levels == {"unlock_beta": 1} and rollback_fixture.skill_config.equipped_skills == ["base_skill", "beta_skill"], "commit postcondition failure must roll back both replacement legs")
+	_expect(int(rollback_flow.get_run_state_snapshot().get("muhon", -1)) == 40 and rollback_flow.get_fallen_monk_history().is_empty(), "failed confirmed replacement must not debit or append history")
+	_expect(
+		not rollback_flow.has_pending_guardian_spring_chosik_swap()
+		and not rollback_fixture.runtime_state.has_pending_unlock_swap(),
+		"failed confirmed replacement must leave no orphan node or runtime swap owner"
+	)
+	_finish_flow(rollback_flow, rollback_owner)
 
 
 func _verify_insufficient_muhon_is_a_no_op() -> void:
@@ -494,7 +592,7 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 		"run_id": "fallen-monk-poor",
 		"map_seed": _initial_route_seed,
 		"node_modal_kind": "fallen_monk",
-		"run_state": {"muhon": 2},
+		"run_state": {"muhon": 3},
 		"registry": fixture.registry,
 	}), "insufficient-Muhon fixture must open")
 	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "insufficient-Muhon fixture must arrive at the monk")
@@ -504,111 +602,11 @@ func _verify_insufficient_muhon_is_a_no_op() -> void:
 	)
 	_expect(not bool(action.get("enabled", true)), "insufficient Muhon must disable acquisition")
 	var reason := str(action.get("unavailable_reason", ""))
-	_expect(reason.contains("3") and reason.contains("1"), "disabled acquisition must show required Muhon and exact shortfall")
+	_expect(reason.contains("4") and reason.contains("1"), "disabled acquisition must show required Muhon and exact shortfall")
 	var result := flow.execute_node_action(str(action.get("id", "")), "fallen-monk-poor:attempt")
 	_expect(not bool(result.get("accepted", true)), "insufficient Muhon must reject direct execution before transaction")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 2 and fixture.runtime_state.apply_calls == 0 and flow.get_fallen_monk_history().is_empty(), "insufficient Muhon must issue no debit, grant, or history")
+	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 3 and fixture.runtime_state.apply_calls == 0 and flow.get_fallen_monk_history().is_empty(), "insufficient Muhon must issue no debit, grant, or history")
 	_finish_flow(flow, owner)
-
-
-func _verify_mugong_slot_budget_rechecks_fixed_offer() -> void:
-	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	var fixture := _build_fixture()
-	fixture.runtime_state.runtime_skill_levels = {
-		"owned_slot_1": 1,
-		"owned_slot_2": 1,
-		"owned_slot_3": 1,
-		"owned_slot_4": 1,
-		"owned_slot_5": 1,
-	}
-	var flow := TowerAscentFlowOwner.new()
-	var owner := FakeOwner.new()
-	_expect(flow.begin_vertical_slice(owner, Callable(), {
-		"run_id": "fallen-monk-slot-budget",
-		"map_seed": _initial_route_seed,
-		"node_modal_kind": "fallen_monk",
-		"run_state": {"muhon": 40},
-		"registry": fixture.registry,
-	}), "slot-budget monk fixture must open")
-	_expect(TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner), "slot-budget monk fixture must arrive at the fixed storefront")
-	var initial_actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var mugong_actions: Array[Dictionary] = []
-	for action_value in initial_actions:
-		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")).begins_with("fallen_monk:mugong:"):
-			mugong_actions.append(action_value as Dictionary)
-	_expect(mugong_actions.size() >= 2, "fixed monk offer must retain multiple Mugong cards for the recheck leg")
-	for action in mugong_actions:
-		_expect(bool(action.get("enabled", false)), "each fixed Mugong card must begin enabled at 5/6")
-	var first_action := mugong_actions[0]
-	var first_result := flow.execute_node_action(
-		str(first_action.get("id", "")),
-		"fallen-monk-slot-budget:first"
-	)
-	_expect(bool(first_result.get("accepted", false)) and bool(first_result.get("applied", false)), "first Mugong purchase must fill the sixth slot")
-	_expect(fixture.catalog.count_owned_slot_perks(fixture.runtime_state.runtime_skill_levels, fixture.registry) == 6, "first fixed-offer purchase must end at 6/6")
-	_expect(int(flow.get_run_state_snapshot().get("muhon", -1)) == 38, "first Mugong purchase must debit exactly once")
-	var refreshed_actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var blocked_action := {}
-	for action_value in refreshed_actions:
-		if action_value is Dictionary and str((action_value as Dictionary).get("id", "")).begins_with("fallen_monk:mugong:"):
-			blocked_action = action_value as Dictionary
-			break
-	_expect(not blocked_action.is_empty(), "remaining fixed Mugong card must stay visible after one purchase")
-	_expect(not bool(blocked_action.get("enabled", true)), "remaining fixed Mugong card must disable after the board reaches 6/6")
-	_expect(str(blocked_action.get("disabled_reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "disabled monk card must expose the shared slot-limit reason")
-	_expect(not str(blocked_action.get("unavailable_reason", "")).is_empty(), "disabled monk card must expose a player-facing slot-limit message")
-	var apply_calls_before: int = int(fixture.runtime_state.apply_calls)
-	var blocked_result := flow.execute_node_action(
-		str(blocked_action.get("id", "")),
-		"fallen-monk-slot-budget:blocked"
-	)
-	_expect(not bool(blocked_result.get("accepted", true)) and str(blocked_result.get("reason", "")) == RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON, "direct fixed-offer execution must reject with the shared slot-limit reason")
-	_expect(fixture.runtime_state.apply_calls == apply_calls_before and int(flow.get_run_state_snapshot().get("muhon", -1)) == 38, "blocked fixed-offer execution must issue no apply or debit")
-	_finish_flow(flow, owner)
-
-
-func _verify_six_of_six_chosik_uses_swap_gate() -> void:
-	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(true)
-	var fixture := _build_fixture()
-	fixture.skill_config.max_slots = 6
-	fixture.skill_config.equipped_skills = [
-		"base_skill",
-		"owned_skill_2",
-		"owned_skill_3",
-		"owned_skill_4",
-		"owned_skill_5",
-		"vision_skill_6",
-	]
-	var flow := TowerAscentFlowOwner.new()
-	var owner := FakeOwner.new()
-	_expect(flow.begin_vertical_slice(owner, Callable(), {
-		"run_id": "fallen-monk-six-of-six",
-		"map_seed": _initial_route_seed,
-		"node_modal_kind": "fallen_monk",
-		"run_state": {"muhon": 40},
-		"registry": fixture.registry,
-	}), "six-of-six monk fixture must open")
-	_expect(
-		TowerAscentNodeArrivalTestFixture.advance_to_node_modal(flow, "fallen_monk", owner),
-		"six-of-six monk fixture must arrive at the monk"
-	)
-	var actions: Array = flow.get_node_modal_view_model().get("actions", [])
-	var swap_action := _find_action_with_prefix(actions, "fallen_monk:swap:")
-	var acquire_action := _find_action_with_prefix(actions, "fallen_monk:acquire:")
-	print(
-		"[ChosikSlotTrimTrace] phase=fallen_monk_gate equipped=%d max_slots=%d swap=%s acquire=%s"
-		% [
-			fixture.skill_config.equipped_skills.size(),
-			fixture.skill_config.max_slots,
-			str(not swap_action.is_empty()),
-			str(not acquire_action.is_empty()),
-		]
-	)
-	_expect(not swap_action.is_empty(), "a Heavenly Cape 6/6 loadout must expose the Fallen Monk swap route")
-	_expect(acquire_action.is_empty(), "a Heavenly Cape 6/6 loadout must not bypass replacement with direct acquisition")
-	_finish_flow(flow, owner)
-
-
 func _verify_flag_off_is_untouched() -> void:
 	TowerAscentFeatureFlags.debug_set_vertical_slice_enabled(false)
 	var fixture := _build_fixture()
@@ -626,11 +624,28 @@ func _verify_source_contract() -> void:
 	var source := FileAccess.get_file_as_string(
 		"res://scripts/tower_ascent/tower_ascent_fallen_monk_node.gd"
 	)
+	var tuning_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_ascent_tuning.gd"
+	)
+	var reward_source := FileAccess.get_file_as_string(
+		"res://scripts/tower_ascent/tower_reward_pick_offer_builder.gd"
+	)
 	_expect(source.find("RuntimePerkUnlockSwapFlow") >= 0, "monk node must reuse the existing Chosik swap owner")
-	_expect(source.find("apply_choice") >= 0 and source.find("confirm_pending_unlock_swap") >= 0, "acquire and swap must use existing runtime state entry points")
-	_expect(source.find("remove_runtime_unlock_for_skill") >= 0, "remove must reuse the existing unlock cleanup path")
+	_expect(source.find("apply_choice") >= 0 and source.find("has_pending_unlock_swap") >= 0, "acquire and full-slot selection must use existing runtime state entry points")
+	_expect(source.find("confirm_pending_unlock_swap") < 0, "the node must not pre-confirm a replacement before the player chooses")
 	_expect(source.find("RandomNumberGenerator.new()") >= 0 and source.find(".shuffle()") < 0, "offer generation must use an isolated RNG without advancing gameplay randomness")
-	_expect(source.find("get_perk_slot_apply_status") >= 0 and source.find("PERK_SLOT_LIMIT_BLOCKED_REASON") >= 0, "monk actions must recheck the shared apply-side slot gate")
+	_expect(
+		source.find("_gameplay_rng_state") < 0
+		and source.find("roll_from_gameplay_state") < 0,
+		"monk offer generation must not read or write the authoritative gameplay RNG owner"
+	)
+	_expect(source.find("offer_generation") >= 0, "monk deterministic seed and snapshot must carry offer generation")
+	_expect(source.find(".pop_") < 0, "Chosik replacement must preserve reverse mapping instead of popping live arrays")
+	_expect(tuning_source.count("const CHOSIK_SELECTION_MUHON_COST") == 1, "one tuning owner must define the canonical Chosik selection cost")
+	_expect(source.find("TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST") >= 0, "monk selection must only read the shared cost")
+	_expect(reward_source.find("TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST") >= 0, "reward-pick Chosik must only read the shared cost")
+	_expect(reward_source.find("TEMP_CHOSIK_COST") < 0, "reward-pick must not retain its old local Chosik price")
+	_expect(tuning_source.find("TEMP_PHASE_C_MONK_CHOSIK_ACQUIRE_COST") < 0 and tuning_source.find("TEMP_PHASE_C_MONK_CHOSIK_SWAP_COST") < 0, "old split monk price owners must be removed")
 	_expect(source.find("plaza_") < 0 and source.find("perform_academy") < 0, "monk node must not reuse persistent plaza payment or the academy stub")
 
 
@@ -657,14 +672,6 @@ func _build_fixture() -> Dictionary:
 	}
 
 
-func _choice_ids(choices: Array) -> Array[String]:
-	var result: Array[String] = []
-	for choice_value in choices:
-		if choice_value is Dictionary:
-			result.append(str((choice_value as Dictionary).get("id", "")))
-	return result
-
-
 func _find_action_with_prefix(actions: Array, prefix: String) -> Dictionary:
 	for action_value in actions:
 		if (
@@ -675,19 +682,39 @@ func _find_action_with_prefix(actions: Array, prefix: String) -> Dictionary:
 	return {}
 
 
-func _find_swap_action_for_removed_skill(actions: Array, removed_skill: String) -> Dictionary:
-	for action_value in actions:
-		if not (action_value is Dictionary):
-			continue
-		var action := action_value as Dictionary
-		var payload_value: Variant = action.get("payload", {})
-		if (
-			str(action.get("id", "")).begins_with("fallen_monk:swap:")
-			and payload_value is Dictionary
-			and str((payload_value as Dictionary).get("removed_skill", "")) == removed_skill
-		):
-			return action
-	return {}
+func _advance_to_fallen_modal_with_rng_seal(flow: Object, owner: Object) -> Dictionary:
+	if flow == null or str(flow.get_phase_name()) != "ROUTE_AIM":
+		return {"arrived": false}
+	var target_index := -1
+	var targets: Array[Dictionary] = flow.get_route_aim_targets()
+	for index in range(targets.size()):
+		if str(targets[index].get("kind", "")) == "fallen_monk":
+			target_index = index
+			break
+	if target_index < 0:
+		return {"arrived": false}
+	flow.debug_launch_at_target(target_index)
+	flow.update_selective(
+		TowerAscentNodeArrivalTestFixture.REFERENCE_FLIGHT_SECONDS
+		* TowerAscentNodeArrivalTestFixture.REFERENCE_SERVE_SPEED_PER_SECOND
+		/ maxf(1.0, TowerAscentTuning.TEMP_ROUTE_AIM_SERVE_SPEED_PER_SECOND),
+		owner
+	)
+	if str(flow.get_phase_name()) != "MAP_TRANSITION":
+		return {"arrived": false}
+	var before_snapshot: Dictionary = flow.export_persistable_snapshot()
+	var rng_before: Dictionary = before_snapshot.get("gameplay_rng_state", {}).duplicate(true)
+	flow.update_selective(1.0, owner)
+	var after_snapshot: Dictionary = flow.export_persistable_snapshot()
+	var rng_after: Dictionary = after_snapshot.get("gameplay_rng_state", {}).duplicate(true)
+	return {
+		"arrived": (
+			str(flow.get_phase_name()) == "NODE_MODAL"
+			and str(flow.get_node_modal_kind()) == "fallen_monk"
+		),
+		"rng_before": rng_before,
+		"rng_after": rng_after,
+	}
 
 
 func _finish_flow(flow: Object, owner: Object) -> void:

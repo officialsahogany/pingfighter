@@ -1023,6 +1023,7 @@ const PERK_NAME_EN := {
 	"convert_to_gold": "Convert to Gold",
 	"angel_blessing": "Three Heavenly Omens",
 	"yangui_hoechun": "Dual-Principle Heaven Reversal",
+	"banana_master": "Banana Master",
 }
 
 const PERK_NAME_ZH := {
@@ -1136,6 +1137,7 @@ const PERK_NAME_ZH := {
 	"convert_to_gold": "兑换金币",
 	"angel_blessing": "天运三卦",
 	"yangui_hoechun": "两仪回天",
+	"banana_master": "香蕉大师",
 }
 
 const PERK_NAME_JA := {
@@ -1249,6 +1251,7 @@ const PERK_NAME_JA := {
 	"convert_to_gold": "ゴールド変換",
 	"angel_blessing": "天運三卦",
 	"yangui_hoechun": "両儀回天",
+	"banana_master": "バナナの達人",
 }
 
 const PERK_NAME_ES := {
@@ -1362,6 +1365,7 @@ const PERK_NAME_ES := {
 	"convert_to_gold": "Convertir en oro",
 	"angel_blessing": "Tres Presagios Celestiales",
 	"yangui_hoechun": "Reversión Celestial Dual",
+	"banana_master": "Maestro del Plátano",
 }
 
 const PERK_NAME_PT_BR := {
@@ -1475,6 +1479,7 @@ const PERK_NAME_PT_BR := {
 	"convert_to_gold": "Converter em Ouro",
 	"angel_blessing": "Três Presságios Celestiais",
 	"yangui_hoechun": "Reversão Celestial Dupla",
+	"banana_master": "Mestre da Banana",
 }
 
 const PERK_NAME_RU := {
@@ -1588,6 +1593,7 @@ const PERK_NAME_RU := {
 	"convert_to_gold": "Обменять на золото",
 	"angel_blessing": "Три Небесных Знамения",
 	"yangui_hoechun": "Двойное Небесное Отражение",
+	"banana_master": "Мастер Бананов",
 }
 
 const PERK_SUMMARY_EN := {
@@ -1698,6 +1704,7 @@ const PERK_SUMMARY_EN := {
 	"celestial_armor": "May ignore incoming stun and knockback by spending vigor.",
 	"angel_blessing": "Gain 1–3 different heavenly omens each stage (30% effect).",
 	"yangui_hoechun": "When a Chosik activates, if you have at least 30 vigor, there is a 50% chance to spend 30 vigor and emit clear golden waves to both sides. A wave reflects a descending ball upward.",
+	"banana_master": "Whenever you throw a banana, 2 bananas are launched.",
 	"baal_boots": "Devours weather energy and restores vigor.",
 	"pandora_legacy": "May open a forbidden reward choice after round wins.",
 	"convert_to_gold": "Skip the perk and gain 500 in-game gold.",
@@ -1811,6 +1818,7 @@ const PERK_SUMMARY_ZH := {
 	"celestial_armor": "可消耗能量无视即将到来的眩晕和击退。",
 	"angel_blessing": "每关获得1～3种不同的天运（效果30%）。",
 	"yangui_hoechun": "招式发动时，若气力至少为30，则有50%概率消耗30点气力，向左右放出清亮的金色气浪。气浪会将下落的球向上反弹。",
+	"banana_master": "投掷香蕉时会发射2根香蕉。",
 	"baal_boots": "吞噬天气之气并恢复能量。",
 	"pandora_legacy": "回合胜利后可能开启禁忌奖励选择。",
 	"convert_to_gold": "跳过升级并获得500局内金币。",
@@ -1924,6 +1932,7 @@ const PERK_SUMMARY_JA := {
 	"celestial_armor": "ゲージを消費して受けるスタンとノックバックを無視できます。",
 	"angel_blessing": "ステージごとに異なる天運を1～3個獲得します（効果30%）。",
 	"yangui_hoechun": "招式の発動時、気力が30以上なら50%の確率で気力を30消費し、左右へ澄んだ金色の気波を放ちます。気波に触れた下降中のボールを上へ反射します。",
+	"banana_master": "バナナを投げる時、バナナを2本発射します。",
 	"baal_boots": "天候の気を喰らい、ゲージを回復します。",
 	"pandora_legacy": "ラウンド勝利後に禁忌の報酬選択が開くことがあります。",
 	"convert_to_gold": "パークをスキップし、ゲーム内ゴールド500を獲得します。",
@@ -2037,6 +2046,7 @@ const PERK_SUMMARY_ES := {
 	"celestial_armor": "Puede gastar energía para ignorar un aturdimiento o empuje.",
 	"angel_blessing": "Obtén de 1 a 3 presagios celestiales en cada fase (efecto del 30%).",
 	"yangui_hoechun": "Al activar una técnica, si tienes al menos 30 de energía, hay un 50% de probabilidad de gastar 30 y emitir ondas doradas y claras a ambos lados. Las ondas reflejan hacia arriba una pelota descendente.",
+	"banana_master": "Al lanzar un plátano, se disparan 2 plátanos.",
 	"baal_boots": "Devora la energía del clima y restaura energía.",
 	"pandora_legacy": "Puede abrir una elección de recompensa prohibida tras ganar ronda.",
 	"convert_to_gold": "Omite el perk y gana 500 de oro en partida.",
@@ -2150,6 +2160,7 @@ const PERK_SUMMARY_PT_BR := {
 	"celestial_armor": "Pode gastar energia para ignorar um atordoamento ou empurrão.",
 	"angel_blessing": "Receba de 1 a 3 presságios celestiais a cada fase (efeito de 30%).",
 	"yangui_hoechun": "Ao ativar uma técnica, se você tiver pelo menos 30 de energia, há 50% de chance de gastar 30 e emitir ondas douradas e límpidas para os dois lados. As ondas refletem para cima uma bola descendente.",
+	"banana_master": "Ao arremessar uma banana, 2 bananas são lançadas.",
 	"baal_boots": "Devora a energia do clima e restaura energia.",
 	"pandora_legacy": "Pode abrir uma escolha de recompensa proibida após vencer rodada.",
 	"convert_to_gold": "Pula o perk e ganha 500 de ouro em jogo.",
@@ -2263,6 +2274,7 @@ const PERK_SUMMARY_RU := {
 	"celestial_armor": "Может потратить энергию, чтобы игнорировать оглушение или отбрасывание.",
 	"angel_blessing": "На каждом этапе даёт 1–3 небесных знамения (эффект 30%).",
 	"yangui_hoechun": "При активации приёма, если есть хотя бы 30 энергии, с шансом 50% расходует 30 энергии и выпускает ясные золотые волны в обе стороны. Волна отражает летящий вниз мяч вверх.",
+	"banana_master": "При броске банана запускаются 2 банана.",
 	"baal_boots": "Пожирает энергию погоды и восстанавливает силу.",
 	"pandora_legacy": "Может открыть запретный выбор награды после победы в раунде.",
 	"convert_to_gold": "Пропускает перк и дает 500 золота в игре.",

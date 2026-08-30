@@ -16,6 +16,7 @@ const KEY_NODE_TRAINING := "tower_ascent.map_overlay.node.training"
 const KEY_NODE_FALLEN_MONK := "tower_ascent.map_overlay.node.fallen_monk"
 const KEY_NODE_GUARDIAN_SPRING := "tower_ascent.map_overlay.node.guardian_spring"
 const KEY_NODE_REST := "tower_ascent.map_overlay.node.rest"
+const KEY_NODE_TAIJI_ELDER := "tower_ascent.map_overlay.node.taiji_elder"
 const KEY_STATE_CURRENT := "tower_ascent.map_overlay.state.current"
 const KEY_STATE_COMPLETED := "tower_ascent.map_overlay.state.completed"
 const KEY_STATE_UNVISITED := "tower_ascent.map_overlay.state.unvisited"
@@ -37,12 +38,37 @@ const TEXT_BY_LOCALE := {
 		KEY_NODE_TRAINING: "수련장",
 		KEY_NODE_FALLEN_MONK: "파계승",
 		KEY_NODE_GUARDIAN_SPRING: "수호의 샘터",
-		KEY_NODE_REST: "휴식",
+		KEY_NODE_REST: "모닥불",
+		KEY_NODE_TAIJI_ELDER: "태극노인",
 		KEY_STATE_CURRENT: "현재",
 		KEY_STATE_COMPLETED: "완료",
 		KEY_STATE_UNVISITED: "미방문",
 		KEY_STATE_VANISHED: "소멸",
 		KEY_STATE_LOCKED: "잠금",
+	},
+	LanguageSettings.LANGUAGE_ENGLISH: {
+		KEY_NODE_REST: "Campfire",
+		KEY_NODE_TAIJI_ELDER: "Taiji Elder",
+	},
+	LanguageSettings.LANGUAGE_CHINESE: {
+		KEY_NODE_REST: "篝火",
+		KEY_NODE_TAIJI_ELDER: "太极老人",
+	},
+	LanguageSettings.LANGUAGE_JAPANESE: {
+		KEY_NODE_REST: "焚き火",
+		KEY_NODE_TAIJI_ELDER: "太極老人",
+	},
+	LanguageSettings.LANGUAGE_SPANISH: {
+		KEY_NODE_REST: "Hoguera",
+		KEY_NODE_TAIJI_ELDER: "Anciano del Taiji",
+	},
+	LanguageSettings.LANGUAGE_PORTUGUESE_BRAZIL: {
+		KEY_NODE_REST: "Fogueira",
+		KEY_NODE_TAIJI_ELDER: "Ancião do Taiji",
+	},
+	LanguageSettings.LANGUAGE_RUSSIAN: {
+		KEY_NODE_REST: "Костёр",
+		KEY_NODE_TAIJI_ELDER: "Старец Тайцзи",
 	},
 }
 
@@ -55,6 +81,7 @@ const NODE_KIND_KEYS := {
 	"fallen_monk": KEY_NODE_FALLEN_MONK,
 	"guardian_spring": KEY_NODE_GUARDIAN_SPRING,
 	"rest": KEY_NODE_REST,
+	"taiji_elder": KEY_NODE_TAIJI_ELDER,
 }
 
 
@@ -105,7 +132,13 @@ static func get_registered_keys() -> Array[String]:
 
 static func get_missing_translation_locales() -> Array[String]:
 	var result: Array[String] = []
+	var registered_keys := get_registered_keys()
 	for locale in LanguageSettings.SUPPORTED_LANGUAGES:
-		if locale != LanguageSettings.LANGUAGE_KOREAN and not TEXT_BY_LOCALE.has(locale):
-			result.append(locale)
+		if locale == LanguageSettings.LANGUAGE_KOREAN:
+			continue
+		var locale_text: Dictionary = TEXT_BY_LOCALE.get(locale, {})
+		for key in registered_keys:
+			if not locale_text.has(key):
+				result.append(locale)
+				break
 	return result

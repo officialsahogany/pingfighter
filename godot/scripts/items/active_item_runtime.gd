@@ -2,9 +2,13 @@ extends RefCounted
 
 const BattleSceneOwnerReader := preload("res://scripts/core/battle_scene_owner_reader.gd")
 const ScriptInstanceCache := preload("res://scripts/resources/script_instance_cache.gd")
+const RuntimePerkCatalog := preload("res://scripts/characters/runtime_perk_catalog.gd")
 
 const PLAYER_BASE_PADDLE_WIDTH := 155.0
 const PLAYER_BASE_PADDLE_HEIGHT := 50.0
+const BANANA_ITEM_ID := "banana"
+const BANANA_MASTER_PERK_ID := "banana_master"
+const TOWER_INVENTORY_SNAPSHOT_VERSION := 1
 const HELPER_SCRIPT_REQUEST_AHEAD := 12
 const HELPER_INIT_ORDER := [
 	"slot_controller",
@@ -282,6 +286,333 @@ func discard_active_slot(slot_index: int, owner: Object, registry: Object = null
 	_adjust_selected_slot_after_discard(registry, slot_index, active_item_slots.size())
 	_request_owner_redraw(owner)
 	return true
+
+
+func has_banana(owner: Object) -> bool:
+	return _find_active_item_slot(owner, BANANA_ITEM_ID) >= 0
+
+
+# Tower stable-boundary codec for active inventory mutations owned by a
+# noncombat node. This is intentionally separate from match-reset snapshots.
+func build_tower_inventory_snapshot(owner: Object, registry: Object = null) -> Dictionary:
+	if owner == null:
+		return {}
+	return {
+		"version": TOWER_INVENTORY_SNAPSHOT_VERSION,
+		"active_item_slots": BattleSceneOwnerReader.get_array(
+			owner,
+			"active_item_slots"
+		).duplicate(true),
+		"selection": _capture_active_item_selection(registry),
+	}
+
+
+func restore_tower_inventory_snapshot(
+	snapshot: Dictionary,
+	owner: Object,
+	registry: Object = null
+) -> Dictionary:
+	if (
+		owner == null
+		or int(snapshot.get("version", 0)) != TOWER_INVENTORY_SNAPSHOT_VERSION
+		or not (snapshot.get("active_item_slots", null) is Array)
+		or not (snapshot.get("selection", null) is Dictionary)
+	):
+		return {"accepted": false, "restored": false, "reason": "invalid_tower_inventory_snapshot"}
+	var inventory_snapshot := (snapshot.get("active_item_slots", []) as Array).duplicate(true)
+	var selection_snapshot := (snapshot.get("selection", {}) as Dictionary).duplicate(true)
+	var restored := _restore_active_item_inventory(
+		owner,
+		registry,
+		inventory_snapshot,
+		selection_snapshot
+	)
+	return {
+		"accepted": restored,
+		"restored": restored,
+		"version": TOWER_INVENTORY_SNAPSHOT_VERSION,
+		"slot_count": inventory_snapshot.size(),
+	}
+
+
+# Campfire-only exact grant transaction. The active-item inventory, selected HUD
+# slot, and runtime perk state either all commit or all return to their snapshots.
+# transaction_hooks exists only for focused rollback counterproofs.
+func consume_banana_and_grant_mastery(
+	owner: Object,
+	registry: Object,
+	transaction_hooks: Dictionary = {}
+) -> Dictionary:
+	if owner == null:
+		return _banana_master_rejected("missing_owner")
+	var banana_index := _find_active_item_slot(owner, BANANA_ITEM_ID)
+	if banana_index < 0:
+		return _banana_master_rejected("banana_missing")
+	var runtime_perk_state: Object = _get_instance(registry, "runtime_perk_state")
+	if (
+		runtime_perk_state == null
+		or not runtime_perk_state.has_method("build_tower_reward_mutation_snapshot")
+		or not runtime_perk_state.has_method("restore_tower_reward_mutation_snapshot")
+		or not runtime_perk_state.has_method("_sync_owner")
+		or not runtime_perk_state.has_method("_apply_level_side_effect")
+	):
+		return _banana_master_rejected("missing_runtime_perk_state")
+	var runtime_perk_catalog: Object = _get_instance(registry, "runtime_perk_catalog")
+	if runtime_perk_catalog == null or not runtime_perk_catalog.has_method("get_perk_data"):
+		runtime_perk_catalog = RuntimePerkCatalog.new()
+	var runtime_levels := _read_runtime_perk_levels(runtime_perk_state, owner)
+	if int(runtime_levels.get(BANANA_MASTER_PERK_ID, 0)) > 0:
+		return _banana_master_rejected("banana_master_already_owned")
+	var choice_value: Variant = runtime_perk_catalog.call("get_perk_data", BANANA_MASTER_PERK_ID)
+	if not (choice_value is Dictionary):
+		return _banana_master_rejected("banana_master_catalog_missing")
+	var choice := (choice_value as Dictionary).duplicate(true)
+	choice["id"] = BANANA_MASTER_PERK_ID
+	choice["current_level"] = 0
+	choice["next_level"] = 1
+	choice["source"] = "tower_campfire_banana_cooking"
+	if (
+		choice.is_empty()
+		or str(choice.get("rarity", "")).to_lower() != "mythic"
+		or not bool(choice.get("acquisition_only", false))
+	):
+		return _banana_master_rejected("banana_master_catalog_invalid")
+	var slot_catalog: Object = runtime_perk_catalog
+	if not slot_catalog.has_method("get_perk_slot_apply_status"):
+		slot_catalog = RuntimePerkCatalog.new()
+	var slot_status_value: Variant = slot_catalog.call(
+		"get_perk_slot_apply_status",
+		choice,
+		runtime_levels,
+		registry if registry != null else runtime_perk_state,
+		1
+	)
+	if not (
+		slot_status_value is Dictionary
+		and bool((slot_status_value as Dictionary).get("accepted", false))
+	):
+		return _banana_master_rejected("perk_slot_full")
+
+	var perk_snapshot := _capture_banana_master_perk_snapshot(runtime_perk_state)
+	if perk_snapshot.is_empty():
+		return _banana_master_rejected("perk_snapshot_failed")
+	var inventory_snapshot := BattleSceneOwnerReader.get_array(
+		owner,
+		"active_item_slots"
+	).duplicate(true)
+	var selection_snapshot := _capture_active_item_selection(registry)
+	if not discard_active_slot(banana_index, owner, registry):
+		return _banana_master_rejected("banana_consume_failed")
+
+	if bool(transaction_hooks.get("force_grant_rejection", false)):
+		return _rollback_banana_inventory_rejection(
+			"perk_grant_rejected",
+			owner,
+			registry,
+			inventory_snapshot,
+			selection_snapshot
+		)
+	var expected_levels := runtime_levels.duplicate(true)
+	expected_levels[BANANA_MASTER_PERK_ID] = 1
+	runtime_perk_state.set("runtime_skill_levels", expected_levels.duplicate(true))
+	var committed_levels := _read_runtime_perk_levels(runtime_perk_state, owner)
+	if (
+		bool(transaction_hooks.get("force_post_grant_failure", false))
+		or committed_levels != expected_levels
+	):
+		return _rollback_banana_master_rejection(
+			(
+				"post_grant_validation_failed"
+				if bool(transaction_hooks.get("force_post_grant_failure", false))
+				else "perk_grant_commit_failed"
+			),
+			owner,
+			registry,
+			runtime_perk_state,
+			runtime_perk_catalog,
+			perk_snapshot,
+			inventory_snapshot,
+			selection_snapshot
+		)
+	var granted_level := int(committed_levels.get(BANANA_MASTER_PERK_ID, 0))
+	# The exact campfire result modal is the acquisition presentation. Commit
+	# and validate both authoritative legs first, then publish runtime consumers.
+	runtime_perk_state.call("_sync_owner", owner)
+	if runtime_perk_state.has_method("_apply_level_side_effect"):
+		runtime_perk_state.call("_apply_level_side_effect", choice, owner, registry)
+	return {
+		"accepted": true,
+		"applied": true,
+		"reason": "banana_master_granted",
+		"perk_id": BANANA_MASTER_PERK_ID,
+		"banana_index": banana_index,
+		"granted_level": granted_level,
+		"grant_path": "campfire_exact_level_one",
+		"acquisition_presentation_owner": "tower_campfire_result",
+	}
+
+
+func _find_active_item_slot(owner: Object, item_name: String) -> int:
+	if owner == null or item_name.is_empty():
+		return -1
+	var active_item_slots := BattleSceneOwnerReader.get_array(owner, "active_item_slots")
+	for slot_index in range(active_item_slots.size()):
+		var item_value: Variant = active_item_slots[slot_index]
+		if not (item_value is Dictionary):
+			continue
+		var item_data := item_value as Dictionary
+		if (
+			str(item_data.get("name", "")) == item_name
+			or str(item_data.get("effect", "")) == item_name
+		):
+			return slot_index
+	return -1
+
+
+func _capture_banana_master_perk_snapshot(runtime_perk_state: Object) -> Dictionary:
+	if (
+		runtime_perk_state == null
+		or not runtime_perk_state.has_method("build_tower_reward_mutation_snapshot")
+	):
+		return {}
+	var snapshot_value: Variant = runtime_perk_state.call(
+		"build_tower_reward_mutation_snapshot"
+	)
+	if not (snapshot_value is Dictionary) or (snapshot_value as Dictionary).is_empty():
+		return {}
+	return (snapshot_value as Dictionary).duplicate(true)
+
+
+func _restore_banana_master_perk_snapshot(
+	runtime_perk_state: Object,
+	snapshot: Dictionary,
+	_owner: Object,
+	_registry: Object,
+	_runtime_perk_catalog: Object
+) -> bool:
+	if (
+		runtime_perk_state == null
+		or snapshot.is_empty()
+		or not runtime_perk_state.has_method("build_tower_reward_mutation_snapshot")
+	):
+		return false
+	var unlock_value: Variant = snapshot.get("unlock_save", null)
+	if not (unlock_value is Dictionary):
+		return false
+	var levels_value: Variant = (unlock_value as Dictionary).get(
+		"runtime_skill_levels",
+		null
+	)
+	if not (levels_value is Dictionary):
+		return false
+	# This transaction mutates one raw level only. Restoring that dictionary
+	# directly avoids advancing fusion revisions or publishing owner consumers
+	# before the atomic boundary has committed.
+	runtime_perk_state.set(
+		"runtime_skill_levels",
+		(levels_value as Dictionary).duplicate(true)
+	)
+	var restored_value: Variant = runtime_perk_state.call(
+		"build_tower_reward_mutation_snapshot"
+	)
+	return restored_value is Dictionary and restored_value == snapshot
+
+
+func _capture_active_item_selection(registry: Object) -> Dictionary:
+	var hud_state: Object = _get_instance(registry, "active_item_hud_state")
+	if hud_state == null or not hud_state.has_method("get_selected_index"):
+		return {"captured": false}
+	return {
+		"captured": true,
+		"selected_index": int(hud_state.get_selected_index()),
+	}
+
+
+func _restore_active_item_inventory(
+	owner: Object,
+	registry: Object,
+	inventory_snapshot: Array,
+	selection_snapshot: Dictionary
+) -> bool:
+	if owner == null:
+		return false
+	owner.set("active_item_slots", inventory_snapshot.duplicate(true))
+	if bool(selection_snapshot.get("captured", false)):
+		var hud_state: Object = _get_instance(registry, "active_item_hud_state")
+		if hud_state != null and hud_state.has_method("set_selected_index"):
+			hud_state.set_selected_index(int(selection_snapshot.get("selected_index", 0)))
+	_request_owner_redraw(owner)
+	return BattleSceneOwnerReader.get_array(owner, "active_item_slots") == inventory_snapshot
+
+
+func _read_runtime_perk_levels(runtime_perk_state: Object, owner: Object) -> Dictionary:
+	if runtime_perk_state != null:
+		var levels_value: Variant = runtime_perk_state.get("runtime_skill_levels")
+		if levels_value is Dictionary:
+			return (levels_value as Dictionary).duplicate(true)
+	return BattleSceneOwnerReader.get_dictionary(owner, "runtime_perk_levels").duplicate(true)
+
+
+func _rollback_banana_master_rejection(
+	reason: String,
+	owner: Object,
+	registry: Object,
+	runtime_perk_state: Object,
+	runtime_perk_catalog: Object,
+	perk_snapshot: Dictionary,
+	inventory_snapshot: Array,
+	selection_snapshot: Dictionary
+) -> Dictionary:
+	var perk_restored := _restore_banana_master_perk_snapshot(
+		runtime_perk_state,
+		perk_snapshot,
+		owner,
+		registry,
+		runtime_perk_catalog
+	)
+	var inventory_restored := _restore_active_item_inventory(
+		owner,
+		registry,
+		inventory_snapshot,
+		selection_snapshot
+	)
+	return _banana_master_rejected(reason, {
+		"rollback_applied": perk_restored and inventory_restored,
+		"perk_snapshot_restored": perk_restored,
+		"inventory_snapshot_restored": inventory_restored,
+	})
+
+
+func _rollback_banana_inventory_rejection(
+	reason: String,
+	owner: Object,
+	registry: Object,
+	inventory_snapshot: Array,
+	selection_snapshot: Dictionary
+) -> Dictionary:
+	var inventory_restored := _restore_active_item_inventory(
+		owner,
+		registry,
+		inventory_snapshot,
+		selection_snapshot
+	)
+	return _banana_master_rejected(reason, {
+		"rollback_applied": inventory_restored,
+		"perk_snapshot_restored": true,
+		"inventory_snapshot_restored": inventory_restored,
+		"precommit_rejection": true,
+	})
+
+
+func _banana_master_rejected(reason: String, extra: Dictionary = {}) -> Dictionary:
+	var result := {
+		"accepted": false,
+		"applied": false,
+		"reason": reason,
+		"perk_id": BANANA_MASTER_PERK_ID,
+	}
+	result.merge(extra, true)
+	return result
 
 
 func _request_owner_redraw(owner: Object) -> void:

@@ -24,13 +24,15 @@ const NPC_FILL_KINDS: Array[String] = [
 	"fallen_monk",
 	"shop",
 	"training",
+	"taiji_elder",
 ]
 const NPC_FILL_LABELS := {
-	"rest": "휴식",
+	"rest": "모닥불",
 	"guardian_spring": "샘터",
 	"fallen_monk": "파계승",
 	"shop": "상점",
 	"training": "수련장",
+	"taiji_elder": "태극노인",
 }
 const TEMP_OPTIONAL_EXTRA_BOSS_FLOOR_MIN := 2
 const TEMP_OPTIONAL_EXTRA_BOSS_MAX_PER_FLOOR := 2

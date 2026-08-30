@@ -1,8 +1,5 @@
 extends RefCounted
 
-const RuntimePerkCatalog := preload(
-	"res://scripts/characters/runtime_perk_catalog.gd"
-)
 const RuntimePerkCharacterContext := preload(
 	"res://scripts/characters/runtime_perk_character_context.gd"
 )
@@ -18,23 +15,17 @@ const TowerAscentPerkCandidatePolicy := preload(
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
-const TowerAscentUnlockFilter := preload(
-	"res://scripts/tower_ascent/tower_ascent_unlock_filter.gd"
-)
-
-const OFFER_VERSION := "tower_fallen_monk_offer_v1"
+const OFFER_VERSION := "tower_fallen_monk_offer_v2"
+const OFFER_GENERATION := 0
 const ACTION_PREFIX := "fallen_monk:"
 const OP_ACQUIRE := "acquire"
-const OP_SWAP := "swap"
-const OP_REMOVE := "remove"
-const OP_MUGONG := "mugong"
-const CHOSIK_CARD_COUNT := 3
-const TOTAL_CARD_COUNT := 6
+const CHOSIK_CARD_COUNT := 2
 
 var _generated_offers: Array[Dictionary] = []
 var _history: Array[Dictionary] = []
 var _runtime_snapshot: Dictionary = {}
 var _skill_config_snapshot: Dictionary = {}
+var _pending_chosik_swap: Dictionary = {}
 var _pending_rollback: Dictionary = {}
 var _character_context: Object = RuntimePerkCharacterContext.new()
 var _candidate_policy: Object = TowerAscentPerkCandidatePolicy.new()
@@ -51,6 +42,9 @@ func restore_state(
 	_history.assign(_dictionary_array(history_value))
 	_runtime_snapshot = _dictionary(runtime_snapshot_value)
 	_skill_config_snapshot = _dictionary(skill_config_snapshot_value)
+	# A pending replacement is an in-session transaction. The matching runtime
+	# modal and its rollback snapshot are deliberately not part of stable saves.
+	_pending_chosik_swap.clear()
 	_pending_rollback.clear()
 
 
@@ -59,6 +53,7 @@ func reset() -> void:
 	_history.clear()
 	_runtime_snapshot.clear()
 	_skill_config_snapshot.clear()
+	_pending_chosik_swap.clear()
 	_pending_rollback.clear()
 
 
@@ -119,62 +114,37 @@ func build_actions(
 	registry: Object
 ) -> Array[Dictionary]:
 	var offer := _get_or_create_offer(node_id, map_seed, owner, registry)
-	if offer.is_empty():
+	if (
+		offer.is_empty()
+		or has_pending_chosik_swap()
+		or _has_committed_visit_pick(node_id)
+	):
 		return []
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
-	var catalog := _get_registry_instance(registry, "runtime_perk_catalog")
 	var skill_config := _get_skill_config(owner, registry)
-	if runtime_state == null or catalog == null or skill_config == null:
+	if runtime_state == null or skill_config == null:
 		return []
-	var runtime_levels := _runtime_levels(runtime_state)
 	var balances := _economy(run_state)
 	var result: Array[Dictionary] = []
 	for choice_value in offer.get("choices", []):
+		if result.size() >= CHOSIK_CARD_COUNT:
+			break
 		if not (choice_value is Dictionary):
 			continue
 		var choice := choice_value as Dictionary
-		if _has_consumed_choice(node_id, str(choice.get("id", ""))):
-			continue
-		if str(choice.get("fallen_monk_kind", "chosik")) == "mugong":
-			result.append(_build_mugong_action(
-				choice,
-				balances,
-				runtime_levels,
-				catalog,
-				registry
-			))
+		if not _is_live_class_chosik_choice(
+			choice,
+			runtime_state,
+			skill_config,
+			owner,
+			registry
+		):
 			continue
 		var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
-		if unlocked_skill.is_empty() or _is_skill_equipped(skill_config, unlocked_skill):
-			continue
-		var swap_candidates := _swap_candidates(skill_config, unlocked_skill)
-		if _is_shared_slot_full(skill_config) and not swap_candidates.is_empty():
-			# A visit is a six-card storefront. Expanding one offered Chosik into
-			# every possible swap pair breaks both the six-card budget and pointer
-			# geometry, so each offered card carries one deterministic swap route.
-			result.append(_build_action(
-				OP_SWAP,
-				choice,
-				str(swap_candidates[swap_candidates.size() - 1]),
-				skill_config,
-				balances
-			))
-		else:
-			result.append(_build_action(
-				OP_ACQUIRE,
-				choice,
-				"",
-				skill_config,
-				balances
-			))
-	for removable in _build_removal_candidates(runtime_levels, catalog, skill_config, owner):
-		if result.size() >= TOTAL_CARD_COUNT:
-			break
 		result.append(_build_action(
-			OP_REMOVE,
-			removable,
-			str(removable.get("unlocks_skill", "")),
-			skill_config,
+			OP_ACQUIRE,
+			choice,
+			unlocked_skill,
 			balances
 		))
 	return result
@@ -191,6 +161,10 @@ func execute_action(
 	owner: Object,
 	registry: Object
 ) -> Dictionary:
+	if has_pending_chosik_swap():
+		return {"accepted": false, "applied": false, "reason": "chosik_swap_pending"}
+	if _has_committed_visit_pick(node_id):
+		return {"accepted": false, "applied": false, "reason": "fallen_monk_visit_completed"}
 	var action := _find_action(
 		action_id,
 		build_actions(node_id, map_seed, run_state, owner, registry)
@@ -205,12 +179,17 @@ func execute_action(
 		}
 	if action_transaction == null or not action_transaction.has_method("apply_once"):
 		return {"accepted": false, "reason": "missing_action_transaction"}
-	var operation := str(action.get("payload", {}).get("operation", ""))
-	var cost := _operation_cost(operation)
+	var payload := _dictionary(action.get("payload", {}))
+	var operation := str(payload.get("operation", ""))
+	if operation != OP_ACQUIRE:
+		return {"accepted": false, "applied": false, "reason": "invalid_fallen_monk_operation"}
+	var cost := TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
 	var effect_context := {
 		"operation": operation,
-		"choice": (action.get("payload", {}).get("choice", {}) as Dictionary).duplicate(true),
-		"removed_skill": str(action.get("payload", {}).get("removed_skill", "")),
+		"choice": _dictionary(payload.get("choice", {})),
+		"node_id": node_id,
+		"map_seed": map_seed,
+		"resolution_id": resolution_id,
 		"owner": owner,
 		"registry": registry,
 	}
@@ -224,10 +203,24 @@ func execute_action(
 		Callable(self, "_apply_operation").bind(effect_context),
 		Callable(self, "_rollback_operation").bind(owner, registry)
 	)
-	_pending_rollback.clear()
+	if (
+		has_pending_chosik_swap()
+		and str(_pending_chosik_swap.get("resolution_id", "")) == resolution_id
+	):
+		return {
+			"accepted": true,
+			"applied": false,
+			"reason": "chosik_swap_opened",
+			"node_resolution_id": resolution_id,
+			"message": TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_SPRING_CHOSIK_SWAP_OPENED
+			),
+		}
 	if not bool(transaction_result.get("accepted", false)):
+		_pending_rollback.clear()
 		return transaction_result
 	if not bool(transaction_result.get("applied", false)):
+		_pending_rollback.clear()
 		return transaction_result
 	var choice: Dictionary = effect_context.get("choice", {})
 	var record := {
@@ -236,14 +229,105 @@ func execute_action(
 		"operation": operation,
 		"choice_id": str(choice.get("id", "")),
 		"unlocked_skill": str(choice.get("unlocks_skill", "")),
-		"removed_skill": str(effect_context.get("removed_skill", "")),
+		"removed_skill": "",
 		"display_name": str(choice.get("name", choice.get("id", ""))),
 		"cost": cost,
 	}
 	_history.append(record)
+	_pending_rollback.clear()
 	transaction_result["record"] = record.duplicate(true)
 	transaction_result["message"] = _success_message(operation, record)
 	return transaction_result
+
+
+func has_pending_chosik_swap() -> bool:
+	return not _pending_chosik_swap.is_empty()
+
+
+func cancel_chosik_swap(owner: Object, registry: Object) -> Dictionary:
+	if not has_pending_chosik_swap():
+		return {"handled": false, "accepted": false, "reason": "no_pending_chosik_swap"}
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if runtime_state != null and runtime_state.has_method("cancel_pending_unlock_swap"):
+		runtime_state.call("cancel_pending_unlock_swap", owner)
+	_pending_chosik_swap.clear()
+	_rollback_operation(owner, registry)
+	_pending_rollback.clear()
+	return {
+		"handled": true,
+		"accepted": true,
+		"applied": false,
+		"reason": "chosik_swap_cancelled",
+	}
+
+
+func commit_chosik_swap(
+	run_state: Object,
+	resolution_ids: Dictionary,
+	action_transaction: Object,
+	owner: Object,
+	registry: Object
+) -> Dictionary:
+	var pending := _pending_chosik_swap.duplicate(true)
+	if pending.is_empty():
+		return {"handled": false, "accepted": false, "reason": "no_pending_chosik_swap"}
+	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
+	if (
+		runtime_state != null
+		and runtime_state.has_method("has_pending_unlock_swap")
+		and bool(runtime_state.call("has_pending_unlock_swap"))
+	):
+		return {"handled": false, "accepted": false, "reason": "chosik_swap_still_pending"}
+	var skill_config := _get_skill_config(owner, registry)
+	var confirmation := _confirmed_swap_postcondition(
+		pending,
+		runtime_state,
+		skill_config
+	)
+	if not bool(confirmation.get("accepted", false)):
+		var cancel_result := cancel_chosik_swap(owner, registry)
+		cancel_result["reason"] = "chosik_swap_not_confirmed"
+		return cancel_result
+	if action_transaction == null or not action_transaction.has_method("apply_once"):
+		var missing_result := cancel_chosik_swap(owner, registry)
+		missing_result["accepted"] = false
+		missing_result["reason"] = "missing_action_transaction"
+		return missing_result
+	var resolution_id := str(pending.get("resolution_id", "")).strip_edges()
+	var result: Dictionary = action_transaction.call(
+		"apply_once",
+		resolution_id,
+		{"muhon": TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST},
+		{},
+		run_state,
+		resolution_ids,
+		Callable(self, "_commit_confirmed_swap").bind(pending, owner, registry),
+		Callable(self, "_rollback_operation").bind(owner, registry)
+	)
+	if not bool(result.get("accepted", false)) or not bool(result.get("applied", false)):
+		_pending_chosik_swap.clear()
+		_rollback_operation(owner, registry)
+		_pending_rollback.clear()
+		result["handled"] = true
+		return result
+	var choice := _dictionary(pending.get("choice", {}))
+	var record := {
+		"node_id": str(pending.get("node_id", "")),
+		"node_resolution_id": resolution_id,
+		"operation": OP_ACQUIRE,
+		"choice_id": str(choice.get("id", "")),
+		"unlocked_skill": str(choice.get("unlocks_skill", "")),
+		"removed_skill": str(confirmation.get("removed_skill", "")),
+		"display_name": str(choice.get("name", choice.get("id", ""))),
+		"cost": TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
+	}
+	_history.append(record)
+	_pending_chosik_swap.clear()
+	_pending_rollback.clear()
+	result["handled"] = true
+	result["record"] = record.duplicate(true)
+	result["message"] = _success_message(OP_ACQUIRE, record)
+	return result
 
 
 func _get_or_create_offer(
@@ -288,7 +372,6 @@ func _build_offer(
 		return {}
 	var all_data := all_data_value as Dictionary
 	var candidate_ids: Array[String] = []
-	var mugong_ids: Array[String] = []
 	for perk_id_value in all_data.keys():
 		var perk_id := str(perk_id_value).strip_edges()
 		var data_value: Variant = all_data.get(perk_id, {})
@@ -299,14 +382,6 @@ func _build_offer(
 		var candidate_data := data.duplicate(true)
 		candidate_data["id"] = perk_id
 		if unlocked_skill.is_empty():
-			if _candidate_policy.is_mugong_candidate(
-				candidate_data,
-				runtime_levels,
-				character_type,
-				registry,
-				true
-			):
-				mugong_ids.append(perk_id)
 			continue
 		if not _candidate_policy.is_chosik_candidate(
 			candidate_data,
@@ -316,13 +391,18 @@ func _build_offer(
 			skill_config
 		):
 			continue
+		if _is_skill_equipped(skill_config, unlocked_skill):
+			continue
 		candidate_ids.append(perk_id)
 	candidate_ids.sort()
-	mugong_ids.sort()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = absi(hash("%d:%s:%s" % [map_seed, node_id, OFFER_VERSION]))
+	rng.seed = absi(hash("%d:%s:%s:%d" % [
+		map_seed,
+		node_id,
+		OFFER_VERSION,
+		OFFER_GENERATION,
+	]))
 	_shuffle_with_rng(candidate_ids, rng)
-	_shuffle_with_rng(mugong_ids, rng)
 	var choices: Array[Dictionary] = []
 	var chosik_count := mini(CHOSIK_CARD_COUNT, candidate_ids.size())
 	for index in range(chosik_count):
@@ -332,23 +412,10 @@ func _build_offer(
 			choice["id"] = candidate_ids[index]
 			choice["current_level"] = 0
 			choice["next_level"] = 1
-			choice["fallen_monk_kind"] = "chosik"
 			choices.append(choice)
-	for perk_id in mugong_ids:
-		if choices.size() >= TOTAL_CARD_COUNT:
-			break
-		var choice_value: Variant = catalog.call("get_perk_data", perk_id)
-		if choice_value is Dictionary:
-			var choice := (choice_value as Dictionary).duplicate(true)
-			choice["id"] = perk_id
-			choice["current_level"] = int(runtime_levels.get(perk_id, 0))
-			choice["next_level"] = int(choice.get("current_level", 0)) + 1
-			choice["fallen_monk_kind"] = "mugong"
-			choices.append(choice)
-	if choices.size() < TOTAL_CARD_COUNT:
-		choices.clear()
 	return {
 		"offer_version": OFFER_VERSION,
+		"offer_generation": OFFER_GENERATION,
 		"node_id": node_id,
 		"character_type": character_type,
 		"choices": choices,
@@ -358,12 +425,11 @@ func _build_offer(
 func _build_action(
 	operation: String,
 	choice: Dictionary,
-	removed_skill: String,
-	skill_config: Object,
+	unlocked_skill: String,
 	balances: Dictionary
 ) -> Dictionary:
 	var choice_id := str(choice.get("id", "")).strip_edges()
-	var cost := _operation_cost(operation)
+	var cost := TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
 	var affordable := int(balances.get("muhon", 0)) >= cost
 	var enabled := affordable
 	var unavailable_reason := ""
@@ -377,26 +443,13 @@ func _build_action(
 				"shortfall": cost - int(balances.get("muhon", 0)),
 			}
 		)
-	var unlocked_skill := str(choice.get("unlocks_skill", ""))
 	var new_name := str(choice.get("name", choice_id))
-	var old_name := str(_skill_data(skill_config, removed_skill).get("korean", removed_skill))
-	var label_key := TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_OPTION
-	if operation == OP_SWAP:
-		label_key = TowerAscentNodeModalLocalization.KEY_MONK_SWAP_OPTION
-	elif operation == OP_REMOVE:
-		label_key = TowerAscentNodeModalLocalization.KEY_MONK_REMOVE_OPTION
 	var action_id := "%s%s:%s" % [ACTION_PREFIX, operation, choice_id]
-	if not removed_skill.is_empty():
-		action_id += ":%s" % removed_skill
 	return {
 		"id": action_id,
 		"label": TowerAscentNodeModalLocalization.text(
-			label_key,
-			{
-				"name": new_name,
-				"old_name": old_name,
-				"new_name": new_name,
-			}
+			TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_OPTION,
+			{"name": new_name}
 		),
 		"cost_text": TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
@@ -409,187 +462,64 @@ func _build_action(
 			"operation": operation,
 			"choice": choice.duplicate(true),
 			"unlocked_skill": unlocked_skill,
-			"removed_skill": removed_skill,
-			"presentation": _build_presentation(
-				operation,
-				choice,
-				new_name,
-				old_name
-			),
-		},
-	}
-
-
-func _build_mugong_action(
-	choice: Dictionary,
-	balances: Dictionary,
-	runtime_levels: Dictionary,
-	catalog: Object,
-	registry: Object
-) -> Dictionary:
-	var choice_id := str(choice.get("id", "")).strip_edges()
-	var cost := TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
-	var affordable := int(balances.get("muhon", 0)) >= cost
-	var slot_allowed := false
-	if catalog != null and catalog.has_method("get_perk_slot_apply_status"):
-		var status_value: Variant = catalog.call(
-			"get_perk_slot_apply_status",
-			choice,
-			runtime_levels,
-			registry,
-			int(choice.get("next_level", int(runtime_levels.get(choice_id, 0)) + 1))
-		)
-		slot_allowed = status_value is Dictionary and bool((status_value as Dictionary).get("accepted", false))
-	var disabled_reason := ""
-	var unavailable_reason := ""
-	if not slot_allowed:
-		disabled_reason = RuntimePerkCatalog.PERK_SLOT_LIMIT_BLOCKED_REASON
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_MONK_MUGONG_SLOT_FULL
-		)
-	elif not affordable:
-		disabled_reason = "insufficient_muhon"
-		unavailable_reason = TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_INSUFFICIENT_MUHON,
-			{
-				"required": cost,
-				"shortfall": cost - int(balances.get("muhon", 0)),
-			}
-		)
-	return {
-		"id": "%s%s:%s" % [ACTION_PREFIX, OP_MUGONG, choice_id],
-		"label": str(choice.get("name", choice_id)),
-		"cost_text": TowerAscentNodeModalLocalization.text(
-			TowerAscentNodeModalLocalization.KEY_COST_MUHON,
-			{"amount": cost}
-		),
-		"enabled": affordable and slot_allowed,
-		"disabled_reason": disabled_reason,
-		"unavailable_reason": unavailable_reason,
-		"payload": {
-			"operation": OP_MUGONG,
-			"choice": choice.duplicate(true),
-			"removed_skill": "",
 			"presentation": {
 				"current": "Lv.%d" % int(choice.get("current_level", 0)),
 				"result": "Lv.%d" % int(choice.get("next_level", 1)),
-				"target": str(choice.get("name", choice_id)),
+				"target": new_name,
 			},
 		},
 	}
-
-
-func _build_presentation(
-	operation: String,
-	choice: Dictionary,
-	new_name: String,
-	old_name: String
-) -> Dictionary:
-	if operation == OP_SWAP:
-		return {"current": old_name, "result": new_name, "target": new_name}
-	if operation == OP_REMOVE:
-		return {
-			"current": new_name,
-			"result": TowerAscentNodeModalLocalization.text(
-				TowerAscentNodeModalLocalization.KEY_STATE_EMPTY
-			),
-			"target": new_name,
-		}
-	return {
-		"current": "Lv.%d" % int(choice.get("current_level", 0)),
-		"result": "Lv.%d" % int(choice.get("next_level", 1)),
-		"target": new_name,
-	}
-
-
-func _build_removal_candidates(
-	runtime_levels: Dictionary,
-	catalog: Object,
-	skill_config: Object,
-	owner: Object
-) -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	var character_type := _character_type(owner)
-	var sorted_ids: Array[String] = []
-	for perk_id_value in runtime_levels.keys():
-		sorted_ids.append(str(perk_id_value))
-	sorted_ids.sort()
-	for perk_id in sorted_ids:
-		if int(runtime_levels.get(perk_id, 0)) <= 0:
-			continue
-		var data_value: Variant = catalog.call("get_perk_data", perk_id)
-		if not (data_value is Dictionary):
-			continue
-		var data := data_value as Dictionary
-		var unlocked_skill := str(data.get("unlocks_skill", "")).strip_edges()
-		var restriction := str(data.get("character_restriction", "")).strip_edges()
-		if (
-			unlocked_skill.is_empty()
-			or restriction.is_empty()
-			or _character_context.normalize_character_type(restriction) != character_type
-			or not _is_skill_equipped(skill_config, unlocked_skill)
-		):
-			continue
-		var choice := data.duplicate(true)
-		choice["id"] = perk_id
-		result.append(choice)
-	return result
 
 
 func _apply_operation(context: Dictionary) -> bool:
 	var owner: Object = context.get("owner", null)
 	var registry: Object = context.get("registry", null)
 	var runtime_state := _get_registry_instance(registry, "runtime_perk_state")
-	var catalog := _get_registry_instance(registry, "runtime_perk_catalog")
 	var skill_config := _get_skill_config(owner, registry)
-	if runtime_state == null or catalog == null or skill_config == null:
+	if (
+		runtime_state == null
+		or skill_config == null
+		or not runtime_state.has_method("apply_choice")
+		or (
+			runtime_state.has_method("has_pending_unlock_swap")
+			and bool(runtime_state.call("has_pending_unlock_swap"))
+		)
+	):
 		return false
 	_capture_rollback(runtime_state, skill_config, owner)
 	if (_pending_rollback.get("runtime_snapshot", {}) as Dictionary).is_empty():
 		_pending_rollback.clear()
 		return false
 	var operation := str(context.get("operation", ""))
-	var choice: Dictionary = context.get("choice", {})
-	var removed_skill := str(context.get("removed_skill", ""))
-	var accepted := false
-	if operation in [OP_ACQUIRE, OP_MUGONG]:
-		accepted = bool(runtime_state.call("apply_choice", choice, owner, registry))
-	elif operation == OP_SWAP:
-		accepted = _apply_swap(
-			runtime_state,
-			choice,
-			removed_skill,
-			owner,
-			registry
-		)
-	elif operation == OP_REMOVE:
-		accepted = _apply_remove(
-			runtime_state,
-			catalog,
-			skill_config,
-			removed_skill,
-			owner,
-			registry
-		)
-	if accepted and not _capture_committed_snapshots(owner, registry):
-		accepted = false
-	if not accepted:
+	var choice := _dictionary(context.get("choice", {}))
+	if operation != OP_ACQUIRE or choice.is_empty():
 		_rollback_operation(owner, registry)
 		_pending_rollback.clear()
-	return accepted
-
-
-func _apply_swap(
-	runtime_state: Object,
-	choice: Dictionary,
-	removed_skill: String,
-	owner: Object,
-	registry: Object
-) -> bool:
-	if bool(runtime_state.call("apply_choice", choice, owner, registry)):
 		return false
+	if bool(runtime_state.call("apply_choice", choice, owner, registry)):
+		if _capture_committed_snapshots(owner, registry):
+			return true
+		_rollback_operation(owner, registry)
+		_pending_rollback.clear()
+		return false
+	if _runtime_pending_matches_choice(runtime_state, choice):
+		_pending_chosik_swap = {
+			"node_id": str(context.get("node_id", "")),
+			"map_seed": int(context.get("map_seed", 0)),
+			"resolution_id": str(context.get("resolution_id", "")),
+			"operation": OP_ACQUIRE,
+			"choice": choice.duplicate(true),
+		}
+		return false
+	_rollback_operation(owner, registry)
+	_pending_rollback.clear()
+	return false
+
+
+func _runtime_pending_matches_choice(runtime_state: Object, choice: Dictionary) -> bool:
 	if (
-		not runtime_state.has_method("has_pending_unlock_swap")
+		runtime_state == null
+		or not runtime_state.has_method("has_pending_unlock_swap")
 		or not bool(runtime_state.call("has_pending_unlock_swap"))
 		or not runtime_state.has_method("get_pending_unlock_swap")
 	):
@@ -597,57 +527,67 @@ func _apply_swap(
 	var pending_value: Variant = runtime_state.call("get_pending_unlock_swap")
 	if not (pending_value is Dictionary):
 		return false
-	var candidates: Array = (pending_value as Dictionary).get("candidates", [])
-	var selected_index := -1
-	for index in range(candidates.size()):
-		var candidate_value: Variant = candidates[index]
-		if (
-			candidate_value is Dictionary
-			and str((candidate_value as Dictionary).get("skill_id", "")) == removed_skill
-		):
-			selected_index = index
-			break
-	if selected_index < 0:
-		return false
-	if selected_index > 0:
-		if not runtime_state.has_method("move_unlock_swap_selection"):
-			return false
-		runtime_state.call("move_unlock_swap_selection", selected_index)
+	var pending := pending_value as Dictionary
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
 	return (
-		runtime_state.has_method("confirm_pending_unlock_swap")
-		and bool(runtime_state.call("confirm_pending_unlock_swap", owner, registry))
+		not choice_id.is_empty()
+		and not unlocked_skill.is_empty()
+		and str(pending.get("choice_id", "")).strip_edges() == choice_id
+		and str(pending.get("unlocks_skill", "")).strip_edges() == unlocked_skill
+		and pending.get("candidates", []) is Array
+		and not (pending.get("candidates", []) as Array).is_empty()
 	)
 
 
-func _apply_remove(
-	runtime_state: Object,
-	catalog: Object,
-	skill_config: Object,
-	removed_skill: String,
+func _commit_confirmed_swap(
+	pending: Dictionary,
 	owner: Object,
 	registry: Object
 ) -> bool:
-	if removed_skill.is_empty() or not skill_config.has_method("unequip_skill"):
-		return false
-	if not bool(skill_config.call("unequip_skill", removed_skill)):
-		return false
-	var runtime_levels := _runtime_levels_reference(runtime_state)
-	var removed_perk_id := str(_unlock_swap_flow.remove_runtime_unlock_for_skill(
-		runtime_levels,
-		removed_skill,
-		catalog
-	))
-	if removed_perk_id.is_empty():
-		return false
-	_sync_current_runtime_snapshot(runtime_state, owner, registry)
-	_unlock_swap_flow.sync_commando_weapon_controller(
-		"",
-		skill_config,
-		registry,
-		_character_type(owner),
-		Callable(self, "_get_registry_instance")
+	var confirmation := _confirmed_swap_postcondition(
+		pending,
+		_get_registry_instance(registry, "runtime_perk_state"),
+		_get_skill_config(owner, registry)
 	)
-	return true
+	return (
+		bool(confirmation.get("accepted", false))
+		and _capture_committed_snapshots(owner, registry)
+	)
+
+
+func _confirmed_swap_postcondition(
+	pending: Dictionary,
+	runtime_state: Object,
+	skill_config: Object
+) -> Dictionary:
+	if runtime_state == null or skill_config == null or _pending_rollback.is_empty():
+		return {"accepted": false}
+	var choice := _dictionary(pending.get("choice", {}))
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
+	if choice_id.is_empty() or unlocked_skill.is_empty():
+		return {"accepted": false}
+	var previous_snapshot := _dictionary(_pending_rollback.get("runtime_snapshot", {}))
+	var previous_levels := _dictionary(previous_snapshot.get("runtime_skill_levels", {}))
+	var current_levels := _runtime_levels(runtime_state)
+	if int(current_levels.get(choice_id, 0)) <= int(previous_levels.get(choice_id, 0)):
+		return {"accepted": false}
+	var previous_equipped := _array(_pending_rollback.get("equipped_skills", []))
+	var current_equipped := _equipped_skills(skill_config)
+	if not current_equipped.has(unlocked_skill) or current_equipped.size() != previous_equipped.size():
+		return {"accepted": false}
+	var removed_skill := ""
+	for skill_value in previous_equipped:
+		var skill_id := str(skill_value)
+		if current_equipped.has(skill_id):
+			continue
+		if not removed_skill.is_empty():
+			return {"accepted": false}
+		removed_skill = skill_id
+	if removed_skill.is_empty():
+		return {"accepted": false}
+	return {"accepted": true, "removed_skill": removed_skill}
 
 
 func _capture_rollback(runtime_state: Object, skill_config: Object, owner: Object) -> void:
@@ -660,6 +600,9 @@ func _capture_rollback(runtime_state: Object, skill_config: Object, owner: Objec
 	_pending_rollback = {
 		"runtime_snapshot": runtime_snapshot,
 		"equipped_skills": _equipped_skills(skill_config),
+		"skill_config_rollback_snapshot": _capture_skill_config_rollback_snapshot(
+			skill_config
+		),
 		"character_type": _character_type(owner),
 		"committed_runtime_snapshot": _runtime_snapshot.duplicate(true),
 		"committed_skill_config_snapshot": _skill_config_snapshot.duplicate(true),
@@ -674,7 +617,10 @@ func _rollback_operation(owner: Object, registry: Object) -> void:
 	if runtime_state != null and runtime_state.has_method("cancel_pending_unlock_swap"):
 		runtime_state.call("cancel_pending_unlock_swap", owner)
 	if skill_config != null:
-		_restore_equipped_skills(skill_config, _pending_rollback.get("equipped_skills", []))
+		_restore_skill_config_rollback_snapshot(
+			skill_config,
+			_pending_rollback.get("skill_config_rollback_snapshot", {})
+		)
 	var runtime_snapshot: Dictionary = _pending_rollback.get("runtime_snapshot", {})
 	if (
 		runtime_state != null
@@ -717,6 +663,12 @@ func _restore_equipped_skills(skill_config: Object, original_value: Variant) -> 
 	if skill_config == null or not (original_value is Array):
 		return false
 	var original := (original_value as Array).duplicate()
+	if _has_property(skill_config, "equipped_skills"):
+		var typed_original: Array[String] = []
+		for skill_value in original:
+			typed_original.append(str(skill_value))
+		skill_config.set("equipped_skills", typed_original)
+		return _equipped_skills(skill_config) == original
 	var current := _equipped_skills(skill_config)
 	for skill_value in current:
 		var skill_id := str(skill_value)
@@ -738,15 +690,43 @@ func _restore_equipped_skills(skill_config: Object, original_value: Variant) -> 
 	return _equipped_skills(skill_config) == original
 
 
-func _sync_current_runtime_snapshot(runtime_state: Object, owner: Object, registry: Object) -> void:
+func _capture_skill_config_rollback_snapshot(skill_config: Object) -> Dictionary:
+	if skill_config == null:
+		return {}
+	for method_name in ["build_save_snapshot", "get_save_snapshot"]:
+		if not skill_config.has_method(method_name):
+			continue
+		var value: Variant = skill_config.call(method_name)
+		if value is Dictionary and not (value as Dictionary).is_empty():
+			return {
+				"restore_method": "apply_save_snapshot",
+				"payload": (value as Dictionary).duplicate(true),
+			}
+	return {"equipped_skills": _equipped_skills(skill_config)}
+
+
+func _restore_skill_config_rollback_snapshot(
+	skill_config: Object,
+	snapshot_value: Variant
+) -> bool:
+	var snapshot := _dictionary(snapshot_value)
+	if snapshot.is_empty():
+		return false
 	if (
-		not runtime_state.has_method("build_unlock_save_snapshot")
-		or not runtime_state.has_method("apply_unlock_save_snapshot")
+		str(snapshot.get("restore_method", "")) == "apply_save_snapshot"
+		and skill_config.has_method("apply_save_snapshot")
 	):
-		return
-	var snapshot_value: Variant = runtime_state.call("build_unlock_save_snapshot")
-	if snapshot_value is Dictionary:
-		runtime_state.call("apply_unlock_save_snapshot", snapshot_value, owner, registry)
+		var result_value: Variant = skill_config.call(
+			"apply_save_snapshot",
+			_dictionary(snapshot.get("payload", {}))
+		)
+		return not (result_value is Dictionary) or bool(
+			(result_value as Dictionary).get("restored", false)
+		)
+	return _restore_equipped_skills(
+		skill_config,
+		snapshot.get("equipped_skills", [])
+	)
 
 
 func _find_action(action_id: String, actions: Array[Dictionary]) -> Dictionary:
@@ -756,45 +736,18 @@ func _find_action(action_id: String, actions: Array[Dictionary]) -> Dictionary:
 	return {}
 
 
-func _operation_counts(node_id: String) -> Dictionary:
-	var counts := {OP_ACQUIRE: 0, OP_SWAP: 0, OP_REMOVE: 0}
+func _has_committed_visit_pick(node_id: String) -> bool:
 	for record in _history:
-		if str(record.get("node_id", "")) != node_id:
-			continue
-		var operation := str(record.get("operation", ""))
-		if counts.has(operation):
-			counts[operation] = int(counts.get(operation, 0)) + 1
-	return counts
-
-
-func _operation_cost(operation: String) -> int:
-	match operation:
-		OP_MUGONG:
-			return TowerAscentTuning.TEMP_PHASE_C_TRAINING_MUGONG_COST
-		OP_ACQUIRE:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_CHOSIK_ACQUIRE_COST
-		OP_SWAP:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_CHOSIK_SWAP_COST
-		OP_REMOVE:
-			return TowerAscentTuning.TEMP_PHASE_C_MONK_CHOSIK_REMOVE_COST
-	return 0
-func _success_message(operation: String, record: Dictionary) -> String:
-	var key := TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_COMPLETED
-	if operation == OP_SWAP:
-		key = TowerAscentNodeModalLocalization.KEY_MONK_SWAP_COMPLETED
-	elif operation == OP_REMOVE:
-		key = TowerAscentNodeModalLocalization.KEY_MONK_REMOVE_COMPLETED
-	return TowerAscentNodeModalLocalization.text(
-		key,
-		{"name": str(record.get("display_name", ""))}
-	)
-
-
-func _has_consumed_choice(node_id: String, choice_id: String) -> bool:
-	for record in _history:
-		if str(record.get("node_id", "")) == node_id and str(record.get("choice_id", "")) == choice_id:
+		if str(record.get("node_id", "")) == node_id:
 			return true
 	return false
+
+
+func _success_message(_operation: String, record: Dictionary) -> String:
+	return TowerAscentNodeModalLocalization.text(
+		TowerAscentNodeModalLocalization.KEY_MONK_ACQUIRE_COMPLETED,
+		{"name": str(record.get("display_name", ""))}
+	)
 
 
 func _character_type(owner: Object) -> String:
@@ -811,9 +764,28 @@ func _runtime_levels(runtime_state: Object) -> Dictionary:
 	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
 
 
-func _runtime_levels_reference(runtime_state: Object) -> Dictionary:
-	var value: Variant = runtime_state.get("runtime_skill_levels")
-	return value as Dictionary if value is Dictionary else {}
+func _is_live_class_chosik_choice(
+	choice: Dictionary,
+	runtime_state: Object,
+	skill_config: Object,
+	owner: Object,
+	registry: Object
+) -> bool:
+	if runtime_state == null or skill_config == null:
+		return false
+	var choice_id := str(choice.get("id", choice.get("perk_id", ""))).strip_edges()
+	var unlocked_skill := str(choice.get("unlocks_skill", "")).strip_edges()
+	if choice_id.is_empty() or unlocked_skill.is_empty():
+		return false
+	if _is_skill_equipped(skill_config, unlocked_skill):
+		return false
+	return _candidate_policy.is_chosik_candidate(
+		choice,
+		_runtime_levels(runtime_state),
+		_character_type(owner),
+		registry,
+		skill_config
+	)
 
 
 func _economy(run_state: Object) -> Dictionary:
@@ -824,27 +796,12 @@ func _economy(run_state: Object) -> Dictionary:
 	return {}
 
 
-func _is_shared_slot_full(skill_config: Object) -> bool:
-	return (
-		skill_config != null
-		and skill_config.has_method("is_shared_slot_full")
-		and bool(skill_config.call("is_shared_slot_full"))
-	)
-
-
 func _is_skill_equipped(skill_config: Object, skill_id: String) -> bool:
 	return (
 		skill_config != null
 		and skill_config.has_method("is_skill_equipped")
 		and bool(skill_config.call("is_skill_equipped", skill_id))
 	)
-
-
-func _swap_candidates(skill_config: Object, unlocked_skill: String) -> Array:
-	if skill_config == null or not skill_config.has_method("get_shared_slot_swap_candidates"):
-		return []
-	var value: Variant = skill_config.call("get_shared_slot_swap_candidates", unlocked_skill)
-	return value as Array if value is Array else []
 
 
 func _equipped_skills(skill_config: Object) -> Array:
@@ -861,13 +818,6 @@ func _equipped_skills(skill_config: Object) -> Array:
 		if equipped_value is Array:
 			return (equipped_value as Array).duplicate()
 	return []
-
-
-func _skill_data(skill_config: Object, skill_id: String) -> Dictionary:
-	if skill_config == null or skill_id.is_empty() or not skill_config.has_method("get_skill_data"):
-		return {}
-	var value: Variant = skill_config.call("get_skill_data", skill_id)
-	return value as Dictionary if value is Dictionary else {}
 
 
 func _shuffle_with_rng(values: Array[String], rng: RandomNumberGenerator) -> void:
@@ -889,6 +839,18 @@ func _get_registry_instance(registry: Object, key: String) -> Object:
 	return null
 
 
+func _has_property(instance: Object, property_name: String) -> bool:
+	if instance == null:
+		return false
+	for property_value in instance.get_property_list():
+		if (
+			property_value is Dictionary
+			and str((property_value as Dictionary).get("name", "")) == property_name
+		):
+			return true
+	return false
+
+
 func _dictionary_array(value: Variant) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if value is Array:
@@ -896,6 +858,10 @@ func _dictionary_array(value: Variant) -> Array[Dictionary]:
 			if entry_value is Dictionary:
 				result.append((entry_value as Dictionary).duplicate(true))
 	return result
+
+
+func _array(value: Variant) -> Array:
+	return (value as Array).duplicate(true) if value is Array else []
 
 
 func _dictionary(value: Variant) -> Dictionary:

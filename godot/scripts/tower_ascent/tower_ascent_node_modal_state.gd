@@ -13,6 +13,12 @@ const TowerTrainingTimingState := preload(
 const TowerGuardianSpringPresentationState := preload(
 	"res://scripts/tower_ascent/tower_guardian_spring_presentation_state.gd"
 )
+const TowerCampfirePresentationState := preload(
+	"res://scripts/tower_ascent/tower_campfire_presentation_state.gd"
+)
+const TowerTaijiElderPresentationState := preload(
+	"res://scripts/tower_ascent/tower_taiji_elder_presentation_state.gd"
+)
 
 const ACTION_END_WORK := "end_work"
 const BASE_VIEW_SIZE := Vector2(760.0, 750.0)
@@ -106,6 +112,8 @@ var _training_timing_state: Object = null
 var _training_timing_pending: Dictionary = {}
 var _training_timing_strike_started := false
 var _guardian_spring_presentation: Object = TowerGuardianSpringPresentationState.new()
+var _campfire_presentation: Object = TowerCampfirePresentationState.new()
+var _taiji_elder_presentation: Object = TowerTaijiElderPresentationState.new()
 var _pointer_position := Vector2(-1.0, -1.0)
 var _training_stats_hovered := false
 var _shop_owned_items: Array[Dictionary] = []
@@ -127,6 +135,8 @@ func open(
 	_clear_training_stage_presentation()
 	_clear_training_timing()
 	_guardian_spring_presentation.close_scene(false)
+	_campfire_presentation.reset()
+	_taiji_elder_presentation.reset()
 	_node_id = node_id.strip_edges()
 	_node_kind = node_kind.strip_edges().to_lower()
 	if not TowerAscentNodeModalLocalization.NODE_TITLE_KEYS.has(_node_kind):
@@ -154,6 +164,8 @@ func close() -> void:
 	_clear_training_stage_presentation()
 	_clear_training_timing()
 	_guardian_spring_presentation.close_scene()
+	_campfire_presentation.reset()
+	_taiji_elder_presentation.reset()
 	_node_id = ""
 	_actions.clear()
 	_keyboard_selected_index = 0
@@ -288,6 +300,226 @@ func handle_guardian_spring_confirmation_input(
 
 func get_guardian_spring_presentation_debug_state() -> Dictionary:
 	return _guardian_spring_presentation.get_debug_state()
+
+
+func configure_campfire_presentation(
+	restored_action_id: String = "",
+	restored_result_lines: Array = []
+) -> bool:
+	var enabled := _node_kind == "rest"
+	_campfire_presentation.configure(
+		enabled,
+		[
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_CAMPFIRE_INTRO_APPROACH
+			),
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_CAMPFIRE_INTRO_UNUSUAL
+			),
+		],
+		restored_action_id,
+		restored_result_lines
+	)
+	if enabled:
+		_status_text = TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED
+		)
+	_invalidate_layout_cache()
+	return enabled
+
+
+func has_campfire_presentation() -> bool:
+	return _node_kind == "rest" and bool(_campfire_presentation.is_enabled())
+
+
+func has_campfire_ignition_interaction() -> bool:
+	return has_campfire_presentation() and bool(
+		_campfire_presentation.is_ignition_phase()
+	)
+
+
+func is_campfire_choice_ready() -> bool:
+	return has_campfire_presentation() and bool(
+		_campfire_presentation.is_menu_phase()
+	)
+
+
+func has_campfire_sequence_input_lock() -> bool:
+	return has_campfire_presentation() and bool(
+		_campfire_presentation.is_sequence_input_locked()
+	)
+
+
+func ignite_campfire() -> bool:
+	if not has_campfire_presentation():
+		return false
+	cancel_pointer_press()
+	return bool(_campfire_presentation.ignite())
+
+
+func begin_campfire_result(action_id: String, lines: Array) -> bool:
+	if not has_campfire_presentation():
+		return false
+	cancel_pointer_press()
+	return bool(_campfire_presentation.begin_result(action_id, lines))
+
+
+func advance_campfire_presentation(delta: float) -> bool:
+	if not has_campfire_presentation():
+		return false
+	return bool(_campfire_presentation.advance(delta))
+
+
+func take_completed_campfire_route() -> bool:
+	return (
+		has_campfire_presentation()
+		and bool(_campfire_presentation.take_route_ready())
+	)
+
+
+func get_campfire_presentation_debug_state() -> Dictionary:
+	return _campfire_presentation.get_debug_state()
+
+
+func export_campfire_presentation_state() -> Dictionary:
+	if not has_campfire_presentation():
+		return {}
+	return _campfire_presentation.export_state()
+
+
+func restore_campfire_presentation_state(value: Variant) -> bool:
+	if not has_campfire_presentation():
+		return false
+	return bool(_campfire_presentation.restore_state(value))
+
+
+func configure_taiji_elder_presentation(offer_snapshot: Dictionary) -> bool:
+	var enabled := _node_kind == "taiji_elder" and not offer_snapshot.is_empty()
+	_taiji_elder_presentation.configure(
+		enabled,
+		offer_snapshot,
+		offer_snapshot.get("dialogue_lines", []),
+		str(offer_snapshot.get(
+			"question",
+			TowerAscentNodeModalLocalization.text(
+				TowerAscentNodeModalLocalization.KEY_TAIJI_ELDER_QUESTION
+			)
+		)),
+		TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TAIJI_ELDER_RESULT_ACCEPT
+		),
+		TowerAscentNodeModalLocalization.text(
+			TowerAscentNodeModalLocalization.KEY_TAIJI_ELDER_RESULT_DECLINE
+		)
+	)
+	_invalidate_layout_cache()
+	return enabled
+
+
+func has_taiji_elder_presentation() -> bool:
+	return _node_kind == "taiji_elder" and bool(
+		_taiji_elder_presentation.is_enabled()
+	)
+
+
+func is_taiji_elder_dialogue_phase() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.is_dialogue_phase()
+	)
+
+
+func is_taiji_elder_decision_phase() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.is_decision_phase()
+	)
+
+
+func is_taiji_elder_result_phase() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.is_result_phase()
+	)
+
+
+func advance_taiji_elder_dialogue() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.advance_dialogue()
+	)
+
+
+func begin_taiji_elder_dialogue_press(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.begin_dialogue_press(position, view_size)
+	)
+
+
+func release_taiji_elder_dialogue_press(
+	position: Vector2,
+	view_size: Vector2 = BASE_VIEW_SIZE
+) -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.release_dialogue_press(position, view_size)
+	)
+
+
+func take_taiji_elder_confirmation_ready() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.take_confirmation_ready()
+	)
+
+
+func move_taiji_elder_selection(direction: int) -> bool:
+	if not has_taiji_elder_presentation():
+		return false
+	var changed := bool(_taiji_elder_presentation.move_selection(direction))
+	var action_id := str(_taiji_elder_presentation.get_selected_action_id())
+	var selected_index := _find_action_index_by_id(action_id)
+	if selected_index >= 0:
+		_keyboard_selected_index = selected_index
+	return changed
+
+
+func get_selected_taiji_elder_action_id() -> String:
+	if not has_taiji_elder_presentation():
+		return ""
+	return str(_taiji_elder_presentation.get_selected_action_id())
+
+
+func begin_taiji_elder_result(accepted_exchange: bool) -> bool:
+	if not has_taiji_elder_presentation():
+		return false
+	cancel_pointer_press()
+	return bool(_taiji_elder_presentation.begin_result(accepted_exchange))
+
+
+func advance_taiji_elder_result(delta: float) -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.advance_result(delta)
+	)
+
+
+func take_completed_taiji_elder_route() -> bool:
+	return has_taiji_elder_presentation() and bool(
+		_taiji_elder_presentation.take_route_ready()
+	)
+
+
+func get_taiji_elder_presentation_debug_state() -> Dictionary:
+	return _taiji_elder_presentation.get_debug_state()
+
+
+func export_taiji_elder_presentation_state() -> Dictionary:
+	if not has_taiji_elder_presentation():
+		return {}
+	return _taiji_elder_presentation.export_state()
+
+
+func restore_taiji_elder_presentation_state(value: Variant) -> bool:
+	if not has_taiji_elder_presentation():
+		return false
+	return bool(_taiji_elder_presentation.restore_state(value))
 
 
 func begin_training_strike(
@@ -447,6 +679,13 @@ func set_actions(actions: Array) -> void:
 	var keyboard_action_id := _action_id_at_index(_keyboard_selected_index)
 	var hovered_action_id := _action_id_at_index(_hovered_index)
 	_replace_actions(actions)
+	if _actions.is_empty():
+		_keyboard_selected_index = -1
+		_hovered_index = -1
+		_pressed_index = -1
+		_pressed_page_direction = 0
+		_visible_page = 0
+		return
 	var restored_keyboard_index := _find_action_index_by_id(keyboard_action_id)
 	if restored_keyboard_index >= 0:
 		_keyboard_selected_index = restored_keyboard_index
@@ -498,7 +737,12 @@ func set_status_text(value: String) -> void:
 
 
 func move_selection(direction: int) -> void:
+	if has_taiji_elder_presentation():
+		move_taiji_elder_selection(direction)
+		return
 	if has_guardian_spring_statue_interaction() or has_active_guardian_spring_ritual():
+		return
+	if has_campfire_presentation() and not _campfire_presentation.is_menu_phase():
 		return
 	if _actions.is_empty() or direction == 0:
 		return
@@ -529,6 +773,12 @@ func update_hover_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	_pointer_position = position
+	if has_campfire_ignition_interaction():
+		_hovered_index = -1
+		_hovered_page_direction = 0
+		return bool(_campfire_presentation.update_fire_hover(position, view_size))
+	if has_campfire_sequence_input_lock():
+		return false
 	if has_guardian_spring_statue_interaction():
 		_hovered_index = -1
 		_hovered_page_direction = 0
@@ -572,6 +822,16 @@ func begin_pointer_press(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> bool:
 	_pointer_position = position
+	if has_taiji_elder_presentation():
+		_pressed_index = -1
+		_pressed_page_direction = 0
+		return bool(_taiji_elder_presentation.begin_pointer_press(position, view_size))
+	if has_campfire_ignition_interaction():
+		_pressed_index = -1
+		_pressed_page_direction = 0
+		return bool(_campfire_presentation.begin_fire_press(position, view_size))
+	if has_campfire_sequence_input_lock():
+		return false
 	if has_guardian_spring_statue_interaction():
 		_pressed_index = -1
 		_pressed_page_direction = 0
@@ -593,6 +853,22 @@ func release_pointer_at_position(
 	view_size: Vector2 = BASE_VIEW_SIZE
 ) -> Dictionary:
 	_pointer_position = position
+	if has_taiji_elder_presentation():
+		var action_id := str(
+			_taiji_elder_presentation.release_pointer_press(position, view_size)
+		)
+		if action_id.is_empty():
+			return {}
+		var action_index := _find_action_index_by_id(action_id)
+		if action_index >= 0:
+			_keyboard_selected_index = action_index
+		return _action_at_index(action_index)
+	if has_campfire_ignition_interaction():
+		if bool(_campfire_presentation.release_fire_press(position, view_size)):
+			return {"_modal_control": "campfire_ignite"}
+		return {}
+	if has_campfire_sequence_input_lock():
+		return {}
 	if has_guardian_spring_statue_interaction():
 		if bool(_guardian_spring_presentation.release_statue_press(position, view_size)):
 			return {"_modal_control": "guardian_statue"}
@@ -621,6 +897,8 @@ func cancel_pointer_press() -> void:
 	_pressed_index = -1
 	_pressed_page_direction = 0
 	_guardian_spring_presentation.cancel_pointer_press()
+	_campfire_presentation.cancel_pointer_press()
+	_taiji_elder_presentation.cancel_pointer_press()
 
 
 func record_action_feedback(action: Dictionary, result: Dictionary) -> void:
@@ -755,8 +1033,12 @@ func get_action_rects(
 	view_size: Vector2 = BASE_VIEW_SIZE,
 	layout_flags: Dictionary = {}
 ) -> Array[Rect2]:
+	if has_taiji_elder_presentation():
+		return _taiji_elder_presentation.get_action_rects(_actions, view_size)
 	if has_guardian_spring_presentation():
 		return _guardian_spring_presentation.get_action_rects(_actions, view_size)
+	if has_campfire_presentation():
+		return _campfire_presentation.get_action_rects(_actions, view_size)
 	var result: Array[Rect2] = []
 	var layout := build_screen_layout(view_size, layout_flags)
 	if _node_kind in CARD_NODE_KINDS:
@@ -863,6 +1145,10 @@ func get_action_rects(
 
 
 func get_selected_action() -> Dictionary:
+	if has_taiji_elder_presentation():
+		return _action_at_index(_find_action_index_by_id(
+			str(_taiji_elder_presentation.get_selected_action_id())
+		))
 	return _action_at_index(_keyboard_selected_index)
 
 
@@ -960,6 +1246,15 @@ func build_view_model(view_size: Vector2 = BASE_VIEW_SIZE) -> Dictionary:
 		result["guardian_spring_presentation"] = guardian_presentation
 		result["guardian_spring_prompt_text"] = TowerAscentNodeModalLocalization.text(
 			TowerAscentNodeModalLocalization.KEY_SPRING_STATUE_PROMPT
+		)
+	if has_campfire_presentation():
+		result["campfire_presentation"] = _campfire_presentation.build_visual_model(
+			_actions,
+			view_size
+		)
+	if has_taiji_elder_presentation():
+		result["taiji_elder_presentation"] = (
+			_taiji_elder_presentation.build_visual_model(_actions, view_size)
 		)
 	return result
 
@@ -1307,7 +1602,10 @@ func _build_layout_flags() -> Dictionary:
 		LAYOUT_FLAG_SHOP_COMPACT: false,
 		LAYOUT_FLAG_SHOP_TRADE_PANELS: false,
 		LAYOUT_FLAG_SHOP_STACKED: _node_kind == "shop",
-		LAYOUT_FLAG_HERO_CARD: _node_kind in HERO_CARD_NODE_KINDS,
+		LAYOUT_FLAG_HERO_CARD: (
+			_node_kind in HERO_CARD_NODE_KINDS
+			and _node_kind != "rest"
+		),
 		LAYOUT_FLAG_PAGE_CONTROLS: _uses_paged_cards() and get_page_count() > 1,
 	}
 
@@ -1439,6 +1737,8 @@ func _replace_actions(actions: Array) -> void:
 			_actions.append(normalized_action)
 			var payload: Dictionary = normalized_action.get("payload", {}) as Dictionary
 			force_choice = force_choice or bool(payload.get("force_choice", false))
+	if _node_kind == "taiji_elder":
+		return
 	_actions.append(_normalize_action({
 		"id": ACTION_END_WORK,
 		"label": TowerAscentNodeModalLocalization.text(
@@ -1454,7 +1754,11 @@ func _replace_actions(actions: Array) -> void:
 		"disabled_reason": "forced_node_choice" if force_choice else "",
 		"unavailable_reason": (
 			TowerAscentNodeModalLocalization.text(
-				TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_REQUIRED
+				(
+					TowerAscentNodeModalLocalization.KEY_CAMPFIRE_CHOICE_REQUIRED
+					if _node_kind == "rest"
+					else TowerAscentNodeModalLocalization.KEY_SPRING_FIRST_PICK_REQUIRED
+				)
 			)
 			if force_choice
 			else ""

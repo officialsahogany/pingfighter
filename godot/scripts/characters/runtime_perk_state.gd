@@ -366,6 +366,55 @@ func apply_tower_reward_mugong_replacement(
 	)
 
 
+func build_taiji_elder_mythic_target_ids(
+	owner: Object,
+	registry: Object,
+	catalog: Object = null
+) -> Array[String]:
+	return _tower_reward_mutations.build_taiji_elder_mythic_target_ids_from_runtime_state(
+		self,
+		owner,
+		registry,
+		catalog
+	)
+
+
+func build_taiji_elder_exchange_plan(
+	source_perk_id: String,
+	target_mythic_id: String,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null
+) -> Dictionary:
+	return _tower_reward_mutations.build_taiji_elder_exchange_plan_from_runtime_state(
+		self,
+		source_perk_id,
+		target_mythic_id,
+		owner,
+		registry,
+		catalog
+	)
+
+
+func apply_taiji_elder_exchange(
+	source_perk_id: String,
+	target_mythic_id: String,
+	owner: Object,
+	registry: Object,
+	catalog: Object = null,
+	transaction_hooks: Dictionary = {}
+) -> Dictionary:
+	return _tower_reward_mutations.apply_taiji_elder_exchange_from_runtime_state(
+		self,
+		source_perk_id,
+		target_mythic_id,
+		owner,
+		registry,
+		catalog,
+		transaction_hooks
+	)
+
+
 func get_perk_fusion_effective_level_bonus(perk_id: String) -> int:
 	return _fusion_runtime_state.get_effective_level_bonus(perk_id)
 

@@ -3565,6 +3565,7 @@ func build_node_modal_backdrop_model(
 		"fallen_monk": [Color("11151b"), Color("2c3035"), Color("9e352d")],
 		"guardian_spring": [Color("071c24"), Color("164c55"), Color("65c7ba")],
 		"rest": [Color("08101f"), Color("192544"), Color("e5a94f")],
+		"taiji_elder": [Color("080b13"), Color("2d3540"), Color("d8c77f")],
 		"common_shell": [Color("17120f"), Color("3b2d24"), GOLD],
 	}
 	if not palettes.has(kind):
@@ -3613,6 +3614,8 @@ func _draw_node_modal_backdrop(
 			_draw_guardian_spring_backdrop(canvas, viewport_rect, accent)
 		"rest":
 			_draw_rest_backdrop(canvas, viewport_rect, accent)
+		"taiji_elder":
+			_draw_taiji_elder_backdrop(canvas, viewport_rect, accent)
 		_:
 			_draw_common_node_backdrop(canvas, viewport_rect, accent)
 
@@ -3711,10 +3714,207 @@ func _draw_rest_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void
 		rect.end,
 	])
 	canvas.draw_colored_polygon(hill_points, Color("111a24"))
-	var fire_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.77)
+	var fire_center := rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.42)
 	canvas.draw_circle(fire_center, rect.size.y * 0.09, Color(accent, 0.08))
 	canvas.draw_circle(fire_center, rect.size.y * 0.035, Color(accent, 0.92))
 	canvas.draw_circle(fire_center - Vector2(0.0, rect.size.y * 0.02), rect.size.y * 0.016, Color("fff1a6"))
+
+
+func _draw_taiji_elder_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
+	var moon_center := rect.position + Vector2(rect.size.x * 0.72, rect.size.y * 0.22)
+	canvas.draw_circle(moon_center, rect.size.y * 0.105, Color(accent, 0.20))
+	canvas.draw_circle(moon_center, rect.size.y * 0.075, Color("e8dfbe"))
+	var distant_mountains := PackedVector2Array([
+		Vector2(rect.position.x, rect.end.y),
+		rect.position + Vector2(0.0, rect.size.y * 0.62),
+		rect.position + Vector2(rect.size.x * 0.18, rect.size.y * 0.38),
+		rect.position + Vector2(rect.size.x * 0.33, rect.size.y * 0.66),
+		rect.position + Vector2(rect.size.x * 0.51, rect.size.y * 0.44),
+		rect.position + Vector2(rect.size.x * 0.69, rect.size.y * 0.63),
+		rect.position + Vector2(rect.size.x * 0.84, rect.size.y * 0.46),
+		Vector2(rect.end.x, rect.position.y + rect.size.y * 0.60),
+		rect.end,
+	])
+	canvas.draw_colored_polygon(distant_mountains, Color("171d25"))
+	var foreground := PackedVector2Array([
+		Vector2(rect.position.x, rect.end.y),
+		rect.position + Vector2(0.0, rect.size.y * 0.80),
+		rect.position + Vector2(rect.size.x * 0.25, rect.size.y * 0.68),
+		rect.position + Vector2(rect.size.x * 0.48, rect.size.y * 0.84),
+		rect.position + Vector2(rect.size.x * 0.75, rect.size.y * 0.70),
+		Vector2(rect.end.x, rect.position.y + rect.size.y * 0.78),
+		rect.end,
+	])
+	canvas.draw_colored_polygon(foreground, Color("0c1119"))
+	var seal_center := rect.position + Vector2(rect.size.x * 0.50, rect.size.y * 0.27)
+	var seal_radius := rect.size.y * 0.070
+	canvas.draw_circle(seal_center, seal_radius, Color(0.94, 0.91, 0.80, 0.16))
+	canvas.draw_circle(seal_center - Vector2(0.0, seal_radius * 0.48), seal_radius * 0.48, Color(0.04, 0.05, 0.07, 0.78))
+	canvas.draw_circle(seal_center + Vector2(0.0, seal_radius * 0.48), seal_radius * 0.48, Color(0.92, 0.88, 0.74, 0.72))
+	canvas.draw_circle(seal_center - Vector2(0.0, seal_radius * 0.48), seal_radius * 0.13, Color(0.92, 0.88, 0.74, 0.84))
+	canvas.draw_circle(seal_center + Vector2(0.0, seal_radius * 0.48), seal_radius * 0.13, Color(0.04, 0.05, 0.07, 0.88))
+	canvas.draw_arc(seal_center, seal_radius, 0.0, TAU, 64, Color(accent, 0.74), 2.0)
+
+
+func _draw_campfire_presentation(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary
+) -> void:
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var font := ThemeDB.fallback_font
+	var fire_rect: Rect2 = presentation.get("fire_rect", Rect2())
+	var fire_center := fire_rect.get_center()
+	var intensity := maxf(0.2, float(presentation.get("flame_intensity", 0.6)))
+	var elapsed_sec := maxf(0.0, float(presentation.get("elapsed_sec", 0.0)))
+	var title_baseline := _screen_point(Vector2(126.0, 70.0), content_scale, content_offset)
+	canvas.draw_string_outline(
+		font,
+		title_baseline,
+		str(model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0 * content_scale,
+		maxi(16, int(round(32.0 * content_scale))),
+		8,
+		Color(0.02, 0.025, 0.06, 0.88)
+	)
+	canvas.draw_string(
+		font,
+		title_baseline,
+		str(model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0 * content_scale,
+		maxi(16, int(round(32.0 * content_scale))),
+		Color("ffe6a0")
+	)
+	if bool(presentation.get("rainbow_glow", false)):
+		var rainbow_colors := [
+			Color("fa556f"),
+			Color("f4a949"),
+			Color("f7e36c"),
+			Color("65d884"),
+			Color("5ab8ed"),
+			Color("9778e8"),
+		]
+		for rainbow_index in range(rainbow_colors.size()):
+			var ring_color: Color = rainbow_colors[rainbow_index]
+			ring_color.a = 0.34
+			canvas.draw_arc(
+				fire_center,
+				fire_rect.size.x * (0.50 + float(rainbow_index) * 0.07),
+				0.0,
+				TAU,
+				64,
+				ring_color,
+				maxf(2.0, 5.0 * content_scale)
+			)
+	canvas.draw_circle(
+		fire_center,
+		fire_rect.size.x * 0.46,
+		Color(1.0, 0.68, 0.25, 0.08 + 0.05 * intensity)
+	)
+	var log_half := Vector2(39.0, 15.0) * content_scale
+	canvas.draw_line(
+		fire_center - Vector2(log_half.x, -log_half.y),
+		fire_center + Vector2(log_half.x, -log_half.y),
+		Color("6f351e"),
+		maxf(7.0, 12.0 * content_scale)
+	)
+	canvas.draw_line(
+		fire_center - Vector2(log_half.x, log_half.y),
+		fire_center + Vector2(log_half.x, log_half.y),
+		Color("4e2619"),
+		maxf(7.0, 12.0 * content_scale)
+	)
+	for flame_index in range(3):
+		var sway := sin(elapsed_sec * (4.1 + float(flame_index)) + float(flame_index) * 1.7)
+		var flame_x := fire_center.x + (float(flame_index) - 1.0) * 25.0 * content_scale
+		var flame_height := (55.0 + float(flame_index % 2) * 26.0) * content_scale * intensity
+		var flame_width := (27.0 + float(flame_index % 2) * 7.0) * content_scale
+		var flame_base_y := fire_center.y + 9.0 * content_scale
+		var flame_points := PackedVector2Array([
+			Vector2(flame_x - flame_width, flame_base_y),
+			Vector2(flame_x + flame_width, flame_base_y),
+			Vector2(flame_x + sway * 12.0 * content_scale, flame_base_y - flame_height),
+		])
+		canvas.draw_colored_polygon(
+			flame_points,
+			Color("ff7b36") if flame_index != 1 else Color("ffd35d")
+		)
+	canvas.draw_circle(
+		fire_center - Vector2(0.0, 22.0 * content_scale),
+		maxf(8.0, 16.0 * content_scale),
+		Color("fff1ad")
+	)
+	if str(presentation.get("phase", "")) == "dormant":
+		var interaction_color := (
+			Color("fff3b0")
+			if bool(presentation.get("fire_hovered", false))
+			else Color(0.96, 0.67, 0.28, 0.58)
+		)
+		canvas.draw_arc(
+			fire_center,
+			fire_rect.size.x * 0.49,
+			0.0,
+			TAU,
+			64,
+			interaction_color,
+			maxf(2.0, 4.0 * content_scale)
+		)
+	var dialogue_text := str(presentation.get("dialogue_text", ""))
+	if not dialogue_text.is_empty():
+		var dialogue_rect := _screen_rect(
+			Rect2(70.0, 405.0, 620.0, 64.0),
+			content_scale,
+			content_offset
+		)
+		canvas.draw_rect(dialogue_rect, Color(0.025, 0.035, 0.075, 0.90), true)
+		canvas.draw_rect(dialogue_rect, Color("f1ba62"), false, 2.0 * content_scale)
+		canvas.draw_string(
+			font,
+			dialogue_rect.position + Vector2(12.0, dialogue_rect.size.y * 0.64),
+			dialogue_text,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			dialogue_rect.size.x - 24.0,
+			maxi(11, int(round(19.0 * content_scale))),
+			Color("fff5dc")
+		)
+	if bool(presentation.get("menu_visible", false)):
+		var actions: Array = model.get("actions", [])
+		var action_rects: Array = presentation.get("action_rects", [])
+		var selected_index := int(model.get("selected_index", 0))
+		for action_index in range(actions.size()):
+			if not (actions[action_index] is Dictionary):
+				continue
+			var action := actions[action_index] as Dictionary
+			if str(action.get("id", "")) == "end_work":
+				continue
+			var action_rect := (
+				action_rects[action_index] as Rect2
+				if action_index < action_rects.size()
+				and action_rects[action_index] is Rect2
+				else Rect2()
+			)
+			if action_rect.has_area():
+				_draw_modal_action_row(
+					canvas,
+					action_rect,
+					action,
+					action_index == selected_index,
+					content_scale
+				)
+		var status_text := str(model.get("status_text", ""))
+		if not status_text.is_empty():
+			canvas.draw_string(
+				font,
+				_screen_point(Vector2(126.0, 690.0), content_scale, content_offset),
+				status_text,
+				HORIZONTAL_ALIGNMENT_CENTER,
+				508.0 * content_scale,
+				maxi(10, int(round(14.0 * content_scale))),
+				Color("ead9bd")
+			)
 
 
 func _draw_common_node_backdrop(canvas: CanvasItem, rect: Rect2, accent: Color) -> void:
@@ -3780,6 +3980,21 @@ func _draw_node_modal(
 	var embedded_render_context: Variant = model.get("render_context", {})
 	if render_context.is_empty() and embedded_render_context is Dictionary:
 		render_context = embedded_render_context as Dictionary
+	var taiji_presentation_value: Variant = model.get(
+		"taiji_elder_presentation",
+		{}
+	)
+	if (
+		taiji_presentation_value is Dictionary
+		and bool((taiji_presentation_value as Dictionary).get("enabled", false))
+	):
+		_draw_taiji_elder_presentation(
+			canvas,
+			model,
+			taiji_presentation_value as Dictionary,
+			render_context
+		)
+		return
 	var guardian_presentation_value: Variant = model.get(
 		"guardian_spring_presentation",
 		{}
@@ -3799,6 +4014,20 @@ func _draw_node_modal(
 			model,
 			guardian_presentation_value as Dictionary,
 			render_context
+		)
+		return
+	var campfire_presentation_value: Variant = model.get(
+		"campfire_presentation",
+		{}
+	)
+	if (
+		campfire_presentation_value is Dictionary
+		and bool((campfire_presentation_value as Dictionary).get("enabled", false))
+	):
+		_draw_campfire_presentation(
+			canvas,
+			model,
+			campfire_presentation_value as Dictionary
 		)
 		return
 	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
@@ -4302,6 +4531,264 @@ func _draw_shop_item_tooltip(
 		entries,
 		render_context.get("icon_renderer", null)
 	)
+
+
+func _draw_taiji_elder_presentation(
+	canvas: CanvasItem,
+	model: Dictionary,
+	presentation: Dictionary,
+	render_context: Dictionary
+) -> void:
+	var font := ThemeDB.fallback_font
+	var content_scale := maxf(0.001, float(model.get("content_scale", 1.0)))
+	var content_offset: Vector2 = model.get("content_offset", Vector2.ZERO)
+	var title_baseline := _screen_point(
+		Vector2(126.0, 68.0),
+		content_scale,
+		content_offset
+	)
+	canvas.draw_string_outline(
+		font,
+		title_baseline,
+		str(model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0 * content_scale,
+		maxi(16, int(round(31.0 * content_scale))),
+		7,
+		Color(0.02, 0.025, 0.035, 0.92)
+	)
+	canvas.draw_string(
+		font,
+		title_baseline,
+		str(model.get("title", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		508.0 * content_scale,
+		maxi(16, int(round(31.0 * content_scale))),
+		Color("efe3b6")
+	)
+	var phase := str(presentation.get("phase", "dialogue"))
+	if phase == "dialogue":
+		_draw_taiji_elder_figure(canvas, content_scale, content_offset)
+		var dialogue_rect: Rect2 = presentation.get("dialogue_rect", Rect2())
+		canvas.draw_rect(dialogue_rect, Color(0.025, 0.035, 0.050, 0.94), true)
+		canvas.draw_rect(dialogue_rect, Color("d8c77f"), false, 2.0 * content_scale)
+		_draw_taiji_elder_wrapped_text(
+			canvas,
+			str(presentation.get("current_dialogue", "")),
+			dialogue_rect.grow(-14.0 * content_scale),
+			maxi(11, int(round(19.0 * content_scale))),
+			Color("fff7db"),
+			3
+		)
+		return
+	var source_card_value: Variant = presentation.get("source_card", {})
+	var target_card_value: Variant = presentation.get("target_card", {})
+	var source_card: Dictionary = (
+		source_card_value as Dictionary
+		if source_card_value is Dictionary
+		else {}
+	)
+	var target_card: Dictionary = (
+		target_card_value as Dictionary
+		if target_card_value is Dictionary
+		else {}
+	)
+	_draw_taiji_elder_offer_card(
+		canvas,
+		source_card,
+		presentation.get("source_card_rect", Rect2()),
+		render_context,
+		false,
+		0
+	)
+	_draw_taiji_elder_offer_card(
+		canvas,
+		target_card,
+		presentation.get("target_card_rect", Rect2()),
+		render_context,
+		true,
+		1
+	)
+	var exchange_center := _screen_point(
+		Vector2(380.0, 364.0),
+		content_scale,
+		content_offset
+	)
+	canvas.draw_circle(exchange_center, 23.0 * content_scale, Color(0.03, 0.04, 0.055, 0.94))
+	canvas.draw_arc(
+		exchange_center,
+		23.0 * content_scale,
+		0.0,
+		TAU,
+		32,
+		Color("d8c77f"),
+		2.0 * content_scale
+	)
+	canvas.draw_string(
+		font,
+		exchange_center + Vector2(-19.0, 7.0) * content_scale,
+		"↔",
+		HORIZONTAL_ALIGNMENT_CENTER,
+		38.0 * content_scale,
+		maxi(13, int(round(24.0 * content_scale))),
+		Color("f4e7b4")
+	)
+	if phase == "decision":
+		var question_rect: Rect2 = presentation.get("question_rect", Rect2())
+		canvas.draw_rect(question_rect, Color(0.025, 0.035, 0.050, 0.93), true)
+		canvas.draw_string(
+			font,
+			question_rect.position + Vector2(0.0, question_rect.size.y * 0.68),
+			str(presentation.get("question", "")),
+			HORIZONTAL_ALIGNMENT_CENTER,
+			question_rect.size.x,
+			maxi(11, int(round(20.0 * content_scale))),
+			Color("fff7db")
+		)
+		var actions: Array = model.get("actions", [])
+		var action_rects: Array = presentation.get("action_rects", [])
+		var selected := int(presentation.get("selection", 1))
+		for action_index in range(mini(actions.size(), action_rects.size())):
+			if actions[action_index] is Dictionary and action_rects[action_index] is Rect2:
+				_draw_modal_action_row(
+					canvas,
+					action_rects[action_index] as Rect2,
+					actions[action_index] as Dictionary,
+					action_index == selected,
+					content_scale
+				)
+		return
+	var result_rect: Rect2 = presentation.get("result_rect", Rect2())
+	canvas.draw_rect(result_rect, Color(0.025, 0.035, 0.050, 0.94), true)
+	canvas.draw_rect(result_rect, Color("d8c77f"), false, 2.0 * content_scale)
+	_draw_taiji_elder_wrapped_text(
+		canvas,
+		str(presentation.get("result_text", "")),
+		result_rect.grow(-14.0 * content_scale),
+		maxi(11, int(round(19.0 * content_scale))),
+		Color("fff7db"),
+		3
+	)
+
+
+func _draw_taiji_elder_figure(
+	canvas: CanvasItem,
+	content_scale: float,
+	content_offset: Vector2
+) -> void:
+	var center := _screen_point(Vector2(380.0, 310.0), content_scale, content_offset)
+	canvas.draw_circle(center + Vector2(0.0, 112.0) * content_scale, 106.0 * content_scale, Color(0.86, 0.80, 0.61, 0.07))
+	var robe := PackedVector2Array([
+		center + Vector2(-112.0, 160.0) * content_scale,
+		center + Vector2(-54.0, 6.0) * content_scale,
+		center + Vector2(0.0, -22.0) * content_scale,
+		center + Vector2(54.0, 6.0) * content_scale,
+		center + Vector2(112.0, 160.0) * content_scale,
+	])
+	canvas.draw_colored_polygon(robe, Color("232a31"))
+	canvas.draw_polyline(robe, Color("d8c77f"), 2.0 * content_scale)
+	canvas.draw_circle(center - Vector2(0.0, 54.0) * content_scale, 43.0 * content_scale, Color("d1b789"))
+	canvas.draw_arc(center - Vector2(0.0, 55.0) * content_scale, 45.0 * content_scale, PI, TAU, 24, Color("e9e4d3"), 10.0 * content_scale)
+	canvas.draw_line(
+		center + Vector2(-76.0, 12.0) * content_scale,
+		center + Vector2(-105.0, 176.0) * content_scale,
+		Color("80613b"),
+		7.0 * content_scale
+	)
+	canvas.draw_arc(center + Vector2(0.0, -42.0) * content_scale, 30.0 * content_scale, 0.18, PI - 0.18, 20, Color("e7e0c7"), 4.0 * content_scale)
+
+
+func _draw_taiji_elder_offer_card(
+	canvas: CanvasItem,
+	card: Dictionary,
+	rect_value: Variant,
+	render_context: Dictionary,
+	mythic: bool,
+	paper_variant: int
+) -> void:
+	if not (rect_value is Rect2) or not (rect_value as Rect2).has_area():
+		return
+	var rect := rect_value as Rect2
+	var choice := card.duplicate(true)
+	if mythic:
+		choice["rarity"] = "mythic"
+	var action := {
+		"id": "taiji_elder:target" if mythic else "taiji_elder:source",
+		"label": str(choice.get("name", choice.get("id", ""))),
+		"enabled": true,
+		"payload": {"choice": choice},
+	}
+	var card_renderer: Object = render_context.get("card_renderer", null)
+	if card_renderer != null and card_renderer.has_method("draw_tower_node_card"):
+		card_renderer.call(
+			"draw_tower_node_card",
+			canvas,
+			action,
+			rect,
+			false,
+			render_context.get("icon_renderer", null),
+			paper_variant,
+			render_context.get("active_item_hud_visuals", null)
+		)
+		return
+	canvas.draw_rect(rect, Color("ead9b5") if mythic else Color("d8c79c"), true)
+	canvas.draw_rect(rect, Color("d8a945") if mythic else Color("4f4535"), false, 3.0)
+	canvas.draw_string(
+		ThemeDB.fallback_font,
+		rect.position + Vector2(10.0, 36.0),
+		str(action.get("label", "")),
+		HORIZONTAL_ALIGNMENT_CENTER,
+		rect.size.x - 20.0,
+		16,
+		INK
+	)
+
+
+func _draw_taiji_elder_wrapped_text(
+	canvas: CanvasItem,
+	text_value: String,
+	rect: Rect2,
+	font_size: int,
+	color: Color,
+	max_lines: int
+) -> void:
+	if text_value.is_empty() or not rect.has_area():
+		return
+	var font := ThemeDB.fallback_font
+	var lines: Array[String] = []
+	var current := ""
+	for word_value in text_value.split(" ", false):
+		var word := str(word_value)
+		var candidate := word if current.is_empty() else "%s %s" % [current, word]
+		if (
+			not current.is_empty()
+			and font.get_string_size(
+				candidate,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size
+			).x > rect.size.x
+		):
+			lines.append(current)
+			current = word
+		else:
+			current = candidate
+	if not current.is_empty():
+		lines.append(current)
+	if lines.size() > max_lines:
+		lines.resize(max_lines)
+	var line_height := float(font_size) * 1.34
+	var first_baseline := rect.get_center().y - line_height * float(lines.size() - 1) * 0.5 + float(font_size) * 0.36
+	for line_index in range(lines.size()):
+		canvas.draw_string(
+			font,
+			Vector2(rect.position.x, first_baseline + float(line_index) * line_height),
+			lines[line_index],
+			HORIZONTAL_ALIGNMENT_CENTER,
+			rect.size.x,
+			font_size,
+			color
+		)
 
 
 func _draw_guardian_spring_presentation(

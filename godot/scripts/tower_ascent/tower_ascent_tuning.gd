@@ -47,6 +47,7 @@ const TEMP_NODE_TYPE_WEIGHTS := {
 	"fallen_monk": 1,
 	"guardian_spring": 1,
 	"rest": 2,
+	"taiji_elder": 1,
 }
 
 # TEMP: v1.6 fixes the two-target/one-target layout contract but leaves final
@@ -231,9 +232,7 @@ const TEMP_PHASE_C_SHOP_CHANCE_GEM_PRICE := 150
 const TEMP_PHASE_C_TRAINING_STAT_BASE_COST := 1
 const TEMP_PHASE_C_TRAINING_STAT_COST_STEP_SUCCESSES := 2
 const TEMP_PHASE_C_TRAINING_MUGONG_COST := 2
-const TEMP_PHASE_C_MONK_CHOSIK_ACQUIRE_COST := 3
-const TEMP_PHASE_C_MONK_CHOSIK_SWAP_COST := 4
-const TEMP_PHASE_C_MONK_CHOSIK_REMOVE_COST := 5
+const CHOSIK_SELECTION_MUHON_COST := 4
 const TEMP_PHASE_C_SPRING_ENHANCE_COST := 1
 const TEMP_SPRING_PRAYER_COST_STEP := 2
 const TEMP_SPRING_PRAYER_STAT_BONUS_PCT := 3.0

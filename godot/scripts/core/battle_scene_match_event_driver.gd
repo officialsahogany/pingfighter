@@ -228,6 +228,7 @@ func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
 		return
 	var reset_drive_input_callback := Callable(self, "_reset_drive_input_frames").bind(registry)
 	var reset_ball_callback := Callable(self, "_reset_ball").bind(owner, registry)
+	var reset_applied := false
 	if match_flow_driver.has_method("reset_for_stage_transition"):
 		match_flow_driver.reset_for_stage_transition(
 			owner,
@@ -235,6 +236,7 @@ func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
 			reset_drive_input_callback,
 			reset_ball_callback
 		)
+		reset_applied = true
 	elif match_flow_driver.has_method("reset_game"):
 		match_flow_driver.reset_game(
 			owner,
@@ -242,6 +244,16 @@ func _reset_match_for_stage_transition(owner: Object, registry: Object) -> void:
 			reset_drive_input_callback,
 			reset_ball_callback
 		)
+		reset_applied = true
+	if reset_applied:
+		_consume_pending_tower_full_gauge(owner, registry)
+
+
+func _consume_pending_tower_full_gauge(owner: Object, registry: Object) -> void:
+	var flow_owner: Object = _get_instance(registry, "tower_ascent_flow_owner")
+	if flow_owner == null or not flow_owner.has_method("consume_next_battle_full_gauge"):
+		return
+	flow_owner.call("consume_next_battle_full_gauge", owner, registry)
 
 
 func _refill_guardian_for_stage_transition(registry: Object) -> void:

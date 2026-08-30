@@ -604,6 +604,7 @@ func _run() -> void:
 	_verify_flag_on_training_candidates_exclude_retired_expansion()
 	_verify_shell_owner_preserves_character_specific_training_candidate()
 	_verify_offer_order_eligibility_and_prices()
+	_verify_chosik_shared_price_and_three_muhon_gate()
 	_verify_treasure_map_fusion_cost_offer_and_debit()
 	_verify_vision_and_chosik_probability_contracts()
 	_verify_vision_identity_fail_closed_and_legacy_parity()
@@ -623,6 +624,7 @@ func _run() -> void:
 	TowerAscentFeatureFlags.debug_clear_vertical_slice_override()
 	PerkConversionFlags.debug_set_enabled(false)
 	if _failures.is_empty():
+		print("tower_reward_pick_chosik_cost_seal: owner=shared display=4 debit=4 insufficient=3 rejected=1")
 		print("tower_reward_pick_smoke: ok")
 		quit(0)
 		return
@@ -742,7 +744,7 @@ func _verify_shell_owner_preserves_character_specific_training_candidate() -> vo
 func _verify_offer_order_eligibility_and_prices() -> void:
 	_expect(TowerRewardPickOfferBuilder.OFFER_VERSION == "tower_reward_pick_v3", "reward offer version must advance after RNG consumption changes")
 	_expect(TowerRewardPickOfferBuilder.TEMP_MUGONG_COST == 2, "Mugong reward card must cost two Muhon")
-	_expect(TowerRewardPickOfferBuilder.TEMP_CHOSIK_COST == 3, "Chosik reward card must cost three Muhon")
+	_expect(TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST == 4, "Chosik reward card must cost four Muhon from the shared owner")
 	_expect(TowerRewardPickOfferBuilder.TEMP_DASH_AMPLIFICATION_COST == 3, "Glide Orb reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_FUSION_COST == 3, "fusion reward card must cost three Muhon")
 	_expect(TowerRewardPickOfferBuilder.TEMP_VISION_COST == 3, "Vision reward card must cost three Muhon")
@@ -828,6 +830,56 @@ func _verify_offer_order_eligibility_and_prices() -> void:
 	_expect(bool(full_choice.get("vision_swap_required", false)), "full Chosik slots must keep Vision eligible through a swap route")
 	_expect(not (full_choice.get("vision_swap_candidates", []) as Array).is_empty(), "full-slot Vision card must carry explicit swap candidates")
 	_expect(_count_kind(full_offer.get("choices", []), "chosik") == 0, "full Chosik orbs must fail closed until reward-pick owns a replacement flow")
+
+
+func _verify_chosik_shared_price_and_three_muhon_gate() -> void:
+	var expected_cost := TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
+	var runtime := FakeRuntimeState.new()
+	var flow := FakeFlowOwner.new()
+	flow.balances["muhon"] = 3
+	var registry := _build_registry(runtime, FakeSkillConfig.new(), flow)
+	registry.instances["runtime_perk_overlay_renderer"] = FakeCardRenderer.new()
+	var builder := FakeOfferBuilder.new()
+	builder.offer = {
+		"accepted": true,
+		"boss_slot_id": "floor_01_dalji",
+		"offer_generation": 0,
+		"vision_unlock_id": "",
+		"choices": [
+			_card("chosik", "unlock_ghost_shot", expected_cost),
+			_card("training", "chosik_cost_filler_1", 99),
+			_card("mugong", "chosik_cost_filler_2", 99),
+			_card("supreme", "chosik_cost_filler_3", 99),
+		],
+	}
+	var state := TowerRewardPickState.new()
+	state.set("_offer_builder", builder)
+	_expect(
+		state.start(FakeOwner.new(), registry, Callable()),
+		"three-Muhon Chosik price fixture must enter the real reward-pick state"
+	)
+	var model_choices: Array = state.build_view_model().get("choices", [])
+	var card: Dictionary = model_choices[0] if not model_choices.is_empty() else {}
+	_expect(
+		int(card.get("reward_pick_cost", -1)) == expected_cost
+		and str(card.get("reward_pick_price_text", ""))
+		== TowerRewardPickLocalization.text("price", {"amount": expected_cost}),
+		"live reward-pick Chosik must display the shared four-Muhon price"
+	)
+	_expect(
+		not bool(card.get("reward_pick_enabled", true))
+		and str(card.get("reward_pick_disabled_reason", "")) == "insufficient_muhon",
+		"three Muhon must disable the live four-Muhon Chosik card"
+	)
+	state.call("_purchase", 0)
+	_expect(
+		int(flow.balances.get("muhon", -1)) == 3
+		and runtime.apply_calls == 0
+		and not state.spent_flags.is_empty()
+		and not state.spent_flags[0],
+		"direct purchase input at three Muhon must not grant, debit, or spend the card"
+	)
+	state.reset()
 
 
 func _verify_treasure_map_fusion_cost_offer_and_debit() -> void:
@@ -1000,10 +1052,19 @@ func _verify_vision_and_chosik_probability_contracts() -> void:
 			choice_value is Dictionary
 			and str((choice_value as Dictionary).get("reward_pick_kind", "")) == "chosik"
 		):
+			var chosik_choice := choice_value as Dictionary
 			_expect(
-				int((choice_value as Dictionary).get("reward_pick_cost", -1))
-					== TowerRewardPickOfferBuilder.TEMP_CHOSIK_COST,
-				"Chosik reward cards must use the three-Muhon unlock price"
+				int(chosik_choice.get("reward_pick_cost", -1))
+					== TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
+				"Chosik reward cards must use the shared four-Muhon unlock price"
+			)
+			_expect(
+				str(chosik_choice.get("reward_pick_price_text", ""))
+				== TowerRewardPickLocalization.text(
+					"price",
+					{"amount": TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST}
+				),
+				"generated Chosik cards must display the shared four-Muhon price"
 			)
 
 	const SAMPLE_COUNT := 1024
@@ -2743,7 +2804,7 @@ func _verify_production_flow_transactions_and_burn_snapshot() -> void:
 		"run_id": "reward-pick-transaction",
 		"current_stage": 1,
 		"map_seed": 919,
-		"run_state": {"muhon": 6, "gold": 0, "chance_gems": 3},
+		"run_state": {"muhon": 7, "gold": 0, "chance_gems": 3},
 	}), "production flow must prepare the reward-pick transaction fixture")
 	var first := flow.apply_reward_pick_purchase(
 		0,
@@ -2765,26 +2826,62 @@ func _verify_production_flow_transactions_and_burn_snapshot() -> void:
 		2,
 		Callable(self, "_reject_effect")
 	)
-	_expect(not bool(rejected.get("accepted", true)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 5, "rejected effects must not debit the run-local balance")
+	_expect(not bool(rejected.get("accepted", true)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 6, "rejected effects must not debit the run-local balance")
 	var second := flow.apply_reward_pick_purchase(
 		1,
 		_card("mugong", "mugong_tx", 2),
 		2,
 		Callable(self, "_accept_effect")
 	)
-	_expect(bool(second.get("applied", false)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 3, "a second stable slot must remain independently purchasable")
+	_expect(bool(second.get("applied", false)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 4, "a second stable slot must remain independently purchasable")
 	var chosik := flow.apply_reward_pick_purchase(
 		2,
-		_card("chosik", "unlock_ghost_shot", 3),
-		3,
+		_card(
+			"chosik",
+			"unlock_ghost_shot",
+			TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
+		),
+		TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
 		Callable(self, "_accept_effect")
 	)
 	var reward_history: Array = flow.get_reward_pick_history()
+	var chosik_record: Dictionary = reward_history[2] if reward_history.size() > 2 else {}
 	_expect(bool(chosik.get("applied", false)) and int(flow.get_run_state_snapshot().get("muhon", -1)) == 0, "production transaction must accept an open-slot Chosik reward")
 	_expect(
 		reward_history.size() == 3
-		and str((reward_history[2] as Dictionary).get("choice_kind", "")) == "chosik",
+		and str(chosik_record.get("choice_kind", "")) == "chosik",
 		"production flow must journal a committed reward Chosik with its own kind"
+	)
+	_expect(
+		int(chosik_record.get("cost", -1))
+		== TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
+		"production reward history must journal the exact shared four-Muhon debit"
+	)
+	var insufficient_effect_calls := _effect_calls
+	var insufficient_flow := TowerAscentFlowOwner.new()
+	_expect(insufficient_flow.prepare_vertical_slice_combat(FakeOwner.new(), {
+		"run_id": "reward-pick-chosik-insufficient",
+		"current_stage": 1,
+		"map_seed": 920,
+		"run_state": {"muhon": 3, "gold": 0, "chance_gems": 3},
+	}), "three-Muhon direct rejection fixture must prepare production flow")
+	var insufficient_chosik := insufficient_flow.apply_reward_pick_purchase(
+		0,
+		_card(
+			"chosik",
+			"unlock_ghost_shot",
+			TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST
+		),
+		TowerAscentTuning.CHOSIK_SELECTION_MUHON_COST,
+		Callable(self, "_accept_effect")
+	)
+	_expect(
+		not bool(insufficient_chosik.get("accepted", true))
+		and str(insufficient_chosik.get("reason", "")) == "insufficient_muhon"
+		and int(insufficient_flow.get_run_state_snapshot().get("muhon", -1)) == 3
+		and insufficient_flow.get_reward_pick_history().is_empty()
+		and _effect_calls == insufficient_effect_calls,
+		"production reward purchase must reject three Muhon before grant, debit, or history"
 	)
 	_expect(flow.mark_reward_pick_vision_burned("floor_01_dalji"), "production flow must burn an eligible boss Vision")
 	var snapshot: Dictionary = flow.export_snapshot()

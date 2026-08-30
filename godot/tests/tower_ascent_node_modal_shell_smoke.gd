@@ -137,10 +137,26 @@ func _verify_node_modal_opens_only_after_map_arrival() -> void:
 	_expect(flow.get_node_modal_kind() == "guardian_spring", "arrival must derive the modal kind from the selected graph node")
 	var arrival_snapshot: Dictionary = flow.export_persistable_snapshot()
 	_expect(not arrival_snapshot.is_empty(), "the arrived node modal must remain a stable snapshot boundary")
-	_expect((arrival_snapshot.route_target_ids as Array).size() == 1, "the arrived optional node must publish its one outgoing gatekeeper candidate")
+	var generated_route_ids: Array = arrival_snapshot.get("route_target_ids", [])
+	_expect(
+		generated_route_ids.size() == 2,
+		"the v18 first-route spring must publish both generated outgoing candidates"
+	)
+	var one_candidate_snapshot := arrival_snapshot.duplicate(true)
+	if not generated_route_ids.is_empty():
+		one_candidate_snapshot["route_target_ids"] = [str(generated_route_ids[0])]
+	_expect(
+		(one_candidate_snapshot.get("route_target_ids", []) as Array).size() == 1,
+		"the availability-filtered restore fixture must retain one graph-backed candidate"
+	)
 	var restored := TowerAscentFlowOwner.new()
-	_expect(restored.restore_snapshot(arrival_snapshot), "a one-candidate arrived node modal must restore")
+	_expect(restored.restore_snapshot(one_candidate_snapshot), "a one-candidate arrived node modal must restore")
 	_expect(restored.get_phase_name() == "NODE_MODAL", "restored arrival must reopen the reached node modal")
+	_expect(
+		(restored.export_persistable_snapshot().get("route_target_ids", []) as Array).size()
+			== 1,
+		"restored availability-filtered routing must remain a one-candidate boundary"
+	)
 
 	if _failures.is_empty():
 		print("tower_ascent_node_modal_shell_smoke: ok")
@@ -175,7 +191,7 @@ func _verify_common_shell_and_localization_catalog() -> void:
 	).values():
 		_expect(not str(text_value).contains("—"), "new Korean modal copy must not contain an em dash")
 	LanguageSettings.set_test_locale_override(LanguageSettings.LANGUAGE_ENGLISH)
-	_expect(TowerAscentNodeModalLocalization.node_title("rest") == "휴식", "missing translations must fall back to registered Korean copy")
+	_expect(TowerAscentNodeModalLocalization.node_title("rest") == "Campfire", "campfire title must use its direct English translation")
 	_expect(TowerAscentNodeModalLocalization.get_missing_translation_locales().has(LanguageSettings.LANGUAGE_ENGLISH), "the catalog must report untranslated supported locales")
 	_verify_gold_locale_copy()
 	LanguageSettings.set_test_locale_override("")

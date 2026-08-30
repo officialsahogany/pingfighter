@@ -9,6 +9,9 @@ const TowerAscentFlowOwner := preload(
 const TowerAscentMapGenerator := preload(
 	"res://scripts/tower_ascent/tower_ascent_map_generator.gd"
 )
+const TowerAscentBossRegistry := preload(
+	"res://scripts/tower_ascent/tower_ascent_boss_registry.gd"
+)
 const TowerAscentTuning := preload(
 	"res://scripts/tower_ascent/tower_ascent_tuning.gd"
 )
@@ -19,7 +22,7 @@ const TowerAscentFlowRenderer := preload(
 	"res://scripts/tower_ascent/tower_ascent_flow_renderer.gd"
 )
 
-const EXPECTED_GENERATOR_VERSION := "tower_map_v17_seeded_lane_silhouettes"
+const EXPECTED_GENERATOR_VERSION := "tower_map_v18_taiji_elder_service"
 const SAMPLE_SEED_COUNT := 128
 const MAX_OUTGOING_EDGES := 2
 const MAX_DOTTED_PATH_DRAW_CALLS := 1536
@@ -85,6 +88,17 @@ func _init() -> void:
 				str(_service_kind_counts),
 			]
 		)
+		print(
+			"tower_taiji_elder_n3_distribution_seal: seeds=%d count=%d deterministic=%d weight=%d row_budget_wide=%d row_budget_singleton=%d"
+			% [
+				SAMPLE_SEED_COUNT,
+				int(_service_kind_counts.get("taiji_elder", 0)),
+				_deterministic_seed_count,
+				int(TowerAscentTuning.TEMP_NODE_TYPE_WEIGHTS.get("taiji_elder", 0)),
+				_sample_wide_rows,
+				_sample_singleton_rows,
+			]
+		)
 		print("tower_ascent_map_topology_smoke: ok")
 		quit(0)
 		return
@@ -98,6 +112,19 @@ func _verify_many_seed_topology() -> void:
 	_expect(
 		TowerAscentMapGenerator.GENERATOR_VERSION == EXPECTED_GENERATOR_VERSION,
 		"generator version must advance to the branching-lane contract"
+	)
+	_expect(
+		int(TowerAscentTuning.TEMP_NODE_TYPE_WEIGHTS.get("taiji_elder", 0)) == 1,
+		"Taiji Elder must use service-node distribution weight one"
+	)
+	_expect(
+		"taiji_elder" in TowerAscentMapGenerator.NONCOMBAT_NODE_KINDS,
+		"Taiji Elder must participate in weighted noncombat generation"
+	)
+	_expect(
+		"taiji_elder" in TowerAscentBossRegistry.NPC_FILL_KINDS
+		and str(TowerAscentBossRegistry.NPC_FILL_LABELS.get("taiji_elder", "")) == "태극노인",
+		"boss-pool exhaustion must retain Taiji Elder as a labeled NPC fill"
 	)
 	for seed_offset in range(SAMPLE_SEED_COUNT):
 		var map_seed := 1009 + seed_offset * 7919

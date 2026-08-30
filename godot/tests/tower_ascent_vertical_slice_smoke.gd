@@ -607,7 +607,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 	_expect(committed_snapshot.run_progress.skipped_boss_ids.size() <= 1, "only an unchosen generated boss slot may be recorded as skipped")
 	_expect(bool(committed_snapshot.stable_boundary), "post-commit map transition must be a stable snapshot boundary")
 	flow.update_selective(1.0, owner)
-	if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+	if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "taiji_elder"]:
 		_expect(flow.is_active() and flow.get_phase_name() == "NODE_MODAL", "noncombat node work must begin only after map movement completes")
 		_expect(result_screen.show_calls == 0, "arrival at a noncombat node must not leak to the legacy result flow")
 		flow.call("_finish_vertical_slice")
@@ -617,7 +617,7 @@ func _verify_match_flow_runs_one_fixed_cycle() -> void:
 		_expect(not str(transition.last_encounter.get("boss_slot_id", "")).is_empty(), "routed transition must receive the arrived boss identity")
 	_expect(result_screen.show_calls == 0, "tower flow completion must never enter the legacy result screen")
 	_expect(
-		_reset_calls == (1 if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"] else 0),
+		_reset_calls == (1 if selected_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "taiji_elder"] else 0),
 		"only noncombat cleanup may use the legacy reset callback; combat arrival must use the routed transition"
 	)
 

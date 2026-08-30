@@ -710,12 +710,12 @@ func _verify_screen_space_render_routing_and_viewport_priority() -> void:
 	)
 	_expect(resolved.size.is_equal_approx(LIVE_VIEW_SIZE), "tree-attached fullscreen surfaces must prefer the viewport over a small game-size fallback")
 	var accents: Dictionary = {}
-	for node_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+	for node_kind in ["shop", "training", "fallen_monk", "guardian_spring", "rest", "taiji_elder"]:
 		var backdrop: Dictionary = renderer.build_node_modal_backdrop_model(node_kind, resolved)
 		_expect((backdrop.get("rect", Rect2()) as Rect2) == resolved, "%s backdrop must cover the entire viewport rect" % node_kind)
 		_expect(float((backdrop.get("top_color", Color.TRANSPARENT) as Color).a) >= 1.0, "%s backdrop corners must be opaque" % node_kind)
 		accents[str(backdrop.get("accent", Color.TRANSPARENT))] = true
-	_expect(accents.size() == 5, "all five non-combat node kinds must expose distinct procedural backdrop identities")
+	_expect(accents.size() == 6, "all six non-combat node kinds must expose distinct procedural backdrop identities")
 	viewport.remove_child(tree_canvas)
 	tree_canvas.queue_free()
 	get_root().remove_child(viewport)

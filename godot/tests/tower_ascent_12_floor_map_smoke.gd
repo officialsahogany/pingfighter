@@ -108,7 +108,7 @@ func _verify_12_floor_rows_and_node_slots() -> void:
 					_expect(str(node.get("label", "")) == _label_for_kind(str(node.get("kind", "")), int(floor_data.floor)), "generated node labels must stay paired with their node kind")
 				if int(floor_data.floor) > 9:
 					_expect(bool(node.get("route_locked", false)), "10-12 floor metadata must remain unreachable before the true-ending gate")
-	for required_kind in ["boss", "shop", "training", "fallen_monk", "guardian_spring", "rest"]:
+	for required_kind in ["boss", "shop", "training", "fallen_monk", "guardian_spring", "rest", "taiji_elder"]:
 		_expect(seen_kinds.has(required_kind), "generated slots must include node kind: %s" % required_kind)
 
 
@@ -409,7 +409,9 @@ func _label_for_kind(node_kind: String, floor_number: int) -> String:
 		"guardian_spring":
 			return "샘터"
 		"rest":
-			return "휴식"
+			return "모닥불"
+		"taiji_elder":
+			return "태극노인"
 	return "노드"
 
 

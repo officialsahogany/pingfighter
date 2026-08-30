@@ -1360,7 +1360,64 @@ func _restore_runtime_perk_build_state(owner: Object, registry: Object) -> bool:
 		owner,
 		registry
 	)
-	return result_value is Dictionary and bool((result_value as Dictionary).get("restored", false))
+	var restored := (
+		result_value is Dictionary
+		and bool((result_value as Dictionary).get("restored", false))
+	)
+	if restored and owner != null:
+		if not runtime_state.has_method("_sync_owner"):
+			return false
+		runtime_state.call("_sync_owner", owner)
+	return restored
+
+
+func _capture_active_item_build_state() -> bool:
+	var active_item_runtime := _get_registry_instance(
+		_active_registry,
+		"active_item_runtime"
+	)
+	if (
+		active_item_runtime == null
+		or not active_item_runtime.has_method("build_tower_inventory_snapshot")
+	):
+		return false
+	var snapshot_value: Variant = active_item_runtime.call(
+		"build_tower_inventory_snapshot",
+		_active_owner,
+		_active_registry
+	)
+	if not (snapshot_value is Dictionary) or (snapshot_value as Dictionary).is_empty():
+		return false
+	_build_state["active_item_inventory_snapshot"] = (
+		snapshot_value as Dictionary
+	).duplicate(true)
+	return true
+
+
+func _restore_active_item_build_state(owner: Object, registry: Object) -> bool:
+	var snapshot_value: Variant = _build_state.get(
+		"active_item_inventory_snapshot",
+		{}
+	)
+	if not (snapshot_value is Dictionary) or (snapshot_value as Dictionary).is_empty():
+		return true
+	var active_item_runtime := _get_registry_instance(registry, "active_item_runtime")
+	if (
+		active_item_runtime == null
+		or not active_item_runtime.has_method("restore_tower_inventory_snapshot")
+	):
+		return false
+	var result_value: Variant = active_item_runtime.call(
+		"restore_tower_inventory_snapshot",
+		snapshot_value as Dictionary,
+		owner,
+		registry
+	)
+	return (
+		result_value is Dictionary
+		and bool((result_value as Dictionary).get("accepted", false))
+		and bool((result_value as Dictionary).get("restored", false))
+	)
 
 func _refresh_training_modal(status_text: String) -> void:
 	_node_modal_state.set_actions(_build_training_actions())
